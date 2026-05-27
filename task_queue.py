@@ -22,6 +22,7 @@ import json as json_module
 import asyncio
 
 import aiosqlite
+import yaml
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
@@ -29,6 +30,7 @@ from pydantic import BaseModel, Field
 # === Константы ===
 DB_PATH = os.path.expanduser("~/agentforge/tasks.db")
 DISPATCHER_PATH = os.path.expanduser("~/agentforge/dispatcher.sh")
+SKILLS_DIR = os.path.expanduser("~/agentforge/skills")
 
 # === Перечисления для валидации ===
 
@@ -71,6 +73,7 @@ class TaskCreate(BaseModel):
     complexity: Complexity = Field(Complexity.medium, description="Сложность: simple/medium/complex")
     preferred_agent: PreferredAgent = Field(PreferredAgent.auto, description="Предпочтительный агент")
     tags: list[str] = Field(default_factory=list, description="Теги задачи для маршрутизации")
+    skill: Optional[str] = Field(None, description="Явный skill/playbook (иначе авто-подбор по required_tags)")
 
 class TaskReject(BaseModel):
     """Модель отклонения задачи пользователем"""
@@ -82,6 +85,7 @@ class TaskUpdate(BaseModel):
     result: Optional[str] = None
     assigned_agent: Optional[str] = None
     duration_seconds: Optional[float] = None
+    skill: Optional[str] = None
 
 class TaskResponse(BaseModel):
     """Модель ответа с данными задачи"""
@@ -101,6 +105,7 @@ class TaskResponse(BaseModel):
     duration_seconds: Optional[float] = None
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+    skill: Optional[str] = None
 
 # === Инициализация приложения ===
 app = FastAPI(
@@ -230,11 +235,12 @@ async def init_db():
         """)
         await db.commit()
         
-        # Миграция: добавляем поля для трекинга затрат
+        # Миграция: добавляем поля для трекинга затрат + skill (playbook)
         for col in [
             "ALTER TABLE tasks ADD COLUMN duration_seconds REAL",
             "ALTER TABLE tasks ADD COLUMN started_at TEXT",
             "ALTER TABLE tasks ADD COLUMN completed_at TEXT",
+            "ALTER TABLE tasks ADD COLUMN skill TEXT",
         ]:
             try:
                 await db.execute(col)
@@ -280,6 +286,79 @@ def resolve_agent(task: dict) -> str:
     
     # Правило 4: всё остальное → grok (rust, cargo, server, фиксы, рутина)
     return "grok"
+
+
+# === Skills / Playbooks: YAML-шаблоны (подбор по тегам) ===
+
+def load_skills() -> dict:
+    """Загрузка всех YAML playbooks из ~/agentforge/skills/"""
+    skills: dict = {}
+    if not os.path.isdir(SKILLS_DIR):
+        return skills
+    for fname in sorted(os.listdir(SKILLS_DIR)):
+        if not fname.endswith((".yaml", ".yml")):
+            continue
+        path = os.path.join(SKILLS_DIR, fname)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            skill_name = data.get("name") or fname.rsplit(".", 1)[0]
+            skills[skill_name] = data
+            # Также доступно по имени файла без расширения
+            base = fname.rsplit(".", 1)[0]
+            if base not in skills:
+                skills[base] = data
+        except Exception as e:
+            print(f"[AgentForge Skills] ⚠️ Не удалось загрузить {fname}: {e}")
+    return skills
+
+
+_skills_cache: Optional[dict] = None
+
+
+def get_skills() -> dict:
+    """Кэшированный доступ к skills"""
+    global _skills_cache
+    if _skills_cache is None:
+        _skills_cache = load_skills()
+    return _skills_cache
+
+
+def select_skill(task: dict) -> Optional[str]:
+    """
+    При dispatch: подбор skill по пересечению тегов задачи и required_tags в YAML.
+    Возвращает имя skill (из поля name или basename файла) или None.
+    Приоритет: явное указание в таске > авто-подбор.
+    """
+    # Явный оверрайд
+    explicit = task.get("skill") or task.get("selected_skill")
+    if explicit:
+        return explicit
+
+    skills = get_skills()
+    if not skills:
+        return None
+
+    tags = task.get("tags", [])
+    if isinstance(tags, str):
+        try:
+            tags = json_module.loads(tags)
+        except Exception:
+            tags = []
+    tags_lower = {str(t).lower() for t in tags if t}
+
+    if not tags_lower:
+        return None
+
+    for sname, sdata in skills.items():
+        if sname.endswith(".yaml") or sname.endswith(".yml"):
+            continue
+        req = sdata.get("required_tags", []) or []
+        req_lower = {str(r).lower() for r in req if r}
+        if tags_lower & req_lower:
+            return sdata.get("name") or sname
+    return None
+
 
 # === Вспомогательные функции ===
 
@@ -350,8 +429,8 @@ async def create_task(task: TaskCreate):
         await db.execute(
             """
             INSERT INTO tasks (id, title, description, priority, complexity, 
-                             preferred_agent, status, git_branch, created_at, updated_at, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             preferred_agent, status, git_branch, created_at, updated_at, tags, skill)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task_id,
@@ -365,6 +444,7 @@ async def create_task(task: TaskCreate):
                 now,
                 now,
                 json.dumps(task.tags, ensure_ascii=False),
+                task.skill,
             ),
         )
         await db.commit()
@@ -464,6 +544,10 @@ async def update_task(task_id: str, update: TaskUpdate):
             updates.append("duration_seconds = ?")
             values.append(update.duration_seconds)
         
+        if update.skill is not None:
+            updates.append("skill = ?")
+            values.append(update.skill)
+        
         if not updates:
             raise HTTPException(status_code=400, detail="Нет полей для обновления")
         
@@ -495,8 +579,8 @@ async def dispatch_task(task_id: str):
     """
     Диспетчеризация задачи — определяет подходящего агента и запускает выполнение.
     
-    Использует автоматическую маршрутизацию на основе тегов, сложности и preferred_agent.
-    Запускает dispatcher.sh в фоновом режиме для асинхронного выполнения.
+    Использует автоматическую маршрутизацию + подбор YAML skill/playbook по тегам.
+    При совпадении required_tags → system_prompt из skill добавляется в промпт агента.
     """
     db = await get_db()
     try:
@@ -518,22 +602,28 @@ async def dispatch_task(task_id: str):
         # Определяем агента через маршрутизацию
         agent = resolve_agent(task)
         
-        # Обновляем статус и назначенного агента
+        # === НОВОЕ: подбор skill/playbook по тегам задачи ===
+        skill = select_skill(task)
+        if skill:
+            print(f"[AgentForge Skills] Подобран skill '{skill}' для задачи {task_id} по тегам")
+        
+        # Обновляем статус, агента и skill
         now = now_iso()
         await db.execute(
-            "UPDATE tasks SET status = ?, assigned_agent = ?, updated_at = ? WHERE id = ?",
-            (TaskStatus.dispatched.value, agent, now, task_id),
+            "UPDATE tasks SET status = ?, assigned_agent = ?, skill = ?, updated_at = ? WHERE id = ?",
+            (TaskStatus.dispatched.value, agent, skill, now, task_id),
         )
         await db.commit()
         
-        # Запускаем dispatcher.sh в фоновом режиме
+        # Запускаем dispatcher.sh в фоновом режиме (5-й аргумент = skill)
         if os.path.exists(DISPATCHER_PATH):
+            skill_arg = skill or ""
             subprocess.Popen(
-                ["bash", DISPATCHER_PATH, task_id, agent, task["description"], task["priority"]],
+                ["bash", DISPATCHER_PATH, task_id, agent, task["description"], task["priority"], skill_arg],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            print(f"[AgentForge] 🚀 Задача {task_id} отправлена агенту: {agent}")
+            print(f"[AgentForge] 🚀 Задача {task_id} отправлена агенту: {agent} (skill={skill or 'none'})")
         else:
             print(f"[AgentForge] ⚠️ Dispatcher не найден: {DISPATCHER_PATH}")
             print(f"[AgentForge] 📌 Задача {task_id} назначена агенту: {agent} (ручной запуск)")
@@ -547,8 +637,9 @@ async def dispatch_task(task_id: str):
         return {
             "task_id": task_id,
             "assigned_agent": agent,
+            "skill": skill,
             "status": "dispatched",
-            "message": f"Задача отправлена агенту '{agent}'",
+            "message": f"Задача отправлена агенту '{agent}' (skill={skill or 'default'})",
         }
     finally:
         await db.close()
@@ -620,6 +711,214 @@ async def get_agents():
     return {"agents": [], "error": "agent_cards.json not found"}
 
 # === Guardian Agent (Автоматический код-ревью) ===
+
+
+# === Arena Mode: запуск задачи у двух агентов и выбор лучшего результата ===
+
+class ArenaRequest(BaseModel):
+    """Модель запроса Arena Mode"""
+    agent_a: str = Field("grok", description="Первый агент для соревнования")
+    agent_b: str = Field("jules", description="Второй агент для соревнования")
+
+@app.post('/tasks/{task_id}/arena', tags=['Arena'])
+async def arena_mode(task_id: str, arena: ArenaRequest = ArenaRequest()):
+    """
+    Arena Mode — запускает задачу у двух агентов параллельно.
+    
+    Создаёт две копии задачи (суффиксы -arena-a и -arena-b),
+    запускает обоих агентов, и после завершения Guardian выбирает лучший результат.
+    Оригинальная задача получает результат победителя.
+    """
+    db = await get_db()
+    try:
+        # Получаем оригинальную задачу
+        cursor = await db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Задача {task_id} не найдена")
+        
+        task = row_to_dict(row)
+        
+        # Проверяем что задача в pending
+        if task["status"] != "pending":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Arena доступна только для pending задач (текущий: {task['status']})"
+            )
+        
+        now = now_iso()
+        arena_tasks = []
+        
+        # Создаём две копии задачи для каждого агента
+        for suffix, agent in [("arena-a", arena.agent_a), ("arena-b", arena.agent_b)]:
+            arena_id = f"{task_id[:8]}-{suffix}"
+            tags = task.get("tags", [])
+            if isinstance(tags, str):
+                import json as _json
+                try:
+                    tags = _json.loads(tags)
+                except Exception:
+                    tags = []
+            tags_with_arena = tags + ["arena", f"arena-{task_id[:8]}"]
+            
+            await db.execute(
+                """INSERT OR REPLACE INTO tasks 
+                   (id, title, description, priority, complexity, preferred_agent,
+                    status, assigned_agent, result, git_branch, created_at, updated_at, tags, skill)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    arena_id,
+                    f"[Arena {suffix[-1].upper()}] {task['title']}",
+                    task["description"],
+                    task["priority"],
+                    task["complexity"],
+                    agent,
+                    "pending",
+                    None,
+                    None,
+                    f"agentforge/{arena_id}",
+                    now,
+                    now,
+                    json_module.dumps(tags_with_arena, ensure_ascii=False),
+                    task.get("skill"),
+                )
+            )
+            arena_tasks.append({"id": arena_id, "agent": agent})
+        
+        # Помечаем оригинальную задачу как arena
+        await db.execute(
+            "UPDATE tasks SET status = ?, result = ?, updated_at = ? WHERE id = ?",
+            ("in_progress", f"Arena: {arena.agent_a} vs {arena.agent_b}", now, task_id)
+        )
+        await db.commit()
+        
+        # Диспатчим обе задачи
+        for at in arena_tasks:
+            try:
+                subprocess.Popen(
+                    ["bash", DISPATCHER_PATH, at["id"]],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception as e:
+                print(f"[AgentForge Arena] Не удалось диспатчить {at['id']}: {e}")
+        
+        # Уведомляем WebSocket
+        await ws_manager.notify_task_update(task_id, {
+            "status": "in_progress",
+            "result": f"Arena: {arena.agent_a} vs {arena.agent_b}",
+            "arena_tasks": arena_tasks,
+        })
+        
+        print(f"[AgentForge Arena] Запущен Arena Mode для {task_id}: {arena.agent_a} vs {arena.agent_b}")
+        
+        return {
+            "task_id": task_id,
+            "mode": "arena",
+            "agent_a": {"id": arena_tasks[0]["id"], "agent": arena.agent_a},
+            "agent_b": {"id": arena_tasks[1]["id"], "agent": arena.agent_b},
+            "message": f"Arena Mode запущен: {arena.agent_a} vs {arena.agent_b}",
+        }
+    finally:
+        await db.close()
+
+
+@app.post('/tasks/{task_id}/arena/judge', tags=['Arena'])
+async def arena_judge(task_id: str):
+    """
+    Судья Arena — сравнивает результаты двух агентов и выбирает победителя.
+    
+    Критерии оценки:
+    - done статус лучше чем review, review лучше чем failed
+    - Guardian approved даёт бонус
+    - Меньшее время выполнения даёт бонус
+    Результат победителя применяется к оригинальной задаче.
+    """
+    db = await get_db()
+    try:
+        # Находим arena-подзадачи
+        arena_a_id = f"{task_id[:8]}-arena-a"
+        arena_b_id = f"{task_id[:8]}-arena-b"
+        
+        cursor_a = await db.execute("SELECT * FROM tasks WHERE id = ?", (arena_a_id,))
+        cursor_b = await db.execute("SELECT * FROM tasks WHERE id = ?", (arena_b_id,))
+        row_a = await cursor_a.fetchone()
+        row_b = await cursor_b.fetchone()
+        
+        if not row_a or not row_b:
+            raise HTTPException(status_code=404, detail="Arena подзадачи не найдены")
+        
+        task_a = row_to_dict(row_a)
+        task_b = row_to_dict(row_b)
+        
+        # Скоринг
+        def score_task(t):
+            """Подсчёт очков для задачи в Arena"""
+            s = 0
+            status = t.get("status", "")
+            result = t.get("result", "") or ""
+            # Статус: done > review > остальные
+            if status == "done":
+                s += 10
+            elif status == "review":
+                s += 5
+            elif status == "failed":
+                s -= 10
+            # Guardian approved
+            if "approved" in result.lower():
+                s += 5
+            # Время выполнения (меньше = лучше)
+            duration = t.get("duration_seconds") or 9999
+            if isinstance(duration, (int, float)):
+                if duration < 60:
+                    s += 3
+                elif duration < 180:
+                    s += 1
+            return s
+        
+        score_a = score_task(task_a)
+        score_b = score_task(task_b)
+        
+        # Определяем победителя
+        if score_a >= score_b:
+            winner = task_a
+            winner_label = "A"
+        else:
+            winner = task_b
+            winner_label = "B"
+        
+        now = now_iso()
+        verdict = (
+            f"Arena: Победитель — агент {winner_label} ({winner.get('assigned_agent', '?')}) "
+            f"[A={score_a}, B={score_b}]"
+        )
+        
+        # Обновляем оригинальную задачу результатом победителя
+        await db.execute(
+            "UPDATE tasks SET status = ?, result = ?, assigned_agent = ?, updated_at = ? WHERE id = ?",
+            ("done", verdict, winner.get("assigned_agent"), now, task_id)
+        )
+        await db.commit()
+        
+        # Уведомляем WebSocket
+        await ws_manager.notify_task_update(task_id, {
+            "status": "done",
+            "result": verdict,
+        })
+        
+        print(f"[AgentForge Arena] {task_id}: победитель — {winner_label} ({winner.get('assigned_agent')})")
+        
+        return {
+            "task_id": task_id,
+            "winner": winner_label,
+            "winner_agent": winner.get("assigned_agent"),
+            "score_a": score_a,
+            "score_b": score_b,
+            "verdict": verdict,
+        }
+    finally:
+        await db.close()
+
 
 @app.post('/tasks/{task_id}/review', tags=['Гардиан'])
 async def guardian_review(task_id: str):

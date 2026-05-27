@@ -1,0 +1,99 @@
+# =============================================================================
+# AgentForge Skill: rust_fix
+# =============================================================================
+# Плейбук для типа задачи 'rust_fix' — исправление багов в Rust-проектах.
+# Описывает шаги, инструменты и таймауты для автоматизированного агента.
+# =============================================================================
+
+name: rust_fix
+description: >
+  Навык для исправления багов и ошибок компиляции в Rust-проектах.
+  Агент анализирует ошибку, находит причину, применяет фикс,
+  проверяет через cargo clippy и cargo test перед коммитом.
+
+# Последовательность шагов выполнения
+steps:
+  - id: analyze_error
+    name: Анализ ошибки
+    description: >
+      Прочитать лог ошибки или описание бага.
+      Определить файл(ы) и строки с проблемой.
+    action: read_logs
+    params:
+      log_pattern: "*.log"
+      error_keywords:
+        - "error[E"
+        - "panic"
+        - "thread 'main' panicked"
+
+  - id: locate_source
+    name: Поиск исходного кода
+    description: >
+      Найти файлы, связанные с ошибкой.
+      Использовать grep/ripgrep для локализации проблемного кода.
+    action: search_codebase
+    params:
+      search_tool: ripgrep
+      file_extensions:
+        - "*.rs"
+        - "Cargo.toml"
+
+  - id: apply_fix
+    name: Применение исправления
+    description: >
+      Внести изменения в код для устранения бага.
+      Следовать Rust best practices и идиоматичному стилю.
+    action: edit_files
+    params:
+      backup: true
+      git_commit_before: true
+
+  - id: lint_check
+    name: Проверка линтером
+    description: >
+      Запустить cargo clippy для проверки качества кода.
+      Исправить все предупреждения если возможно.
+    action: run_command
+    params:
+      command: "cargo clippy -- -D warnings"
+      retry_on_fail: true
+      max_retries: 2
+
+  - id: run_tests
+    name: Запуск тестов
+    description: >
+      Запустить cargo test для проверки что фикс не ломает существующие тесты.
+      Если тесты падают — вернуться к шагу apply_fix.
+    action: run_command
+    params:
+      command: "cargo test"
+      retry_on_fail: true
+      max_retries: 3
+      on_fail: goto:apply_fix
+
+  - id: commit_changes
+    name: Коммит изменений
+    description: >
+      Создать git-коммит с описательным сообщением.
+      Формат: "fix: краткое описание исправления"
+    action: git_commit
+    params:
+      message_prefix: "fix:"
+      push: false
+
+# Инструменты, доступные агенту при выполнении этого навыка
+tools:
+  - name: ripgrep
+    description: Поиск по коду (rg)
+  - name: cargo
+    description: Rust package manager и build system
+  - name: git
+    description: Система контроля версий
+  - name: file_editor
+    description: Редактирование файлов (read/write/patch)
+  - name: shell
+    description: Выполнение произвольных shell-команд
+
+# Максимальное время выполнения навыка (в секундах)
+# 15 минут — достаточно для анализа, фикса и тестирования
+timeout: 900

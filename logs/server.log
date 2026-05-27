@@ -4789,3 +4789,191 @@ INFO:     127.0.0.1:34824 - "POST /tasks/nonexistent/reject HTTP/1.1" 422 Unproc
 INFO:     127.0.0.1:51892 - "POST /tasks/nonexistent/reject HTTP/1.1" 422 Unprocessable Entity
 [AgentForge] 🔄 Обновлена задача: c43cda84
 INFO:     127.0.0.1:51900 - "PATCH /tasks/c43cda84 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37252 - "POST /tasks/nonexistent/reject HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:37256 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37260 - "GET /tasks/c43cda84 HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: f5828420
+INFO:     127.0.0.1:57794 - "PATCH /tasks/f5828420 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56682 - "GET /tasks/f5828420 HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: f5828420
+INFO:     127.0.0.1:56684 - "PATCH /tasks/f5828420 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53378 - "PATCH /tasks/c43cda84 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:53392 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53400 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53406 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53414 - "PATCH /tasks/a6e70555 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:48056 - "PATCH /tasks/a6e70555 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:47600 - "PATCH /tasks/a6e70555 HTTP/1.1" 422 Unprocessable Entity
+[AgentForge] 🔄 Обновлена задача: c43cda84
+INFO:     127.0.0.1:47614 - "PATCH /tasks/c43cda84 HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: a6e70555
+INFO:     127.0.0.1:40124 - "PATCH /tasks/a6e70555 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55836 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55848 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47608 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54460 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54474 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57898 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57906 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56412 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56416 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36840 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36844 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47040 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47056 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48522 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48532 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57110 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57126 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46280 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46288 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46302 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46316 - "GET /tasks/c43cda84 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46320 - "GET /tasks?status=review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33364 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33352 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33366 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35596 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35600 - "GET /tasks HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: afc7085b
+INFO:     127.0.0.1:35608 - "PATCH /tasks/afc7085b HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: 8221a575
+INFO:     127.0.0.1:35622 - "PATCH /tasks/8221a575 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35636 - "POST /tasks/afc7085b/review HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: d9fbe733
+INFO:     127.0.0.1:35652 - "PATCH /tasks/d9fbe733 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35654 - "POST /tasks/8221a575/review HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: c43cda84
+INFO:     127.0.0.1:35670 - "PATCH /tasks/c43cda84 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35682 - "POST /tasks/d9fbe733/review HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: f5828420
+INFO:     127.0.0.1:35694 - "PATCH /tasks/f5828420 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35704 - "POST /tasks/c43cda84/review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35714 - "POST /tasks/f5828420/review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35724 - "GET /tasks HTTP/1.1" 200 OK
+[AgentForge] 🚀 Задача 642ee802 отправлена агенту: grok
+INFO:     127.0.0.1:35740 - "POST /tasks/642ee802/dispatch HTTP/1.1" 200 OK
+[AgentForge] 🚀 Задача 6d747beb отправлена агенту: jules
+INFO:     127.0.0.1:35748 - "POST /tasks/6d747beb/dispatch HTTP/1.1" 200 OK
+[AgentForge] 🚀 Задача 9f561fdd отправлена агенту: grok
+INFO:     127.0.0.1:35754 - "POST /tasks/9f561fdd/dispatch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35756 - "GET /tasks/642ee802 HTTP/1.1" 200 OK
+[AgentForge] 🚀 Задача f77f5594 отправлена агенту: grok
+INFO:     127.0.0.1:47878 - "POST /tasks/f77f5594/dispatch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47892 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47898 - "GET /tasks HTTP/1.1" 200 OK
+[AgentForge] 🚀 Задача fceed745 отправлена агенту: grok
+INFO:     127.0.0.1:47906 - "POST /tasks/fceed745/dispatch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47914 - "GET /tasks/9f561fdd HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47930 - "GET /tasks/f77f5594 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47942 - "GET /tasks/fceed745 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50870 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50884 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50894 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48088 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48104 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58992 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58994 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40392 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40408 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58388 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58396 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58404 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39222 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39238 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43902 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43914 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33652 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33664 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [3151944]
+INFO:     Started server process [3579990]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+[AgentForge] ✅ Сервер очереди задач запущен
+[AgentForge] 📂 БД: /home/agx/agentforge/tasks.db
+INFO:     127.0.0.1:38842 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38852 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     Started server process [3580189]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8080): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+[AgentForge] ✅ Сервер очереди задач запущен
+[AgentForge] 📂 БД: /home/agx/agentforge/tasks.db
+INFO:     127.0.0.1:38858 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42900 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42904 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42916 - "GET /ws/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42924 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42932 - "PATCH /tasks/446368f4 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:42942 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37148 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37132 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37150 - "PATCH /tasks/446368f4 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:37166 - "PATCH /tasks/f77f5594 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:37170 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37184 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37190 - "GET /dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59300 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59306 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59302 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59322 - "PATCH /tasks/f77f5594 HTTP/1.1" 422 Unprocessable Entity
+[AgentForge] 🔄 Обновлена задача: 446368f4
+INFO:     127.0.0.1:59338 - "PATCH /tasks/446368f4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59328 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59340 - "GET /tasks HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: 6d747beb
+INFO:     127.0.0.1:59354 - "PATCH /tasks/6d747beb HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59360 - "POST /tasks/6d747beb/review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58436 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58452 - "GET /tasks HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: f77f5594
+INFO:     127.0.0.1:58456 - "PATCH /tasks/f77f5594 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58460 - "PATCH /tasks/e92e2617 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:55168 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55184 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35684 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35686 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35698 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35708 - "PATCH /tasks/642ee802 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:45354 - "GET /tasks/6d747beb HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45380 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45370 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45384 - "PATCH /tasks/642ee802 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:56112 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56100 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50992 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50996 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34446 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34462 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50556 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50566 - "GET /tasks HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: 642ee802
+INFO:     127.0.0.1:50580 - "PATCH /tasks/642ee802 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39694 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39700 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39586 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39592 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59780 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59796 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55654 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55662 - "GET /tasks HTTP/1.1" 200 OK
+[AgentForge] 📋 Создана задача: 36ed8731 — Antigravity E2E test
+INFO:     127.0.0.1:55664 - "POST /tasks HTTP/1.1" 201 Created
+[AgentForge] 🚀 Задача 36ed8731 отправлена агенту: grok
+INFO:     127.0.0.1:55668 - "POST /tasks/36ed8731/dispatch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55674 - "GET /tasks/36ed8731 HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: 36ed8731
+INFO:     127.0.0.1:55690 - "PATCH /tasks/36ed8731 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /tasks/36ed8731 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43348 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43364 - "GET /tasks HTTP/1.1" 200 OK
+[AgentForge] 🔄 Обновлена задача: 6d747beb
+INFO:     127.0.0.1:43368 - "PATCH /tasks/6d747beb HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34518 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34530 - "GET /tasks HTTP/1.1" 200 OK

@@ -1,0 +1,54 @@
+# =============================================================================
+# AgentForge Skill Template: rust-fix
+# =============================================================================
+# YAML-шаблон для типа задач "исправление Rust-кода".
+# Используется для маршрутизации, формирования system prompt и CI-валидации.
+# =============================================================================
+
+name: rust-fix
+description: Шаблон для задач по исправлению ошибок компиляции, panic'ов, clippy warnings и тестов в Rust-проектах.
+
+# Основной системный промпт, который подставляется агенту при выполнении задач этого типа
+system_prompt: |
+  You are a world-class Rust systems engineer and senior code reviewer.
+  Your goal is to diagnose and fix bugs, compilation errors, runtime panics,
+  and code quality issues in Rust projects with maximum reliability and idiomatic code.
+
+  Core principles:
+  - Always prefer safe, idiomatic Rust (ownership, borrowing, Result/Option, no unwrap in prod paths).
+  - Use cargo clippy -- -D warnings as the source of truth for quality.
+  - Never break existing public API or change behavior without explicit request.
+  - Write minimal, focused diffs. Explain the root cause briefly.
+  - After every edit, you MUST verify with: cargo check, cargo clippy, and relevant cargo test.
+  - If tests fail after your change, immediately revert or adjust the fix.
+  - Prefer small functions, strong typing, and zero-cost abstractions.
+
+  When fixing:
+  1. Reproduce/analyze the exact error (E0xxx, panic message, test failure).
+  2. Locate the minimal set of files/lines responsible.
+  3. Propose and apply the smallest correct patch.
+  4. Run full verification (clippy + test + build).
+  5. Document the fix clearly in commit message using Conventional Commits (fix: ...).
+
+  Output format: always show the root cause, the diff, and the verification commands + results.
+
+# Теги, которые должны присутствовать у задачи, чтобы к ней автоматически применился этот шаблон
+required_tags:
+  - rust
+  - fix
+  - bug
+  - clippy
+  - compile-error
+
+# Список CI-проверок, которые запускаются автоматически после выполнения задачи агентом
+ci_checks:
+  - "cargo clippy --all-targets -- -D warnings"
+  - "cargo test --all"
+  - "cargo build --release"
+  - "cargo doc --no-deps"
+
+# Таймаут выполнения задачи в секундах (здесь ~25 минут)
+timeout: 1500
+
+# Предпочтительная модель LLM для задач этого типа
+preferred_model: grok-4

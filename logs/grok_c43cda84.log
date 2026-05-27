@@ -41,3 +41,5 @@ Caused by:
   [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
 [AgentForge CI/CD] Результат: pass
 [AgentForge Memory] Сохраняем задачу в векторную память...
+Error in cpuinfo: prctl(PR_SVE_GET_VL) failed
+[2m2026-05-27T06:45:13.382300Z[0m [31mERROR[0m tool_error: tool_output_error [3msession_id[0m[2m=[0m019e682c-32bb-7060-b1bc-e67a2d799727 [3mtool_name[0m[2m=[0m"search_replace" [3meffective_tool_name[0m[2m=[0m"search_replace" [3mmodel_id[0m[2m=[0m"grok-build" [3merror_kind[0m[2m=[0m"tool_output_error" [3merror_message[0m[2m=[0m"The string to replace was not found in the file, use the read_file tool to see the correct string.\n\nNearest match: line 20: # Определяем флаги в зависимости от приоритета"

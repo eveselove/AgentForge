@@ -6,10 +6,11 @@ TASK_ID="$1"
 AGENT="$2"
 DESC="$3"
 PRIORITY="${4:-medium}"
+SKILL="${5:-}"
 
 case $AGENT in
   grok)
-    bash /home/agx/agentforge/agents/grok_runner.sh "$TASK_ID" "$DESC" "/home/agx/planlytasksko" "$PRIORITY" &
+    bash /home/agx/agentforge/agents/grok_runner.sh "$TASK_ID" "$DESC" "/home/agx/planlytasksko" "$PRIORITY" "$SKILL" &
     ;;
   jules)
     bash /home/agx/agentforge/agents/jules_runner.sh "$TASK_ID" "$DESC" &
@@ -29,4 +30,4 @@ case $AGENT in
     ;;
 esac
 
-echo "[AgentForge] Задача $TASK_ID отправлена агенту $AGENT (priority=$PRIORITY)"
+echo "[AgentForge] Задача $TASK_ID отправлена агенту $AGENT (priority=$PRIORITY, skill=${SKILL:-none})"

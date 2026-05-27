@@ -1,0 +1,3 @@
+[AgentForge] Задача: 6d747beb
+[AgentForge] Промпт: ТЕСТ: проверка полного цикла AgentForge. Детали: Тестовая задача для проверки pipeline. Теги: test
+[2m2026-05-27T06:49:49.834150Z[0m [31mERROR[0m tool_error: tool_output_error [3msession_id[0m[2m=[0m019e6830-d74b-7602-b8a2-27939ea29449 [3mtool_name[0m[2m=[0m"list_dir" [3meffective_tool_name[0m[2m=[0m"list_dir" [3mmodel_id[0m[2m=[0m"grok-build" [3merror_kind[0m[2m=[0m"tool_output_error" [3merror_message[0m[2m=[0m"Error: /home/agx/agentforge/skills does not exist.\nNote: your current working directory is /home/agx/planlytasksko"

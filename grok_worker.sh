@@ -18,6 +18,7 @@ POLL_INTERVAL=15
 TASK_TIMEOUT=300
 MAX_PARALLEL=5
 TMP_DIR="/tmp/agentforge"
+MEMORY_HELPER="/home/agx/agentforge/memory_helper.py"
 
 mkdir -p "$LOG_DIR" "$TMP_DIR"
 
@@ -99,6 +100,13 @@ PYEOF
             [ -n "$DESC" ] && [ "$DESC" != " " ] && PROMPT="$PROMPT. Детали: $DESC"
             [ -n "$TAGS" ] && PROMPT="$PROMPT. Теги: $TAGS"
 
+            # Поиск похожих задач в LanceDB для RAG-контекста
+            MEMORY_CONTEXT=$(python3 "$MEMORY_HELPER" search "$TITLE" 2>/dev/null || true)
+            if [ -n "$MEMORY_CONTEXT" ]; then
+                PROMPT="$PROMPT\n$MEMORY_CONTEXT"
+                log "🧠 Найден релевантный опыт для $TASK_ID"
+            fi
+
             # Флаги Grok
             GROK_FLAGS="--always-approve"
             case "$PRIORITY" in
@@ -141,11 +149,56 @@ PYEOF
 
             log "✅ $TASK_ID: $RESULT"
 
+            # Сохранение результата в LanceDB векторную память
+            if [ "$STATUS" = "review" ] || [ "$STATUS" = "done" ]; then
+                python3 "$MEMORY_HELPER" save "$TASK_ID" 2>&1 | tee -a "$TASK_LOG"
+                log "🧠 Память LanceDB обновлена для $TASK_ID"
+            fi
+
             # Guardian auto-review
             if [ "$STATUS" = "review" ]; then
                 sleep 1
-                curl -s -X POST "$API/tasks/$TASK_ID/review" > /dev/null 2>&1
+                REVIEW_RESULT=$(curl -s -X POST "$API/tasks/$TASK_ID/review" 2>/dev/null)
                 log "🛡️ Guardian для $TASK_ID"
+
+                # Auto-PR Merge: если Guardian одобрил — мёржим ветку в main
+                VERDICT=$(echo "$REVIEW_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('verdict',''))" 2>/dev/null)
+                if [ "$VERDICT" = "approved" ]; then
+                    log "🔀 Auto-merge: agentforge-$TASK_ID → main"
+                    cd "$PROJECT_DIR" || true
+
+                    # Получаем имя ветки из worktree (может быть agentforge-TASK_ID)
+                    BRANCH_NAME="agentforge-$TASK_ID"
+
+                    # Проверяем существует ли ветка
+                    if git rev-parse --verify "$BRANCH_NAME" >/dev/null 2>&1; then
+                        # Переключаемся на main и мёржим
+                        git checkout main 2>/dev/null
+                        MERGE_OUTPUT=$(git merge "$BRANCH_NAME" --no-ff -m "[AgentForge] Auto-merge $TASK_ID: $TITLE" 2>&1)
+                        MERGE_EXIT=$?
+
+                        if [ "$MERGE_EXIT" -eq 0 ]; then
+                            log "✅ Auto-merge успешен: $BRANCH_NAME → main"
+                            # Обновляем задачу с информацией о мёрже
+                            curl -s -X PATCH "$API/tasks/$TASK_ID"                                 -H 'Content-Type: application/json'                                 -d "{"result": "$RESULT | Guardian: approved | Merged to main"}" > /dev/null
+                            # Удаляем ветку после мёржа
+                            git branch -d "$BRANCH_NAME" 2>/dev/null
+                            log "🗑️ Ветка $BRANCH_NAME удалена после мёржа"
+                        else
+                            log "❌ Auto-merge КОНФЛИКТ: $BRANCH_NAME → main"
+                            log "   Вывод: $MERGE_OUTPUT"
+                            # Откатываем неудачный мёрж
+                            git merge --abort 2>/dev/null
+                            # Обновляем задачу — нужен ручной мёрж
+                            curl -s -X PATCH "$API/tasks/$TASK_ID"                                 -H 'Content-Type: application/json'                                 -d "{"result": "$RESULT | Guardian: approved | Merge conflict - needs manual merge"}" > /dev/null
+                            log "⚠️ Задача $TASK_ID требует ручного мёржа"
+                        fi
+                    else
+                        log "⚠️ Ветка $BRANCH_NAME не найдена, пропускаем auto-merge"
+                    fi
+                else
+                    log "ℹ️ Guardian не одобрил $TASK_ID (verdict=$VERDICT), auto-merge пропущен"
+                fi
             fi
 
             # Очищаем worktree
