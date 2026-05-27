@@ -1,0 +1,70 @@
+[GrokWorker] 🚀 Запуск автономного воркера (poll=30s, без лимита)
+[GrokWorker] 🚀 Запуск автономного воркера (poll=30s, без лимита)
+[GrokWorker 09:29:40] 🚀 Запуск воркера v2 (poll=30s, timeout=300s)
+[GrokWorker 09:29:40] 🚀 Запуск воркера v2 (poll=30s, timeout=300s)
+[GrokWorker 09:32:40] 📋 Берём: f5947b09 — Скрипт sysctl для TCP тюнинга ядра Linux (priority=medium)
+[GrokWorker 09:32:40] 📋 Берём: f5947b09 — Скрипт sysctl для TCP тюнинга ядра Linux (priority=medium)
+[GrokWorker 09:32:40] ⚡ Промпт: Скрипт sysctl для TCP тюнинга ядра Linux. Детали: Создать bash-скрипт grok_sysctl.sh для оптимизации...
+[GrokWorker 09:32:40] ⚡ Промпт: Скрипт sysctl для TCP тюнинга ядра Linux. Детали: Создать bash-скрипт grok_sysctl.sh для оптимизации...
+M	turboquant-vllm
+error: a value is required for '--single <PROMPT>' but none was supplied
+
+For more information, try '--help'.
+warning: добавление встроенного git репозитория: blutter
+подсказка: You've added another git repository inside your current repository.
+подсказка: Clones of the outer repository will not contain the contents of
+подсказка: the embedded repository and will not know how to obtain it.
+подсказка: If you meant to add a submodule, use:
+подсказка: 
+подсказка: 	git submodule add <url> blutter
+подсказка: 
+подсказка: If you added this path by mistake, you can remove it from the
+подсказка: index with:
+подсказка: 
+подсказка: 	git rm --cached blutter
+подсказка: 
+подсказка: See "git help submodule" for more information.
+[GrokWorker 09:33:05] 📝 Git commit на ветке agentforge/f5947b09
+[GrokWorker 09:33:05] 📝 Git commit на ветке agentforge/f5947b09
+[GrokWorker 09:34:00] 🚀 Запуск воркера v2 (poll=30s, timeout=300s)
+[GrokWorker 09:34:00] 🚀 Запуск воркера v2 (poll=30s, timeout=300s)
+[GrokWorker 09:34:00] 📋 Берём: f5947b09 — Скрипт sysctl для TCP тюнинга ядра Linux (priority=medium)
+[GrokWorker 09:34:00] 📋 Берём: f5947b09 — Скрипт sysctl для TCP тюнинга ядра Linux (priority=medium)
+[GrokWorker 09:34:00] ⚡ Промпт: Скрипт sysctl для TCP тюнинга ядра Linux. Детали: Создать bash-скрипт grok_sysctl.sh для оптимизации...
+[GrokWorker 09:34:00] ⚡ Промпт: Скрипт sysctl для TCP тюнинга ядра Linux. Детали: Создать bash-скрипт grok_sysctl.sh для оптимизации...
+M	blutter
+M	turboquant-vllm
+A new version of Grok Build is available: 0.1.220 -> 0.2.3
+[GrokWorker 09:39:08] 📝 Git commit на ветке agentforge/f5947b09
+[GrokWorker 09:39:08] 📝 Git commit на ветке agentforge/f5947b09
+[GrokWorker 09:39:32] ✅ Задача f5947b09: Grok: 300s, CI: test_fail ❌
+[GrokWorker 09:39:32] ✅ Задача f5947b09: Grok: 300s, CI: test_fail ❌
+[GrokWorker 09:39:32] 📋 Берём: a6e70555 — Долговременная память на базе LanceDB (priority=medium)
+[GrokWorker 09:39:32] 📋 Берём: a6e70555 — Долговременная память на базе LanceDB (priority=medium)
+[GrokWorker 09:39:32] ⚡ Промпт: Долговременная память на базе LanceDB. Детали: Интегрировать векторную базу LanceDB в логику задач. ...
+[GrokWorker 09:39:32] ⚡ Промпт: Долговременная память на базе LanceDB. Детали: Интегрировать векторную базу LanceDB в логику задач. ...
+M	turboquant-vllm
+[GrokWorker 09:43:03] 🚀 Воркер v3 (parallel=5, poll=15s, worktree)
+[GrokWorker 09:43:03] 🚀 Воркер v3 (parallel=5, poll=15s, worktree)
+[GrokWorker 09:43:03] 📋 [0/5] afc7085b — Сборка и нагрузочное тестирование парсера (300+ req/s)
+[GrokWorker 09:43:03] 📋 [0/5] afc7085b — Сборка и нагрузочное тестирование парсера (300+ req/s)
+[GrokWorker 09:43:03] ⚡ Grok старт: afc7085b (high) [worktree]
+[GrokWorker 09:43:03] ⚡ Grok старт: afc7085b (high) [worktree]
+[GrokWorker 09:43:04] 📋 [1/5] 8221a575 — Настройка лимитов Бандита и Троттлера (500 потоков)
+[GrokWorker 09:43:04] 📋 [1/5] 8221a575 — Настройка лимитов Бандита и Троттлера (500 потоков)
+[GrokWorker 09:43:04] ⚡ Grok старт: 8221a575 (high) [worktree]
+[GrokWorker 09:43:04] ⚡ Grok старт: 8221a575 (high) [worktree]
+[GrokWorker 09:43:05] 📋 [2/5] d9fbe733 — Оптимизация сетевого клиента (akson_crawler.rs) для 500 потоков
+[GrokWorker 09:43:05] 📋 [2/5] d9fbe733 — Оптимизация сетевого клиента (akson_crawler.rs) для 500 потоков
+[GrokWorker 09:43:05] ⚡ Grok старт: d9fbe733 (high) [worktree]
+[GrokWorker 09:43:05] ⚡ Grok старт: d9fbe733 (high) [worktree]
+[GrokWorker 09:43:06] 📋 [3/5] c43cda84 — Поддержка фидбека пользователя в grok_runner
+[GrokWorker 09:43:06] 📋 [3/5] c43cda84 — Поддержка фидбека пользователя в grok_runner
+[GrokWorker 09:43:06] ⚡ Grok старт: c43cda84 (high) [worktree]
+[GrokWorker 09:43:06] ⚡ Grok старт: c43cda84 (high) [worktree]
+[GrokWorker 09:43:07] 📋 [4/5] f5828420 — Внедрение Human-in-the-Loop (HITL) в дашборд и очередь
+[GrokWorker 09:43:07] 📋 [4/5] f5828420 — Внедрение Human-in-the-Loop (HITL) в дашборд и очередь
+[GrokWorker 09:43:07] ⏸️ Достигнут лимит 5 параллельных задач, ждём...
+[GrokWorker 09:43:07] ⏸️ Достигнут лимит 5 параллельных задач, ждём...
+[GrokWorker 09:43:07] ⚡ Grok старт: f5828420 (high) [worktree]
+[GrokWorker 09:43:07] ⚡ Grok старт: f5828420 (high) [worktree]

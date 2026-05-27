@@ -1,0 +1,3343 @@
+[GrokWorker] ⚡ Grok запущен: --always-approve --print --check
+error: a value is required for '--single <PROMPT>' but none was supplied
+
+For more information, try '--help'.
+[AgentForge] Запуск Grok для задачи 3424957a
+[AgentForge] Включена самопроверка (--check)
+error: a value is required for '--single <PROMPT>' but none was supplied
+
+For more information, try '--help'.
+[AgentForge] Grok завершил задачу 3424957a за 0с
+[AgentForge CI/CD] Запуск проверок...
+[CI] cargo clippy...
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+warning: empty line after doc comment
+   --> planly_gateway/src/google.rs:153:1
+    |
+153 | / /// GET /api/google/contacts — fetch contacts using stored access token
+154 | |
+    | |_^
+155 |   async fn internal_refresh_token() -> bool {
+    |   ------------------------------- the comment documents this function
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#empty_line_after_doc_comments
+    = note: `#[warn(clippy::empty_line_after_doc_comments)]` on by default
+    = help: if the empty line is unintentional, remove it
+
+warning: unused import: `chrono::Datelike`
+  --> planly_gateway/src/lance.rs:14:5
+   |
+14 | use chrono::Datelike;
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `D`
+ --> planly_gateway/src/visual_embed.rs:6:42
+  |
+6 | use candle_core::{Device, Tensor, DType, D};
+  |                                          ^
+
+warning: unused import: `info`
+ --> planly_gateway/src/vlm_processor.rs:4:22
+  |
+4 | use tracing::{error, info};
+  |                      ^^^^
+
+warning: unused import: `Semaphore`
+  --> planly_gateway/src/akson_crawler.rs:14:26
+   |
+14 | use tokio::sync::{Mutex, Semaphore};
+   |                          ^^^^^^^^^
+
+warning: unused import: `get_parser_state`
+  --> planly_gateway/src/lemana_crawler.rs:19:41
+   |
+19 | use crate::lance::{update_parser_state, get_parser_state};
+   |                                         ^^^^^^^^^^^^^^^^
+
+warning: unused import: `reqwest::StatusCode`
+  --> planly_gateway/src/main.rs:40:5
+   |
+40 | use reqwest::StatusCode;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `HeaderMap`, `Message as WsMessage`, `Path`, `Query`, `State`, `WebSocket`, `header`, and `response::IntoResponse`
+  --> planly_gateway/src/main.rs:43:15
+   |
+43 |     extract::{Query, Path, State, WebSocketUpgrade, ws::{WebSocket, Message as WsMessage}},
+   |               ^^^^^  ^^^^  ^^^^^                         ^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+...
+46 |     response::IntoResponse,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+47 |     http::{header, HeaderMap},
+   |            ^^^^^^  ^^^^^^^^^
+
+warning: unused imports: `Engine` and `prelude::BASE64_STANDARD`
+  --> planly_gateway/src/main.rs:49:14
+   |
+49 | use base64::{prelude::BASE64_STANDARD, Engine};
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^
+
+warning: unused import: `grammers_tl_types as tl`
+  --> planly_gateway/src/main.rs:50:5
+   |
+50 | use grammers_tl_types as tl;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: this import is redundant
+  --> planly_gateway/src/main.rs:51:1
+   |
+51 | use ntlmclient;
+   | ^^^^^^^^^^^^^^^ help: remove it entirely
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_component_path_imports
+   = note: `#[warn(clippy::single_component_path_imports)]` on by default
+
+warning: unused import: `ntlmclient`
+  --> planly_gateway/src/main.rs:51:5
+   |
+51 | use ntlmclient;
+   |     ^^^^^^^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+  --> planly_gateway/src/main.rs:52:13
+   |
+52 | use serde::{Deserialize, Serialize};
+   |             ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `collections::HashMap`
+  --> planly_gateway/src/main.rs:54:5
+   |
+54 |     collections::HashMap,
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `oneshot`
+  --> planly_gateway/src/main.rs:58:32
+   |
+58 | use tokio::sync::{Mutex, mpsc, oneshot};
+   |                                ^^^^^^^
+
+warning: unused import: `futures::StreamExt`
+  --> planly_gateway/src/main.rs:64:5
+   |
+64 | use futures::StreamExt;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `cols`
+    --> planly_gateway/src/lance.rs:3826:17
+     |
+3826 |             let cols: Vec<(&str, Option<&StringArray>)> = vec![
+     |                 ^^^^ help: if this is intentional, prefix it with an underscore: `_cols`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `tg_name`
+    --> planly_gateway/src/google.rs:1287:21
+     |
+1287 |                 let tg_name = format!("{} {}",
+     |                     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_tg_name`
+
+warning: unused variable: `e`
+   --> planly_gateway/src/lance.rs:246:13
+    |
+246 | ...   Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "DB connection failed"}))).into_respons...
+    |           ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> planly_gateway/src/lance.rs:250:13
+    |
+250 |         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Table not found"}))).into_response(),
+    |             ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> planly_gateway/src/lance.rs:267:14
+    |
+267 |          Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Query failed"}))).into_response(),
+    |              ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `brand_col`
+   --> planly_gateway/src/lance.rs:987:21
+    |
+987 |                 let brand_col = batch.column_by_name("brand").and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    |                     ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_brand_col`
+
+warning: unused variable: `q`
+    --> planly_gateway/src/lance.rs:1060:45
+     |
+1060 | pub async fn handle_lance_match_saved(Query(q): Query<MatchSavedQuery>) -> impl IntoResponse {
+     |                                             ^ help: if this is intentional, prefix it with an underscore: `_q`
+
+warning: unused variable: `vf_col`
+    --> planly_gateway/src/lance.rs:1513:17
+     |
+1513 |             let vf_col = get_str("visual_features");
+     |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_vf_col`
+
+warning: unused variable: `ns_col`
+    --> planly_gateway/src/lance.rs:1514:17
+     |
+1514 |             let ns_col = get_str("normalized_specs");
+     |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_ns_col`
+
+warning: unused variable: `now`
+   --> planly_gateway/src/akson_crawler.rs:436:17
+    |
+436 |             let now = std::time::Instant::now();
+    |                 ^^^ help: if this is intentional, prefix it with an underscore: `_now`
+
+warning: unused variable: `n`
+   --> planly_gateway/src/akson_crawler.rs:398:17
+    |
+398 |             let n = batch.len();
+    |                 ^ help: if this is intentional, prefix it with an underscore: `_n`
+
+warning: unused variable: `n_cities`
+   --> planly_gateway/src/akson_crawler.rs:316:9
+    |
+316 |     let n_cities = city_stores.len();
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_n_cities`
+
+warning: unused variable: `perf_last_adjust`
+   --> planly_gateway/src/akson_crawler.rs:369:9
+    |
+369 |     let perf_last_adjust = Arc::new(AtomicU64::new(0)); // for cooldown
+    |         ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_perf_last_adjust`
+
+warning: unused variable: `monitor_handle`
+   --> planly_gateway/src/akson_crawler.rs:424:9
+    |
+424 |     let monitor_handle = tokio::spawn(async move {
+    |         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_monitor_handle`
+
+warning: unused variable: `price_only_count`
+   --> planly_gateway/src/lance_writer.rs:190:9
+    |
+190 |     let price_only_count = count - content_products.len();
+    |         ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_price_only_count`
+
+warning: unused variable: `now_fn`
+   --> planly_gateway/src/lemana_crawler.rs:471:9
+    |
+471 |     let now_fn = || chrono::Local::now().format("%H:%M:%S").to_string();
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_now_fn`
+
+warning: unused variable: `cat_path`
+   --> planly_gateway/src/lemana_crawler.rs:524:14
+    |
+524 |         for (cat_path, cat_name) in &search_tasks {
+    |              ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_cat_path`
+
+warning: unused variable: `progress_msg`
+   --> planly_gateway/src/lemana_crawler.rs:576:21
+    |
+576 |                 let progress_msg = format!("{}/{} ({:.0} prod/s)", done, sku_list.len(), rate);
+    |                     ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_progress_msg`
+
+warning: unused variable: `store_id`
+    --> planly_gateway/src/akson_crawler.rs:1113:50
+     |
+1113 | fn normalize_full(item: &Value, city_name: &str, store_id: i64, region_id: i64, now_ts: &str) -> Value {
+     |                                                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_store_id`
+
+warning: unused variable: `store_id`
+    --> planly_gateway/src/akson_crawler.rs:1222:56
+     |
+1222 | fn normalize_price_only(item: &Value, city_name: &str, store_id: i64, region_id: i64, now_ts: &str) -> Value {
+     |                                                        ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_store_id`
+
+warning: unused variable: `start`
+   --> planly_gateway/src/lemana_crawler.rs:232:9
+    |
+232 |     let start = std::time::Instant::now();
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_start`
+
+warning: unused variable: `t0`
+   --> planly_gateway/src/main.rs:215:17
+    |
+215 |             let t0 = std::time::Instant::now();
+    |                 ^^ help: if this is intentional, prefix it with an underscore: `_t0`
+
+warning: unused variable: `api_hash`
+   --> planly_gateway/src/main.rs:173:9
+    |
+173 |     let api_hash = std::env::var("API_HASH").unwrap_or_else(|_| "344583e45741c457fe1862106095a5eb".to_string());
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_api_hash`
+
+warning: field `reactive` is never read
+   --> planly_gateway/src/main.rs:142:5
+    |
+135 | struct AppState {
+    |        -------- field in this struct
+...
+142 |     reactive: std::sync::Arc<reactive::ReactiveState>,
+    |     ^^^^^^^^
+    |
+    = note: `AppState` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `SLOW_THRESHOLD_MS` is never used
+  --> planly_gateway/src/adaptive_throttle.rs:28:7
+   |
+28 | const SLOW_THRESHOLD_MS: u64 = 15_000;
+   |       ^^^^^^^^^^^^^^^^^
+
+warning: constant `BATCH_SIZE` is never used
+  --> planly_gateway/src/akson_crawler.rs:27:7
+   |
+27 | const BATCH_SIZE: usize = 4000;
+   |       ^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/akson_crawler.rs:29:7
+   |
+29 | const MAX_CONCURRENT: usize = 120;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `EMPTY_CATS_CACHE` is never used
+  --> planly_gateway/src/akson_crawler.rs:33:7
+   |
+33 | const EMPTY_CATS_CACHE: &str = "/home/agx/lance_data/akson_empty_cats.json";
+   |       ^^^^^^^^^^^^^^^^
+
+warning: function `load_proxy_pool` is never used
+    --> planly_gateway/src/akson_crawler.rs:1452:4
+     |
+1452 | fn load_proxy_pool() -> Vec<String> {
+     |    ^^^^^^^^^^^^^^^
+
+warning: function `load_empty_cats_cache` is never used
+    --> planly_gateway/src/akson_crawler.rs:1526:4
+     |
+1526 | fn load_empty_cats_cache() -> HashSet<String> {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `save_empty_cats_cache` is never used
+    --> planly_gateway/src/akson_crawler.rs:1546:4
+     |
+1546 | fn save_empty_cats_cache(empty_cats: &HashSet<String>) {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/glavsnab_crawler.rs:20:7
+   |
+20 | const MAX_CONCURRENT: usize = 25;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `BATCH_SIZE` is never used
+  --> planly_gateway/src/lemana_crawler.rs:27:7
+   |
+27 | const BATCH_SIZE: usize = 2000;
+   |       ^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/lemana_crawler.rs:28:7
+   |
+28 | const MAX_CONCURRENT: usize = 50;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/stroylandia_crawler.rs:24:7
+   |
+24 | const MAX_CONCURRENT: usize = 50;
+   |       ^^^^^^^^^^^^^^
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+  --> planly_gateway/src/auth.rs:66:37
+   |
+66 |             let token = build_token(&acct.username);
+   |                                     ^^^^^^^^^^^^^^ help: change this to: `acct.username`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+   = note: `#[warn(clippy::needless_borrow)]` on by default
+
+warning: deref which would be done by auto-deref
+  --> planly_gateway/src/google.rs:98:33
+   |
+98 |             save_google_session(&*store);
+   |                                 ^^^^^^^ help: try: `&store`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_auto_deref
+   = note: `#[warn(clippy::explicit_auto_deref)]` on by default
+
+warning: deref which would be done by auto-deref
+   --> planly_gateway/src/google.rs:134:25
+    |
+134 |     save_google_session(&*store);
+    |                         ^^^^^^^ help: try: `&store`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_auto_deref
+
+warning: deref which would be done by auto-deref
+   --> planly_gateway/src/google.rs:194:41
+    |
+194 |                     save_google_session(&*store);
+    |                                         ^^^^^^^ help: try: `&store`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_auto_deref
+
+warning: this `if` has identical blocks
+    --> planly_gateway/src/google.rs:1063:59
+     |
+1063 |       } else if clean.starts_with('7') && clean.len() == 11 {
+     |  ___________________________________________________________^
+1064 | |         format!("+{}", clean)
+1065 | |     } else if !clean.starts_with('+') && clean.len() >= 10 {
+     | |_____^
+     |
+note: same as this
+    --> planly_gateway/src/google.rs:1065:60
+     |
+1065 |       } else if !clean.starts_with('+') && clean.len() >= 10 {
+     |  ____________________________________________________________^
+1066 | |         format!("+{}", clean)
+1067 | |     } else {
+     | |_____^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#if_same_then_else
+     = note: `#[warn(clippy::if_same_then_else)]` on by default
+
+warning: manually reimplementing `div_ceil`
+   --> planly_gateway/src/lance.rs:226:49
+    |
+226 |     let pages = if total_rows == 0 { 1 } else { (total_rows + per_page - 1) / per_page };
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `.div_ceil()`: `total_rows.div_ceil(per_page)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_div_ceil
+    = note: `#[warn(clippy::manual_div_ceil)]` on by default
+
+warning: consider using `sort_by_key`
+   --> planly_gateway/src/lance.rs:613:5
+    |
+613 |     data.sort_by(|a, b| jstr(a, "department").cmp(&jstr(b, "department")));
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `data.sort_by_key(|a| jstr(a, "department"))`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_sort_by
+    = note: `#[warn(clippy::unnecessary_sort_by)]` on by default
+
+warning: this manual char comparison can be written more succinctly
+   --> planly_gateway/src/lance.rs:778:52
+    |
+778 |                     let parts: Vec<&str> = s.split(|c| c == ' ' || c == 'T').collect();
+    |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using an array of `char`: `[' ', 'T']`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_pattern_char_comparison
+    = note: `#[warn(clippy::manual_pattern_char_comparison)]` on by default
+
+warning: you seem to want to iterate on a map's values
+   --> planly_gateway/src/lance.rs:914:26
+    |
+914 |     for (_key, group) in &name_map {
+    |                          ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+    = note: `#[warn(clippy::for_kv_map)]` on by default
+help: use the corresponding method
+    |
+914 -     for (_key, group) in &name_map {
+914 +     for group in name_map.values() {
+    |
+
+warning: redundant closure
+    --> planly_gateway/src/lance.rs:1067:47
+     |
+1067 |     let enrich_map = ENRICH_CACHE.get_or_init(|| load_enrichment()).await;
+     |                                               ^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_enrichment`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+     = note: `#[warn(clippy::redundant_closure)]` on by default
+
+warning: redundant closure
+    --> planly_gateway/src/lance.rs:1194:47
+     |
+1194 |     let enrich_map = ENRICH_CACHE.get_or_init(|| load_enrichment()).await;
+     |                                               ^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_enrichment`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> planly_gateway/src/lance.rs:1362:24
+     |
+1362 |             move || -> Option<(Vec<(String, String)>, Vec<(String, String)>)> {
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+     = note: `#[warn(clippy::type_complexity)]` on by default
+
+warning: use of `or_insert_with` to construct default value
+    --> planly_gateway/src/lance.rs:2198:49
+     |
+2198 |         let state = map.entry(name.to_string()).or_insert_with(ParserState::default);
+     |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_or_default
+     = note: `#[warn(clippy::unwrap_or_default)]` on by default
+
+warning: length comparison to zero
+    --> planly_gateway/src/lance.rs:4117:12
+     |
+4117 |         if p.get("match_judge").and_then(|v| v.as_str()).unwrap_or("").len() > 0 { continue; }
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: using `!is_empty` is clearer and more explicit: `!p.get("match_judge").and_then(|v| v.as_str()).unwrap_or("").is_empty()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#len_zero
+     = note: `#[warn(clippy::len_zero)]` on by default
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:172:29
+    |
+172 |             HTTP_CLIENT.get(&format!("{}/api/tags", config.url))
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/api/tags", config.url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+    = note: `#[warn(clippy::needless_borrows_for_generic_args)]` on by default
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:176:29
+    |
+176 |             HTTP_CLIENT.get(&format!("{}/v1/models", config.url))
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/v1/models", config.url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:202:33
+    |
+202 |     let resp = HTTP_CLIENT.post(&format!("{}/api/generate", base_url))
+    |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/api/generate", base_url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:220:28
+    |
+220 |     match HTTP_CLIENT.post(&format!("{}/api/embeddings", base_url))
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/api/embeddings", base_url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:251:33
+    |
+251 |     let resp = HTTP_CLIENT.post(&format!("{}/v1/chat/completions", base_url))
+    |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/v1/chat/completions", base_url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:277:28
+    |
+277 |     match HTTP_CLIENT.post(&format!("{}/v1/embeddings", base_url))
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/v1/embeddings", base_url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the loop variable `d` is used to index `q_norm`
+   --> planly_gateway/src/reactive.rs:384:22
+    |
+384 |             for d in 0..self.dim {
+    |                      ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_range_loop
+    = note: `#[warn(clippy::needless_range_loop)]` on by default
+help: consider using an iterator and enumerate()
+    |
+384 -             for d in 0..self.dim {
+384 +             for (d, <item>) in q_norm.iter().enumerate().take(self.dim) {
+    |
+
+warning: redundant closure
+   --> planly_gateway/src/reactive.rs:676:44
+    |
+676 |     let matrix = VECTOR_MATRIX.get_or_init(|| load_vector_matrix()).await;
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_vector_matrix`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: casting to the same type is unnecessary (`f64` -> `f64`)
+   --> planly_gateway/src/reactive.rs:695:23
+    |
+695 |     let query_price = matrix.prices[idx] as f64;
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `matrix.prices[idx]`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+    = note: `#[warn(clippy::unnecessary_cast)]` on by default
+
+warning: casting to the same type is unnecessary (`f64` -> `f64`)
+   --> planly_gateway/src/reactive.rs:697:51
+    |
+697 |         let p_sim = price_similarity(query_price, matrix.prices[i] as f64);
+    |                                                   ^^^^^^^^^^^^^^^^^^^^^^^ help: try: `matrix.prices[i]`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: redundant closure
+   --> planly_gateway/src/reactive.rs:755:44
+    |
+755 |     let matrix = VECTOR_MATRIX.get_or_init(|| load_vector_matrix()).await;
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_vector_matrix`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: redundant closure
+   --> planly_gateway/src/reactive.rs:779:44
+    |
+779 |     let matrix = VECTOR_MATRIX.get_or_init(|| load_vector_matrix()).await;
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_vector_matrix`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/reactive.rs:885:5
+    |
+885 |     (ratio as f32).max(0.0).min(1.0)
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `(ratio as f32).clamp(0.0, 1.0)`
+    |
+    = note: clamp will panic if max < min, min.is_nan(), or max.is_nan()
+    = note: clamp returns NaN if the input is NaN
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+    = note: `#[warn(clippy::manual_clamp)]` on by default
+
+warning: redundant closure
+    --> planly_gateway/src/reactive.rs:1060:44
+     |
+1060 |     let matrix = VECTOR_MATRIX.get_or_init(|| load_vector_matrix()).await;
+     |                                            ^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_vector_matrix`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: casting to the same type is unnecessary (`f64` -> `f64`)
+    --> planly_gateway/src/reactive.rs:1062:19
+     |
+1062 |         .map(|&i| matrix.prices[i] as f64).unwrap_or(0.0);
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^ help: try: `matrix.prices[i]`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: casting to the same type is unnecessary (`f64` -> `f64`)
+    --> planly_gateway/src/reactive.rs:1084:35
+     |
+1084 |                 let match_price = matrix.prices.get(idx).copied().unwrap_or(0.0) as f64;
+     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `matrix.prices.get(idx).copied().unwrap_or(0.0)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: `to_string` applied to a type that implements `Display` in `writeln!` args
+    --> planly_gateway/src/reactive.rs:1261:50
+     |
+1261 |         .and_then(|mut f| writeln!(f, "{}", entry.to_string()));
+     |                                                  ^^^^^^^^^^^^ help: remove this
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#to_string_in_format_args
+     = note: `#[warn(clippy::to_string_in_format_args)]` on by default
+
+warning: deref which would be done by auto-deref
+   --> planly_gateway/src/mail.rs:305:31
+    |
+305 |             save_mail_session(&*st);
+    |                               ^^^^ help: try: `&st`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_auto_deref
+
+warning: compiling a regex in a loop
+   --> planly_gateway/src/mail.rs:419:34
+    |
+419 |                         let re = regex::Regex::new(r#"<img[^>]+src=["']([^"']+)["']"#).unwrap();
+    |                                  ^^^^^^^^^^^^^^^^^
+    |
+help: move the regex construction outside this loop
+   --> planly_gateway/src/mail.rs:332:5
+    |
+332 |     loop {
+    |     ^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#regex_creation_in_loops
+    = note: `#[warn(clippy::regex_creation_in_loops)]` on by default
+
+warning: compiling a regex in a loop
+   --> planly_gateway/src/mail.rs:674:34
+    |
+674 |                     let att_id = regex::Regex::new(r#"<t:AttachmentId Id="([^"]+)""#).unwrap()
+    |                                  ^^^^^^^^^^^^^^^^^
+    |
+help: move the regex construction outside this loop
+   --> planly_gateway/src/mail.rs:671:17
+    |
+671 |                 for (i, cap) in block_re.captures_iter(&res).enumerate() {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#regex_creation_in_loops
+
+warning: compiling a regex in a loop
+   --> planly_gateway/src/mail.rs:676:38
+    |
+676 |                     let content_id = regex::Regex::new(r#"<t:ContentId>([^<]+)</t:ContentId>"#).unwrap()
+    |                                      ^^^^^^^^^^^^^^^^^
+    |
+help: move the regex construction outside this loop
+   --> planly_gateway/src/mail.rs:671:17
+    |
+671 |                 for (i, cap) in block_re.captures_iter(&res).enumerate() {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#regex_creation_in_loops
+
+warning: compiling a regex in a loop
+   --> planly_gateway/src/mail.rs:678:32
+    |
+678 |                     let name = regex::Regex::new(r#"<t:Name>([^<]+)</t:Name>"#).unwrap()
+    |                                ^^^^^^^^^^^^^^^^^
+    |
+help: move the regex construction outside this loop
+   --> planly_gateway/src/mail.rs:671:17
+    |
+671 |                 for (i, cap) in block_re.captures_iter(&res).enumerate() {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#regex_creation_in_loops
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:757:92
+    |
+757 | ...                   "mark_read" => success = client_for_actor.mark_as_read(chat_ref.clone()).await.is_ok(),
+    |                                                                              ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+    = note: `#[warn(clippy::clone_on_copy)]` on by default
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:758:90
+    |
+758 | ...                   "delete" => success = client_for_actor.delete_dialog(chat_ref.clone()).await.is_ok(),
+    |                                                                            ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:872:79
+    |
+872 | ...                   let mut msgs_req = client_for_actor.iter_messages(chat_ref.clone());
+    |                                                                         ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:953:65
+    |
+953 | ...                   match client_for_actor.send_message(chat_ref.clone(), input_msg).await {
+    |                                                           ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:992:65
+    |
+992 | ...                   match client_for_actor.edit_message(chat_ref.clone(), message_id, input_msg).await {
+    |                                                           ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1021:68
+     |
+1021 | ...                   match client_for_actor.delete_messages(chat_ref.clone(), &message_ids).await {
+     |                                                              ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1054:73
+     |
+1054 | ...                   match client_for_actor.forward_messages(dr.clone(), &message_ids, sr.clone()).await {
+     |                                                               ^^^^^^^^^^ help: try removing the `clone` call: `dr`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1054:99
+     |
+1054 | ...                   match client_for_actor.forward_messages(dr.clone(), &message_ids, sr.clone()).await {
+     |                                                                                         ^^^^^^^^^^ help: try removing the `clone` call: `sr`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1199:87
+     |
+1199 | ...                   if let Ok(msgs) = client_for_actor.get_messages_by_id(chat_ref.clone(), &[msg_id]).await {
+     |                                                                             ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1263:87
+     |
+1263 | ...                   if let Ok(msgs) = client_for_actor.get_messages_by_id(chat_ref.clone(), &[msg_id]).await {
+     |                                                                             ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+  --> planly_gateway/src/lance_writer.rs:22:24
+   |
+22 | static PRICE_SNAPSHOT: std::sync::LazyLock<Mutex<HashMap<String, (f64, i64, String)>>> =
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: doc list item without indentation
+   --> planly_gateway/src/lance_writer.rs:162:5
+    |
+162 | /// This cleanly separates content from commercial data.
+    |     ^
+    |
+    = help: if this is supposed to be its own paragraph, add a blank line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+    = note: `#[warn(clippy::doc_lazy_continuation)]` on by default
+help: indent this line
+    |
+162 | ///    This cleanly separates content from commercial data.
+    |     +++
+
+warning: manual arithmetic check found
+   --> planly_gateway/src/lance_writer.rs:394:19
+    |
+394 |     let deleted = if before > after { before - after } else { 0 };
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace it with: `before.saturating_sub(after)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#implicit_saturating_sub
+    = note: `#[warn(clippy::implicit_saturating_sub)]` on by default
+
+warning: you seem to be trying to move all elements into a new `Vec`
+   --> planly_gateway/src/crawler.rs:322:64
+    |
+322 |                     match crate::lance_writer::upsert_products(batch.drain(..).collect()).await {
+    |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `mem::take`: `std::mem::take(&mut batch)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#drain_collect
+    = note: `#[warn(clippy::drain_collect)]` on by default
+
+warning: you seem to be trying to move all elements into a new `Vec`
+   --> planly_gateway/src/crawler.rs:336:56
+    |
+336 |             match crate::lance_writer::upsert_products(batch.drain(..).collect()).await {
+    |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `mem::take`: `std::mem::take(&mut batch)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#drain_collect
+
+warning: clamp-like pattern without using clamp function
+  --> planly_gateway/src/adaptive_throttle.rs:83:21
+   |
+83 |         let level = base_level.max(MIN_CONCURRENT).min(MAX_CEILING);
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `base_level.clamp(MIN_CONCURRENT, MAX_CEILING)`
+   |
+   = note: clamp will panic if max < min
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
+   --> planly_gateway/src/adaptive_throttle.rs:239:21
+    |
+239 | /                     match sem_c.acquire().await {
+240 | |                         Ok(permit) => {
+241 | |                             let mut d = deficit_c.lock().unwrap();
+242 | |                             if *d > 0 {
+...   |
+250 | |                         Err(_) => {}
+251 | |                     }
+    | |_____________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_match
+    = note: `#[warn(clippy::single_match)]` on by default
+help: try
+    |
+239 ~                     if let Ok(permit) = sem_c.acquire().await {
+240 +                         let mut d = deficit_c.lock().unwrap();
+241 +                         if *d > 0 {
+242 +                             *d -= 1;
+243 +                             permit.forget();
+244 +                         } else {
+245 +                             // Deficit was cleared by scale-up in the meantime
+246 +                             drop(permit);
+247 +                         }
+248 +                     }
+    |
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/adaptive_throttle.rs:263:19
+    |
+263 |         let new = new_level.max(MIN_CONCURRENT).min(MAX_CEILING);
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `new_level.clamp(MIN_CONCURRENT, MAX_CEILING)`
+    |
+    = note: clamp will panic if max < min
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:403:24
+    |
+403 |                     if rand_u32() % 8 == 0 {
+    |                        ^^^^^^^^^^^^^^^^^^^ help: replace with: `rand_u32().is_multiple_of(8)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+    = note: `#[warn(clippy::manual_is_multiple_of)]` on by default
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:531:12
+    |
+531 |         if tasks_launched % 500 == 0 && tasks_launched > 0 {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with: `tasks_launched.is_multiple_of(500)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: redundant redefinition of a binding `prices_only`
+   --> planly_gateway/src/akson_crawler.rs:568:13
+    |
+568 |             let prices_only = prices_only;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: `prices_only` is initially defined here
+   --> planly_gateway/src/akson_crawler.rs:248:9
+    |
+248 |     let prices_only = mode == "prices_only";
+    |         ^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_locals
+    = note: `#[warn(clippy::redundant_locals)]` on by default
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:596:28
+    |
+596 |                         if rand_u32() % 500 == 0 {
+    |                            ^^^^^^^^^^^^^^^^^^^^^ help: replace with: `rand_u32().is_multiple_of(500)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: casting to the same type is unnecessary (`u64` -> `u64`)
+   --> planly_gateway/src/akson_crawler.rs:608:46
+    |
+608 |                         perf_lat_w.fetch_add(latency as u64, Ordering::Relaxed);
+    |                                              ^^^^^^^^^^^^^^ help: try: `latency`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:667:12
+    |
+667 |         if tasks_done % 20 == 0 || tasks_done == total_tasks {
+    |            ^^^^^^^^^^^^^^^^^^^^ help: replace with: `tasks_done.is_multiple_of(20)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: this function has too many arguments (9/7)
+   --> planly_gateway/src/akson_crawler.rs:805:1
+    |
+805 | / async fn fetch_category_v2(
+806 | |     pool: &ProxyPool,
+807 | |     store_id: i64,
+808 | |     region_id: i64,
+...   |
+814 | |     known_skus: &HashSet<String>,
+815 | | ) -> Result<Vec<Value>, String> {
+    | |_______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+    = note: `#[warn(clippy::too_many_arguments)]` on by default
+
+warning: unnecessary `if let` since only the `Ok` variant of the iterator element is used
+   --> planly_gateway/src/akson_crawler.rs:862:13
+    |
+862 | /             for result in results {
+863 | |                 if let Ok((more_items, _)) = result {
+864 | |                     all_items.extend(more_items);
+865 | |                 }
+866 | |             }
+    | |_____________^
+    |
+help: try `.flatten()` and remove the `if let` statement in the for loop
+   --> planly_gateway/src/akson_crawler.rs:863:17
+    |
+863 | /                 if let Ok((more_items, _)) = result {
+864 | |                     all_items.extend(more_items);
+865 | |                 }
+    | |_________________^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_flatten
+    = note: `#[warn(clippy::manual_flatten)]` on by default
+help: try
+    |
+862 ~             for (more_items, _) in results.into_iter().flatten() {
+863 +                 all_items.extend(more_items);
+864 +             }
+    |
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:895:30
+    |
+895 |     if !output.is_empty() && rand_u32() % 100 == 0 {
+    |                              ^^^^^^^^^^^^^^^^^^^^^ help: replace with: `rand_u32().is_multiple_of(100)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: redundant closure
+    --> planly_gateway/src/akson_crawler.rs:1422:26
+     |
+1422 |                     .map(|v| value_to_string(v))
+     |                          ^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `&value_to_string`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: casting to the same type is unnecessary (`u32` -> `u32`)
+    --> planly_gateway/src/akson_crawler.rs:1521:5
+     |
+1521 |     (t.subsec_nanos() ^ (t.as_secs() as u32)) as u32
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `(t.subsec_nanos() ^ (t.as_secs() as u32))`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_gateway/src/glavsnab_crawler.rs:126:36
+    |
+126 |     let cat_map = fetch_categories(&client).await?;
+    |                                    ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: redundant redefinition of a binding `prices_only`
+   --> planly_gateway/src/glavsnab_crawler.rs:217:13
+    |
+217 |             let prices_only = prices_only;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: `prices_only` is initially defined here
+   --> planly_gateway/src/glavsnab_crawler.rs:53:9
+    |
+ 53 |     let prices_only = mode == "prices_only";
+    |         ^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_locals
+
+warning: you seem to be trying to move all elements into a new `Vec`
+   --> planly_gateway/src/glavsnab_crawler.rs:280:40
+    |
+280 |             let to_write: Vec<Value> = batch.drain(..).collect();
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `mem::take`: `std::mem::take(&mut batch)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#drain_collect
+
+warning: you seem to be trying to move all elements into a new `Vec`
+   --> planly_gateway/src/glavsnab_crawler.rs:323:36
+    |
+323 |         let to_write: Vec<Value> = batch.drain(..).collect();
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `mem::take`: `std::mem::take(&mut batch)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#drain_collect
+
+warning: this function has too many arguments (12/7)
+   --> planly_gateway/src/glavsnab_crawler.rs:465:1
+    |
+465 | / async fn fetch_page_products(
+466 | |     relay_client: &reqwest::Client,
+467 | |     direct_client: &reqwest::Client,
+468 | |     use_relay: &std::sync::Arc<std::sync::atomic::AtomicBool>,
+...   |
+477 | |     cat_map: &HashMap<i64, Value>,
+478 | | ) -> Result<Vec<Value>, String> {
+    | |_______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: redundant closure
+   --> planly_gateway/src/glavsnab_crawler.rs:639:19
+    |
+639 |         .and_then(|img| extract_file_id(img))
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `&extract_file_id`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: redundant closure
+   --> planly_gateway/src/glavsnab_crawler.rs:644:25
+    |
+644 |             .filter_map(|img| extract_file_id(img))
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `extract_file_id`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: useless use of `format!`
+   --> planly_gateway/src/lemana_crawler.rs:162:13
+    |
+162 |         Err(format!("WAF 403"))
+    |             ^^^^^^^^^^^^^^^^^^ help: consider using `.to_string()`: `"WAF 403".to_string()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#useless_format
+    = note: `#[warn(clippy::useless_format)]` on by default
+
+warning: called `iter().cloned().collect()` on a slice to create a `Vec`. Calling `to_vec()` is both faster and more readable
+   --> planly_gateway/src/lemana_crawler.rs:520:46
+    |
+520 |         let search_tasks: Vec<_> = categories.iter().cloned().collect();
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `.to_vec()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#iter_cloned_collect
+    = note: `#[warn(clippy::iter_cloned_collect)]` on by default
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/lemana_crawler.rs:566:16
+    |
+566 |             if done % 200 == 0 {
+    |                ^^^^^^^^^^^^^^^ help: replace with: `done.is_multiple_of(200)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: useless use of `format!`
+  --> planly_gateway/src/stroylandia_crawler.rs:82:17
+   |
+82 |             Err(format!("API returned response=false"))
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `.to_string()`: `"API returned response=false".to_string()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#useless_format
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/stroylandia_crawler.rs:555:20
+    |
+555 |                 if done % 50 == 0 || done == total_cats {
+    |                    ^^^^^^^^^^^^^^ help: replace with: `done.is_multiple_of(50)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/parse_agent.rs:386:31
+    |
+386 |     let history_snapshot = if evals % 5 == 0 && evals > 0 {
+    |                               ^^^^^^^^^^^^^^ help: replace with: `evals.is_multiple_of(5)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: use of `or_insert_with` to construct default value
+   --> planly_gateway/src/parse_agent.rs:493:58
+    |
+493 |     let config = agent.configs.entry(parser.to_string()).or_insert_with(AgentConfig::default);
+    |                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_or_default
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/parse_agent.rs:495:33
+    |
+495 |         config.max_concurrent = c.max(3).min(250);
+    |                                 ^^^^^^^^^^^^^^^^^ help: replace with clamp: `c.clamp(3, 250)`
+    |
+    = note: clamp will panic if max < min
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: manual `!Range::contains` implementation
+   --> planly_gateway/src/parse_agent.rs:578:20
+    |
+578 |     let is_night = hour >= 23 || hour < 7; // 23:00–07:00
+    |                    ^^^^^^^^^^^^^^^^^^^^^^ help: use: `!(7..23).contains(&hour)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_range_contains
+    = note: `#[warn(clippy::manual_range_contains)]` on by default
+
+warning: manual `RangeInclusive::contains` implementation
+   --> planly_gateway/src/parse_agent.rs:579:19
+    |
+579 |     let is_peak = hour >= 10 && hour <= 18;  // business hours
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^ help: use: `(10..=18).contains(&hour)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_range_contains
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/parse_agent.rs:723:36
+    |
+723 |                         let conc = (conc as usize).max(5).min(100);
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `(conc as usize).clamp(5, 100)`
+    |
+    = note: clamp will panic if max < min
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/parse_agent.rs:848:36
+    |
+848 |                         let conc = (conc as usize).max(5).min(100);
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `(conc as usize).clamp(5, 100)`
+    |
+    = note: clamp will panic if max < min
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> planly_gateway/src/main.rs:440:32
+    |
+440 |                 let has_hash = path.split('/').last()
+    |                                ^^^^^^^^^^^^^^^^------
+    |                                                |
+    |                                                help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+    = note: `#[warn(clippy::double_ended_iterator_last)]` on by default
+
+warning: unused import: `SignInError`
+ --> planly_telegram_proxy/src/main.rs:5:31
+  |
+5 | use grammers_client::{Client, SignInError};
+  |                               ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Serialize`
+  --> planly_telegram_proxy/src/main.rs:13:26
+   |
+13 | use serde::{Deserialize, Serialize};
+   |                          ^^^^^^^^^
+
+warning: unused import: `grammers_session::Session`
+ --> planly_telegram_proxy/src/main.rs:8:5
+  |
+8 | use grammers_session::Session;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
+   --> planly_telegram_proxy/src/main.rs:84:17
+    |
+ 84 | /                 match update {
+ 85 | |                     grammers_client::update::Update::NewMessage(message) => {
+ 86 | |                         let sender_name = match message.sender() {
+ 87 | |                             Some(peer) => peer.name().unwrap_or("Unknown").to_string(),
+...   |
+104 | |                     _ => {} // Ignore other updates for now
+105 | |                 }
+    | |_________________^
+    |
+    = note: you might want to preserve the comments from inside the `match`
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_match
+    = note: `#[warn(clippy::single_match)]` on by default
+help: try
+    |
+ 84 ~                 if let grammers_client::update::Update::NewMessage(message) = update {
+ 85 +                     let sender_name = match message.sender() {
+ 86 +                         Some(peer) => peer.name().unwrap_or("Unknown").to_string(),
+ 87 +                         None => "Unknown".to_string()
+ 88 +                     };
+ 89 +                     
+ 90 +                     let msg_json = serde_json::json!({
+ 91 +                         "type": "NewMessage",
+ 92 +                         "chat_id": message.peer_id().bot_api_dialog_id(),
+ 93 +                         "message": {
+ 94 +                             "id": message.id(),
+ 95 +                             "text": message.text(),
+ 96 +                             "sender_name": sender_name,
+ 97 +                             "date": message.date().to_rfc3339(),
+ 98 +                             "is_outgoing": message.outgoing()
+ 99 +                         }
+100 +                     });
+101 +                     let _ = tx_clone.send(msg_json.to_string());
+102 +                 }
+    |
+
+warning: use of `char::is_digit` with literal radix of 10
+   --> planly_telegram_proxy/src/main.rs:192:62
+    |
+192 |                 if s1.starts_with('+') || s1.chars().all(|c| c.is_digit(10)) {
+    |                                                              ^^^^^^^^^^^^^^ help: try: `c.is_ascii_digit()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#is_digit_ascii_radix
+    = note: `#[warn(clippy::is_digit_ascii_radix)]` on by default
+
+warning: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
+   --> planly_telegram_proxy/src/main.rs:658:21
+    |
+658 | /                     match user_enum {
+659 | |                         tl::enums::User::User(user) => {
+660 | |                             if user.bot || user.deleted { continue; }
+661 | |                             let has_photo = user.photo.is_some();
+...   |
+672 | |                         _ => {}
+673 | |                     }
+    | |_____________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_match
+help: try
+    |
+658 ~                     if let tl::enums::User::User(user) = user_enum {
+659 +                         if user.bot || user.deleted { continue; }
+660 +                         let has_photo = user.photo.is_some();
+661 +                         result.push(serde_json::json!({
+662 +                             "id": user.id,
+663 +                             "firstName": user.first_name.as_deref().unwrap_or(""),
+664 +                             "lastName": user.last_name.as_deref().unwrap_or(""),
+665 +                             "phone": user.phone.as_deref().unwrap_or(""),
+666 +                             "username": user.username.as_deref().unwrap_or(""),
+667 +                             "hasPhoto": has_photo,
+668 +                             "accessHash": user.access_hash.unwrap_or(0)
+669 +                         }));
+670 +                     }
+    |
+
+warning: unused import: `std::sync::Arc`
+  --> planly_parser/src/main.rs:13:5
+   |
+13 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `qdrant_url` is never read
+  --> planly_parser/src/main.rs:19:5
+   |
+18 | struct AppState {
+   |        -------- field in this struct
+19 |     qdrant_url: String,
+   |     ^^^^^^^^^^
+   |
+   = note: `AppState` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `AnalyticsResponse` is never constructed
+   --> planly_parser/src/models.rs:128:12
+    |
+128 | pub struct AnalyticsResponse {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `StoreStats` is never constructed
+   --> planly_parser/src/models.rs:135:12
+    |
+135 | pub struct StoreStats {
+    |            ^^^^^^^^^^
+
+warning: struct `PriceSegment` is never constructed
+   --> planly_parser/src/models.rs:142:12
+    |
+142 | pub struct PriceSegment {
+    |            ^^^^^^^^^^^^
+
+warning: struct `ParserStat` is never constructed
+   --> planly_parser/src/models.rs:150:12
+    |
+150 | pub struct ParserStat {
+    |            ^^^^^^^^^^
+
+warning: use of `or_insert` to construct default value
+   --> planly_parser/src/qdrant.rs:443:51
+    |
+443 |         let entry = totals.entry(r.store.clone()).or_insert(AnalyticsTotals::default());
+    |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_or_default
+    = note: `#[warn(clippy::unwrap_or_default)]` on by default
+
+warning: use of `or_insert_with` to construct default value
+   --> planly_parser/src/qdrant.rs:576:29
+    |
+576 |         name_map.entry(key).or_insert_with(Vec::new).push(p.clone());
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_or_default
+
+warning: this `if` statement can be collapsed
+   --> planly_parser/src/qdrant.rs:630:13
+    |
+630 | /             if !search_term.is_empty() {
+631 | |                 if !name.to_lowercase().contains(&search_term) && !base_sku.to_lowercase().contains(&search_term) {
+632 | |                     continue;
+633 | |                 }
+634 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+630 ~             if !search_term.is_empty()
+631 ~                 && !name.to_lowercase().contains(&search_term) && !base_sku.to_lowercase().contains(&search_term) {
+632 |                     continue;
+633 ~                 }
+    |
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+  --> planly_parser/src/main.rs:78:9
+   |
+78 |         &client, page, per_page,
+   |         ^^^^^^^ help: change this to: `client`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+   = note: `#[warn(clippy::needless_borrow)]` on by default
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+  --> planly_parser/src/main.rs:91:36
+   |
+91 |     let data = qdrant::get_product(&client, &sku).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+   |                                    ^^^^^^^ help: change this to: `client`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:112:36
+    |
+112 |     let data = qdrant::get_filters(&client).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    |                                    ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:130:40
+    |
+130 |     let data = qdrant::get_match_saved(&client).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    |                                        ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:150:29
+    |
+150 |     qdrant::set_match_label(&client, &payload.sku, &payload.store, payload.label.as_deref())
+    |                             ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:336:38
+    |
+336 |     let data = qdrant::get_analytics(&client).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    |                                      ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:353:34
+    |
+353 |     let data = qdrant::get_stats(&client).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    |                                  ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:405:9
+    |
+405 |         &client, 
+    |         ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+    Checking planly_core v0.1.0 (/home/agx/planlytasksko/planly_core)
+warning: `planly_gateway` (bin "planly_gateway") generated 136 warnings (run `cargo clippy --fix --bin "planly_gateway" -p planly_gateway` to apply 103 suggestions)
+warning: `planly_gateway` (bin "planly_gateway" test) generated 136 warnings (136 duplicates)
+warning: `planly_telegram_proxy` (bin "planly_telegram_proxy") generated 6 warnings (run `cargo clippy --fix --bin "planly_telegram_proxy" -p planly_telegram_proxy` to apply 4 suggestions)
+warning: `planly_parser` (bin "planly_parser" test) generated 17 warnings (run `cargo clippy --fix --bin "planly_parser" -p planly_parser --tests` to apply 12 suggestions)
+warning: `planly_telegram_proxy` (bin "planly_telegram_proxy" test) generated 6 warnings (6 duplicates)
+warning: `planly_parser` (bin "planly_parser") generated 17 warnings (17 duplicates)
+warning: unused import: `super::*`
+ --> planly_core/src/lib.rs:5:9
+  |
+5 |     use super::*;
+  |         ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0425]: cannot find function `add` in this scope
+ --> planly_core/src/lib.rs:9:22
+  |
+9 |         let result = add(2, 2);
+  |                      ^^^ not found in this scope
+  |
+help: use the `.` operator to call the method `std::ops::Add::add` on `{integer}`
+  |
+9 -         let result = add(2, 2);
+9 +         let result = 2.add(2);
+  |
+
+For more information about this error, try `rustc --explain E0425`.
+warning: `planly_core` (lib test) generated 1 warning
+error: could not compile `planly_core` (lib test) due to 1 previous error; 1 warning emitted
+warning: empty line after doc comment
+   --> planly_gateway/src/google.rs:153:1
+    |
+153 | / /// GET /api/google/contacts — fetch contacts using stored access token
+154 | |
+    | |_^
+155 |   async fn internal_refresh_token() -> bool {
+    |   ------------------------------- the comment documents this function
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#empty_line_after_doc_comments
+    = note: `#[warn(clippy::empty_line_after_doc_comments)]` on by default
+    = help: if the empty line is unintentional, remove it
+
+warning: unused import: `chrono::Datelike`
+  --> planly_gateway/src/lance.rs:14:5
+   |
+14 | use chrono::Datelike;
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `D`
+ --> planly_gateway/src/visual_embed.rs:6:42
+  |
+6 | use candle_core::{Device, Tensor, DType, D};
+  |                                          ^
+
+warning: unused import: `info`
+ --> planly_gateway/src/vlm_processor.rs:4:22
+  |
+4 | use tracing::{error, info};
+  |                      ^^^^
+
+warning: unused import: `Semaphore`
+  --> planly_gateway/src/akson_crawler.rs:14:26
+   |
+14 | use tokio::sync::{Mutex, Semaphore};
+   |                          ^^^^^^^^^
+
+warning: unused import: `get_parser_state`
+  --> planly_gateway/src/lemana_crawler.rs:19:41
+   |
+19 | use crate::lance::{update_parser_state, get_parser_state};
+   |                                         ^^^^^^^^^^^^^^^^
+
+warning: unused import: `reqwest::StatusCode`
+  --> planly_gateway/src/main.rs:40:5
+   |
+40 | use reqwest::StatusCode;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `HeaderMap`, `Message as WsMessage`, `Path`, `Query`, `State`, `WebSocket`, `header`, and `response::IntoResponse`
+  --> planly_gateway/src/main.rs:43:15
+   |
+43 |     extract::{Query, Path, State, WebSocketUpgrade, ws::{WebSocket, Message as WsMessage}},
+   |               ^^^^^  ^^^^  ^^^^^                         ^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+...
+46 |     response::IntoResponse,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+47 |     http::{header, HeaderMap},
+   |            ^^^^^^  ^^^^^^^^^
+
+warning: unused imports: `Engine` and `prelude::BASE64_STANDARD`
+  --> planly_gateway/src/main.rs:49:14
+   |
+49 | use base64::{prelude::BASE64_STANDARD, Engine};
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^
+
+warning: unused import: `grammers_tl_types as tl`
+  --> planly_gateway/src/main.rs:50:5
+   |
+50 | use grammers_tl_types as tl;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: this import is redundant
+  --> planly_gateway/src/main.rs:51:1
+   |
+51 | use ntlmclient;
+   | ^^^^^^^^^^^^^^^ help: remove it entirely
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_component_path_imports
+   = note: `#[warn(clippy::single_component_path_imports)]` on by default
+
+warning: unused import: `ntlmclient`
+  --> planly_gateway/src/main.rs:51:5
+   |
+51 | use ntlmclient;
+   |     ^^^^^^^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+  --> planly_gateway/src/main.rs:52:13
+   |
+52 | use serde::{Deserialize, Serialize};
+   |             ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `collections::HashMap`
+  --> planly_gateway/src/main.rs:54:5
+   |
+54 |     collections::HashMap,
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `oneshot`
+  --> planly_gateway/src/main.rs:58:32
+   |
+58 | use tokio::sync::{Mutex, mpsc, oneshot};
+   |                                ^^^^^^^
+
+warning: unused import: `futures::StreamExt`
+  --> planly_gateway/src/main.rs:64:5
+   |
+64 | use futures::StreamExt;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `cols`
+    --> planly_gateway/src/lance.rs:3826:17
+     |
+3826 |             let cols: Vec<(&str, Option<&StringArray>)> = vec![
+     |                 ^^^^ help: if this is intentional, prefix it with an underscore: `_cols`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `tg_name`
+    --> planly_gateway/src/google.rs:1287:21
+     |
+1287 |                 let tg_name = format!("{} {}",
+     |                     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_tg_name`
+
+warning: unused variable: `e`
+   --> planly_gateway/src/lance.rs:246:13
+    |
+246 | ...   Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "DB connection failed"}))).into_respons...
+    |           ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> planly_gateway/src/lance.rs:250:13
+    |
+250 |         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Table not found"}))).into_response(),
+    |             ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> planly_gateway/src/lance.rs:267:14
+    |
+267 |          Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Query failed"}))).into_response(),
+    |              ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `brand_col`
+   --> planly_gateway/src/lance.rs:987:21
+    |
+987 |                 let brand_col = batch.column_by_name("brand").and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    |                     ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_brand_col`
+
+warning: unused variable: `q`
+    --> planly_gateway/src/lance.rs:1060:45
+     |
+1060 | pub async fn handle_lance_match_saved(Query(q): Query<MatchSavedQuery>) -> impl IntoResponse {
+     |                                             ^ help: if this is intentional, prefix it with an underscore: `_q`
+
+warning: unused variable: `vf_col`
+    --> planly_gateway/src/lance.rs:1513:17
+     |
+1513 |             let vf_col = get_str("visual_features");
+     |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_vf_col`
+
+warning: unused variable: `ns_col`
+    --> planly_gateway/src/lance.rs:1514:17
+     |
+1514 |             let ns_col = get_str("normalized_specs");
+     |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_ns_col`
+
+warning: unused variable: `now`
+   --> planly_gateway/src/akson_crawler.rs:436:17
+    |
+436 |             let now = std::time::Instant::now();
+    |                 ^^^ help: if this is intentional, prefix it with an underscore: `_now`
+
+warning: unused variable: `n`
+   --> planly_gateway/src/akson_crawler.rs:398:17
+    |
+398 |             let n = batch.len();
+    |                 ^ help: if this is intentional, prefix it with an underscore: `_n`
+
+warning: unused variable: `n_cities`
+   --> planly_gateway/src/akson_crawler.rs:316:9
+    |
+316 |     let n_cities = city_stores.len();
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_n_cities`
+
+warning: unused variable: `perf_last_adjust`
+   --> planly_gateway/src/akson_crawler.rs:369:9
+    |
+369 |     let perf_last_adjust = Arc::new(AtomicU64::new(0)); // for cooldown
+    |         ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_perf_last_adjust`
+
+warning: unused variable: `monitor_handle`
+   --> planly_gateway/src/akson_crawler.rs:424:9
+    |
+424 |     let monitor_handle = tokio::spawn(async move {
+    |         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_monitor_handle`
+
+warning: unused variable: `price_only_count`
+   --> planly_gateway/src/lance_writer.rs:190:9
+    |
+190 |     let price_only_count = count - content_products.len();
+    |         ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_price_only_count`
+
+warning: unused variable: `now_fn`
+   --> planly_gateway/src/lemana_crawler.rs:471:9
+    |
+471 |     let now_fn = || chrono::Local::now().format("%H:%M:%S").to_string();
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_now_fn`
+
+warning: unused variable: `cat_path`
+   --> planly_gateway/src/lemana_crawler.rs:524:14
+    |
+524 |         for (cat_path, cat_name) in &search_tasks {
+    |              ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_cat_path`
+
+warning: unused variable: `progress_msg`
+   --> planly_gateway/src/lemana_crawler.rs:576:21
+    |
+576 |                 let progress_msg = format!("{}/{} ({:.0} prod/s)", done, sku_list.len(), rate);
+    |                     ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_progress_msg`
+
+warning: unused variable: `store_id`
+    --> planly_gateway/src/akson_crawler.rs:1113:50
+     |
+1113 | fn normalize_full(item: &Value, city_name: &str, store_id: i64, region_id: i64, now_ts: &str) -> Value {
+     |                                                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_store_id`
+
+warning: unused variable: `store_id`
+    --> planly_gateway/src/akson_crawler.rs:1222:56
+     |
+1222 | fn normalize_price_only(item: &Value, city_name: &str, store_id: i64, region_id: i64, now_ts: &str) -> Value {
+     |                                                        ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_store_id`
+
+warning: unused variable: `start`
+   --> planly_gateway/src/lemana_crawler.rs:232:9
+    |
+232 |     let start = std::time::Instant::now();
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_start`
+
+warning: unused variable: `t0`
+   --> planly_gateway/src/main.rs:215:17
+    |
+215 |             let t0 = std::time::Instant::now();
+    |                 ^^ help: if this is intentional, prefix it with an underscore: `_t0`
+
+warning: unused variable: `api_hash`
+   --> planly_gateway/src/main.rs:173:9
+    |
+173 |     let api_hash = std::env::var("API_HASH").unwrap_or_else(|_| "344583e45741c457fe1862106095a5eb".to_string());
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_api_hash`
+
+warning: field `reactive` is never read
+   --> planly_gateway/src/main.rs:142:5
+    |
+135 | struct AppState {
+    |        -------- field in this struct
+...
+142 |     reactive: std::sync::Arc<reactive::ReactiveState>,
+    |     ^^^^^^^^
+    |
+    = note: `AppState` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `SLOW_THRESHOLD_MS` is never used
+  --> planly_gateway/src/adaptive_throttle.rs:28:7
+   |
+28 | const SLOW_THRESHOLD_MS: u64 = 15_000;
+   |       ^^^^^^^^^^^^^^^^^
+
+warning: constant `BATCH_SIZE` is never used
+  --> planly_gateway/src/akson_crawler.rs:27:7
+   |
+27 | const BATCH_SIZE: usize = 4000;
+   |       ^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/akson_crawler.rs:29:7
+   |
+29 | const MAX_CONCURRENT: usize = 120;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `EMPTY_CATS_CACHE` is never used
+  --> planly_gateway/src/akson_crawler.rs:33:7
+   |
+33 | const EMPTY_CATS_CACHE: &str = "/home/agx/lance_data/akson_empty_cats.json";
+   |       ^^^^^^^^^^^^^^^^
+
+warning: function `load_proxy_pool` is never used
+    --> planly_gateway/src/akson_crawler.rs:1452:4
+     |
+1452 | fn load_proxy_pool() -> Vec<String> {
+     |    ^^^^^^^^^^^^^^^
+
+warning: function `load_empty_cats_cache` is never used
+    --> planly_gateway/src/akson_crawler.rs:1526:4
+     |
+1526 | fn load_empty_cats_cache() -> HashSet<String> {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `save_empty_cats_cache` is never used
+    --> planly_gateway/src/akson_crawler.rs:1546:4
+     |
+1546 | fn save_empty_cats_cache(empty_cats: &HashSet<String>) {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/glavsnab_crawler.rs:20:7
+   |
+20 | const MAX_CONCURRENT: usize = 25;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `BATCH_SIZE` is never used
+  --> planly_gateway/src/lemana_crawler.rs:27:7
+   |
+27 | const BATCH_SIZE: usize = 2000;
+   |       ^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/lemana_crawler.rs:28:7
+   |
+28 | const MAX_CONCURRENT: usize = 50;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/stroylandia_crawler.rs:24:7
+   |
+24 | const MAX_CONCURRENT: usize = 50;
+   |       ^^^^^^^^^^^^^^
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+  --> planly_gateway/src/auth.rs:66:37
+   |
+66 |             let token = build_token(&acct.username);
+   |                                     ^^^^^^^^^^^^^^ help: change this to: `acct.username`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+   = note: `#[warn(clippy::needless_borrow)]` on by default
+
+warning: deref which would be done by auto-deref
+  --> planly_gateway/src/google.rs:98:33
+   |
+98 |             save_google_session(&*store);
+   |                                 ^^^^^^^ help: try: `&store`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_auto_deref
+   = note: `#[warn(clippy::explicit_auto_deref)]` on by default
+
+warning: deref which would be done by auto-deref
+   --> planly_gateway/src/google.rs:134:25
+    |
+134 |     save_google_session(&*store);
+    |                         ^^^^^^^ help: try: `&store`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_auto_deref
+
+warning: deref which would be done by auto-deref
+   --> planly_gateway/src/google.rs:194:41
+    |
+194 |                     save_google_session(&*store);
+    |                                         ^^^^^^^ help: try: `&store`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_auto_deref
+
+warning: this `if` has identical blocks
+    --> planly_gateway/src/google.rs:1063:59
+     |
+1063 |       } else if clean.starts_with('7') && clean.len() == 11 {
+     |  ___________________________________________________________^
+1064 | |         format!("+{}", clean)
+1065 | |     } else if !clean.starts_with('+') && clean.len() >= 10 {
+     | |_____^
+     |
+note: same as this
+    --> planly_gateway/src/google.rs:1065:60
+     |
+1065 |       } else if !clean.starts_with('+') && clean.len() >= 10 {
+     |  ____________________________________________________________^
+1066 | |         format!("+{}", clean)
+1067 | |     } else {
+     | |_____^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#if_same_then_else
+     = note: `#[warn(clippy::if_same_then_else)]` on by default
+
+warning: manually reimplementing `div_ceil`
+   --> planly_gateway/src/lance.rs:226:49
+    |
+226 |     let pages = if total_rows == 0 { 1 } else { (total_rows + per_page - 1) / per_page };
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `.div_ceil()`: `total_rows.div_ceil(per_page)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_div_ceil
+    = note: `#[warn(clippy::manual_div_ceil)]` on by default
+
+warning: consider using `sort_by_key`
+   --> planly_gateway/src/lance.rs:613:5
+    |
+613 |     data.sort_by(|a, b| jstr(a, "department").cmp(&jstr(b, "department")));
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `data.sort_by_key(|a| jstr(a, "department"))`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_sort_by
+    = note: `#[warn(clippy::unnecessary_sort_by)]` on by default
+
+warning: this manual char comparison can be written more succinctly
+   --> planly_gateway/src/lance.rs:778:52
+    |
+778 |                     let parts: Vec<&str> = s.split(|c| c == ' ' || c == 'T').collect();
+    |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using an array of `char`: `[' ', 'T']`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_pattern_char_comparison
+    = note: `#[warn(clippy::manual_pattern_char_comparison)]` on by default
+
+warning: you seem to want to iterate on a map's values
+   --> planly_gateway/src/lance.rs:914:26
+    |
+914 |     for (_key, group) in &name_map {
+    |                          ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#for_kv_map
+    = note: `#[warn(clippy::for_kv_map)]` on by default
+help: use the corresponding method
+    |
+914 -     for (_key, group) in &name_map {
+914 +     for group in name_map.values() {
+    |
+
+warning: redundant closure
+    --> planly_gateway/src/lance.rs:1067:47
+     |
+1067 |     let enrich_map = ENRICH_CACHE.get_or_init(|| load_enrichment()).await;
+     |                                               ^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_enrichment`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+     = note: `#[warn(clippy::redundant_closure)]` on by default
+
+warning: redundant closure
+    --> planly_gateway/src/lance.rs:1194:47
+     |
+1194 |     let enrich_map = ENRICH_CACHE.get_or_init(|| load_enrichment()).await;
+     |                                               ^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_enrichment`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+    --> planly_gateway/src/lance.rs:1362:24
+     |
+1362 |             move || -> Option<(Vec<(String, String)>, Vec<(String, String)>)> {
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+     = note: `#[warn(clippy::type_complexity)]` on by default
+
+warning: use of `or_insert_with` to construct default value
+    --> planly_gateway/src/lance.rs:2198:49
+     |
+2198 |         let state = map.entry(name.to_string()).or_insert_with(ParserState::default);
+     |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_or_default
+     = note: `#[warn(clippy::unwrap_or_default)]` on by default
+
+warning: length comparison to zero
+    --> planly_gateway/src/lance.rs:4117:12
+     |
+4117 |         if p.get("match_judge").and_then(|v| v.as_str()).unwrap_or("").len() > 0 { continue; }
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: using `!is_empty` is clearer and more explicit: `!p.get("match_judge").and_then(|v| v.as_str()).unwrap_or("").is_empty()`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#len_zero
+     = note: `#[warn(clippy::len_zero)]` on by default
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:172:29
+    |
+172 |             HTTP_CLIENT.get(&format!("{}/api/tags", config.url))
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/api/tags", config.url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+    = note: `#[warn(clippy::needless_borrows_for_generic_args)]` on by default
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:176:29
+    |
+176 |             HTTP_CLIENT.get(&format!("{}/v1/models", config.url))
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/v1/models", config.url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:202:33
+    |
+202 |     let resp = HTTP_CLIENT.post(&format!("{}/api/generate", base_url))
+    |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/api/generate", base_url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:220:28
+    |
+220 |     match HTTP_CLIENT.post(&format!("{}/api/embeddings", base_url))
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/api/embeddings", base_url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:251:33
+    |
+251 |     let resp = HTTP_CLIENT.post(&format!("{}/v1/chat/completions", base_url))
+    |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/v1/chat/completions", base_url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the borrowed expression implements the required traits
+   --> planly_gateway/src/vllm_client.rs:277:28
+    |
+277 |     match HTTP_CLIENT.post(&format!("{}/v1/embeddings", base_url))
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `format!("{}/v1/embeddings", base_url)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrows_for_generic_args
+
+warning: the loop variable `d` is used to index `q_norm`
+   --> planly_gateway/src/reactive.rs:384:22
+    |
+384 |             for d in 0..self.dim {
+    |                      ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_range_loop
+    = note: `#[warn(clippy::needless_range_loop)]` on by default
+help: consider using an iterator and enumerate()
+    |
+384 -             for d in 0..self.dim {
+384 +             for (d, <item>) in q_norm.iter().enumerate().take(self.dim) {
+    |
+
+warning: redundant closure
+   --> planly_gateway/src/reactive.rs:676:44
+    |
+676 |     let matrix = VECTOR_MATRIX.get_or_init(|| load_vector_matrix()).await;
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_vector_matrix`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: casting to the same type is unnecessary (`f64` -> `f64`)
+   --> planly_gateway/src/reactive.rs:695:23
+    |
+695 |     let query_price = matrix.prices[idx] as f64;
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `matrix.prices[idx]`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+    = note: `#[warn(clippy::unnecessary_cast)]` on by default
+
+warning: casting to the same type is unnecessary (`f64` -> `f64`)
+   --> planly_gateway/src/reactive.rs:697:51
+    |
+697 |         let p_sim = price_similarity(query_price, matrix.prices[i] as f64);
+    |                                                   ^^^^^^^^^^^^^^^^^^^^^^^ help: try: `matrix.prices[i]`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: redundant closure
+   --> planly_gateway/src/reactive.rs:755:44
+    |
+755 |     let matrix = VECTOR_MATRIX.get_or_init(|| load_vector_matrix()).await;
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_vector_matrix`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: redundant closure
+   --> planly_gateway/src/reactive.rs:779:44
+    |
+779 |     let matrix = VECTOR_MATRIX.get_or_init(|| load_vector_matrix()).await;
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_vector_matrix`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/reactive.rs:885:5
+    |
+885 |     (ratio as f32).max(0.0).min(1.0)
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `(ratio as f32).clamp(0.0, 1.0)`
+    |
+    = note: clamp will panic if max < min, min.is_nan(), or max.is_nan()
+    = note: clamp returns NaN if the input is NaN
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+    = note: `#[warn(clippy::manual_clamp)]` on by default
+
+warning: redundant closure
+    --> planly_gateway/src/reactive.rs:1060:44
+     |
+1060 |     let matrix = VECTOR_MATRIX.get_or_init(|| load_vector_matrix()).await;
+     |                                            ^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `load_vector_matrix`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: casting to the same type is unnecessary (`f64` -> `f64`)
+    --> planly_gateway/src/reactive.rs:1062:19
+     |
+1062 |         .map(|&i| matrix.prices[i] as f64).unwrap_or(0.0);
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^ help: try: `matrix.prices[i]`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: casting to the same type is unnecessary (`f64` -> `f64`)
+    --> planly_gateway/src/reactive.rs:1084:35
+     |
+1084 |                 let match_price = matrix.prices.get(idx).copied().unwrap_or(0.0) as f64;
+     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `matrix.prices.get(idx).copied().unwrap_or(0.0)`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: `to_string` applied to a type that implements `Display` in `writeln!` args
+    --> planly_gateway/src/reactive.rs:1261:50
+     |
+1261 |         .and_then(|mut f| writeln!(f, "{}", entry.to_string()));
+     |                                                  ^^^^^^^^^^^^ help: remove this
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#to_string_in_format_args
+     = note: `#[warn(clippy::to_string_in_format_args)]` on by default
+
+warning: deref which would be done by auto-deref
+   --> planly_gateway/src/mail.rs:305:31
+    |
+305 |             save_mail_session(&*st);
+    |                               ^^^^ help: try: `&st`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#explicit_auto_deref
+
+warning: compiling a regex in a loop
+   --> planly_gateway/src/mail.rs:419:34
+    |
+419 |                         let re = regex::Regex::new(r#"<img[^>]+src=["']([^"']+)["']"#).unwrap();
+    |                                  ^^^^^^^^^^^^^^^^^
+    |
+help: move the regex construction outside this loop
+   --> planly_gateway/src/mail.rs:332:5
+    |
+332 |     loop {
+    |     ^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#regex_creation_in_loops
+    = note: `#[warn(clippy::regex_creation_in_loops)]` on by default
+
+warning: compiling a regex in a loop
+   --> planly_gateway/src/mail.rs:674:34
+    |
+674 |                     let att_id = regex::Regex::new(r#"<t:AttachmentId Id="([^"]+)""#).unwrap()
+    |                                  ^^^^^^^^^^^^^^^^^
+    |
+help: move the regex construction outside this loop
+   --> planly_gateway/src/mail.rs:671:17
+    |
+671 |                 for (i, cap) in block_re.captures_iter(&res).enumerate() {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#regex_creation_in_loops
+
+warning: compiling a regex in a loop
+   --> planly_gateway/src/mail.rs:676:38
+    |
+676 |                     let content_id = regex::Regex::new(r#"<t:ContentId>([^<]+)</t:ContentId>"#).unwrap()
+    |                                      ^^^^^^^^^^^^^^^^^
+    |
+help: move the regex construction outside this loop
+   --> planly_gateway/src/mail.rs:671:17
+    |
+671 |                 for (i, cap) in block_re.captures_iter(&res).enumerate() {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#regex_creation_in_loops
+
+warning: compiling a regex in a loop
+   --> planly_gateway/src/mail.rs:678:32
+    |
+678 |                     let name = regex::Regex::new(r#"<t:Name>([^<]+)</t:Name>"#).unwrap()
+    |                                ^^^^^^^^^^^^^^^^^
+    |
+help: move the regex construction outside this loop
+   --> planly_gateway/src/mail.rs:671:17
+    |
+671 |                 for (i, cap) in block_re.captures_iter(&res).enumerate() {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#regex_creation_in_loops
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:757:92
+    |
+757 | ...                   "mark_read" => success = client_for_actor.mark_as_read(chat_ref.clone()).await.is_ok(),
+    |                                                                              ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+    = note: `#[warn(clippy::clone_on_copy)]` on by default
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:758:90
+    |
+758 | ...                   "delete" => success = client_for_actor.delete_dialog(chat_ref.clone()).await.is_ok(),
+    |                                                                            ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:872:79
+    |
+872 | ...                   let mut msgs_req = client_for_actor.iter_messages(chat_ref.clone());
+    |                                                                         ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:953:65
+    |
+953 | ...                   match client_for_actor.send_message(chat_ref.clone(), input_msg).await {
+    |                                                           ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+   --> planly_gateway/src/telegram.rs:992:65
+    |
+992 | ...                   match client_for_actor.edit_message(chat_ref.clone(), message_id, input_msg).await {
+    |                                                           ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1021:68
+     |
+1021 | ...                   match client_for_actor.delete_messages(chat_ref.clone(), &message_ids).await {
+     |                                                              ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1054:73
+     |
+1054 | ...                   match client_for_actor.forward_messages(dr.clone(), &message_ids, sr.clone()).await {
+     |                                                               ^^^^^^^^^^ help: try removing the `clone` call: `dr`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1054:99
+     |
+1054 | ...                   match client_for_actor.forward_messages(dr.clone(), &message_ids, sr.clone()).await {
+     |                                                                                         ^^^^^^^^^^ help: try removing the `clone` call: `sr`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1199:87
+     |
+1199 | ...                   if let Ok(msgs) = client_for_actor.get_messages_by_id(chat_ref.clone(), &[msg_id]).await {
+     |                                                                             ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: using `clone` on type `PeerRef` which implements the `Copy` trait
+    --> planly_gateway/src/telegram.rs:1263:87
+     |
+1263 | ...                   if let Ok(msgs) = client_for_actor.get_messages_by_id(chat_ref.clone(), &[msg_id]).await {
+     |                                                                             ^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `chat_ref`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+  --> planly_gateway/src/lance_writer.rs:22:24
+   |
+22 | static PRICE_SNAPSHOT: std::sync::LazyLock<Mutex<HashMap<String, (f64, i64, String)>>> =
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#type_complexity
+
+warning: doc list item without indentation
+   --> planly_gateway/src/lance_writer.rs:162:5
+    |
+162 | /// This cleanly separates content from commercial data.
+    |     ^
+    |
+    = help: if this is supposed to be its own paragraph, add a blank line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_lazy_continuation
+    = note: `#[warn(clippy::doc_lazy_continuation)]` on by default
+help: indent this line
+    |
+162 | ///    This cleanly separates content from commercial data.
+    |     +++
+
+warning: manual arithmetic check found
+   --> planly_gateway/src/lance_writer.rs:394:19
+    |
+394 |     let deleted = if before > after { before - after } else { 0 };
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace it with: `before.saturating_sub(after)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#implicit_saturating_sub
+    = note: `#[warn(clippy::implicit_saturating_sub)]` on by default
+
+warning: you seem to be trying to move all elements into a new `Vec`
+   --> planly_gateway/src/crawler.rs:322:64
+    |
+322 |                     match crate::lance_writer::upsert_products(batch.drain(..).collect()).await {
+    |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `mem::take`: `std::mem::take(&mut batch)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#drain_collect
+    = note: `#[warn(clippy::drain_collect)]` on by default
+
+warning: you seem to be trying to move all elements into a new `Vec`
+   --> planly_gateway/src/crawler.rs:336:56
+    |
+336 |             match crate::lance_writer::upsert_products(batch.drain(..).collect()).await {
+    |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `mem::take`: `std::mem::take(&mut batch)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#drain_collect
+
+warning: clamp-like pattern without using clamp function
+  --> planly_gateway/src/adaptive_throttle.rs:83:21
+   |
+83 |         let level = base_level.max(MIN_CONCURRENT).min(MAX_CEILING);
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `base_level.clamp(MIN_CONCURRENT, MAX_CEILING)`
+   |
+   = note: clamp will panic if max < min
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
+   --> planly_gateway/src/adaptive_throttle.rs:239:21
+    |
+239 | /                     match sem_c.acquire().await {
+240 | |                         Ok(permit) => {
+241 | |                             let mut d = deficit_c.lock().unwrap();
+242 | |                             if *d > 0 {
+...   |
+250 | |                         Err(_) => {}
+251 | |                     }
+    | |_____________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_match
+    = note: `#[warn(clippy::single_match)]` on by default
+help: try
+    |
+239 ~                     if let Ok(permit) = sem_c.acquire().await {
+240 +                         let mut d = deficit_c.lock().unwrap();
+241 +                         if *d > 0 {
+242 +                             *d -= 1;
+243 +                             permit.forget();
+244 +                         } else {
+245 +                             // Deficit was cleared by scale-up in the meantime
+246 +                             drop(permit);
+247 +                         }
+248 +                     }
+    |
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/adaptive_throttle.rs:263:19
+    |
+263 |         let new = new_level.max(MIN_CONCURRENT).min(MAX_CEILING);
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `new_level.clamp(MIN_CONCURRENT, MAX_CEILING)`
+    |
+    = note: clamp will panic if max < min
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:403:24
+    |
+403 |                     if rand_u32() % 8 == 0 {
+    |                        ^^^^^^^^^^^^^^^^^^^ help: replace with: `rand_u32().is_multiple_of(8)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+    = note: `#[warn(clippy::manual_is_multiple_of)]` on by default
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:531:12
+    |
+531 |         if tasks_launched % 500 == 0 && tasks_launched > 0 {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with: `tasks_launched.is_multiple_of(500)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: redundant redefinition of a binding `prices_only`
+   --> planly_gateway/src/akson_crawler.rs:568:13
+    |
+568 |             let prices_only = prices_only;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: `prices_only` is initially defined here
+   --> planly_gateway/src/akson_crawler.rs:248:9
+    |
+248 |     let prices_only = mode == "prices_only";
+    |         ^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_locals
+    = note: `#[warn(clippy::redundant_locals)]` on by default
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:596:28
+    |
+596 |                         if rand_u32() % 500 == 0 {
+    |                            ^^^^^^^^^^^^^^^^^^^^^ help: replace with: `rand_u32().is_multiple_of(500)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: casting to the same type is unnecessary (`u64` -> `u64`)
+   --> planly_gateway/src/akson_crawler.rs:608:46
+    |
+608 |                         perf_lat_w.fetch_add(latency as u64, Ordering::Relaxed);
+    |                                              ^^^^^^^^^^^^^^ help: try: `latency`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:667:12
+    |
+667 |         if tasks_done % 20 == 0 || tasks_done == total_tasks {
+    |            ^^^^^^^^^^^^^^^^^^^^ help: replace with: `tasks_done.is_multiple_of(20)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: this function has too many arguments (9/7)
+   --> planly_gateway/src/akson_crawler.rs:805:1
+    |
+805 | / async fn fetch_category_v2(
+806 | |     pool: &ProxyPool,
+807 | |     store_id: i64,
+808 | |     region_id: i64,
+...   |
+814 | |     known_skus: &HashSet<String>,
+815 | | ) -> Result<Vec<Value>, String> {
+    | |_______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+    = note: `#[warn(clippy::too_many_arguments)]` on by default
+
+warning: unnecessary `if let` since only the `Ok` variant of the iterator element is used
+   --> planly_gateway/src/akson_crawler.rs:862:13
+    |
+862 | /             for result in results {
+863 | |                 if let Ok((more_items, _)) = result {
+864 | |                     all_items.extend(more_items);
+865 | |                 }
+866 | |             }
+    | |_____________^
+    |
+help: try `.flatten()` and remove the `if let` statement in the for loop
+   --> planly_gateway/src/akson_crawler.rs:863:17
+    |
+863 | /                 if let Ok((more_items, _)) = result {
+864 | |                     all_items.extend(more_items);
+865 | |                 }
+    | |_________________^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_flatten
+    = note: `#[warn(clippy::manual_flatten)]` on by default
+help: try
+    |
+862 ~             for (more_items, _) in results.into_iter().flatten() {
+863 +                 all_items.extend(more_items);
+864 +             }
+    |
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/akson_crawler.rs:895:30
+    |
+895 |     if !output.is_empty() && rand_u32() % 100 == 0 {
+    |                              ^^^^^^^^^^^^^^^^^^^^^ help: replace with: `rand_u32().is_multiple_of(100)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: redundant closure
+    --> planly_gateway/src/akson_crawler.rs:1422:26
+     |
+1422 |                     .map(|v| value_to_string(v))
+     |                          ^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `&value_to_string`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: casting to the same type is unnecessary (`u32` -> `u32`)
+    --> planly_gateway/src/akson_crawler.rs:1521:5
+     |
+1521 |     (t.subsec_nanos() ^ (t.as_secs() as u32)) as u32
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `(t.subsec_nanos() ^ (t.as_secs() as u32))`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_gateway/src/glavsnab_crawler.rs:126:36
+    |
+126 |     let cat_map = fetch_categories(&client).await?;
+    |                                    ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: redundant redefinition of a binding `prices_only`
+   --> planly_gateway/src/glavsnab_crawler.rs:217:13
+    |
+217 |             let prices_only = prices_only;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: `prices_only` is initially defined here
+   --> planly_gateway/src/glavsnab_crawler.rs:53:9
+    |
+ 53 |     let prices_only = mode == "prices_only";
+    |         ^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_locals
+
+warning: you seem to be trying to move all elements into a new `Vec`
+   --> planly_gateway/src/glavsnab_crawler.rs:280:40
+    |
+280 |             let to_write: Vec<Value> = batch.drain(..).collect();
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `mem::take`: `std::mem::take(&mut batch)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#drain_collect
+
+warning: you seem to be trying to move all elements into a new `Vec`
+   --> planly_gateway/src/glavsnab_crawler.rs:323:36
+    |
+323 |         let to_write: Vec<Value> = batch.drain(..).collect();
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `mem::take`: `std::mem::take(&mut batch)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#drain_collect
+
+warning: this function has too many arguments (12/7)
+   --> planly_gateway/src/glavsnab_crawler.rs:465:1
+    |
+465 | / async fn fetch_page_products(
+466 | |     relay_client: &reqwest::Client,
+467 | |     direct_client: &reqwest::Client,
+468 | |     use_relay: &std::sync::Arc<std::sync::atomic::AtomicBool>,
+...   |
+477 | |     cat_map: &HashMap<i64, Value>,
+478 | | ) -> Result<Vec<Value>, String> {
+    | |_______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#too_many_arguments
+
+warning: redundant closure
+   --> planly_gateway/src/glavsnab_crawler.rs:639:19
+    |
+639 |         .and_then(|img| extract_file_id(img))
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `&extract_file_id`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: redundant closure
+   --> planly_gateway/src/glavsnab_crawler.rs:644:25
+    |
+644 |             .filter_map(|img| extract_file_id(img))
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the function itself: `extract_file_id`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+warning: useless use of `format!`
+   --> planly_gateway/src/lemana_crawler.rs:162:13
+    |
+162 |         Err(format!("WAF 403"))
+    |             ^^^^^^^^^^^^^^^^^^ help: consider using `.to_string()`: `"WAF 403".to_string()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#useless_format
+    = note: `#[warn(clippy::useless_format)]` on by default
+
+warning: called `iter().cloned().collect()` on a slice to create a `Vec`. Calling `to_vec()` is both faster and more readable
+   --> planly_gateway/src/lemana_crawler.rs:520:46
+    |
+520 |         let search_tasks: Vec<_> = categories.iter().cloned().collect();
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `.to_vec()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#iter_cloned_collect
+    = note: `#[warn(clippy::iter_cloned_collect)]` on by default
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/lemana_crawler.rs:566:16
+    |
+566 |             if done % 200 == 0 {
+    |                ^^^^^^^^^^^^^^^ help: replace with: `done.is_multiple_of(200)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: useless use of `format!`
+  --> planly_gateway/src/stroylandia_crawler.rs:82:17
+   |
+82 |             Err(format!("API returned response=false"))
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `.to_string()`: `"API returned response=false".to_string()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#useless_format
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/stroylandia_crawler.rs:555:20
+    |
+555 |                 if done % 50 == 0 || done == total_cats {
+    |                    ^^^^^^^^^^^^^^ help: replace with: `done.is_multiple_of(50)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: manual implementation of `.is_multiple_of()`
+   --> planly_gateway/src/parse_agent.rs:386:31
+    |
+386 |     let history_snapshot = if evals % 5 == 0 && evals > 0 {
+    |                               ^^^^^^^^^^^^^^ help: replace with: `evals.is_multiple_of(5)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_is_multiple_of
+
+warning: use of `or_insert_with` to construct default value
+   --> planly_gateway/src/parse_agent.rs:493:58
+    |
+493 |     let config = agent.configs.entry(parser.to_string()).or_insert_with(AgentConfig::default);
+    |                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_or_default
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/parse_agent.rs:495:33
+    |
+495 |         config.max_concurrent = c.max(3).min(250);
+    |                                 ^^^^^^^^^^^^^^^^^ help: replace with clamp: `c.clamp(3, 250)`
+    |
+    = note: clamp will panic if max < min
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: manual `!Range::contains` implementation
+   --> planly_gateway/src/parse_agent.rs:578:20
+    |
+578 |     let is_night = hour >= 23 || hour < 7; // 23:00–07:00
+    |                    ^^^^^^^^^^^^^^^^^^^^^^ help: use: `!(7..23).contains(&hour)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_range_contains
+    = note: `#[warn(clippy::manual_range_contains)]` on by default
+
+warning: manual `RangeInclusive::contains` implementation
+   --> planly_gateway/src/parse_agent.rs:579:19
+    |
+579 |     let is_peak = hour >= 10 && hour <= 18;  // business hours
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^ help: use: `(10..=18).contains(&hour)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_range_contains
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/parse_agent.rs:723:36
+    |
+723 |                         let conc = (conc as usize).max(5).min(100);
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `(conc as usize).clamp(5, 100)`
+    |
+    = note: clamp will panic if max < min
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: clamp-like pattern without using clamp function
+   --> planly_gateway/src/parse_agent.rs:848:36
+    |
+848 |                         let conc = (conc as usize).max(5).min(100);
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with clamp: `(conc as usize).clamp(5, 100)`
+    |
+    = note: clamp will panic if max < min
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#manual_clamp
+
+warning: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+   --> planly_gateway/src/main.rs:440:32
+    |
+440 |                 let has_hash = path.split('/').last()
+    |                                ^^^^^^^^^^^^^^^^------
+    |                                                |
+    |                                                help: try: `next_back()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#double_ended_iterator_last
+    = note: `#[warn(clippy::double_ended_iterator_last)]` on by default
+
+warning: unused import: `std::sync::Arc`
+  --> planly_parser/src/main.rs:13:5
+   |
+13 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `qdrant_url` is never read
+  --> planly_parser/src/main.rs:19:5
+   |
+18 | struct AppState {
+   |        -------- field in this struct
+19 |     qdrant_url: String,
+   |     ^^^^^^^^^^
+   |
+   = note: `AppState` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `AnalyticsResponse` is never constructed
+   --> planly_parser/src/models.rs:128:12
+    |
+128 | pub struct AnalyticsResponse {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `StoreStats` is never constructed
+   --> planly_parser/src/models.rs:135:12
+    |
+135 | pub struct StoreStats {
+    |            ^^^^^^^^^^
+
+warning: struct `PriceSegment` is never constructed
+   --> planly_parser/src/models.rs:142:12
+    |
+142 | pub struct PriceSegment {
+    |            ^^^^^^^^^^^^
+
+warning: struct `ParserStat` is never constructed
+   --> planly_parser/src/models.rs:150:12
+    |
+150 | pub struct ParserStat {
+    |            ^^^^^^^^^^
+
+warning: use of `or_insert` to construct default value
+   --> planly_parser/src/qdrant.rs:443:51
+    |
+443 |         let entry = totals.entry(r.store.clone()).or_insert(AnalyticsTotals::default());
+    |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_or_default
+    = note: `#[warn(clippy::unwrap_or_default)]` on by default
+
+warning: use of `or_insert_with` to construct default value
+   --> planly_parser/src/qdrant.rs:576:29
+    |
+576 |         name_map.entry(key).or_insert_with(Vec::new).push(p.clone());
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_or_default
+
+warning: this `if` statement can be collapsed
+   --> planly_parser/src/qdrant.rs:630:13
+    |
+630 | /             if !search_term.is_empty() {
+631 | |                 if !name.to_lowercase().contains(&search_term) && !base_sku.to_lowercase().contains(&search_term) {
+632 | |                     continue;
+633 | |                 }
+634 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+630 ~             if !search_term.is_empty()
+631 ~                 && !name.to_lowercase().contains(&search_term) && !base_sku.to_lowercase().contains(&search_term) {
+632 |                     continue;
+633 ~                 }
+    |
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+  --> planly_parser/src/main.rs:78:9
+   |
+78 |         &client, page, per_page,
+   |         ^^^^^^^ help: change this to: `client`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+   = note: `#[warn(clippy::needless_borrow)]` on by default
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+  --> planly_parser/src/main.rs:91:36
+   |
+91 |     let data = qdrant::get_product(&client, &sku).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+   |                                    ^^^^^^^ help: change this to: `client`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:112:36
+    |
+112 |     let data = qdrant::get_filters(&client).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    |                                    ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:130:40
+    |
+130 |     let data = qdrant::get_match_saved(&client).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    |                                        ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:150:29
+    |
+150 |     qdrant::set_match_label(&client, &payload.sku, &payload.store, payload.label.as_deref())
+    |                             ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:336:38
+    |
+336 |     let data = qdrant::get_analytics(&client).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    |                                      ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:353:34
+    |
+353 |     let data = qdrant::get_stats(&client).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    |                                  ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> planly_parser/src/main.rs:405:9
+    |
+405 |         &client, 
+    |         ^^^^^^^ help: change this to: `client`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#needless_borrow
+
+warning: unused import: `SignInError`
+ --> planly_telegram_proxy/src/main.rs:5:31
+  |
+5 | use grammers_client::{Client, SignInError};
+  |                               ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Serialize`
+  --> planly_telegram_proxy/src/main.rs:13:26
+   |
+13 | use serde::{Deserialize, Serialize};
+   |                          ^^^^^^^^^
+
+warning: unused import: `grammers_session::Session`
+ --> planly_telegram_proxy/src/main.rs:8:5
+  |
+8 | use grammers_session::Session;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
+   --> planly_telegram_proxy/src/main.rs:84:17
+    |
+ 84 | /                 match update {
+ 85 | |                     grammers_client::update::Update::NewMessage(message) => {
+ 86 | |                         let sender_name = match message.sender() {
+ 87 | |                             Some(peer) => peer.name().unwrap_or("Unknown").to_string(),
+...   |
+104 | |                     _ => {} // Ignore other updates for now
+105 | |                 }
+    | |_________________^
+    |
+    = note: you might want to preserve the comments from inside the `match`
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_match
+    = note: `#[warn(clippy::single_match)]` on by default
+help: try
+    |
+ 84 ~                 if let grammers_client::update::Update::NewMessage(message) = update {
+ 85 +                     let sender_name = match message.sender() {
+ 86 +                         Some(peer) => peer.name().unwrap_or("Unknown").to_string(),
+ 87 +                         None => "Unknown".to_string()
+ 88 +                     };
+ 89 +                     
+ 90 +                     let msg_json = serde_json::json!({
+ 91 +                         "type": "NewMessage",
+ 92 +                         "chat_id": message.peer_id().bot_api_dialog_id(),
+ 93 +                         "message": {
+ 94 +                             "id": message.id(),
+ 95 +                             "text": message.text(),
+ 96 +                             "sender_name": sender_name,
+ 97 +                             "date": message.date().to_rfc3339(),
+ 98 +                             "is_outgoing": message.outgoing()
+ 99 +                         }
+100 +                     });
+101 +                     let _ = tx_clone.send(msg_json.to_string());
+102 +                 }
+    |
+
+warning: use of `char::is_digit` with literal radix of 10
+   --> planly_telegram_proxy/src/main.rs:192:62
+    |
+192 |                 if s1.starts_with('+') || s1.chars().all(|c| c.is_digit(10)) {
+    |                                                              ^^^^^^^^^^^^^^ help: try: `c.is_ascii_digit()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#is_digit_ascii_radix
+    = note: `#[warn(clippy::is_digit_ascii_radix)]` on by default
+
+warning: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
+   --> planly_telegram_proxy/src/main.rs:658:21
+    |
+658 | /                     match user_enum {
+659 | |                         tl::enums::User::User(user) => {
+660 | |                             if user.bot || user.deleted { continue; }
+661 | |                             let has_photo = user.photo.is_some();
+...   |
+672 | |                         _ => {}
+673 | |                     }
+    | |_____________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#single_match
+help: try
+    |
+658 ~                     if let tl::enums::User::User(user) = user_enum {
+659 +                         if user.bot || user.deleted { continue; }
+660 +                         let has_photo = user.photo.is_some();
+661 +                         result.push(serde_json::json!({
+662 +                             "id": user.id,
+663 +                             "firstName": user.first_name.as_deref().unwrap_or(""),
+664 +                             "lastName": user.last_name.as_deref().unwrap_or(""),
+665 +                             "phone": user.phone.as_deref().unwrap_or(""),
+666 +                             "username": user.username.as_deref().unwrap_or(""),
+667 +                             "hasPhoto": has_photo,
+668 +                             "accessHash": user.access_hash.unwrap_or(0)
+669 +                         }));
+670 +                     }
+    |
+
+    Checking planly_core v0.1.0 (/home/agx/planlytasksko/planly_core)
+warning: `planly_gateway` (bin "planly_gateway" test) generated 136 warnings (run `cargo clippy --fix --bin "planly_gateway" -p planly_gateway --tests` to apply 103 suggestions)
+warning: `planly_gateway` (bin "planly_gateway") generated 136 warnings (136 duplicates)
+warning: `planly_parser` (bin "planly_parser") generated 17 warnings (run `cargo clippy --fix --bin "planly_parser" -p planly_parser` to apply 12 suggestions)
+warning: `planly_parser` (bin "planly_parser" test) generated 17 warnings (17 duplicates)
+warning: `planly_telegram_proxy` (bin "planly_telegram_proxy" test) generated 6 warnings (run `cargo clippy --fix --bin "planly_telegram_proxy" -p planly_telegram_proxy --tests` to apply 4 suggestions)
+warning: `planly_telegram_proxy` (bin "planly_telegram_proxy") generated 6 warnings (6 duplicates)
+warning: unused import: `super::*`
+ --> planly_core/src/lib.rs:5:9
+  |
+5 |     use super::*;
+  |         ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+    Blocking waiting for file lock on package cache
+error[E0425]: cannot find function `add` in this scope
+ --> planly_core/src/lib.rs:9:22
+  |
+9 |         let result = add(2, 2);
+  |                      ^^^ not found in this scope
+  |
+help: use the `.` operator to call the method `std::ops::Add::add` on `{integer}`
+  |
+9 -         let result = add(2, 2);
+9 +         let result = 2.add(2);
+  |
+
+    Blocking waiting for file lock on package cache
+For more information about this error, try `rustc --explain E0425`.
+warning: `planly_core` (lib test) generated 1 warning
+error: could not compile `planly_core` (lib test) due to 1 previous error; 1 warning emitted
+[CI] cargo test...
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling lance-encoding v3.0.1
+   Compiling lance-file v3.0.1
+   Compiling lance-table v3.0.1
+   Compiling lance-datafusion v3.0.1
+error: failed to run custom build command for `lance-encoding v3.0.1`
+
+Caused by:
+  process didn't exit successfully: `/home/agx/planlytasksko/target/debug/build/lance-encoding-fc0663b35d0fdfa0/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-changed=protos
+
+  --- stderr
+  Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+warning: build failed, waiting for other jobs to finish...
+error: failed to run custom build command for `lance-file v3.0.1`
+
+Caused by:
+  process didn't exit successfully: `/home/agx/planlytasksko/target/debug/build/lance-file-68ac3cda643c34ff/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-changed=protos
+
+  --- stderr
+  Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+error: failed to run custom build command for `lance-table v3.0.1`
+
+Caused by:
+  process didn't exit successfully: `/home/agx/planlytasksko/target/debug/build/lance-table-76d66e8cc4851b70/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-changed=protos
+
+  --- stderr
+  Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+error: failed to run custom build command for `lance-datafusion v3.0.1`
+
+Caused by:
+  process didn't exit successfully: `/home/agx/planlytasksko/target/debug/build/lance-datafusion-26e0cbe5456948d4/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-changed=protos
+
+  --- stderr
+  Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on artifact directory
+   Compiling lance-encoding v3.0.1
+   Compiling lance-file v3.0.1
+   Compiling lance-table v3.0.1
+   Compiling lance-datafusion v3.0.1
+error: failed to run custom build command for `lance-encoding v3.0.1`
+
+Caused by:
+  process didn't exit successfully: `/home/agx/planlytasksko/target/debug/build/lance-encoding-fc0663b35d0fdfa0/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-changed=protos
+
+  --- stderr
+  Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+warning: build failed, waiting for other jobs to finish...
+error: failed to run custom build command for `lance-file v3.0.1`
+
+Caused by:
+  process didn't exit successfully: `/home/agx/planlytasksko/target/debug/build/lance-file-68ac3cda643c34ff/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-changed=protos
+
+  --- stderr
+  Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+error: failed to run custom build command for `lance-table v3.0.1`
+
+Caused by:
+  process didn't exit successfully: `/home/agx/planlytasksko/target/debug/build/lance-table-76d66e8cc4851b70/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-changed=protos
+
+  --- stderr
+  Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+error: failed to run custom build command for `lance-datafusion v3.0.1`
+
+Caused by:
+  process didn't exit successfully: `/home/agx/planlytasksko/target/debug/build/lance-datafusion-26e0cbe5456948d4/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-changed=protos
+
+  --- stderr
+  Error: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+[CI] cargo build --release...
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on artifact directory
+warning: unused import: `std::sync::Arc`
+  --> planly_parser/src/main.rs:13:5
+   |
+13 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `qdrant_url` is never read
+  --> planly_parser/src/main.rs:19:5
+   |
+18 | struct AppState {
+   |        -------- field in this struct
+19 |     qdrant_url: String,
+   |     ^^^^^^^^^^
+   |
+   = note: `AppState` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `AnalyticsResponse` is never constructed
+   --> planly_parser/src/models.rs:128:12
+    |
+128 | pub struct AnalyticsResponse {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `StoreStats` is never constructed
+   --> planly_parser/src/models.rs:135:12
+    |
+135 | pub struct StoreStats {
+    |            ^^^^^^^^^^
+
+warning: struct `PriceSegment` is never constructed
+   --> planly_parser/src/models.rs:142:12
+    |
+142 | pub struct PriceSegment {
+    |            ^^^^^^^^^^^^
+
+warning: struct `ParserStat` is never constructed
+   --> planly_parser/src/models.rs:150:12
+    |
+150 | pub struct ParserStat {
+    |            ^^^^^^^^^^
+
+warning: `planly_parser` (bin "planly_parser") generated 6 warnings (run `cargo fix --bin "planly_parser" -p planly_parser` to apply 1 suggestion)
+warning: unused import: `chrono::Datelike`
+  --> planly_gateway/src/lance.rs:14:5
+   |
+14 | use chrono::Datelike;
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `D`
+ --> planly_gateway/src/visual_embed.rs:6:42
+  |
+6 | use candle_core::{Device, Tensor, DType, D};
+  |                                          ^
+
+warning: unused import: `info`
+ --> planly_gateway/src/vlm_processor.rs:4:22
+  |
+4 | use tracing::{error, info};
+  |                      ^^^^
+
+warning: unused import: `Semaphore`
+  --> planly_gateway/src/akson_crawler.rs:14:26
+   |
+14 | use tokio::sync::{Mutex, Semaphore};
+   |                          ^^^^^^^^^
+
+warning: unused import: `get_parser_state`
+  --> planly_gateway/src/lemana_crawler.rs:19:41
+   |
+19 | use crate::lance::{update_parser_state, get_parser_state};
+   |                                         ^^^^^^^^^^^^^^^^
+
+warning: unused import: `reqwest::StatusCode`
+  --> planly_gateway/src/main.rs:40:5
+   |
+40 | use reqwest::StatusCode;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `HeaderMap`, `Message as WsMessage`, `Path`, `Query`, `State`, `WebSocket`, `header`, and `response::IntoResponse`
+  --> planly_gateway/src/main.rs:43:15
+   |
+43 |     extract::{Query, Path, State, WebSocketUpgrade, ws::{WebSocket, Message as WsMessage}},
+   |               ^^^^^  ^^^^  ^^^^^                         ^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+...
+46 |     response::IntoResponse,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+47 |     http::{header, HeaderMap},
+   |            ^^^^^^  ^^^^^^^^^
+
+warning: unused imports: `Engine` and `prelude::BASE64_STANDARD`
+  --> planly_gateway/src/main.rs:49:14
+   |
+49 | use base64::{prelude::BASE64_STANDARD, Engine};
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^
+
+warning: unused import: `grammers_tl_types as tl`
+  --> planly_gateway/src/main.rs:50:5
+   |
+50 | use grammers_tl_types as tl;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ntlmclient`
+  --> planly_gateway/src/main.rs:51:5
+   |
+51 | use ntlmclient;
+   |     ^^^^^^^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+  --> planly_gateway/src/main.rs:52:13
+   |
+52 | use serde::{Deserialize, Serialize};
+   |             ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `collections::HashMap`
+  --> planly_gateway/src/main.rs:54:5
+   |
+54 |     collections::HashMap,
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `oneshot`
+  --> planly_gateway/src/main.rs:58:32
+   |
+58 | use tokio::sync::{Mutex, mpsc, oneshot};
+   |                                ^^^^^^^
+
+warning: unused import: `futures::StreamExt`
+  --> planly_gateway/src/main.rs:64:5
+   |
+64 | use futures::StreamExt;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `cols`
+    --> planly_gateway/src/lance.rs:3826:17
+     |
+3826 |             let cols: Vec<(&str, Option<&StringArray>)> = vec![
+     |                 ^^^^ help: if this is intentional, prefix it with an underscore: `_cols`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `tg_name`
+    --> planly_gateway/src/google.rs:1287:21
+     |
+1287 |                 let tg_name = format!("{} {}",
+     |                     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_tg_name`
+
+warning: unused variable: `e`
+   --> planly_gateway/src/lance.rs:246:13
+    |
+246 | ...   Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "DB connection failed"}))).into_respons...
+    |           ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> planly_gateway/src/lance.rs:250:13
+    |
+250 |         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Table not found"}))).into_response(),
+    |             ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> planly_gateway/src/lance.rs:267:14
+    |
+267 |          Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Query failed"}))).into_response(),
+    |              ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `brand_col`
+   --> planly_gateway/src/lance.rs:987:21
+    |
+987 |                 let brand_col = batch.column_by_name("brand").and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    |                     ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_brand_col`
+
+warning: unused variable: `q`
+    --> planly_gateway/src/lance.rs:1060:45
+     |
+1060 | pub async fn handle_lance_match_saved(Query(q): Query<MatchSavedQuery>) -> impl IntoResponse {
+     |                                             ^ help: if this is intentional, prefix it with an underscore: `_q`
+
+warning: unused variable: `vf_col`
+    --> planly_gateway/src/lance.rs:1513:17
+     |
+1513 |             let vf_col = get_str("visual_features");
+     |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_vf_col`
+
+warning: unused variable: `ns_col`
+    --> planly_gateway/src/lance.rs:1514:17
+     |
+1514 |             let ns_col = get_str("normalized_specs");
+     |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_ns_col`
+
+warning: unused variable: `now`
+   --> planly_gateway/src/akson_crawler.rs:436:17
+    |
+436 |             let now = std::time::Instant::now();
+    |                 ^^^ help: if this is intentional, prefix it with an underscore: `_now`
+
+warning: unused variable: `n`
+   --> planly_gateway/src/akson_crawler.rs:398:17
+    |
+398 |             let n = batch.len();
+    |                 ^ help: if this is intentional, prefix it with an underscore: `_n`
+
+warning: unused variable: `n_cities`
+   --> planly_gateway/src/akson_crawler.rs:316:9
+    |
+316 |     let n_cities = city_stores.len();
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_n_cities`
+
+warning: unused variable: `perf_last_adjust`
+   --> planly_gateway/src/akson_crawler.rs:369:9
+    |
+369 |     let perf_last_adjust = Arc::new(AtomicU64::new(0)); // for cooldown
+    |         ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_perf_last_adjust`
+
+warning: unused variable: `monitor_handle`
+   --> planly_gateway/src/akson_crawler.rs:424:9
+    |
+424 |     let monitor_handle = tokio::spawn(async move {
+    |         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_monitor_handle`
+
+warning: unused variable: `price_only_count`
+   --> planly_gateway/src/lance_writer.rs:190:9
+    |
+190 |     let price_only_count = count - content_products.len();
+    |         ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_price_only_count`
+
+warning: unused variable: `now_fn`
+   --> planly_gateway/src/lemana_crawler.rs:471:9
+    |
+471 |     let now_fn = || chrono::Local::now().format("%H:%M:%S").to_string();
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_now_fn`
+
+warning: unused variable: `cat_path`
+   --> planly_gateway/src/lemana_crawler.rs:524:14
+    |
+524 |         for (cat_path, cat_name) in &search_tasks {
+    |              ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_cat_path`
+
+warning: unused variable: `progress_msg`
+   --> planly_gateway/src/lemana_crawler.rs:576:21
+    |
+576 |                 let progress_msg = format!("{}/{} ({:.0} prod/s)", done, sku_list.len(), rate);
+    |                     ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_progress_msg`
+
+warning: unused variable: `store_id`
+    --> planly_gateway/src/akson_crawler.rs:1113:50
+     |
+1113 | fn normalize_full(item: &Value, city_name: &str, store_id: i64, region_id: i64, now_ts: &str) -> Value {
+     |                                                  ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_store_id`
+
+warning: unused variable: `store_id`
+    --> planly_gateway/src/akson_crawler.rs:1222:56
+     |
+1222 | fn normalize_price_only(item: &Value, city_name: &str, store_id: i64, region_id: i64, now_ts: &str) -> Value {
+     |                                                        ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_store_id`
+
+warning: unused variable: `start`
+   --> planly_gateway/src/lemana_crawler.rs:232:9
+    |
+232 |     let start = std::time::Instant::now();
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_start`
+
+warning: unused variable: `t0`
+   --> planly_gateway/src/main.rs:215:17
+    |
+215 |             let t0 = std::time::Instant::now();
+    |                 ^^ help: if this is intentional, prefix it with an underscore: `_t0`
+
+warning: unused variable: `api_hash`
+   --> planly_gateway/src/main.rs:173:9
+    |
+173 |     let api_hash = std::env::var("API_HASH").unwrap_or_else(|_| "344583e45741c457fe1862106095a5eb".to_string());
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_api_hash`
+
+warning: field `reactive` is never read
+   --> planly_gateway/src/main.rs:142:5
+    |
+135 | struct AppState {
+    |        -------- field in this struct
+...
+142 |     reactive: std::sync::Arc<reactive::ReactiveState>,
+    |     ^^^^^^^^
+    |
+    = note: `AppState` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `SLOW_THRESHOLD_MS` is never used
+  --> planly_gateway/src/adaptive_throttle.rs:28:7
+   |
+28 | const SLOW_THRESHOLD_MS: u64 = 15_000;
+   |       ^^^^^^^^^^^^^^^^^
+
+warning: constant `BATCH_SIZE` is never used
+  --> planly_gateway/src/akson_crawler.rs:27:7
+   |
+27 | const BATCH_SIZE: usize = 4000;
+   |       ^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/akson_crawler.rs:29:7
+   |
+29 | const MAX_CONCURRENT: usize = 120;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `EMPTY_CATS_CACHE` is never used
+  --> planly_gateway/src/akson_crawler.rs:33:7
+   |
+33 | const EMPTY_CATS_CACHE: &str = "/home/agx/lance_data/akson_empty_cats.json";
+   |       ^^^^^^^^^^^^^^^^
+
+warning: function `load_proxy_pool` is never used
+    --> planly_gateway/src/akson_crawler.rs:1452:4
+     |
+1452 | fn load_proxy_pool() -> Vec<String> {
+     |    ^^^^^^^^^^^^^^^
+
+warning: function `load_empty_cats_cache` is never used
+    --> planly_gateway/src/akson_crawler.rs:1526:4
+     |
+1526 | fn load_empty_cats_cache() -> HashSet<String> {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `save_empty_cats_cache` is never used
+    --> planly_gateway/src/akson_crawler.rs:1546:4
+     |
+1546 | fn save_empty_cats_cache(empty_cats: &HashSet<String>) {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/glavsnab_crawler.rs:20:7
+   |
+20 | const MAX_CONCURRENT: usize = 25;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `BATCH_SIZE` is never used
+  --> planly_gateway/src/lemana_crawler.rs:27:7
+   |
+27 | const BATCH_SIZE: usize = 2000;
+   |       ^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/lemana_crawler.rs:28:7
+   |
+28 | const MAX_CONCURRENT: usize = 50;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `MAX_CONCURRENT` is never used
+  --> planly_gateway/src/stroylandia_crawler.rs:24:7
+   |
+24 | const MAX_CONCURRENT: usize = 50;
+   |       ^^^^^^^^^^^^^^
+
+warning: unused import: `SignInError`
+ --> planly_telegram_proxy/src/main.rs:5:31
+  |
+5 | use grammers_client::{Client, SignInError};
+  |                               ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Serialize`
+  --> planly_telegram_proxy/src/main.rs:13:26
+   |
+13 | use serde::{Deserialize, Serialize};
+   |                          ^^^^^^^^^
+
+warning: unused import: `grammers_session::Session`
+ --> planly_telegram_proxy/src/main.rs:8:5
+  |
+8 | use grammers_session::Session;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `planly_gateway` (bin "planly_gateway") generated 49 warnings (run `cargo fix --bin "planly_gateway" -p planly_gateway` to apply 36 suggestions)
+warning: `planly_telegram_proxy` (bin "planly_telegram_proxy") generated 3 warnings (run `cargo fix --bin "planly_telegram_proxy" -p planly_telegram_proxy` to apply 2 suggestions)
+    Finished `release` profile [optimized] target(s) in 5m 14s
+[AgentForge CI/CD] Результат: pass

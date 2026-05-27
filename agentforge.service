@@ -1,0 +1,16 @@
+[Unit]
+Description=AgentForge Task Queue Server
+After=network.target
+
+[Service]
+Type=simple
+User=agx
+WorkingDirectory=/home/agx/agentforge
+ExecStart=/usr/bin/python3 -m uvicorn task_queue:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=5
+Environment=PATH=/home/agx/.cargo/bin:/home/agx/.grok/bin:/home/agx/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/home/agx
+
+[Install]
+WantedBy=multi-user.target

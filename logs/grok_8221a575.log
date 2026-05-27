@@ -1,0 +1,2 @@
+[AgentForge] Задача: 8221a575
+[AgentForge] Промпт: Настройка лимитов Бандита и Троттлера (500 потоков). Детали: Сдвинуть лимиты CONCURRENCY_ARMS в parse_agent.rs до 500. Поднять MAX_CEILING до 500 и порог ошибок ERROR_RATE_THRESHOLD до 95% в adaptive_throttle.rs, чтобы троттлер не сбрасывал скорость при мобильн. Теги: rust,algorithm,optimization

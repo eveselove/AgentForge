@@ -1,0 +1,39 @@
+[AgentForge] Задача: f5828420
+[AgentForge] Промпт: Внедрение Human-in-the-Loop (HITL) в дашборд и очередь. Детали: Добавить в дашборд (dashboard.html) кнопки Approve и Reject для задач в статусе review. Добавить в API POST /tasks/{id}/reject с фидбеком, переводящий задачу обратно в pending с сохранением фидбека.. Теги: dashboard,frontend,hitl,queue
+[AgentForge] Запуск Grok для задачи f5828420
+[AgentForge] Включена самопроверка (--check)
+error: a value is required for '--single <PROMPT>' but none was supplied
+
+For more information, try '--help'.
+[AgentForge] Grok завершил задачу f5828420 за 0с
+[AgentForge CI/CD] Запуск проверок...
+[CI] cargo clippy...
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+ Downloading crates ...
+warning: spurious network error (3 tries remaining): [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
+warning: spurious network error (2 tries remaining): [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
+warning: spurious network error (1 try remaining): [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
+error: failed to download from `https://static.crates.io/crates/cudarc/0.19.7/download`
+
+Caused by:
+  [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
+[CI] cargo test...
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+ Downloading crates ...
+warning: spurious network error (3 tries remaining): [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
+warning: spurious network error (2 tries remaining): [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
+warning: spurious network error (1 try remaining): [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
+error: failed to download from `https://static.crates.io/crates/cudarc/0.19.7/download`
+
+Caused by:
+  [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
+[CI] cargo build --release...
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+ Downloading crates ...
+warning: spurious network error (3 tries remaining): [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
+warning: spurious network error (2 tries remaining): [35] SSL connect error (TLS connect error: error:0A000126:SSL routines::unexpected eof while reading)
