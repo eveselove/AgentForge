@@ -888,6 +888,40 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+    
+        /* === WebSocket индикатор === */
+        .ws-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary, #888);
+            margin-left: 12px;
+            opacity: 0.8;
+        }
+        .ws-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666;
+            transition: background 0.3s ease;
+        }
+        .ws-dot.connected {
+            background: #4ade80;
+            box-shadow: 0 0 6px #4ade8088;
+            animation: ws-pulse 2s infinite;
+        }
+        .ws-dot.connecting {
+            background: #facc15;
+            animation: ws-pulse 0.5s infinite;
+        }
+        .ws-dot.disconnected {
+            background: #ef4444;
+        }
+        @keyframes ws-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
@@ -915,6 +949,7 @@
                 <div class="server-status" id="serverStatus">
                     <div class="status-dot" id="statusDot"></div>
                     <span id="statusText">Подключение...</span>
+                    <span class="ws-indicator"><span class="ws-dot" id="wsDot"></span><span id="wsText">WS: ожидание</span></span>
                 </div>
                 <div class="last-update" id="lastUpdate">—</div>
             </div>
@@ -1412,10 +1447,171 @@
             dom.loadingOverlay.classList.add('hidden');
             setTimeout(() => dom.loadingOverlay.remove(), 500);
 
-            // Запускаем автообновление каждые 10 секунд
+            // Подключаем WebSocket для real-time обновлений
+            connectWebSocket();
+            
+            // Запускаем автообновление каждые 10 секунд (fallback если WS недоступен)
             refreshTimer = setInterval(async () => {
                 await Promise.all([checkHealth(), fetchTasks()]);
             }, REFRESH_INTERVAL);
+        }
+
+
+        // === WebSocket: real-time обновления ===
+        
+        let wsConnection = null;
+        let wsReconnectTimer = null;
+        const WS_RECONNECT_DELAY = 3000; // 3 секунды между попытками реконнекта
+        const WS_PING_INTERVAL = 30000;  // ping каждые 30 секунд
+        let wsPingTimer = null;
+
+        /**
+         * Вычисляет WebSocket URL из текущего API_BASE
+         * http://host:port -> ws://host:port
+         * https://host:port -> wss://host:port
+         */
+        function getWsUrl() {
+            const base = API_BASE.replace(/^http/, 'ws');
+            return `${base}/ws/logs`;
+        }
+
+        /**
+         * Обновить индикатор WebSocket-подключения
+         * @param {'connected'|'connecting'|'disconnected'} state
+         */
+        function updateWsIndicator(state) {
+            const dot = document.getElementById('wsDot');
+            const text = document.getElementById('wsText');
+            if (!dot || !text) return;
+            
+            dot.className = 'ws-dot ' + state;
+            const labels = {
+                connected: 'WS: live',
+                connecting: 'WS: подключение...',
+                disconnected: 'WS: отключён'
+            };
+            text.textContent = labels[state] || 'WS: ?';
+        }
+
+        /**
+         * Подключиться к WebSocket серверу для получения real-time обновлений.
+         * Автоматически переподключается при обрыве.
+         */
+        function connectWebSocket() {
+            // Если уже подключены — не дублируем
+            if (wsConnection && wsConnection.readyState === WebSocket.OPEN) return;
+            
+            const url = getWsUrl();
+            console.log(`[AgentForge WS] Подключение к ${url}...`);
+            updateWsIndicator('connecting');
+            
+            try {
+                wsConnection = new WebSocket(url);
+            } catch (e) {
+                console.error('[AgentForge WS] Ошибка создания:', e);
+                updateWsIndicator('disconnected');
+                scheduleReconnect();
+                return;
+            }
+            
+            wsConnection.onopen = () => {
+                console.log('[AgentForge WS] Подключено!');
+                updateWsIndicator('connected');
+                showToast('🔌 WebSocket: live-обновления включены', 'success');
+                
+                // Запускаем ping для keep-alive
+                if (wsPingTimer) clearInterval(wsPingTimer);
+                wsPingTimer = setInterval(() => {
+                    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+                        wsConnection.send('ping');
+                    }
+                }, WS_PING_INTERVAL);
+                
+                // Отменяем таймер реконнекта если был
+                if (wsReconnectTimer) {
+                    clearTimeout(wsReconnectTimer);
+                    wsReconnectTimer = null;
+                }
+            };
+            
+            wsConnection.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    console.log('[AgentForge WS] Сообщение:', msg.type, msg.task_id);
+                    
+                    if (msg.type === 'task_update') {
+                        // Мгновенно обновляем дашборд
+                        handleWsTaskUpdate(msg);
+                    } else if (msg.type === 'pong') {
+                        // Ответ на ping — всё ок
+                    }
+                } catch (e) {
+                    console.warn('[AgentForge WS] Ошибка парсинга:', e);
+                }
+            };
+            
+            wsConnection.onclose = (event) => {
+                console.log(`[AgentForge WS] Отключено (code=${event.code})`);
+                updateWsIndicator('disconnected');
+                if (wsPingTimer) clearInterval(wsPingTimer);
+                scheduleReconnect();
+            };
+            
+            wsConnection.onerror = (error) => {
+                console.error('[AgentForge WS] Ошибка:', error);
+                updateWsIndicator('disconnected');
+            };
+        }
+
+        /**
+         * Запланировать переподключение к WebSocket
+         */
+        function scheduleReconnect() {
+            if (wsReconnectTimer) return; // Уже запланировано
+            wsReconnectTimer = setTimeout(() => {
+                wsReconnectTimer = null;
+                connectWebSocket();
+            }, WS_RECONNECT_DELAY);
+        }
+
+        /**
+         * Обработка real-time обновления задачи через WebSocket.
+         * Обновляет кэш задач и перерисовывает UI без полной перезагрузки.
+         */
+        function handleWsTaskUpdate(msg) {
+            const taskData = msg.data;
+            const taskId = msg.task_id;
+            
+            if (!taskData || !taskId) return;
+            
+            // Обновляем кэш allTasks
+            const existingIdx = allTasks.findIndex(t => t.id === taskId);
+            if (existingIdx >= 0) {
+                // Обновляем существующую задачу
+                allTasks[existingIdx] = taskData;
+            } else {
+                // Новая задача — добавляем в начало
+                allTasks.unshift(taskData);
+            }
+            
+            // Перерисовываем UI
+            renderTasks(allTasks);
+            
+            // Обновляем метрики
+            checkHealth();
+            
+            // Показываем тост с обновлением
+            const statusEmoji = {
+                pending: '📋',
+                dispatched: '🚀',
+                in_progress: '⚙️',
+                review: '🔍',
+                done: '✅',
+                failed: '❌'
+            };
+            const emoji = statusEmoji[taskData.status] || '🔄';
+            const shortTitle = (taskData.title || '').substring(0, 40);
+            showToast(`${emoji} ${shortTitle} → ${taskData.status}`, 'success');
         }
 
         // Запуск при загрузке DOM

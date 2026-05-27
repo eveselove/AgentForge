@@ -18,8 +18,11 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
+import json as json_module
+import asyncio
+
 import aiosqlite
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -114,6 +117,87 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# === WebSocket: менеджер подключений для real-time логов ===
+
+class ConnectionManager:
+    """
+    Менеджер WebSocket-подключений.
+    Хранит активные подключения по task_id для стриминга обновлений.
+    Поддерживает broadcast по всем подключениям (task_id='*').
+    """
+    def __init__(self):
+        # Подключения по task_id: {task_id: [websocket, ...]}
+        self.active_connections: dict[str, list[WebSocket]] = {}
+        # Глобальные подключения (слушают все задачи)
+        self.global_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket, task_id: str = None):
+        """Принять WebSocket-подключение и добавить в список"""
+        await websocket.accept()
+        if task_id and task_id != "*":
+            if task_id not in self.active_connections:
+                self.active_connections[task_id] = []
+            self.active_connections[task_id].append(websocket)
+        else:
+            self.global_connections.append(websocket)
+        total = self.count()
+        print(f"[AgentForge WS] \U0001f50c Подключение: task_id={task_id or 'global'}, всего={total}")
+
+    def disconnect(self, websocket: WebSocket, task_id: str = None):
+        """Удалить WebSocket из активных подключений"""
+        if task_id and task_id != "*" and task_id in self.active_connections:
+            self.active_connections[task_id] = [
+                ws for ws in self.active_connections[task_id] if ws != websocket
+            ]
+            if not self.active_connections[task_id]:
+                del self.active_connections[task_id]
+        else:
+            self.global_connections = [ws for ws in self.global_connections if ws != websocket]
+        total = self.count()
+        print(f"[AgentForge WS] \U0001f534 Отключение: task_id={task_id or 'global'}, всего={total}")
+
+    async def notify_task_update(self, task_id: str, data: dict):
+        """
+        Отправить обновление задачи всем подписчикам.
+        Рассылает и по конкретному task_id, и глобальным слушателям.
+        """
+        message = json_module.dumps({
+            "type": "task_update",
+            "task_id": task_id,
+            "data": data,
+        }, ensure_ascii=False)
+        
+        # Отправляем подписчикам конкретной задачи
+        stale = []
+        for ws in self.active_connections.get(task_id, []):
+            try:
+                await ws.send_text(message)
+            except Exception:
+                stale.append(ws)
+        for ws in stale:
+            self.disconnect(ws, task_id)
+        
+        # Отправляем глобальным подписчикам
+        stale_global = []
+        for ws in self.global_connections:
+            try:
+                await ws.send_text(message)
+            except Exception:
+                stale_global.append(ws)
+        for ws in stale_global:
+            self.disconnect(ws)
+
+    def count(self) -> int:
+        """Общее число активных WebSocket-подключений"""
+        total = len(self.global_connections)
+        for conns in self.active_connections.values():
+            total += len(conns)
+        return total
+
+
+# Глобальный экземпляр менеджера подключений
+ws_manager = ConnectionManager()
 
 # === Работа с базой данных ===
 
@@ -290,7 +374,12 @@ async def create_task(task: TaskCreate):
         row = await cursor.fetchone()
         
         print(f"[AgentForge] 📋 Создана задача: {task_id} — {task.title}")
-        return row_to_dict(row)
+        
+        # WebSocket: уведомляем о новой задаче
+        new_task = row_to_dict(row)
+        await ws_manager.notify_task_update(task_id, new_task)
+        
+        return new_task
     finally:
         await db.close()
 
@@ -392,7 +481,12 @@ async def update_task(task_id: str, update: TaskUpdate):
         row = await cursor.fetchone()
         
         print(f"[AgentForge] 🔄 Обновлена задача: {task_id}")
-        return row_to_dict(row)
+        
+        # WebSocket: отправляем real-time уведомление подписчикам
+        updated_task = row_to_dict(row)
+        await ws_manager.notify_task_update(task_id, updated_task)
+        
+        return updated_task
     finally:
         await db.close()
 
@@ -443,6 +537,12 @@ async def dispatch_task(task_id: str):
         else:
             print(f"[AgentForge] ⚠️ Dispatcher не найден: {DISPATCHER_PATH}")
             print(f"[AgentForge] 📌 Задача {task_id} назначена агенту: {agent} (ручной запуск)")
+        
+        # WebSocket: уведомляем о диспетчеризации задачи
+        cursor = await db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        if row:
+            await ws_manager.notify_task_update(task_id, row_to_dict(row))
         
         return {
             "task_id": task_id,
@@ -635,6 +735,77 @@ async def reject_task(task_id: str, reject: TaskReject):
         return row_to_dict(row)
     finally:
         await db.close()
+
+# === WebSocket эндпоинты для real-time логов ===
+
+@app.websocket("/ws/logs/{task_id}")
+async def websocket_task_logs(websocket: WebSocket, task_id: str):
+    """
+    WebSocket эндпоинт для real-time стриминга логов конкретной задачи.
+    Клиент подключается к /ws/logs/{task_id} и получает обновления при изменении задачи.
+    Используйте task_id='*' для получения обновлений по всем задачам.
+    """
+    await ws_manager.connect(websocket, task_id)
+    try:
+        # Отправляем текущее состояние задачи при подключении (если не глобальный)
+        if task_id != "*":
+            db = await get_db()
+            try:
+                cursor = await db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+                row = await cursor.fetchone()
+                if row:
+                    task_data = row_to_dict(row)
+                    await websocket.send_text(json_module.dumps({
+                        "type": "initial_state",
+                        "task_id": task_id,
+                        "data": task_data,
+                    }, ensure_ascii=False))
+            finally:
+                await db.close()
+        
+        # Держим соединение открытым, слушаем ping/pong
+        while True:
+            data = await websocket.receive_text()
+            # Поддерживаем команду ping для keep-alive
+            if data == "ping":
+                await websocket.send_text(json_module.dumps({"type": "pong"}))
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket, task_id)
+    except Exception as e:
+        print(f"[AgentForge WS] \u26a0\ufe0f Ошибка: {e}")
+        ws_manager.disconnect(websocket, task_id)
+
+
+@app.websocket("/ws/logs")
+async def websocket_all_logs(websocket: WebSocket):
+    """
+    WebSocket эндпоинт для глобальных обновлений (все задачи).
+    Альтернатива /ws/logs/* — подключается к глобальному потоку.
+    """
+    await ws_manager.connect(websocket, task_id=None)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text(json_module.dumps({"type": "pong"}))
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket, task_id=None)
+    except Exception as e:
+        print(f"[AgentForge WS] \u26a0\ufe0f Ошибка: {e}")
+        ws_manager.disconnect(websocket, task_id=None)
+
+
+@app.get("/ws/status", tags=["WebSocket"])
+async def ws_status():
+    """Статус WebSocket подключений"""
+    return {
+        "total_connections": ws_manager.count(),
+        "global_connections": len(ws_manager.global_connections),
+        "task_connections": {
+            tid: len(conns) for tid, conns in ws_manager.active_connections.items()
+        },
+    }
+
 
 # === Точка входа ===
 
