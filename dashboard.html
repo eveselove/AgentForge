@@ -754,6 +754,64 @@
             pointer-events: none;
         }
 
+        
+        /* === Живая лента === */
+        .activity-feed {
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 28px;
+        }
+        .feed-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--status-progress);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--status-progress);
+            animation: pulse 2s infinite;
+        }
+        .feed-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        .feed-list::-webkit-scrollbar { width: 4px; }
+        .feed-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+        
+        .feed-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid var(--accent);
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            animation: cardFadeIn 0.3s ease-out;
+        }
+        .feed-meta {
+            display: flex;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .feed-message {
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
         /* === Анимации === */
         @keyframes fadeInUp {
             from {
@@ -1176,6 +1234,7 @@
                 const now = new Date();
                 dom.lastUpdate.textContent = `Обновлено: ${now.toLocaleTimeString('ru-RU')}`;
             } catch (e) {
+                alert("Fetch Error: " + e.message + "\n" + e.stack);
                 console.error('[AgentForge] Ошибка загрузки задач:', e);
             }
         }
@@ -1241,11 +1300,8 @@
                 // Определяем агента для бейджа
                 const agent = task.assigned_agent || task.preferred_agent || 'auto';
                 const agentClass = ['grok', 'jules', 'antigravity'].includes(agent) ? agent : 'auto';
-                // Потоки каждого агента
-                const agentThreads = { grok: 10, jules: 1, antigravity: 5 };
-                const threads = agentThreads[agent] || '?';
-                const agentName = agent === 'auto' ? 'Авто'
-                    : agent.toUpperCase() + ` ×${threads}`;
+                // Имя агента без нумерации
+                const agentName = agent === 'auto' ? 'АВТО' : agent.toUpperCase();
 
                 // Теги
                 const tags = (task.tags || []);
@@ -1595,7 +1651,7 @@
             }
             
             // Перерисовываем UI
-            renderTasks(allTasks);
+            renderAll();
             
             // Обновляем метрики
             checkHealth();
