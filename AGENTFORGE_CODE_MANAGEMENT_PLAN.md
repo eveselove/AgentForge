@@ -3,14 +3,15 @@
 **Date:** 2026-05-31  
 **Goal:** Bring the entire AgentForge codebase under proper, professional source control and project management, using AgentForge itself (dogfooding) in turbo mode with Jules + local agents.
 
-> **Current Status (updated live):**  
-> **Phase 0 — Immediate Stabilization: ✅ COMPLETED**  
+> **Current Status (updated live — Aggressive All-Phases Closure):**  
+> **Phase 0 — Immediate Stabilization: ✅ COMPLETED 100%**  
+> **Phase 1 — Remote & Hosting: 85% → aggressively closing** (see docs/PHASE1_TASK_BREAKDOWN.md — 15 tasks, Antigravity owns A3/B1/X1)  
+> **Phase 2 — Development Workflow: 65% → aggressively closing** (see docs/PHASE2_TASK_BREAKDOWN.md — 17 tasks, Antigravity owns B3/B5/B6/X1/X2/X5 + P2-Anti-*)  
+> **Phase 3 — CI/CD & Quality Gates: 40% → aggressively closing** (see docs/PHASE3_TASK_BREAKDOWN.md — ~17 tasks, Antigravity owns A5/B5/C5/D1/D4/X4 + vision)  
+> **Phase 4 — Self-Management (Dogfooding): 5% → starting now**  
 > Standalone GitHub repo: https://github.com/eveselove/AgentForge (public)  
-> `main` branch initialized and pushed.  
-> CONTRIBUTING.md + AGENTS.md + CODEOWNERS + PR template + REPO_STRUCTURE.md + BRANCHING_STRATEGY.md added.  
-> Basic CI workflow in place.  
-> Branch protection: Manual setup recommended.  
-> Extreme parallel agent execution active (Jules currently paused).
+> Extreme parallel agent execution active (Jules paused per owner directive; full Grok + Antigravity waves + worktrees).  
+> "да зыкываем все фазы" — closure wave launched.
 
 **Current Reality (as of this plan):**
 - Code lives only at `/home/agx/agentforge/`
@@ -65,15 +66,21 @@ AgentForge should be developed like a frontier agentic system:
 
 ### Phase 3 — CI/CD & Quality Gates
 
-- [x] GitHub Actions (or equivalent) for:
-  - Rust workspace check + clippy + fmt (`.github/workflows/ci.yml`)
-  - Python linting (ruff + black)
-  - Shellcheck on bin/
-- [ ] Full Rust workspace build + test (all crates) with caching
-- [ ] Python health + parity harness in CI
-- [ ] Automated release binary building for `agentforge-runner`
-- [ ] Shadow / fidelity checks on PRs (future)
-- [x] PULL_REQUEST_TEMPLATE.md created with task/Jules linking requirements
+- [x] GitHub Actions (or equivalent) for basic checks
+- [x] PULL_REQUEST_TEMPLATE.md created
+- **Now fully sliced** into ~17 small parallel tasks (see `docs/PHASE3_TASK_BREAKDOWN.md`):
+  - Rust CI hardening (full tests + caching)
+  - Python parity & health in CI (policy + integration)
+  - Automated release binary for `agentforge-runner`
+  - Shadow / fidelity foundations (Antigravity-led vision + Grok prototype)
+
+**Antigravity** owns the high-level policy and vision decisions (explicitly mapped in all PHASE*_TASK_BREAKDOWN.md files).
+**Grok** owns heavy implementation + execution.
+
+**Explicit Antigravity ownership across remaining work (per "антигравити тоже включи")**:
+- Phase 1: A3 (branch protection policy), B1 (mirror strategy), X1 (closure report)
+- Phase 2: B3/B5/B6 (agent-review default + checklist + task schema), X1/X2/X5 (readiness + runner audit + enforcement)
+- Phase 3: A5 (CI standards), B5 (parity policy), C5 (release/versioning policy), D1/D4 (shadow vision + success criteria), X4 (Definition of Done)
 
 ### Phase 4 — Self-Management (Dogfooding)
 
@@ -83,20 +90,20 @@ AgentForge should be developed like a frontier agentic system:
 
 ---
 
-## Immediate Next Actions (Start in This Session) — Updated 2026-05-31 (Aggressive Phase 2 Closure Mode)
+## Immediate Next Actions (Start in This Session) — Aggressive All-Phases Closure ("да зыкываем все фазы")
 
-1. ✅ Backup branch + aggressive .gitignore + baseline commit done
-2. ✅ Standalone GitHub repo created (public): https://github.com/eveselove/AgentForge
-3. ✅ CONTRIBUTING.md + AGENTS.md + CODEOWNERS + PR template + REPO_STRUCTURE.md created
-4. ✅ Basic CI workflow added and improved
-5. ✅ `docs/BRANCHING_STRATEGY.md` (v1.1) created and pushed — Phase 2 item closed
-6. ✅ Created high-priority tasks for remaining Phase 2 items:
-   - [CM-Phase2-05] Integrate task system with Git (traceability) → task 3be670e1
-   - [CM-Phase2-06] Make agent-review + implement the default path → task 285c1c6d
-   - [CM-Phase2-07] Pre-commit / lint gates (work started with bin/pre-commit + install-pre-commit)
-7. **Now in full aggressive Phase 2 closure mode**: Multiple Grok agents launched on remaining items (pre-commit enforcement + task ID traceability + agent-review as default).
-8. Additional tooling created: bin/setup-agent-dev for fast onboarding.
-9. Goal: Close all remaining Phase 2 items within the current wave.
+**Phase 1/2/3 Task Breakdowns created** (full parallel attack surface):
+- docs/PHASE1_TASK_BREAKDOWN.md (15 tasks, remote finalization)
+- docs/PHASE2_TASK_BREAKDOWN.md (17 tasks, traceability + review default + gates)
+- docs/PHASE3_TASK_BREAKDOWN.md (~17 tasks, Rust CI, Python parity, release binary, shadow foundations)
+
+1. ✅ All prior items + Jules reviews closed + public repo + core docs + basic CI + BRANCHING_STRATEGY v1.1
+2. ✅ PHASE1/2/3_TASK_BREAKDOWN.md created with explicit Antigravity ownership clusters
+3. ✅ Central plan updated with live % + Antigravity mapping for every phase
+4. **NOW**: Extreme parallel wave (8-12+ agents, worktree isolation via bin/agent-worktree, Grok + Antigravity personas) attacking all clusters simultaneously.
+5. High-leverage first: harden traceability in pre-commit/CI, apply branch protection (manual UI + verify), add release workflow skeleton, Antigravity policy decisions.
+6. Every change: traceable to task ID, agent-review before PR, pre-commit enforced.
+7. Goal: Drive P1→100%, P2→100%, P3→80%+ in one massive wave. Phase 4 dogfooding starts the moment the wave lands (all closure work itself feeds trajectories into Rust flywheel).
 
 ---
 
@@ -134,3 +141,29 @@ Let's execute.
    - See: `docs/CODE_MGMT_DOCUMENTATION_STATUS.md` and `docs/REVIEWS_CLOSED_2026-05-31.md`
 
 Both reviews are now formally closed in the repository history.
+
+---
+
+## Aggressive All-Phases Closure Wave — "да зыкываем все фазы" (2026-06)
+
+**Owner directive**: "да зыкываем все фазы", "нареж задачи на фазы 1 и2", "тогда и 3 фазу тоже желай", "фащзу 2 размечай антигравити тоже включи", "бьем фазу 1 на всех агентов", "делай на свое усмотрение / делай не спрашивай".
+
+**Execution**:
+- Full task breakdowns created for P1/P2/P3 with 10-20 small parallel items each.
+- Antigravity explicitly owns all vision/policy/standards items across phases (see ownership table above).
+- Jules automation disabled (high review overhead, low net value per owner).
+- All work uses: `bin/agent-worktree`, `bin/pre-commit`, short `agent/` branches, mandatory traceability (Task ID in commits), `agent-review` skill before merge.
+- **Extreme parallelism active**: 10 fresh Grok agents launched via `agent-team grok` (windows A1-1621 ... A10-1621 in tmux "agents") targeting the exact PHASE tasks + existing 20+ windows in session. Plus direct main-thread wins + 4 new P4 dogfood tasks (b8c38c09 etc.).
+- Worktrees root: /tmp/agentforge-work (use them for any manual follow-up)
+
+**Current live % (updated by wave + direct execution)**:
+- P0: 100%
+- P1: 92% (mirror SSoT declared in CONTRIBUTING, branch protection script+docs polished, 10+ agents on final items)
+- P2: 82% (hard traceability in pre-commit + CI PR gate + validate script + .gitmessage + 10 agents on review default + pre-commit)
+- P3: 55% (release.yml created, CI traceability job added, 10 agents + direct work on Rust/release/Python parity)
+- P4: 20% (4 real dogfood tasks created in queue during wave: b8c38c09, c517baad, f8684252, 562a5eaf — closure work now feeds the system)
+
+**Victory condition**: All three PHASE*_TASK_BREAKDOWN.md files 100% checked off + plan updated to "Phases 1-3 closed" + at least one full dogfood cycle (a Phase 4 task created from this work and fed to flywheel) + clean push to main.
+
+This is the final push. Extreme mode. No more planning — execution only.
+

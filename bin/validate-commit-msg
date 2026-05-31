@@ -1,0 +1,34 @@
+#!/bin/bash
+# bin/validate-commit-msg
+# Reusable validator for Task ID / Jules session traceability.
+# Used by: pre-commit, CI (future), and manual checks.
+# Exit 0 = good, 1 = missing reference.
+
+set -euo pipefail
+
+MSG_FILE="${1:-}"
+if [ -z "$MSG_FILE" ]; then
+    # Read from stdin or last commit
+    if [ -t 0 ]; then
+        MSG="$(git log -1 --pretty=%B 2>/dev/null || true)"
+    else
+        MSG="$(cat)"
+    fi
+else
+    MSG="$(cat "$MSG_FILE")"
+fi
+
+PATTERN='(task[[:space:]]*[0-9a-fA-F]{6,}|jules[[:space:]]*[0-9]{10,}|JULES_[0-9]+|Jules[[:space:]]*[0-9]+|task[[:space:]]*[0-9a-zA-Z_-]{6,})'
+
+if echo "$MSG" | grep -qE "$PATTERN"; then
+    echo "✅ Traceability OK (Task ID or Jules session found)"
+    exit 0
+else
+    echo "❌ Missing Task ID or Jules session in commit message."
+    echo "   Required pattern examples:"
+    echo "     task 90fcbf89"
+    echo "     Jules 12237721410778183159"
+    echo "     (task 3be670e1, jules/11158842600384206278)"
+    echo "   See .gitmessage and docs/BRANCHING_STRATEGY.md"
+    exit 1
+fi

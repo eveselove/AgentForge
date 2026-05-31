@@ -50,6 +50,25 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+# Bootstrap for robust import when run directly, via -m, from worktrees (non-"agentforge" dir names),
+# or GHA checkouts. Ensures "import agentforge.xxx" works for sibling subpackages.
+# Mirrors the proven pattern in eval/run_tests.py. Safe no-op in normal installed/editable cases.
+try:
+    _HERE = Path(__file__).resolve().parent.parent.parent  # .../learning/flywheel_parity -> root
+    _CANDIDATES = [
+        _HERE,
+        Path.cwd(),
+        Path.cwd().parent,
+        Path(__file__).resolve().parents[3] if len(Path(__file__).resolve().parents) > 3 else None,
+    ]
+    for _cand in _CANDIDATES:
+        if _cand and (_cand / "learning" / "flywheel_parity" / "parity_harness.py").exists():
+            if str(_cand) not in sys.path:
+                sys.path.insert(0, str(_cand))
+            break
+except Exception:
+    pass  # never break the harness on path games
+
 # Reference the migration plan (do not hard-embed its full content).
 MIGRATION_PLAN_REF = "RUST_FULL_MIGRATION_PLAN.md (Phase 0/1: Parity Contract + cross-impl harness; Agent 5 Tests & Parity Harness)"
 
@@ -1604,6 +1623,116 @@ class TestFlywheelArtifactParity(unittest.TestCase):
         print(f"[parity test] shape diffs (expected in MVP): {shape_d}")
 
 
+def _run_ci_smoke(harness: "FlywheelParityHarness", json_mode: bool = False) -> bool:
+    """Hermetic CI smoke (B2, task e6709411). No Rust binary, no absolute /home paths, no real trajectories.
+    Clear explicit pass/fail criteria for the job (harness contract + fixtures, not numeric fidelity):
+    - Goldens load and core artifacts (proposal.json etc.) present for at least one golden.
+    - normalize_artifact + compare_artifacts(self, self) == [] (volatile stripping + structure stable).
+    - run_parity_check (uses Python stub) returns details with available_goldens and shape ok.
+    - Selected hermetic unittests (TestFlywheelArtifactParity minus the one that requires real /tmp parity_test) pass.
+    On PASS: prints banner + optional JSON, returns True (exit 0).
+    On FAIL: prints exact failing checks, returns False (exit 1).
+    This is intentionally advisory in CI (continue-on-error) — see .github/workflows/ci.yml and Phase3 B2 decision.
+    Richer modes (--shadow-*) remain for farm / manual / post-soak gates.
+    """
+    import sys as _sys
+    import unittest as _unittest
+    from io import StringIO as _StringIO
+
+    checks = {
+        "goldens_load": False,
+        "self_compare_clean": False,
+        "skeleton_shape": False,
+        "unittest_hermetic": False,
+    }
+    failures: List[str] = []
+    details: Dict[str, Any] = {}
+
+    try:
+        golds = harness.available_goldens()
+        checks["goldens_load"] = len(golds) >= 1 and all(
+            load_golden(g, "proposal.json") is not None for g in golds[:1]
+        )
+        if not checks["goldens_load"]:
+            failures.append("goldens_load: no goldens or core proposal.json missing")
+        details["available_goldens"] = golds
+    except Exception as e:  # noqa
+        failures.append(f"goldens_load: {e}")
+
+    try:
+        g = load_golden("sample_general_refactor_v1", "proposal.json")
+        if g:
+            d = compare_artifacts("proposal.json", g, g)
+            checks["self_compare_clean"] = (d == [])
+            if not checks["self_compare_clean"]:
+                failures.append(f"self_compare_clean: {d}")
+        else:
+            failures.append("self_compare_clean: golden not loadable")
+    except Exception as e:  # noqa
+        failures.append(f"self_compare_clean: {e}")
+
+    try:
+        passed, res = run_parity_check("sample_general_refactor_v1", prefer_rust=False)
+        checks["skeleton_shape"] = (
+            isinstance(res, dict)
+            and "available_goldens" in res
+            and len(res.get("available_goldens", [])) >= 1
+        )
+        if not checks["skeleton_shape"]:
+            failures.append("skeleton_shape: run_parity_check stub did not produce expected shape")
+        details.update({"skeleton_passed": passed, "skeleton_details_keys": list(res.keys()) if isinstance(res, dict) else None})
+    except Exception as e:  # noqa
+        failures.append(f"skeleton_shape: {e}")
+
+    try:
+        # Run only hermetic tests (exclude test_rust_step_invocation_stub which touches /tmp parity_test)
+        loader = _unittest.TestLoader()
+        suite = _unittest.TestSuite()
+        for name in ("test_golden_fixtures_exist", "test_normalize_strips_volatiles",
+                     "test_compare_identical_after_normalize_passes", "test_parity_skeleton_run_matches_golden_shape",
+                     "test_rich_export_fixture_loads"):
+            if hasattr(TestFlywheelArtifactParity, name):
+                suite.addTest(TestFlywheelArtifactParity(name))
+        stream = _StringIO()
+        runner = _unittest.TextTestRunner(stream=stream, verbosity=0)
+        result = runner.run(suite)
+        checks["unittest_hermetic"] = result.wasSuccessful()
+        if not checks["unittest_hermetic"]:
+            failures.append(f"unittest_hermetic: {result.errors + result.failures}")
+        details["unittest_hermetic_errors"] = len(result.errors) + len(result.failures)
+    except Exception as e:  # noqa
+        failures.append(f"unittest_hermetic: {e}")
+
+    all_pass = all(checks.values()) and not failures
+    summary = {
+        "ci_parity_pass": all_pass,
+        "mode": "golden-smoke-v1",
+        "checks": checks,
+        "failures": failures,
+        "details": details,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "harness_version": "phase2-rich-v5 + B2-ci-smoke",
+        "note": "Advisory CI job per Phase3 B2 (task e6709411). Catches harness/golden regressions only. Rich fidelity_pass/composite_score available in --shadow-* modes for farm soak. Promotion to blocker after Phase4 Python removal or explicit B5 numeric gates.",
+    }
+
+    if json_mode:
+        print(json.dumps(summary, indent=2, default=str))
+    else:
+        status = "PASS" if all_pass else "FAIL"
+        print(f"\n=== PARITY_CI_SMOKE {status} (B2, task e6709411, advisory) ===")
+        print(f"  checks: {checks}")
+        if failures:
+            print(f"  failures: {failures}")
+        print(f"  goldens: {details.get('available_goldens')}")
+        print("  Criteria for PASS: goldens_load + self_compare_clean + skeleton_shape + unittest_hermetic")
+        print("  Usage in CI: PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness --ci-smoke --json")
+        print("  Local re-run: python -m agentforge.learning.flywheel_parity.parity_harness --ci-smoke")
+        print(f"  Full JSON: add --json")
+        print("  (This job is advisory; see .github/workflows/ci.yml header for decision rationale and promotion path.)")
+
+    return all_pass
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AgentForge Flywheel Parity Harness + Phase 2 Shadow Fidelity CLI (v5+ NEAR FARM-READY: richer metrics (prompt/proposal_content/grade/perf + semantic bigram/overall + streak/trend/p95 aggregate) + continuous dual support in hooks/post_process/phase2_3 + ultra-easy farm CLI/examples. Easiest: --shadow-compare-latest --json or --shadow-aggregate. Real farm data soak ready. End state: PHASE 2 SHADOW NEAR FARM-READY.")
     parser.add_argument("command", nargs="?", default=None, help="Positional ease: 'shadow' (live dual), 'shadow-compare-latest' (easiest auto-paired farm gate with v5 richer diffs/pass/score/grade), or leave for full parity report")
@@ -1618,9 +1747,25 @@ if __name__ == "__main__":
     parser.add_argument("--limit", type=int, default=25, help="Record limit for live shadow runs (default 25)")
     parser.add_argument("--skill", default=None, help="Target skill for live shadow (default general-refactor)")
     parser.add_argument("--json", action="store_true", help="Output shadow fidelity as compact JSON only (for scripting/CI/jq).")
+    parser.add_argument("--ci-smoke", action="store_true", help="Hermetic CI smoke for B2 integration: golden fixtures + skeleton parity only (no Rust binary, no /home paths, no real data). Clear pass/fail for harness contract. Advisory job (continue-on-error) per Phase3 B2 decision (task e6709411).")
     args, unknown = parser.parse_known_args()
 
     h = FlywheelParityHarness()
+
+    # B2 CI integration (task e6709411): hermetic smoke path for GitHub Actions parity job.
+    # Clear pass/fail criteria (no fidelity numeric gates yet — those are advisory signals):
+    # 1. Goldens load + core artifacts present
+    # 2. normalize + self-compare on identical data is clean
+    # 3. run_parity_check (stub path) produces shape-compatible result
+    # 4. Hermetic unittest subset passes
+    # This job is intentionally advisory (continue-on-error: true) because parity harness is
+    # migration tooling (Phase 4 removal target); known gaps are tolerated. See decision in ci.yml header.
+    ci_smoke = args.ci_smoke or (args.command and "ci-smoke" in str(args.command).lower()) or \
+               bool(os.environ.get("AGENTFORGE_CI_PARITY")) or bool(os.environ.get("CI"))
+    if ci_smoke:
+        passed = _run_ci_smoke(h, json_mode=args.json)
+        import sys as _sys
+        _sys.exit(0 if passed else 1)
 
     do_live = args.live_shadow or (args.command and str(args.command).lower() == "shadow")
     if do_live:

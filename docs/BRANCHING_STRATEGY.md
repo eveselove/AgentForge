@@ -1,8 +1,8 @@
 # AgentForge Branching Strategy
 
 **Status**: Official  
-**Version**: 1.1  
-**Last updated**: 2026-05-31  
+**Version**: 1.2  
+**Last updated**: 2026-06 (A2 + A7 Level M2 decision integrated, docs/BRANCH_PROTECTION_A7_DECISION.md created, consistency fixes)  
 **Owner**: AgentForge Core Team (current extreme wave)
 
 This document defines the official branching model for AgentForge. As a self-improving agentic system, our workflow is designed to maximize parallel development by both humans and autonomous agents while keeping history clean and traceable.
@@ -48,6 +48,7 @@ To keep history searchable and understandable for both humans and agents, all br
 - **Mandatory**: Link the PR to at least one Task ID or Jules Session ID (use the PR template).
 - Get review (preferably via another agent using the `agent-review` skill when possible).
 - All CI checks must pass.
+- Branch protection design for `main` (A2, task bc6fa462) lives in `docs/BRANCH_PROTECTION_A2_PROPOSAL.md` (smallest effective set) and `docs/BRANCH_PROTECTION_A7_DECISION.md` (A7 architectural level decision, Level M2) + `.github/BRANCH_PROTECTION.md` (status + pointers). Always consult them; implementation is A4.
 
 ### 4. After Merge
 - Delete the branch immediately.
@@ -61,7 +62,7 @@ To keep history searchable and understandable for both humans and agents, all br
 | Local     | `bin/pre-commit` + `bin/install-pre-commit` | Available                      |
 | CI        | GitHub Actions (fmt, clippy, tests, etc.) | Basic version exists, being strengthened |
 | PR        | Mandatory linking + review                | PR template + CODEOWNERS exist   |
-| Branch    | Protection on `main`                      | Manual setup recommended (see `.github/BRANCHING_PROTECTION.md`) |
+| Branch    | Protection on `main`                      | A2 proposal (`docs/BRANCH_PROTECTION_A2_PROPOSAL.md`, task bc6fa462) + A7 Level M2 decision (`docs/BRANCH_PROTECTION_A7_DECISION.md`); implementation pending (A4). |
 | Process   | `jules-watch.sh` + task queue             | Running                          |
 
 ## Agent-Specific Rules

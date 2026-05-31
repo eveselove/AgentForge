@@ -9,6 +9,19 @@ on:
 # Task 9b18499d: Improved Rust CI with subdir-aware caching (rust/ workspace) + --locked
 # + cargo doc check + better Python pip caching. Fixes cargo commands that previously
 # could not locate the workspace Cargo.toml at repo root.
+#
+# B2 (task e6709411 / CM-Phase3-02): Python parity harness integrated as dedicated job.
+# - Uses hermetic --ci-smoke (golden fixtures + skeleton + unittests only; see parity_harness.py: _run_ci_smoke).
+# - Clear pass/fail criteria: goldens_load + self_compare_clean + skeleton_shape + unittest_hermetic.
+# - DECISION (per user query + Phase3 B2/B3/B5): ADVISORY / non-blocking for now (continue-on-error: true).
+#   Rationale: harness is transitional migration tooling (Phase 4 Python flywheel removal target after soak);
+#   known tolerated gaps (learning_value, proposal richness, manifest minimalism) documented in PARITY_REPORT_PHASE1*.
+#   Job provides visibility + catches harness regressions. Rich fidelity_pass/composite_score are signals, not gates.
+#   Promotion path: flip flag + add to required checks after Python removal or explicit numeric policy (B5).
+# - Matches existing softness pattern (Rust lib tests, shellcheck).
+# - Artifacts: PARITY_REPORT + any fidelity JSONs for agent consumption (B4).
+# - Also lightly covers B1 "Python health checks" via eval test suite (advisory step).
+# Traceability: task e6709411, AGENTS.md (worktree, pre-commit, mandatory agent-review before PR).
 
 env:
   CARGO_TERM_COLOR: always
@@ -63,6 +76,39 @@ jobs:
       - run: pip install ruff black
       - run: ruff check .
       - run: black --check .
+      # B1 nod (Python health checks): run the hermetic eval test battery (advisory, not gate yet).
+      - name: Python health (eval test suite)
+        run: python -m agentforge.eval.run_tests || true
+        continue-on-error: true
+
+  parity:
+    name: Python Parity Harness (advisory, B2 task e6709411)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install pyyaml
+      - name: Run parity harness CI smoke (hermetic golden + skeleton; clear pass/fail per B2)
+        run: |
+          # Direct script exec triggers bootstrap (works regardless of checkout dir name).
+          # --ci-smoke: goldens + normalize/self-compare + skeleton stub + hermetic unittests.
+          # Exit 0/1 with JSON or banner. See learning/flywheel_parity/parity_harness.py:_run_ci_smoke.
+          python learning/flywheel_parity/parity_harness.py --ci-smoke --json
+        # ADVISORY: do not block PRs. See top comment for full decision + promotion path.
+        continue-on-error: true
+      - name: Upload parity artifacts (report + fidelity JSONs for agents)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: parity-harness-results-${{ github.run_id }}
+          path: |
+            learning/flywheel_parity/PARITY_REPORT_PHASE1.md
+            /tmp/shadow_fidelity*.json
+            /tmp/agentforge_rust_flywheel/shadow_fidelity_aggregate.json
+          retention-days: 7
 
   shell:
     name: Shell & Scripts

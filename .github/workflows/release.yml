@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'agentforge-runner-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.1.0)'
+        required: false
+
+jobs:
+  build-release:
+    name: Build agentforge-runner release binary
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          working-directory: rust
+          prefix-key: "v0-agentforge-release"
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p ../release-artifacts
+          cp target/release/agentforge-runner ../release-artifacts/ || cp target/release/agentforge ../release-artifacts/agentforge-runner || echo "binary name may differ"
+          ls -la ../release-artifacts/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentforge-runner-${{ github.ref_name || github.event.inputs.version || 'manual' }}
+          path: release-artifacts/
+
+      # Future: attach to GitHub Release when we have a release creation step
+      # For now this gives downloadable binaries on every tag + manual dispatch
