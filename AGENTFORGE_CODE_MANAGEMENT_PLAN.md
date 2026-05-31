@@ -43,7 +43,7 @@ AgentForge should be developed like a frontier agentic system:
 - [x] Create a clean backup branch of current dirty state (`backup/pre-management-2026-05-31`)
 - [x] Aggressive .gitignore improvements (pycache, logs, target/, *.bak.*, .pure* markers that shouldn't be committed, etc.)
 - [x] Commit a "pre-management baseline" so we have a clean starting point
-- [ ] Document current repo structure (Rust workspace layout, Python package, services)
+- [x] Document current repo structure (Rust workspace layout, Python package, services) — REPO_STRUCTURE.md created + AGENTS.md covers much of it
 
 ### Phase 1 — Remote & Hosting (Critical)
 
@@ -58,19 +58,21 @@ AgentForge should be developed like a frontier agentic system:
 - [ ] Define branching strategy (recommend: trunk-based with short-lived agent branches)
 - [ ] Integrate task system with Git (every significant change linked to task ID)
 - [ ] Make `jules_runner` and local `implement` + `agent-review` the default path for changes
-- [ ] Create `CONTRIBUTING.md` and `AGENTS.md` that describe "how we develop AgentForge using AgentForge"
+- [x] Create `CONTRIBUTING.md` and `AGENTS.md` that describe "how we develop AgentForge using AgentForge"
 - [ ] Pre-commit hooks or simple lint/format gates
+- [x] Repository made public on GitHub (unlocks more features)
 
 ### Phase 3 — CI/CD & Quality Gates
 
 - [x] GitHub Actions (or equivalent) for:
-  - Basic Rust workspace check + clippy + fmt (`.github/workflows/ci.yml`)
-  - Basic Python linting
-  - Service validation (expand later)
-- [ ] Full Rust workspace build + test (all crates)
+  - Rust workspace check + clippy + fmt (`.github/workflows/ci.yml`)
+  - Python linting (ruff + black)
+  - Shellcheck on bin/
+- [ ] Full Rust workspace build + test (all crates) with caching
 - [ ] Python health + parity harness in CI
 - [ ] Automated release binary building for `agentforge-runner`
 - [ ] Shadow / fidelity checks on PRs (future)
+- [x] PULL_REQUEST_TEMPLATE.md created with task/Jules linking requirements
 
 ### Phase 4 — Self-Management (Dogfooding)
 
@@ -80,14 +82,18 @@ AgentForge should be developed like a frontier agentic system:
 
 ---
 
-## Immediate Next Actions (Start in This Session)
+## Immediate Next Actions (Start in This Session) — Updated 2026-05-31
 
-1. Create backup branch + improved .gitignore (quick win)
-2. Create 5–7 high-quality tasks in the task system for this plan (with proper `preferred_agent`)
-3. Begin execution using:
-   - Local Grok + `implement` / `agent-review` skills for code changes
-   - Jules (once repo connectivity for the target is resolved)
-4. Produce visible artifacts (cleaner tree, first remote push, updated docs)
+1. ✅ Backup branch + aggressive .gitignore + baseline commit done
+2. ✅ Standalone GitHub repo created (public): https://github.com/eveselove/AgentForge
+3. ✅ CONTRIBUTING.md + AGENTS.md + CODEOWNERS + PR template created
+4. ✅ Basic CI workflow added and improved
+5. **Now (full power mode)**: Create 10+ high-quality tasks for remaining Phase 2 & Phase 3 items
+6. Launch parallel agents (Grok + Jules via `launch-jules-parallel`) to close Phase 2 items aggressively
+7. Define and document branching strategy + task-git integration
+8. Build pre-commit / lint gates
+9. Strengthen CI (full Rust tests + caching + parity harness)
+10. Start Phase 4 dogfooding (route all CM work through task queue + flywheel)
 
 ---
 
