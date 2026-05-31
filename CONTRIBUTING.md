@@ -9,6 +9,25 @@ We practice **dogfooding**:
 - Significant work is done by agents (Grok, Jules, Gemini, etc.).
 - Human developers act as coordinators, reviewers, and high-leverage decision makers.
 
+## Local Development Environment
+
+Set up the automation tools once:
+
+```bash
+# Quality gates on every commit (strongly recommended)
+./bin/install-pre-commit
+
+# Optional but powerful: run Jules session watcher in background
+# (creates "Accept Jules work" tasks automatically when sessions finish)
+nohup ./bin/jules-watch.sh --loop >/dev/null 2>&1 &
+# or: tail -f ~/.config/jules/jules-watch.log
+
+# For extreme parallel agent work without checkout conflicts:
+./bin/agent-worktree create my-parallel-task
+```
+
+See `AGENTS.md` → "Automation Tools (`bin/`)" for full details on `jules-watch.sh`, `launch-jules-parallel`, `pre-commit`, and `agent-worktree`.
+
 ## Development Workflow
 
 1. **Tasks first**
@@ -16,18 +35,23 @@ We practice **dogfooding**:
    - Tasks have `preferred_agent`, priority, and tags.
 
 2. **Agent execution**
-   - Use `agent-team` (or `at`) to launch parallel agents.
-   - Use `bin/launch-jules-parallel` for high-volume Jules work.
-   - Jules sessions are tracked and automatically turned into acceptance tasks by `bin/jules-watch.sh`.
+   - Use `agent-team` (or `at`) to launch parallel agents in tmux.
+   - Use `bin/launch-jules-parallel` for high-volume / maximum-speed Jules work (uses both keys).
+   - Use `bin/agent-worktree` when you need many isolated checkouts in parallel.
+   - Jules sessions are tracked and automatically turned into acceptance tasks by `bin/jules-watch.sh` (run it in `--loop` mode for full autonomy).
 
 3. **Review & Acceptance**
    - All changes to `main` require a Pull Request.
-   - Link PRs to task IDs and/or Jules session IDs.
+   - Link PRs to task IDs and/or Jules session IDs (use the PR template).
+   - **Mandatory agent review** (via `agent-review` skill or equivalent) for agent-authored changes before merge (see Branching Strategy).
    - Use the Pull Request template.
 
-4. **Branching**
-   - Prefer short-lived branches from `main`.
-   - Naming convention (recommended): `agent/<short-description>` or `task/<task-id>`.
+4. **Branching** (see full details in [docs/BRANCHING_STRATEGY.md](docs/BRANCHING_STRATEGY.md), v1.0 from task 62a84821 [CM-03])
+   - Prefer short-lived branches from latest `main`.
+   - Naming convention (canonical for agent/CM work): `agent/cm-xxx-description` (e.g. `agent/cm-03-branching-strategy-62a84821`) or `agent/<slug>`.
+   - Alternative good forms: `task/<id>-slug`, `jules/<session-id>`.
+   - Use `./bin/agent-worktree create <slug>` for parallel isolated work (creates `agent/` branches automatically).
+   - Install pre-commit hook in the worktree: `./bin/install-pre-commit`.
 
 5. **Commit style**
    - Reference tasks and Jules sessions when possible:
@@ -37,23 +61,27 @@ We practice **dogfooding**:
 ## Running Agents Locally
 
 ```bash
-# Launch multiple agents
+# Launch multiple agents (Grok / Jules / Gemini)
 agent-team grok "task 1" "task 2"
+agent-team jules "implement feature X"
 
-# Launch parallel Jules using both accounts (maximum speed)
-./bin/launch-jules-parallel "task A" "task B" --count 4 --parallel 3
+# Launch many Jules sessions in true parallel (both keys)
+./bin/launch-jules-parallel "task A" "task B" --count 6 --parallel 2
 
-# Install pre-commit hook (do this once)
-./bin/install-pre-commit
-
-# Monitor Jules automation
+# Monitor everything
+ta                    # attach to agents tmux
 tail -f ~/.config/jules/jules-watch.log
+./bin/agent-worktree list
 ```
 
 ## Code Style
 
-- **Rust**: `cargo fmt`, `cargo clippy -D warnings`
-- **Python**: `ruff` + `black`
+- Install the hook once: `./bin/install-pre-commit`
+- The `bin/pre-commit` hook (runs automatically on `git commit`) enforces:
+  - No secrets or huge files
+  - **Rust**: `cargo fmt -- --check` + `cargo clippy --workspace -D warnings`
+  - **Python**: `ruff check --fix` + `black --check`
+- You can (and should) still run the formatters manually during development.
 - Keep agent-related code well documented — future agents will read it.
 
 ## Questions?

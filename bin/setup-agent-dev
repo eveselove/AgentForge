@@ -1,0 +1,27 @@
+#!/bin/bash
+# One-command setup for new agents/humans working on AgentForge
+
+set -e
+
+echo "🚀 Setting up AgentForge development environment..."
+
+# Install pre-commit hook
+if [ -f "bin/install-pre-commit" ]; then
+    ./bin/install-pre-commit
+else
+    echo "⚠️  bin/install-pre-commit not found"
+fi
+
+# Show current recommended workflow
+echo ""
+echo "✅ Setup complete. Recommended workflow:"
+echo "1. Always pull latest main before starting work"
+echo "2. Create short-lived branch (see docs/BRANCHING_STRATEGY.md)"
+echo "3. Work with task ID or Jules session ID in commits"
+echo "4. Open PR with links to task/Jules session"
+echo "5. Get review (preferably agent-review) before merging"
+echo ""
+echo "Key documents:"
+echo "  - docs/BRANCHING_STRATEGY.md"
+echo "  - AGENTS.md"
+echo "  - CONTRIBUTING.md"

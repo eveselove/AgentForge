@@ -64,11 +64,17 @@ Branch    : $branch
 Created   : $(date -Iseconds)
 Base      : $base_branch
 
-This is a fully isolated checkout.
-You can safely run cargo, edit files, commit, etc. here.
+This is a fully isolated checkout (see bin/agent-worktree).
+Follow the official Branching Strategy (docs/BRANCHING_STRATEGY.md).
+All work must be traceable to a task (62a84821 etc.).
 
-When done:
-  agent-worktree cleanup $slug
+IMMEDIATELY after entering this tree, run:
+  cd /home/agx/agentforge && ./bin/install-pre-commit
+
+This activates the quality gate (secrets, size, fmt/clippy/ruff/black).
+
+When done with the task:
+  cd /home/agx/agentforge && ./bin/agent-worktree cleanup $slug
 
 Or from inside this dir:
   cd /home/agx/agentforge && ./bin/agent-worktree cleanup $slug
