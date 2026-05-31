@@ -47,3 +47,12 @@ Keep launching until the 7 core Wave 2 tasks + 8 micros show major progress.
 - Agents instructed to self-generate follow-up micro-tasks
 
 This is near-maximum practical parallelism for the current setup.
+
+**Review Backlog Harvest Wave launched (user: "много на ревью глянь")**:
+- Identified 38 unmerged agent/ branches.
+- Top hot ones: agent/a1-agent-review-auto-task-306644eb, agent/c2492e01-rust-ci, agent/cm-c1-c2-antigravity-ci-policy-a8c59b4e, etc.
+- Created 6 dedicated high-priority review/harvest tasks in queue (f52e7b56, 33b7aff5, 4fce3997, 52b5f835, cdf41c68, ac5a899b).
+- Launched dedicated 8-agent harvest wave (A1-1756 → A8-1756) whose only job is to clear the review backlog.
+- Agents instructed to generate handoffs, decide on merges, create follow-up micro review tasks, and update checklists.
+
+This directly addresses the accumulation from the massive previous waves.

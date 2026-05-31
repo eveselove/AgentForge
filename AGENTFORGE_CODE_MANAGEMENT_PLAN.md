@@ -205,3 +205,11 @@ Focus: smaller scope + higher volume to finish remaining clusters faster.
 - Micro-task volume + self-task generation + harvest mode all running at full blast
 
 Темп доведён до практического максимума. Продолжаем пока не закроем оставшиеся 7+8 задач.
+
+**Review Backlog Action (user signal: "много на ревью глянь")**:
+- 38 agent/ branches currently unmerged.
+- 6 dedicated review tasks created in queue (f52e7b56+).
+- 8-agent harvest wave launched (A1-1756+) specifically to process the backlog, generate handoffs, and clear the way for merges.
+- Top priority branches under active review: A1 runner auto-review (306644eb), Rust CI (c2492e01), Antigravity policy (a8c59b4e).
+
+This is the necessary harvest phase after extreme volume launches.
