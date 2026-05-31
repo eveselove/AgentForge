@@ -1,0 +1,8 @@
+{
+  "source": "fresh release agentforge-runner flywheel-step --real-data --trajectories /home/agx/agentforge/eval/trajectories (prm sidecars enriched)",
+  "generated": "2026-05-31 via Jules turbo parity harness",
+  "records_loaded": 96,
+  "high_learning_value": null,
+  "engine": "rust-agentforge-runner/flywheel-step@phase1-mvp",
+  "purpose": "Rust-native golden fixture for regression + future Rust-vs-Rust parity. Captured from real farm trajectories bundle."
+}

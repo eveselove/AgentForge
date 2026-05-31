@@ -1,0 +1,8 @@
+{
+  "command": "agentforge-runner flywheel-step --real-data",
+  "records_loaded": 96,
+  "engine": "rust-agentforge-runner/flywheel-step@phase1-mvp",
+  "timestamp": "2026-05-31T07:04:41.780578064+00:00",
+  "pending_candidates_ingest": "direct via agentforge-candidates (future) or post_process hook",
+  "rust_pairs_used": 96
+}
