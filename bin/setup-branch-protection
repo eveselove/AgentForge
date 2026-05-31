@@ -67,16 +67,17 @@ gh api \
     echo "  - You need GitHub Pro / Organization permissions"
     echo "  - Better to configure manually via GitHub UI → Settings → Branches"
     echo ""
-    echo "Recommended manual settings:"
-    echo "  - Require a pull request before merging"
-    echo "  - Require at least 1 approving review"
-    echo "  - Dismiss stale pull request approvals when new commits are pushed"
-    echo "  - Require status checks to pass before merging:"
+    echo "Recommended manual settings (A2 smallest per docs/BRANCH_PROTECTION_A2_PROPOSAL.md):"
+    echo "  - Require a pull request before merging (0 approvals per A7)"
+    echo "  - Require status checks to pass before merging (strict):"
     for check in "${REQUIRED_CHECKS[@]}"; do
         echo "      • $check"
     done
     echo "  - Require branches to be up to date before merging"
-    echo "  - Include administrators"
+    echo "  - Require conversation resolution"
+    echo "  - Do not allow bypassing (include admins)"
+    echo "  - Block force pushes and deletions"
+    echo "  Prefer Ruleset (evaluate mode) — see .github/BRANCH_PROTECTION.md"
     exit 1
 }
 
