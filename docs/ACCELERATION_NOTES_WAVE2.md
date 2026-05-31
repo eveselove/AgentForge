@@ -30,3 +30,11 @@
 Reach P2 93%+, P3 75%+ within the next few hours of wall time by pure volume + narrower scope.
 
 Run in "maximum aggression" mode until the remaining clusters are cleared.
+
+**Latest launch (live)**:
+- +13 agents on core remaining (A1-1750 batch)
+- +5 more via antigravity routing attempt (A14-1750+)
+- Total agent windows now well over 80-90 in the session.
+- Still pushing micro-task volume + direct execution.
+
+Keep launching until the 7 core Wave 2 tasks + 8 micros show major progress.
