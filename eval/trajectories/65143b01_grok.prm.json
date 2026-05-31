@@ -1,0 +1,233 @@
+{
+  "task_id": "65143b01",
+  "prm_result": {
+    "task_id": "65143b01",
+    "agent": "grok",
+    "overall_prm_score": 0.615,
+    "step_scores": [
+      {
+        "step_index": 0,
+        "event_type": "task_start",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:06:21.025Z",
+          "type": "task_start",
+          "data": {
+            "raw": "{\"title\":\"Полная проверка парсинга после рефакторинга:\n1. Проверить что gateway работает (curl localhost:3000/health)\n2. Тестовый парсинг Akson (1 город, 1 категория)\n3. Тестовый парсинг Stroylandia (1 город)\n4. Тестовый парсинг Glavsnab (1 страница)\n5. Тестовый парсинг Lemana (1 запрос)\n6. Проверить логи на ошибки: journalctl --user -u planly-gateway --since '10 min ago'\n7. Проверить что ProxyPool создаётся корректно в логах\n8. Проверить что fetch_with_retry вызывается\n\nСервер: agx@146.120.89.199\",\"priority\":\"critical\",\"tags\":\"\"}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 1,
+        "event_type": "worktree_created",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T08:06:28.250Z",
+          "type": "worktree_created",
+          "data": {
+            "raw": "{\"path\":\"/tmp/agentforge/65143b01\"}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 2,
+        "event_type": "infra_step",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T08:06:28.433Z",
+          "type": "infra_step",
+          "data": {
+            "raw": "{\"step\":\"cargo_optimization\"}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 3,
+        "event_type": "infra_step",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T08:06:28.628Z",
+          "type": "infra_step",
+          "data": {
+            "raw": "{\"step\":\"mold_linker\"}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 4,
+        "event_type": "rag_context",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T08:06:51.800Z",
+          "type": "rag_context",
+          "data": {
+            "raw": "{\"query_length\":\"39\"}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 5,
+        "event_type": "tracing_protocol_injected",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:06:52.284Z",
+          "type": "tracing_protocol_injected",
+          "data": {
+            "raw": "{\"task_id\":\"65143b01\",\"prompt_len_with_protocol\":2005}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 6,
+        "event_type": "grok_execution_start",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:06:52.466Z",
+          "type": "grok_execution_start",
+          "data": {
+            "raw": "{\"worktree\":\"/tmp/agentforge/65143b01\",\"skill\":\"test-self-expansion\",\"model\":\"grok\",\"prompt_length\":2006,\"tracing_protocol\":true}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 7,
+        "event_type": "prompt_prepared",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:06:52.646Z",
+          "type": "prompt_prepared",
+          "data": {
+            "raw": "unparsable"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 8,
+        "event_type": "grok_output_tail",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:21:53.929Z",
+          "type": "grok_output_tail",
+          "data": {
+            "raw": "unparsable"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 9,
+        "event_type": "task_completed",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:21:54.585Z",
+          "type": "task_completed",
+          "data": {
+            "raw": "{\"status\":\"failed\",\"duration_seconds\":902,\"cost_usd\":0.0}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 10,
+        "event_type": "grok_execution_end",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:21:54.902Z",
+          "type": "grok_execution_end",
+          "data": {
+            "raw": "{\"status\":\"failed\",\"duration_seconds\":902,\"ci_result\":\"build_fail\"}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 11,
+        "event_type": "task_finished",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:21:55.082Z",
+          "type": "task_finished",
+          "data": {
+            "raw": "{\"status\":\"failed\",\"duration_seconds\":902}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 12,
+        "event_type": "trajectory_located",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:21:55.257Z",
+          "type": "trajectory_located",
+          "data": {
+            "raw": "{\"path\":\"/home/agx/agentforge/eval/trajectories/65143b01_grok.jsonl\"}}"
+          },
+          "task_id": "65143b01",
+          "agent": "grok"
+        }
+      }
+    ],
+    "num_steps": 13,
+    "num_high_quality_steps": 0,
+    "num_low_quality_steps": 0,
+    "suggestions_for_improvement": [
+      "Trajectory process quality looks reasonable."
+    ]
+  },
+  "generated_at": "2026-05-31T08:21:55.712761Z"
+}

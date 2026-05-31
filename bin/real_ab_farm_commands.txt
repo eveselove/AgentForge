@@ -1,0 +1,119 @@
+# =============================================================================
+# real_ab_farm_commands.txt
+# REAL A/B EXECUTION WAVE — COPY-PASTE READY BLOCKS FOR LIVE FARM
+# Generated: 2026-05-31 (Jules turbo, final 2% for measurable deltas)
+# For the 3 promoted general-refactor candidates (sim A/B: all tie/low conf, 0 delta)
+# + prep/expansion for top high-value candidates (38 records each)
+#
+# PREREQS (confirm once):
+#   - Farm live: workers + dispatch + grok access + low load
+#   - ENABLE_RUST_FLYWHEEL=1 (file or export) + Rust release binary
+#   - Post-process hooks active (auto-ingest real trajectories/PRM)
+#   - cd /home/agx/agentforge
+#
+# SAFETY: Non-destructive. Real runs dispatch to farm (costs time/$). Monitor.
+# Use n=3 for statistical power; 20min timeout per benchmark arm.
+# After real deltas: inspect for non-regression or clear winner → full prod promote.
+# =============================================================================
+
+# 0. ONE-TIME FARM PREP (run in shell)
+cd /home/agx/agentforge
+export PYTHONPATH=.
+export ENABLE_RUST_FLYWHEEL=1
+export AGENTFORGE_USE_RUST=1
+# Prefer release binary (faster, full features)
+ls -l rust/target/release/agentforge-runner
+# (If needed: cargo build --release -p agentforge-runner in rust/ — but pre-built preferred)
+
+# 1. RATE-LIMIT / STATE CLEANUP (critical for clean farm dispatch, run before each wave)
+echo ">>> Rate-limit + flywheel state cleanup for reliable real A/B..."
+rm -f /tmp/agentforge_rust_flywheel/.last_after_task_run \
+      /tmp/agentforge_rust_flywheel/.flywheel*counter* \
+      /tmp/agentforge_rust_flywheel/.rate* 2>/dev/null || true
+rm -rf /tmp/agentforge_rust_flywheel/locks 2>/dev/null || true
+python -c "
+from learning.pending_candidates import cleanup_old_flywheel_artifacts
+print('Cleaned:', cleanup_old_flywheel_artifacts(48))
+" 2>/dev/null || true
+echo "Cleanup complete. Ready for real dispatch."
+
+# 2. MASTER SCRIPT INVOCATION (recommended for the 3 promoted — enhanced with n=3, 20min, cleanup)
+#    This will sed-edit the sim scripts in place (safe), run real A/B sequentially, update metas.
+bash bin/execute_real_abs_on_promoted.sh 2>&1 | tee logs/real_ab_master_$(date +%Y%m%d_%H%M%S).log
+
+# 3. PER-CANDIDATE DIRECT REAL RUNS (using dedicated real-mode scripts — no sed needed)
+#    Run individually or in background for parallel arms if farm allows.
+#    Each: 3 benchmarks x 3 runs/arm = 18 real evals (but quick per benchmark in practice)
+
+# Candidate 1/3: 20260531_053411_general-refactor_81e7d546 (promoted yaml ...053644)
+PYTHONPATH=. ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 \
+  python pending_candidates/20260531_053411_general-refactor_81e7d546/run_ab_real_farm.py \
+  2>&1 | tee logs/real_ab_20260531_053411_$(date +%Y%m%d_%H%M%S).log
+
+# Candidate 2/3: 20260531_053412_general-refactor_81e7d546 (promoted yaml ...053853)
+PYTHONPATH=. ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 \
+  python pending_candidates/20260531_053412_general-refactor_81e7d546/run_ab_real_farm.py \
+  2>&1 | tee logs/real_ab_20260531_053412_$(date +%Y%m%d_%H%M%S).log
+
+# Candidate 3/3: 20260531_053416_general-refactor_81e7d546 (richest, promoted yaml ...053640)
+PYTHONPATH=. ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 \
+  python pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_real_farm.py \
+  2>&1 | tee logs/real_ab_20260531_053416_$(date +%Y%m%d_%H%M%S).log
+
+# 4. ALTERNATIVE: DIRECT EVALUATOR ONE-LINERS FOR REAL (flexible, for any candidate)
+#    Example for first promoted (edit new_yaml path for others). n=2 for quicker signal if needed.
+PYTHONPATH=. ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 python -c '
+from agentforge.learning.evaluator import LearningEvaluator, ABTestConfig
+from pathlib import Path
+e=LearningEvaluator()
+cfg=ABTestConfig(name="real-ab-direct-053411", agent="grok", n_runs_per_arm=3, simulate=False, wait_for_real=True, timeout_minutes=20, use_temp_skill_files=True)
+new_yaml=Path(r"/home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml")
+print(e.ab_test_skill_versions(["example_rust_refactor","lancedb_parser_bottleneck","adaptive_throttle_tuning"], "general-refactor", str(new_yaml), cfg).summary())
+' 2>&1 | tee logs/real_ab_direct_053411_$(date +%Y%m%d_%H%M%S).log
+
+# 5. EXPANSION: TOP HIGH-VALUE CANDIDATES (from list --sort value)
+#    Top current (all general-refactor_81e7d546, many with 38 records):
+#    20260531_054619, 054553, 054527, 055029 (higher succ 0.081), etc.
+#
+#    First generate prep (if not present) via promote-and-ab (safe, timestamped, reviewed mark):
+#    (These create run_ab_after_promote.py + ab_test_config + meta updates; then run sim or real)
+PYTHONPATH=. python list_pending_candidates.py promote-and-ab 20260531_054619_general-refactor_81e7d546 --auto-ab 2>&1 | tee logs/prep_ab_054619.log
+PYTHONPATH=. python list_pending_candidates.py promote-and-ab 20260531_054553_general-refactor_81e7d546 --auto-ab 2>&1 | tee logs/prep_ab_054553.log
+PYTHONPATH=. python list_pending_candidates.py promote-and-ab 20260531_055029_general-refactor_81e7d546 --auto-ab 2>&1 | tee logs/prep_ab_055029.log
+
+#    For REAL on any new high-value (after prep, use same pattern or edit their run_ab):
+#    PYTHONPATH=. ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 python pending_candidates/20260531_054619_general-refactor_81e7d546/run_ab_after_promote.py
+#    (First manually flip its flags or use sed as in master, or create run_ab_real_farm.py copy)
+
+# 6. POST-RUN VERIFICATION (after any real or sim wave — run these immediately)
+echo "=== VERIFICATION COMMANDS ==="
+python list_pending_candidates.py list --sort value --limit 10
+for cid in 20260531_053411_general-refactor_81e7d546 20260531_053412_general-refactor_81e7d546 20260531_053416_general-refactor_81e7d546; do
+  echo "=== $cid ==="
+  ls -l pending_candidates/$cid/*.json pending_candidates/$cid/run_ab*.py 2>/dev/null | cat
+  python -c "
+import json
+m=json.load(open('pending_candidates/$cid/candidate_meta.json'))
+print('real_ab_prepared_at:', m.get('real_ab_prepared_at'))
+print('ab_last_real_run_at:', m.get('ab_last_real_run_at'))
+print('ab_winner:', m.get('ab_winner'), 'sim:', m.get('ab_simulated'))
+" 2>/dev/null || true
+  cat pending_candidates/$cid/ab_results.json 2>/dev/null | python -m json.tool | head -30 || true
+done
+ls -l logs/real_ab_*.log 2>/dev/null | tail -5
+echo "Check eval/history/ for new AB records too."
+echo "Rust flywheel post_process should have ingested any real runs automatically."
+
+# 7. ROLLBACK / CLEAN IF NEEDED
+#   (No changes to prod skills unless you explicitly promote after real win.)
+#   rm -f pending_candidates/<cid>/ab_results_real_*.json   (if partial bad run)
+#   See also pending_candidates/20260531_053416.../ROLLBACK.md for cutover notes.
+
+# =============================================================================
+# END OF FARM READY BLOCKS
+# Full evidence: bin/real_ab_farm_commands.txt + bin/execute_real_abs_on_promoted.sh (enhanced)
+# + per-cand run_ab_real_farm.py (3x) + updated metas + PENDING_CANDIDATES.md section
+# + sim results on expanded high-value cands in their dirs.
+# All production-safe, immediately executable on live farm with ENABLE_RUST_FLYWHEEL.
+# Next after deltas: winner selection + agent_cards / routing integration if positive.
+# =============================================================================

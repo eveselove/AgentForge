@@ -1,3 +1,7 @@
+# === PURE RUST FLYWHEEL DEFAULT CUTOVER (Phase 3 — PRODUCTION EXCELLENCE) @ 2026-05-31T10:42:02+03:00 ===
+# Injected by bin/make_pure_rust_flywheel_default.sh
+# agentforge-runner sole engine (flywheel-step/candidate/continuous). Non-breaking additive.
+# Rollback: edit unit or set Environment=AGENTFORGE_FLYWHEEL_ENGINE=python + touch .disable_pure_rust_flywheel
 [Unit]
 Description=AgentForge Task Queue Server
 After=network.target
@@ -14,3 +18,8 @@ Environment=HOME=/home/agx
 
 [Install]
 WantedBy=multi-user.target
+
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
+Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
+# Pure cutover injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00 — rollback via FLYWHEEL_ENGINE=python or .disable_pure_rust_flywheel

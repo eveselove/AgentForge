@@ -1,3 +1,14 @@
+"""
+DEPRECATED — Full Rust Migration in Progress (2026-05-31)
+=========================================================
+This task creation script is legacy Python.
+
+All new task creation logic should move to Rust (either via agentforge-runner CLI
+or a future dedicated Rust task service).
+
+See RUST_ONLY_MIGRATION_PLAN.md
+"""
+
 import requests
 import json
 

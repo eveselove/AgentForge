@@ -1,0 +1,17 @@
+[package]
+name = "agentforge-flywheel"
+version = "0.1.0"
+edition = "2021"
+description = "Pure-Rust Flywheel orchestrator: SkillImprover + FlywheelStep (per RUST_FULL_MIGRATION_PLAN.md Phase 1)"
+
+[dependencies]
+agentforge-core = { path = "../agentforge-core" }
+agentforge-learning = { path = "../agentforge-learning" }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }

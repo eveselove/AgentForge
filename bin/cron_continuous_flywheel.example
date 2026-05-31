@@ -1,0 +1,17 @@
+# !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
+# cron_continuous_flywheel.example : legacy cron path for Python continuous orchestration (run_continuous_flywheel.sh + .py).
+# PHASE 4 TARGET. Prefer direct: agentforge-runner continuous --no-dry-run --top-n 2 (or timer/service repointed).
+# Update any crontabs to Rust binary before Tier 1/4 deletions. Guard via DISABLE_RUST_FLYWHEEL etc.
+# Full removal path + service migration: see PHASE4_REMOVAL_PLAN.md (infra, Tier 4) + make_pure_rust_flywheel_default.sh
+#
+# Cron snippet for continuous flywheel (fallback if no systemd timers)
+# Install: crontab -e
+# Then add (adjust path):
+#
+# */20 * * * * cd /home/agx/agentforge && ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 /home/agx/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2 >> /home/agx/agentforge/logs/cron_flywheel.log 2>&1
+#
+# With flock (if available on PATH):
+# */20 * * * * cd /home/agx/agentforge && flock -n /tmp/agentforge_rust_flywheel/.continuous_flywheel.lock -c 'ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 /home/agx/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2' >> /home/agx/agentforge/logs/cron_flywheel.log 2>&1
+#
+# Recommended: keep --dry-run first for a day, then flip to --no-dry-run after verifying logs.
+# This reuses exactly the same guards/hooks as the live farm workers.

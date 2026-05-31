@@ -8,6 +8,7 @@
 #          generation of exact per-tier git rm + backup + tag commands.
 #
 # ОБНОВЛЕНО (2026-05-31): Добавлена строгая проверка provenance в manifests и health JSON.
+# ОБНОВЛЕНО (2026-05-31 v2): Расширенная provenance валидация — секция 2.6 (SHA256, Cargo, env, маркер, cross-validation).
 # Если provenance НЕ 100% rust-agentforge-runner — FAIL с exit code 3.
 #
 # Usage (read-only, safe any time):
@@ -245,6 +246,136 @@ else
     else
         echo "  Продолжаем аудит (strict mode не включён). Для жёсткой проверки: --strict-provenance"
     fi
+fi
+
+echo ""
+echo "=== 2.6 РАСШИРЕННАЯ PROVENANCE ВАЛИДАЦИЯ (цепочка доверия) ==="
+echo ""
+
+echo "--- 2.6.1 Целостность бинарника agentforge-runner ---"
+RUNNER_BIN="rust/target/release/agentforge-runner"
+if [ -x "$RUNNER_BIN" ]; then
+    # Вычисляем SHA256 хэш бинарника
+    RUNNER_HASH=$(sha256sum "$RUNNER_BIN" 2>/dev/null | cut -d" " -f1)
+    RUNNER_SIZE=$(stat -c%s "$RUNNER_BIN" 2>/dev/null || echo "UNKNOWN")
+    RUNNER_MTIME=$(stat -c%Y "$RUNNER_BIN" 2>/dev/null || echo "0")
+    NOW_TS=$(date +%s)
+    RUNNER_AGE_DAYS=$(( (NOW_TS - RUNNER_MTIME) / 86400 ))
+    echo "  Бинарник: $RUNNER_BIN"
+    echo "  SHA256:   $RUNNER_HASH"
+    echo "  Размер:   $RUNNER_SIZE байт"
+    echo "  Возраст:  ${RUNNER_AGE_DAYS} дней"
+
+    # Проверяем что бинарник не слишком старый (> 30 дней = предупреждение)
+    if [ "$RUNNER_AGE_DAYS" -gt 30 ]; then
+        check_warn "Бинарник agentforge-runner старше 30 дней (${RUNNER_AGE_DAYS}d) - рекомендуется пересборка"
+    else
+        check_pass "Бинарник agentforge-runner актуален (${RUNNER_AGE_DAYS}d)"
+    fi
+
+    # Записываем хэш в файл для последующей верификации
+    HASH_FILE="/tmp/agentforge_rust_flywheel/runner_sha256.txt"
+    mkdir -p /tmp/agentforge_rust_flywheel
+    if [ -f "$HASH_FILE" ]; then
+        PREV_HASH=$(cat "$HASH_FILE" 2>/dev/null)
+        if [ "$PREV_HASH" != "$RUNNER_HASH" ]; then
+            echo "  ЗАМЕЧАНИЕ: SHA256 бинарника изменился с последнего аудита"
+            echo "  Прежний: $PREV_HASH"
+            echo "  Текущий: $RUNNER_HASH"
+            check_warn "SHA256 agentforge-runner изменился - подтвердите что пересборка была намеренной"
+        else
+            check_pass "SHA256 agentforge-runner стабилен с последнего аудита"
+        fi
+    else
+        echo "  Первый запуск - базовый хэш сохранён"
+    fi
+    echo "$RUNNER_HASH" > "$HASH_FILE"
+else
+    check_fail "Бинарник agentforge-runner НЕ найден ($RUNNER_BIN) - провенанс невозможен"
+    PROVENANCE_FAIL=$((PROVENANCE_FAIL+1))
+fi
+
+echo ""
+echo "--- 2.6.2 Проверка Cargo.toml версии и git-совпадения ---"
+CARGO_TOML="rust/Cargo.toml"
+if [ -f "$CARGO_TOML" ]; then
+    CARGO_VERSION=$(grep "^version" "$CARGO_TOML" | head -1 | sed 's/.*=[ ]*"\(.*\)"/\1/')
+    GIT_HEAD=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
+    echo "  Cargo.toml version: $CARGO_VERSION"
+    echo "  Git HEAD:           $GIT_HEAD"
+
+    # Проверяем, что бинарник собран из текущего коммита
+    RUST_DIRTY=$(git diff --name-only rust/ 2>/dev/null | head -5)
+    if [ -z "$RUST_DIRTY" ]; then
+        check_pass "Rust workspace чист - бинарник соответствует HEAD ($GIT_HEAD)"
+    else
+        echo "  Изменённые файлы в rust/:"
+        echo "$RUST_DIRTY" | while read -r f; do echo "    $f"; done
+        check_warn "Rust workspace имеет uncommitted изменения - бинарник может не соответствовать HEAD"
+    fi
+else
+    check_warn "Cargo.toml не найден: $CARGO_TOML"
+fi
+
+echo ""
+echo "--- 2.6.3 Проверка env-переменных провенанса в рантайме ---"
+ENV_SNIPPET="/home/agx/agentforge/bin/rust_flywheel.env"
+if [ -f "$ENV_SNIPPET" ]; then
+    # Проверяем наличие FLYWHEEL_PROVENANCE в env snippet
+    if grep -q "FLYWHEEL_PROVENANCE" "$ENV_SNIPPET"; then
+        PROV_VALUE=$(grep "FLYWHEEL_PROVENANCE" "$ENV_SNIPPET" | tail -1 | sed 's/.*=//' | tr -d "\"'" )
+        echo "  FLYWHEEL_PROVENANCE в env snippet: $PROV_VALUE"
+        if echo "$PROV_VALUE" | grep -q "rust-agentforge-runner"; then
+            check_pass "FLYWHEEL_PROVENANCE в env snippet = rust-agentforge-runner"
+        else
+            check_fail "FLYWHEEL_PROVENANCE в env snippet НЕ rust-agentforge-runner (got: $PROV_VALUE)"
+            PROVENANCE_FAIL=$((PROVENANCE_FAIL+1))
+        fi
+    else
+        check_warn "FLYWHEEL_PROVENANCE отсутствует в $ENV_SNIPPET - рекомендуется добавить"
+    fi
+else
+    check_warn "Env snippet отсутствует: $ENV_SNIPPET"
+fi
+
+echo ""
+echo "--- 2.6.4 Проверка .pure_rust_flywheel маркера ---"
+PURE_MARKER_CHECK="/home/agx/agentforge/.pure_rust_flywheel"
+if [ -f "$PURE_MARKER_CHECK" ]; then
+    MARKER_CONTENT=$(cat "$PURE_MARKER_CHECK" 2>/dev/null | head -3)
+    MARKER_MTIME=$(stat -c%y "$PURE_MARKER_CHECK" 2>/dev/null | cut -d. -f1)
+    echo "  Маркер: $PURE_MARKER_CHECK (mtime: $MARKER_MTIME)"
+    echo "  Содержимое: $MARKER_CONTENT"
+    check_pass ".pure_rust_flywheel маркер присутствует"
+else
+    check_fail ".pure_rust_flywheel маркер ОТСУТСТВУЕТ - pure mode не гарантирован"
+    PROVENANCE_FAIL=$((PROVENANCE_FAIL+1))
+fi
+
+echo ""
+echo "--- 2.6.5 Cross-validation: все воркеры используют один бинарник ---"
+# Проверяем что все shell скрипты ссылаются на один и тот же runner
+RUNNER_REFS=$(grep -rn "AGENTFORGE_RUST_RUNNER\|agentforge-runner" --include="*.sh" . 2>/dev/null | grep -v ".bak" | grep -v "phase4_pre_removal_audit" | cat)
+UNIQUE_PATHS=$(echo "$RUNNER_REFS" | grep -oE "/[^ \"]*agentforge-runner[^ \"]*" | sort -u)
+UNIQUE_COUNT=$(echo "$UNIQUE_PATHS" | grep -c . 2>/dev/null || echo 0)
+echo "  Уникальные пути к runner в скриптах: $UNIQUE_COUNT"
+echo "$UNIQUE_PATHS" | while read -r p; do echo "    $p"; done
+if [ "$UNIQUE_COUNT" -le 2 ]; then
+    check_pass "Все скрипты используют единообразный путь к agentforge-runner"
+else
+    check_warn "Обнаружено $UNIQUE_COUNT различных путей к runner - рекомендуется унификация"
+fi
+
+echo ""
+echo "--- 2.6.6 Audit самого audit-скрипта: Python-зависимости в provenance проверках ---"
+AUDIT_SELF_PY=$(grep -c "python3\|python " /home/agx/agentforge/bin/phase4_pre_removal_audit.sh 2>/dev/null || echo 0)
+echo "  Python вызовов в audit скрипте: $AUDIT_SELF_PY"
+if [ "$AUDIT_SELF_PY" -gt 0 ]; then
+    echo "  РЕКОМЕНДАЦИЯ: заменить Python JSON парсинг на jq для полной независимости от Python"
+    echo "  Пример: jq -r '.engine // .source // .provenance // \"MISSING\"' health.json"
+    check_warn "Audit скрипт сам использует Python ($AUDIT_SELF_PY вызовов) - рекомендуется миграция на jq"
+else
+    check_pass "Audit скрипт не зависит от Python"
 fi
 
 echo ""

@@ -1,4 +1,8 @@
 #!/bin/bash
+# !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
+# watchdog.sh : invokes watchdog.py (which has flywheel monitoring bits deprecated).
+# Under pure: flywheel health from Rust continuous JSON / agentforge-runner; Python watchdog flywheel code Tier 3/4 target.
+# See PHASE4_REMOVAL_PLAN.md (watchdog.py entry, Tier 3/4), learning/utils.py guard.
 # ============================================
 # AgentForge Watchdog — контроль зависших задач + эскалация
 # Если агент завис → задача эскалируется к более опытному

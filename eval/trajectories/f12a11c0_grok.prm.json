@@ -1,0 +1,161 @@
+{
+  "task_id": "f12a11c0",
+  "agent": "grok",
+  "trajectory_source": "agentforge/eval/trajectories/f12a11c0_grok.jsonl",
+  "processed_at": "2026-05-31T04:33:49.961710Z",
+  "num_events": 7,
+  "event_counts": {
+    "worktree_created": 1,
+    "infra_step": 2,
+    "grok_execution_start": 1,
+    "task_completed": 1,
+    "grok_execution_end": 1,
+    "task_finished": 1
+  },
+  "duration_seconds": 608,
+  "prm_overall_score": 0.621,
+  "prm_high_quality_steps": 0,
+  "prm_low_quality_steps": 0,
+  "prm_suggestions": [
+    "Trajectory process quality looks reasonable."
+  ],
+  "prm_raw": {
+    "task_id": "f12a11c0",
+    "agent": "grok",
+    "overall_prm_score": 0.621,
+    "step_scores": [
+      {
+        "step_index": 0,
+        "event_type": "worktree_created",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T04:18:07.593Z",
+          "type": "worktree_created",
+          "data": {
+            "path": "/tmp/agentforge/f12a11c0"
+          },
+          "task_id": "f12a11c0",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 1,
+        "event_type": "infra_step",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T04:18:07.600Z",
+          "type": "infra_step",
+          "data": {
+            "step": "cargo_optimization"
+          },
+          "task_id": "f12a11c0",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 2,
+        "event_type": "infra_step",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T04:18:07.622Z",
+          "type": "infra_step",
+          "data": {
+            "step": "mold_linker"
+          },
+          "task_id": "f12a11c0",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 3,
+        "event_type": "grok_execution_start",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T04:18:22.108Z",
+          "type": "grok_execution_start",
+          "data": {
+            "worktree": "/tmp/agentforge/f12a11c0",
+            "skill": "none",
+            "model": "grok",
+            "prompt_length": 898
+          },
+          "task_id": "f12a11c0",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 4,
+        "event_type": "task_completed",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T04:28:30.247Z",
+          "type": "task_completed",
+          "data": {
+            "status": "failed",
+            "duration_seconds": 608,
+            "cost_usd": 0.0
+          },
+          "task_id": "f12a11c0",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 5,
+        "event_type": "grok_execution_end",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T04:28:30.251Z",
+          "type": "grok_execution_end",
+          "data": {
+            "status": "failed",
+            "duration_seconds": 608,
+            "ci_result": "build_fail"
+          },
+          "task_id": "f12a11c0",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 6,
+        "event_type": "task_finished",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T04:28:30.254Z",
+          "type": "task_finished",
+          "data": {
+            "status": "failed",
+            "duration_seconds": 608
+          },
+          "task_id": "f12a11c0",
+          "agent": "grok"
+        }
+      }
+    ],
+    "num_steps": 7,
+    "num_high_quality_steps": 0,
+    "num_low_quality_steps": 0,
+    "suggestions_for_improvement": [
+      "Trajectory process quality looks reasonable."
+    ]
+  }
+}

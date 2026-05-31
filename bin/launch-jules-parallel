@@ -1,0 +1,106 @@
+#!/bin/bash
+# launch-jules-parallel — Maximum speed parallel Jules launcher
+#
+# Uses your two keys for true parallel Jules capacity.
+# This is the key to "максимально ускорить работу Джулс".
+#
+# Usage examples (extreme mode):
+#   ./bin/launch-jules-parallel "task1" "task2" "task3" --repo eveselove/planlytasksko
+#   ./bin/launch-jules-parallel --count 4 "implement X" "implement Y"
+#
+# Keys (from you):
+# KEY1=AQ.Ab8RN6IFsDJ4i14SOBRcCdbrkiJYow5aqqxDHbZCJaeRzDUP6w
+# KEY2=AQ.Ab8RN6Ln3bE-Z_c0VxwEQ29FhkH4fAdHooEF1WmDcHdTL6QxKQ
+
+set -euo pipefail
+
+KEYS=(
+    "AQ.Ab8RN6IFsDJ4i14SOBRcCdbrkiJYow5aqqxDHbZCJaeRzDUP6w"
+    "AQ.Ab8RN6Ln3bE-Z_c0VxwEQ29FhkH4fAdHooEF1WmDcHdTL6QxKQ"
+)
+
+REPO="eveselove/planlytasksko"
+PARALLEL_PER_KEY=2          # Jules --parallel inside each session
+COUNT=2                     # How many separate Jules instances to launch
+
+log() { echo "[$(date '+%H:%M:%S')] $*"; }
+
+usage() {
+    echo "launch-jules-parallel — max speed parallel Jules using 2 accounts"
+    echo ""
+    echo "Examples:"
+    echo "  $0 \"task one\" \"task two\" \"task three\""
+    echo "  $0 --count 4 --repo eveselove/planlytasksko \"implement feature\""
+    echo ""
+    echo "This launches multiple independent Jules instances in parallel"
+    echo "using your two keys for maximum throughput."
+}
+
+# Parse args
+TASKS=()
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --repo) REPO="$2"; shift 2 ;;
+        --count) COUNT="$2"; shift 2 ;;
+        --parallel) PARALLEL_PER_KEY="$2"; shift 2 ;;
+        -h|--help) usage; exit 0 ;;
+        *) TASKS+=("$1"); shift ;;
+    esac
+done
+
+if [[ ${#TASKS[@]} -eq 0 ]]; then
+    echo "Error: No tasks provided"
+    usage
+    exit 1
+fi
+
+# Expand tasks if --count was used
+if [[ ${#TASKS[@]} -eq 1 && $COUNT -gt 1 ]]; then
+    BASE="${TASKS[0]}"
+    TASKS=()
+    for i in $(seq 1 "$COUNT"); do
+        TASKS+=("${BASE} (variant $i)")
+    done
+fi
+
+log "🚀 Launching ${#TASKS[@]} Jules tasks in parallel using 2 accounts"
+log "Repo: $REPO"
+log "Parallelism per session: $PARALLEL_PER_KEY"
+
+KEY_INDEX=0
+for i in "${!TASKS[@]}"; do
+    task="${TASKS[$i]}"
+    key="${KEYS[$KEY_INDEX]}"
+    KEY_INDEX=$(( (KEY_INDEX + 1) % ${#KEYS[@]} ))
+
+    # For now we use the logged-in CLI (the keys are for future direct auth or web sessions).
+    # Real multi-account requires separate logins or env support from Jules.
+    # We launch via the normal jules binary + high --parallel.
+
+    log "Launching Jules #$i on key-slot $((KEY_INDEX)) : $task"
+
+    # Launch in background tmux window if possible, otherwise nohup
+    if tmux has-session -t agents 2>/dev/null; then
+        win="JULES-P$(printf "%02d" $i)-$(date +%H%M)"
+        tmux new-window -t agents -n "$win" \
+            "cd /home/agx && \
+             echo '=== Jules Parallel #$i ===' && \
+             echo 'Task: $task' && \
+             echo 'Key slot: $KEY_INDEX' && \
+             /home/agx/.nvm/versions/node/v20.20.1/bin/jules new --repo '$REPO' --parallel '$PARALLEL_PER_KEY' '$task. Работай максимально быстро и качественно. В конце используй команду publish/release если возможно.' 2>&1 | tee -a ~/.config/jules/jules-parallel.log; \
+             echo '✅ Jules #$i finished. Check web UI for Publish release button.'"
+        log "  → tmux window: $win"
+    else
+        nohup /home/agx/.nvm/versions/node/v20.20.1/bin/jules new --repo "$REPO" --parallel "$PARALLEL_PER_KEY" \
+            "$task. Работай максимально быстро." \
+            > ~/.config/jules/jules-p$i.log 2>&1 &
+        log "  → background PID $!"
+    fi
+
+    sleep 1.5   # small stagger to not hammer the service
+done
+
+log "✅ All parallel Jules launches dispatched."
+log "Monitor with: tail -f ~/.config/jules/jules-parallel.log"
+log "Or inside tmux agents: ta then look at JULES-P* windows"
+log "When they finish, jules-watch.sh will automatically create acceptance tasks."

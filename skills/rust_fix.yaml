@@ -62,11 +62,12 @@ steps:
   - id: run_tests
     name: Запуск тестов
     description: >
-      Запустить cargo test для проверки что фикс не ломает существующие тесты.
+      Запустить cargo nextest run для проверки что фикс не ломает существующие тесты.
+      nextest быстрее cargo test (параллелизм), даёт лучший отчёт. Устанавливается ensure_rust_devtools.sh.
       Если тесты падают — вернуться к шагу apply_fix.
     action: run_command
     params:
-      command: "cargo test"
+      command: "cargo nextest run"
       retry_on_fail: true
       max_retries: 3
       on_fail: goto:apply_fix
@@ -87,6 +88,10 @@ tools:
     description: Поиск по коду (rg)
   - name: cargo
     description: Rust package manager и build system
+  - name: cargo-binstall
+    description: Быстрая установка prebuilt cargo-крейтов (из ensure_rust_devtools.sh)
+  - name: cargo-machete
+    description: Поиск неиспользуемых зависимостей в Cargo.toml (cargo machete)
   - name: git
     description: Система контроля версий
   - name: file_editor

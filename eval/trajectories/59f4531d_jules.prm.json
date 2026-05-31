@@ -1,0 +1,49 @@
+{
+  "task_id": "59f4531d",
+  "prm_result": {
+    "task_id": "59f4531d",
+    "agent": "jules",
+    "overall_prm_score": 0.6,
+    "step_scores": [
+      {
+        "step_index": 0,
+        "event_type": "task_completed",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:12:56.828Z",
+          "type": "task_completed",
+          "data": {
+            "raw": "{\"status\":\"review\",\"duration_seconds\":17,\"cost_usd\":0.0}}"
+          },
+          "task_id": "59f4531d",
+          "agent": "jules"
+        }
+      },
+      {
+        "step_index": 1,
+        "event_type": "jules_execution_end",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:12:58.359Z",
+          "type": "jules_execution_end",
+          "data": {
+            "raw": "{\"status\":\"review\",\"duration_seconds\":17}}"
+          },
+          "task_id": "59f4531d",
+          "agent": "jules"
+        }
+      }
+    ],
+    "num_steps": 2,
+    "num_high_quality_steps": 0,
+    "num_low_quality_steps": 0,
+    "suggestions_for_improvement": [
+      "Trajectory process quality looks reasonable."
+    ]
+  },
+  "generated_at": "2026-05-31T08:13:01.406120Z"
+}

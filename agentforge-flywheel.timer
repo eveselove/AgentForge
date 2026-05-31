@@ -1,0 +1,41 @@
+# === PURE RUST FLYWHEEL DEFAULT CUTOVER (Phase 3 — PRODUCTION EXCELLENCE) @ 2026-05-31T10:42:02+03:00 ===
+# Injected by bin/make_pure_rust_flywheel_default.sh
+# agentforge-runner sole engine (flywheel-step/candidate/continuous). Non-breaking additive.
+# Rollback: edit unit or set Environment=AGENTFORGE_FLYWHEEL_ENGINE=python + touch .disable_pure_rust_flywheel
+# !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
+# !!! PHASE 4 DELETION TARGET INFRA: agentforge-flywheel.timer (drives Python .service currently) !!!
+# MIGRATE: Repoint Unit to a pure-Rust continuous service or direct agentforge-runner invocation in future unit.
+# This timer + service pair is key continuous path — update BEFORE deleting bin/run_continuous_flywheel.py + .sh.
+# See PHASE4_REMOVAL_PLAN.md (Tier 4: sh/service cleanup last; explicit "update invocations" required).
+# Crystal-clear: patch via make_pure script or manually to `agentforge-runner continuous` before any Python deletion.
+# Rollback ironclad via .disable_* dotfiles + DISABLE_* envs (centralized, no local logic dupe).
+#
+[Unit]
+Description=AgentForge Continuous Flywheel Timer (every ~20min, drives autonomous promote-and-ab + winner detection)
+Documentation=https://github.com/agentforge (see CONTINUOUS_FLYWHEEL.md, ANTIGRAVITY_DEFAULT.md) man:systemd.timer(5)
+Requires=agentforge-flywheel.service
+# 2026-06: This timer is part of the "Rust Flywheel now default for Antigravity" autonomy story.
+#
+# !!! PHASE 3 FINAL DEPRECATION SWEEP + POLISHED RUNNER UX (see agentforge-flywheel.service) !!!
+# Python continuous orchestration layer marked for removal. Target: direct agentforge-runner continuous [--shadow].
+# Full farm integration (health, shadow fidelity, hooks) now obvious in `agentforge-runner continuous --help`.
+# Patched via bin/make_pure_rust_flywheel_default.sh (Phase 3 cutover).
+
+[Timer]
+# 20 minute cadence (15-30min range recommended for farm load)
+OnCalendar=*:0/20
+# Randomized start to avoid thundering herd on farm workers
+RandomizedDelaySec=90
+# Run on boot after 3min (then every 20)
+OnBootSec=3min
+# Always catch up if system was down
+Persistent=true
+Unit=agentforge-flywheel.service
+
+[Install]
+WantedBy=timers.target
+
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
+Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
+# Pure cutover injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00 — rollback via FLYWHEEL_ENGINE=python or .disable_pure_rust_flywheel

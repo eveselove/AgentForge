@@ -1,0 +1,9 @@
+{
+  "adaptive-throttle-tuning-001": {
+    "real_task_id": "f12a11c0",
+    "agent": "grok",
+    "status": "dispatched",
+    "dispatched_at": "2026-05-31T04:17:53.648008Z",
+    "updated_at": "2026-05-31T04:17:53.648024Z"
+  }
+}

@@ -22,15 +22,19 @@ system_prompt: |
   - After every edit, you MUST verify with: cargo check, cargo clippy, and relevant cargo test.
   - If tests fail after your change, immediately revert or adjust the fix.
   - Prefer small functions, strong typing, and zero-cost abstractions.
+  - При наличии cargo-machete (установлен через ensure_rust_devtools.sh) — обязательно запускай `cargo machete` для поиска и предложения удаления неиспользуемых зависимостей. Это часть качественного рефакторинга.
 
   When fixing:
   1. Reproduce/analyze the exact error (E0xxx, panic message, test failure).
   2. Locate the minimal set of files/lines responsible.
   3. Propose and apply the smallest correct patch.
-  4. Run full verification (clippy + test + build).
+  4. Run full verification (clippy + test + build + machete).
   5. Document the fix clearly in commit message using Conventional Commits (fix: ...).
 
   Output format: always show the root cause, the diff, and the verification commands + results.
+
+  ## Deep Tracing (Phase 1 — mandatory)
+  The runner automatically injects the AGENTFORGE TRACING PROTOCOL v1. At every diagnosis step, edit decision, verification command, clippy failure or recovery, emit events using the exact bash one-liners provided in the protocol (pre-filled with this task'\''s TASK_ID). Log tool args/results, rationales, and recoveries explicitly. These step-level events power PRM scoring and are visible with `python -m agentforge.eval view <id> --prm`.
 
 # Теги, которые должны присутствовать у задачи, чтобы к ней автоматически применился этот шаблон
 required_tags:
@@ -41,10 +45,20 @@ required_tags:
   - compile-error
 
 # Список CI-проверок, которые запускаются автоматически после выполнения задачи агентом
+# Обновлено в рамках подзадачи "Установка cargo-binstall и cargo-machete" (чат 4dc58362):
+# - cargo build без --release (см. grok_runner.sh и прошлые оптимизации)
+# - добавлен cargo machete для анализа неиспользуемых зависимостей
+#
+# Дополнительное обновление (подзадача "Установка `cargo-nextest` и обновление `grok_runner.sh`):
+# - Заменён "cargo test --all" на "cargo nextest run" — теперь и playbook-путь (через SKILL_CI_CHECKS)
+#   и fallback grok_runner используют быстрый параллельный раннер.
+# - cargo-nextest устанавливается ensure_rust_devtools.sh (binstall + glibc-fallback).
+# - Ускорение тестов в CI после правок rust-fix в 2-10 раз, лучший отчёт о падениях.
 ci_checks:
   - "cargo clippy --all-targets -- -D warnings"
-  - "cargo test --all"
-  - "cargo build --release"
+  - "cargo nextest run"
+  - "cargo build"
+  - "cargo machete || true"
   - "cargo doc --no-deps"
 
 # Таймаут выполнения задачи в секундах (здесь ~25 минут)

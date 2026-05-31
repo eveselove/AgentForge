@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Mixture-of-Agents (MoA) layered architecture",
+    "description": "Multiple proposer agents generate parallel candidate solutions or reasoning paths, then one or more aggregator agents iteratively synthesize and critique the best output across layers. DeepMind and OpenAI use variants of this for frontier reasoning and coding agents.",
+    "priority": "high",
+    "complexity": "medium",
+    "tags": ["orchestration", "reasoning", "scaling"]
+  },
+  {
+    "name": "DSPy / automatic prompt & program optimization",
+    "description": "Treats agent prompts, few-shot examples, tool selection logic and control flows as optimizable programs that are automatically tuned via Bayesian optimization or gradient-free search against held-out evaluation sets. Anthropic and Google maintain internal equivalents to eliminate manual prompt tuning.",
+    "priority": "high",
+    "complexity": "medium",
+    "tags": ["optimization", "prompts", "evaluation"]
+  },
+  {
+    "name": "Synthetic user & environment simulators",
+    "description": "LLM-powered simulators that generate realistic multi-turn user behavior, browser states, CLI environments or API responses to run thousands of reproducible agent evaluations offline without real infrastructure. OpenAI and Anthropic rely on this for regression testing and pre-deployment validation.",
+    "priority": "critical",
+    "complexity": "complex",
+    "tags": ["evaluation", "testing", "simulation"]
+  },
+  {
+    "name": "Process Reward Models (PRM) for step-level scoring",
+    "description": "Trained models that assign quality scores to every intermediate reasoning step, tool call or state transition in an agent trajectory instead of only final outcomes. Enables beam search, early rejection and much stronger self-correction than outcome-only reward models.",
+    "priority": "critical",
+    "complexity": "complex",
+    "tags": ["evaluation", "reward-models", "reasoning"]
+  },
+  {
+    "name": "Full agent trajectory tracing (OpenTelemetry + custom)",
+    "description": "Distributed tracing that records complete causal graphs of every LLM call, tool invocation, memory read/write, state transition and cost token with parent-child relationships and time-travel replay capabilities. All frontier labs run internal versions far beyond basic WebSocket status updates.",
+    "priority": "high",
+    "complexity": "medium",
+    "tags": ["observability", "tracing", "debugging"]
+  },
+  {
+    "name": "Dynamic hierarchical team orchestration",
+    "description": "Manager agents maintain explicit team state, perform recursive task decomposition, and spawn or retire specialized sub-agents or sub-teams on demand with shared blackboard or structured memory. Core pattern in Google’s and Anthropic’s production multi-agent systems.",
+    "priority": "high",
+    "complexity": "medium",
+    "tags": ["orchestration", "teams", "delegation"]
+  },
+  {
+    "name": "Trajectory-level preference optimization (DPO/KTO for agents)",
+    "description": "Systematic collection of pairwise preferences over complete successful vs failed agent traces, followed by training of critic, router or planner models using DPO, KTO or ORPO objectives. Used by OpenAI and Anthropic to improve planning and tool-use policies without full RL.",
+    "priority": "high",
+    "complexity": "complex",
+    "tags": ["optimization", "rlhf", "trajectories"]
+  },
+  {
+    "name": "MicroVM / gVisor / Firecracker secure sandboxes",
+    "description": "Execution of all agent-written code, browser automation or untrusted tool calls inside lightweight micro virtual machines with hard CPU, memory, network and filesystem isolation plus full audit trails. Standard at Google and OpenAI for anything beyond simple function calling.",
+    "priority": "critical",
+    "complexity": "complex",
+    "tags": ["security", "sandboxing", "execution"]
+  },
+  {
+    "name": "Automated failure clustering & living taxonomy",
+    "description": "Post-hoc pipelines that embed all failed trajectories, cluster them semantically, generate human-readable failure mode descriptions, and maintain an evolving taxonomy used to drive targeted data collection and prompt/skill fixes. Anthropic runs this continuously on production agent logs.",
+    "priority": "medium",
+    "complexity": "medium",
+    "tags": ["analysis", "logs", "improvement"]
+  },
+  {
+    "name": "Agent configuration canary & statistical A/B testing",
+    "description": "Production traffic splitting between different agent variants (prompts, skills, model routing, memory strategies) with automated statistical tests on success rate, cost, latency and downstream impact before promotion. Missing from most custom frameworks but mandatory at scale at OpenAI and Google.",
+    "priority": "high",
+    "complexity": "medium",
+    "tags": ["deployment", "evaluation", "experimentation"]
+  }
+]

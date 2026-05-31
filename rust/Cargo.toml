@@ -1,0 +1,33 @@
+[workspace]
+members = [
+    "crates/agentforge-core",
+    "crates/agentforge-safety",
+    "crates/agentforge-planning",
+    "crates/agentforge-observability",
+    "crates/agentforge-learning",
+    "crates/agentforge-runner",
+    "crates/agentforge-long-horizon",
+    "crates/agentforge-flywheel",
+    "crates/agentforge-candidates",
+]
+
+resolver = "2"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Learning specific
+reqwest = { version = "0.11", features = ["json"] } # for future LLM calls in improver/trainer
+
+# PyO3 (future, for tight Rust-Python interop on Dataset / runner)
+# pyo3 = { version = "0.21", optional = true }
+# Enable per-crate: [features] pyo3 = ["dep:pyo3"] + cdylib
+

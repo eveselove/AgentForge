@@ -1,0 +1,16 @@
+{
+  "task_id": "0374c1c2",
+  "prm_result": {
+    "task_id": "0374c1c2",
+    "agent": "unknown",
+    "overall_prm_score": 0.0,
+    "step_scores": [],
+    "num_steps": 0,
+    "num_high_quality_steps": 0,
+    "num_low_quality_steps": 0,
+    "suggestions_for_improvement": [
+      "Trajectory process quality looks reasonable."
+    ]
+  },
+  "generated_at": "2026-05-31T05:20:17.519987Z"
+}

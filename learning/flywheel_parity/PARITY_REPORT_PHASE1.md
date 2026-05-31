@@ -14,7 +14,7 @@ Measured: key presence, structure, proposal counts, learning_value stats (with t
 - prm_enriched: 58
 - avg_learning_value (Rust ds): ~0.008 (low in batch)
 - high_learning_value_records: None
-- proposals emitted: 1
+- proposals emitted: 11
 - engine: rust-agentforge-runner/flywheel-step@phase1-mvp
 - source rationale pattern: deterministic error signature mining in improver.rs
 
@@ -23,23 +23,25 @@ Measured: key presence, structure, proposal counts, learning_value stats (with t
 | Field / Metric                  | Rust (fresh)      | Python Golden     | Result / Tol                  |
 |---------------------------------|-------------------|-------------------|-------------------------------|
 | Core artifacts present        | proposal.json, candidate_skill.yaml, flywheel_manifest.json | 4                 | PASS (3/3 core)              |
-| proposal.json key overlap %   | -                 | -                 | 90.9%                          |
-| # sectioned proposals         | 1                 | 1                 | partial (MVP shape)          |
+| proposal.json key overlap %   | -                 | -                 | 83.3%                          |
+| # sectioned proposals         | 11                 | 1                 | partial (MVP shape)          |
 | high_learning_value_records   | None                 | 20                | GAP (see below)              |
 | records / rust_pairs          | 96               | 22                | data volume diff (expected)  |
-| shape_diffs (tolerant)        | -                 | -                 | 3                           |
-| normalized tolerance diffs    | -                 | -                 | 34                         |
+| shape_diffs (tolerant)        | -                 | -                 | 2                           |
+| normalized tolerance diffs    | -                 | -                 | 31                         |
 | passed_core_contract          | -                 | -                 | YES |
 
 ## 4. Metrics vs Secondary Golden (sample_with_rich_export)
-proposal overlap: 90.9%, shape diffs: 3, tolerance diffs: 36
+proposal overlap: 83.3%, shape diffs: 2, tolerance diffs: 33
 
 ## 5. Documented Gaps (Phase 1 — Expected & Catalogued)
 - high_learning_value_records: Rust None vs golden 20 (compute_learning_value heuristic port + prm sidecar enrichment volume + current farm batch prm scores differ)
+- proposal sections emitted: Rust 11 vs golden 1 (Rust MVP always 1 system_prompt section from improver.rs error mining)
 - manifest richness gap: Rust flywheel_manifest.json minimal (records_loaded, engine, command, rust_pairs_used, timestamp, artifact_paths) — Python golden has before_stats + simulated_after + projected gain (sim logic lives in Python rust_flywheel_step.py orchestrator today)
 - extra Rust field 'suggested_ci_checks' (from BaseSkillImprover) — additive, non-breaking for pending_candidates consumers
 - data volume: Rust processed 96 records (full recent eval/trajectories + 58 prm sidecars); golden fixture captured smaller historical slice
 - high_learning_value_records: Rust None vs golden 28 (compute_learning_value heuristic port + prm sidecar enrichment volume + current farm batch prm scores differ)
+- proposal sections emitted: Rust 11 vs golden 1 (Rust MVP always 1 system_prompt section from improver.rs error mining)
 - manifest richness gap: Rust flywheel_manifest.json minimal (records_loaded, engine, command, rust_pairs_used, timestamp, artifact_paths) — Python golden has before_stats + simulated_after + projected gain (sim logic lives in Python rust_flywheel_step.py orchestrator today)
 - extra Rust field 'suggested_ci_checks' (from BaseSkillImprover) — additive, non-breaking for pending_candidates consumers
 - data volume: Rust processed 96 records (full recent eval/trajectories + 58 prm sidecars); golden fixture captured smaller historical slice
@@ -73,7 +75,7 @@ PHASE 1 PARITY REPORT DELIVERED
 
 Key findings:
 - Rust binary successfully drove real flywheel-step on 96 records from live trajectories + prm sidecars.
-- Proposal key overlap with golden: 90.9% (strong for MVP).
+- Proposal key overlap with golden: 83.3% (strong for MVP).
 - 1-2 new real Rust fixtures added to fixtures/golden/.
 - Primary gaps are data volume, heuristic numeric (learning_value), and missing simulation layer in pure step (all planned for Phase 2).
 - Ready for cargo test integration / CI + Phase 2 richer Rust orchestrator work (shadow mode).
@@ -101,14 +103,14 @@ Key findings:
       "candidate_skill.yaml",
       "flywheel_manifest.json"
     ],
-    "proposal_key_overlap_pct": 90.9,
-    "proposal_count_actual": 1,
+    "proposal_key_overlap_pct": 83.3,
+    "proposal_count_actual": 11,
     "proposal_count_golden": 1,
     "records_loaded_actual": 96,
     "high_value_actual": null,
     "high_value_golden": 20,
-    "tolerance_diffs_count": 34,
-    "shape_diffs_count": 3,
+    "tolerance_diffs_count": 31,
+    "shape_diffs_count": 2,
     "normalized_diff_artifacts": [
       "proposal.json",
       "candidate_skill.yaml",
@@ -117,6 +119,7 @@ Key findings:
     ],
     "gaps": [
       "high_learning_value_records: Rust None vs golden 20 (compute_learning_value heuristic port + prm sidecar enrichment volume + current farm batch prm scores differ)",
+      "proposal sections emitted: Rust 11 vs golden 1 (Rust MVP always 1 system_prompt section from improver.rs error mining)",
       "manifest richness gap: Rust flywheel_manifest.json minimal (records_loaded, engine, command, rust_pairs_used, timestamp, artifact_paths) \u2014 Python golden has before_stats + simulated_after + projected gain (sim logic lives in Python rust_flywheel_step.py orchestrator today)",
       "extra Rust field 'suggested_ci_checks' (from BaseSkillImprover) \u2014 additive, non-breaking for pending_candidates consumers",
       "data volume: Rust processed 96 records (full recent eval/trajectories + 58 prm sidecars); golden fixture captured smaller historical slice"
@@ -125,8 +128,7 @@ Key findings:
     "rust_emission_source": "agentforge-runner release flywheel-step --real-data --trajectories eval/trajectories",
     "shape_diffs": [
       "candidate_skill.yaml: missing core name/prompt keys",
-      "candidate_skill.yaml: _learning_meta lacks rust source marker (tolerance)",
-      "rationale overlap low vs Python ref (expected Phase1): overlap=0"
+      "candidate_skill.yaml: _learning_meta lacks rust source marker (tolerance)"
     ]
   },
   "secondary": {
@@ -149,22 +151,20 @@ Key findings:
       "candidate_skill.yaml",
       "flywheel_manifest.json"
     ],
-    "proposal_key_overlap_pct": 90.9,
-    "proposal_count_actual": 1,
+    "proposal_key_overlap_pct": 83.3,
+    "proposal_count_actual": 11,
     "proposal_count_golden": 1,
     "records_loaded_actual": 96,
     "high_value_actual": null,
     "high_value_golden": 28,
-    "tolerance_diffs_count": 36,
-    "shape_diffs_count": 3,
+    "tolerance_diffs_count": 33,
+    "shape_diffs_count": 2,
     "normalized_diff_artifacts": [
       "proposal.json",
       "candidate_skill.yaml",
       "flywheel_manifest.json",
       "candidate_meta.json",
-      "rust_rich_flywheel_export.json"
-    ],
-    "gaps": 
+  
 ```
 
 --- End of PHASE 1 PARITY REPORT ---

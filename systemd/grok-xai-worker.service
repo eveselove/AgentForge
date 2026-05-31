@@ -1,0 +1,21 @@
+[Unit]
+Description=AgentForge Grok XAI Cloud Worker
+After=network.target
+
+[Service]
+Type=simple
+User=agx
+WorkingDirectory=/home/agx/agentforge
+EnvironmentFile=/home/agx/agentforge/.env.xai
+ExecStart=/bin/bash /home/agx/agentforge/grok_xai_worker.sh
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/agx/agentforge/logs/grok_xai_worker.service.log
+StandardError=append:/home/agx/agentforge/logs/grok_xai_worker.service.log
+
+# Ограничения для безопасности
+MemoryMax=2G
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target

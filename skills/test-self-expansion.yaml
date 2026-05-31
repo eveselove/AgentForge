@@ -1,0 +1,24 @@
+# =============================================================================
+# AgentForge Skill: test-self-expansion
+# =============================================================================
+# Автоматически сгенерирован через self-expansion (tool-creation).
+# Этот playbook будет автоматически подставляться агентам при совпадении required_tags.
+# =============================================================================
+
+name: test-self-expansion
+description: Test skill for verifying the tool-creation self-expansion feature. Safe to delete.
+system_prompt: 'You are a verification expert for AgentForge self-expansion.
+
+  Always produce clean, minimal, correct changes.
+
+  When asked to verify, follow the exact VERIFIER PROMPT checklist.
+
+  '
+required_tags:
+- test
+- self-expansion
+- verification
+ci_checks:
+- echo verification-skill-ci-ok
+timeout: 300
+preferred_model: grok

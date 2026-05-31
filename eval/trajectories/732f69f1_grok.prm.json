@@ -1,0 +1,233 @@
+{
+  "task_id": "732f69f1",
+  "prm_result": {
+    "task_id": "732f69f1",
+    "agent": "grok",
+    "overall_prm_score": 0.615,
+    "step_scores": [
+      {
+        "step_index": 0,
+        "event_type": "task_start",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:33:38.662Z",
+          "type": "task_start",
+          "data": {
+            "raw": "{\"title\":\"Akson парсит ~30K товаров на город, должно быть ~80K.\n\nДиагностика:\n1. ssh agx@146.120.89.199\n2. Проверить сколько категорий в конфиге vs сколько на сайте Akson\n3. Проверить total_pages (12700) - сколько из них реально скачано\n4. Проверить page_size (limit) в конфиге - возможно маленький\n5. Проверить DeltaCache.is_skipped — сколько категорий скипнуто\n6. Сделать тестовый запрос на API Akson через прокси и посмотреть total по категории\n7. Найти причину разницы 30K vs 80K и исправить\n\nСервер: agx@146.120.89.199\nФайл: /home/agx/planlytasksko/planly_gateway/src/akson_crawler.rs\nКонфиг: /home/agx/planlytasksko/planly_gateway/config/gateway.json\",\"priority\":\"high\",\"tags\":\"\"}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 1,
+        "event_type": "worktree_created",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T08:33:43.841Z",
+          "type": "worktree_created",
+          "data": {
+            "raw": "{\"path\":\"/tmp/agentforge/732f69f1\"}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 2,
+        "event_type": "infra_step",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T08:33:44.016Z",
+          "type": "infra_step",
+          "data": {
+            "raw": "{\"step\":\"cargo_optimization\"}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 3,
+        "event_type": "infra_step",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T08:33:44.201Z",
+          "type": "infra_step",
+          "data": {
+            "raw": "{\"step\":\"mold_linker\"}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 4,
+        "event_type": "rag_context",
+        "score": 0.65,
+        "confidence": 0.65,
+        "reasons": [
+          "Standard infrastructure step"
+        ],
+        "raw_event": {
+          "ts": "2026-05-31T08:34:00.402Z",
+          "type": "rag_context",
+          "data": {
+            "raw": "{\"query_length\":\"38\"}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 5,
+        "event_type": "tracing_protocol_injected",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:34:00.905Z",
+          "type": "tracing_protocol_injected",
+          "data": {
+            "raw": "{\"task_id\":\"732f69f1\",\"prompt_len_with_protocol\":2181}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 6,
+        "event_type": "grok_execution_start",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:34:01.096Z",
+          "type": "grok_execution_start",
+          "data": {
+            "raw": "{\"worktree\":\"/tmp/agentforge/732f69f1\",\"skill\":\"rust-fix\",\"model\":\"grok\",\"prompt_length\":2183,\"tracing_protocol\":true}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 7,
+        "event_type": "prompt_prepared",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:34:02.230Z",
+          "type": "prompt_prepared",
+          "data": {
+            "raw": "{\"prompt_hash\":\"6fea16669ef1\",\"preview\":\"Fix: Akson парсит 30K/город вместо 80K. Детали: Akson парсит ~30K товаров на город, должно быть ~80K.  Диагностика: 1. ssh agx@146.120.89.199 2. Проверить сколько категорий в конфиге vs сколько на сайте Akson 3. Проверить total_pages (12700) - сколько из них реально скачано\",\"len\":2183,\"has_tracing\":true,\"has_skill\":\"rust-fix\"}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 8,
+        "event_type": "grok_output_tail",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:49:03.005Z",
+          "type": "grok_output_tail",
+          "data": {
+            "raw": "{\"duration_s\":901,\"tail_preview\":\"cremental = true  [profile.release] opt-level = 3 strip = true  [profile.dev] opt-level = 0 debug = \"line-tables-only\" incremental = true  [net] git-fetch-with-cli = false  [registries.crates-io] protocol = \"sparse\"  🚀 Готово для AgentForge: сборки Rust (cargo check/build/test) теперь используют все ядра, инкрементальность и облегчённые debug-символы.    Это критично для задач оркестрации и настройки (chat 4dc58362 и связанные подзадачи).    Эффект: меньше места в target/, быстрее rebuild'ы при работе rust-fix / grok_runner. [AgentForge] ⚠️ Скрипт ensure_rust_devtools.sh не найден — cargo-nextest не будет установлен автоматически. CI может упасть на 'cargo n\"}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 9,
+        "event_type": "task_completed",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:49:03.795Z",
+          "type": "task_completed",
+          "data": {
+            "raw": "{\"status\":\"failed\",\"duration_seconds\":902,\"cost_usd\":0.0}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 10,
+        "event_type": "grok_execution_end",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:49:04.350Z",
+          "type": "grok_execution_end",
+          "data": {
+            "raw": "{\"status\":\"failed\",\"duration_seconds\":902,\"ci_result\":\"build_fail\"}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 11,
+        "event_type": "task_finished",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:49:04.678Z",
+          "type": "task_finished",
+          "data": {
+            "raw": "{\"status\":\"failed\",\"duration_seconds\":902}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      },
+      {
+        "step_index": 12,
+        "event_type": "trajectory_located",
+        "score": 0.6,
+        "confidence": 0.65,
+        "reasons": [],
+        "raw_event": {
+          "ts": "2026-05-31T08:49:05.122Z",
+          "type": "trajectory_located",
+          "data": {
+            "raw": "{\"path\":\"/home/agx/agentforge/eval/trajectories/732f69f1_grok.jsonl\"}}"
+          },
+          "task_id": "732f69f1",
+          "agent": "grok"
+        }
+      }
+    ],
+    "num_steps": 13,
+    "num_high_quality_steps": 0,
+    "num_low_quality_steps": 0,
+    "suggestions_for_improvement": [
+      "Trajectory process quality looks reasonable."
+    ]
+  },
+  "generated_at": "2026-05-31T08:49:06.097151Z"
+}

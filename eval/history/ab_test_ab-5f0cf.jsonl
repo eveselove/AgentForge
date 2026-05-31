@@ -1,0 +1,1 @@
+{"timestamp": "2026-05-31T06:06:57.401411Z", "benchmark_id": "ab_test_ab-5f0cf", "agent": "grok", "outcome": "partial", "duration_seconds": 1.4, "mode": "learning_ab", "real_task_id": null, "ab_test": "ab-5f0cfdb675", "winner": "tie", "success_delta": 0.0, "prm_delta": 0, "baseline_sr": 0.3333, "treatment_sr": 0.3333}

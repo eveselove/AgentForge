@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-05-31T04:14:18.821993Z",
+  "total_records": 0,
+  "filters": {
+    "only_real": false,
+    "only_success": false,
+    "only_failed": false,
+    "since_days": null,
+    "include_trajectories": false
+  },
+  "source_dirs": {
+    "results": "/home/agx/agentforge/eval/results",
+    "trajectories": "/home/agx/agentforge/eval/trajectories"
+  },
+  "output": "/home/agx/agentforge/eval/learning_datasets/learning_dataset_20260531_041418.jsonl"
+}

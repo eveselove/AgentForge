@@ -1,0 +1,31 @@
+[package]
+name = "agentforge-runner"
+version = "0.1.0"
+edition = "2021"
+description = "AgentForge pure-Rust production runner — complete CLI surface (flywheel-step + continuous autonomy meta-loop + candidate promote (real) + shadow fidelity + rich exports). Direct drop-in for farm post_process, after-task hooks, workers, timers, parity, demos. --json + release binary for prod."
+
+[[bin]]
+name = "agentforge-runner"
+path = "src/main.rs"
+
+[dependencies]
+agentforge-core = { path = "../agentforge-core" }
+agentforge-learning = { path = "../agentforge-learning" }
+agentforge-planning = { path = "../agentforge-planning" }
+agentforge-safety = { path = "../agentforge-safety" }
+agentforge-observability = { path = "../agentforge-observability" }
+agentforge-long-horizon = { path = "../agentforge-long-horizon" }
+agentforge-flywheel = { path = "../agentforge-flywheel" }
+agentforge-candidates = { path = "../agentforge-candidates" }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"
+
+[[example]]
+name = "phase2_3_vision"
+path = "examples/phase2_3_vision.rs"

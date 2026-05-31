@@ -46,9 +46,20 @@
     }
   ],
   "routing_rules": [
-    {"condition": "simple + test/docs tags", "agent": "jules"},
-    {"condition": "complex OR architecture/analysis/review tags", "agent": "antigravity"},
-    {"condition": "default (rust, fixes, routine)", "agent": "grok"}
+    {
+      "condition": "explicit deep architecture review or critical design decision (deep-analysis, architecture-decision, critical-review tags)",
+      "agent": "antigravity",
+      "note": "Используется редко. См. AGENTFORGE_ROUTING_AND_EXECUTION_REFACTOR_PLAN.md"
+    },
+    {
+      "condition": "PR / GitHub / heavy documentation / tests-heavy work",
+      "agent": "jules"
+    },
+    {
+      "condition": "default (большинство задач, включая сложные)",
+      "agent": "grok",
+      "note": "Grok — основной автоматический исполнитель фермы"
+    }
   ],
   "infrastructure": {
     "task_queue": "http://146.120.89.199:8080",

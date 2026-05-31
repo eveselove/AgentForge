@@ -1,0 +1,209 @@
+#!/bin/bash
+# agent-worktree — Safe isolated git worktrees for parallel agent execution
+#
+# Usage (by agents or humans):
+#   agent-worktree create <slug> [base-branch]
+#   agent-worktree cd <slug>
+#   agent-worktree list
+#   agent-worktree cleanup <slug> [--force]
+#   agent-worktree cleanup-all [--force]
+#
+# Worktrees live in: $WORKTREE_ROOT (default: /tmp/agentforge-work)
+# Each agent gets a completely isolated checkout + its own branch (agent/<slug>)
+#
+# This is the critical enabler for extreme parallel agent waves without
+# constant merge conflicts on the main checkout.
+
+set -euo pipefail
+
+WORKTREE_ROOT="${AGENT_WORKTREE_ROOT:-/tmp/agentforge-work}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BRANCH_PREFIX="agent/"
+
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
+
+mkdir -p "$WORKTREE_ROOT"
+
+slugify() {
+    echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g' | sed -E 's/^-+|-+$//g' | cut -c1-60
+}
+
+cmd_create() {
+    local raw_slug="${1:?slug required (e.g. cm-02-worktree or task-ff3a7480)}"
+    local base_branch="${2:-$(git -C "$REPO_ROOT" branch --show-current)}"
+
+    local slug
+    slug="$(slugify "$raw_slug")"
+    local worktree_path="$WORKTREE_ROOT/$slug"
+    local branch="${BRANCH_PREFIX}${slug}"
+
+    if [ -d "$worktree_path" ]; then
+        echo -e "${YELLOW}Worktree for '$slug' already exists at $worktree_path${NC}"
+        echo "  cd $worktree_path"
+        return 0
+    fi
+
+    echo -e "${CYAN}Creating isolated worktree for agent task: ${slug}${NC}"
+    echo "  Location : $worktree_path"
+    echo "  Branch   : $branch (from $base_branch)"
+    echo "  Base repo: $REPO_ROOT"
+
+    # Create branch if it doesn't exist
+    if ! git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch"; then
+        git -C "$REPO_ROOT" branch "$branch" "$base_branch" 2>/dev/null || true
+    fi
+
+    git -C "$REPO_ROOT" worktree add "$worktree_path" "$branch"
+
+    # Drop a small README so agents know what to do
+    cat > "$worktree_path/.AGENT_WORKTREE" << EOF
+Agent Worktree
+==============
+Task/Slug : $slug
+Branch    : $branch
+Created   : $(date -Iseconds)
+Base      : $base_branch
+
+This is a fully isolated checkout.
+You can safely run cargo, edit files, commit, etc. here.
+
+When done:
+  agent-worktree cleanup $slug
+
+Or from inside this dir:
+  cd /home/agx/agentforge && ./bin/agent-worktree cleanup $slug
+EOF
+
+    echo -e "${GREEN}✅ Worktree ready.${NC}"
+    echo "  cd $worktree_path"
+    echo "  (or use: agent-worktree cd $slug)"
+}
+
+cmd_cd() {
+    local slug
+    slug="$(slugify "${1:?slug required}")"
+    local path="$WORKTREE_ROOT/$slug"
+
+    if [ ! -d "$path" ]; then
+        echo -e "${RED}No worktree for '$slug' at $path${NC}"
+        echo "Create it first: agent-worktree create $slug"
+        exit 1
+    fi
+
+    echo "cd $path"
+    # When sourced or eval'ed this works; when run directly we just print
+    if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+        cd "$path" || true
+    else
+        echo "(run 'eval \"\$(agent-worktree cd $slug)\"' to actually cd)"
+    fi
+}
+
+cmd_list() {
+    echo -e "${BOLD}Active agent worktrees:${NC}"
+    if [ ! -d "$WORKTREE_ROOT" ] || [ -z "$(ls -A "$WORKTREE_ROOT" 2>/dev/null)" ]; then
+        echo "  (none)"
+        return
+    fi
+
+    for d in "$WORKTREE_ROOT"/*; do
+        [ -d "$d" ] || continue
+        local slug
+        slug="$(basename "$d")"
+        local branch
+        branch="$(git -C "$d" branch --show-current 2>/dev/null || echo '?')"
+        local status
+        status="$(git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+        printf "  ${CYAN}%-25s${NC}  branch=%-30s  dirty=%3s files   %s\n" \
+            "$slug" "$branch" "$status" "$d"
+    done
+}
+
+cmd_cleanup() {
+    local raw_slug="${1:?slug required}"
+    local force="${2:-}"
+    local slug
+    slug="$(slugify "$raw_slug")"
+    local path="$WORKTREE_ROOT/$slug"
+
+    if [ ! -d "$path" ]; then
+        echo -e "${YELLOW}No worktree at $path — nothing to do.${NC}"
+        return 0
+    fi
+
+    echo -e "${YELLOW}Cleaning up worktree: $slug${NC}"
+    echo "  Path: $path"
+
+    # Safety: refuse if dirty unless --force
+    local dirty
+    dirty="$(git -C "$path" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+    if [ "$dirty" -gt 0 ] && [ "$force" != "--force" ]; then
+        echo -e "${RED}Worktree has uncommitted changes ($dirty files).${NC}"
+        echo "  Commit/stash them first, or use --force"
+        exit 1
+    fi
+
+    local branch
+    branch="$(git -C "$path" branch --show-current 2>/dev/null || true)"
+
+    git -C "$REPO_ROOT" worktree remove --force "$path" 2>/dev/null || true
+    rm -rf "$path" 2>/dev/null || true
+
+    # Optionally delete the agent/ branch (only if it matches our prefix and is not main)
+    if [[ "$branch" == ${BRANCH_PREFIX}* ]]; then
+        if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch"; then
+            git -C "$REPO_ROOT" branch -D "$branch" 2>/dev/null || true
+            echo "  Deleted branch: $branch"
+        fi
+    fi
+
+    echo -e "${GREEN}✅ Cleanup complete for $slug${NC}"
+}
+
+cmd_cleanup_all() {
+    local force="${1:-}"
+    echo -e "${YELLOW}Cleaning ALL agent worktrees...${NC}"
+
+    for d in "$WORKTREE_ROOT"/*; do
+        [ -d "$d" ] || continue
+        local slug
+        slug="$(basename "$d")"
+        cmd_cleanup "$slug" "$force" || true
+    done
+
+    # Also prune any stale worktrees git knows about
+    git -C "$REPO_ROOT" worktree prune || true
+    echo -e "${GREEN}All agent worktrees cleaned.${NC}"
+}
+
+usage() {
+    cat << EOF
+agent-worktree — isolated git worktrees for parallel agents (extreme mode)
+
+Commands:
+  create <slug> [base-branch]     Create new isolated worktree + branch
+  cd <slug>                       Print (or cd when eval'ed) into a worktree
+  list                            Show all active agent worktrees
+  cleanup <slug> [--force]        Remove worktree + its agent/ branch
+  cleanup-all [--force]           Nuclear option — clean everything
+
+Environment:
+  AGENT_WORKTREE_ROOT   (default: /tmp/agentforge-work)
+
+Examples (inside agent):
+  agent-worktree create cm-02-worktree-isolation
+  cd \$(agent-worktree cd cm-02-worktree-isolation)
+  # ... do work ...
+  agent-worktree cleanup cm-02-worktree-isolation
+EOF
+}
+
+case "${1:-help}" in
+    create)        shift; cmd_create "$@" ;;
+    cd)            shift; cmd_cd "$@" ;;
+    list|ls)       shift; cmd_list "$@" ;;
+    cleanup|rm)    shift; cmd_cleanup "$@" ;;
+    cleanup-all)   shift; cmd_cleanup_all "$@" ;;
+    help|-h|--help) usage ;;
+    *)             usage; exit 1 ;;
+esac

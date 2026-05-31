@@ -1,0 +1,40 @@
+# === PURE RUST FLYWHEEL DEFAULT CUTOVER (Phase 3 — PRODUCTION EXCELLENCE) @ 2026-05-31T10:42:02+03:00 ===
+# Injected by bin/make_pure_rust_flywheel_default.sh
+# agentforge-runner sole engine (flywheel-step/candidate/continuous). Non-breaking additive.
+# Rollback: edit unit or set Environment=AGENTFORGE_FLYWHEEL_ENGINE=python + touch .disable_pure_rust_flywheel
+[Unit]
+Description=AgentForge Jules Worker (для PR и документации)
+After=agentforge-api.service
+Requires=agentforge-api.service
+
+[Service]
+Type=simple
+User=agx
+Group=agx
+WorkingDirectory=/home/agx/planlytasksko
+Environment=PATH=/home/agx/.local/bin:/home/agx/.cargo/bin:/home/agx/.grok/bin:/home/agx/.nvm/versions/node/v20.20.1/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/home/agx
+# Rust Flywheel live farm integration (Jules track): enable + runner path; workers/runners will source snippet + fire post-task
+# 2026-06: Rust Flywheel now DEFAULT for Antigravity (and Jules paths). Prefers release for prod.
+Environment=AGENTFORGE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_USE_RUST=1
+Environment=AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner
+# To opt out for this worker only: Environment=DISABLE_RUST_FLYWHEEL=1 (comment the positive lines above)
+# Optional rate limit: Environment=AGENTFORGE_RUST_FLYWHEEL_EVERY_N=5
+ExecStart=/bin/bash /home/agx/agentforge/jules_worker.sh
+Restart=always
+RestartSec=15
+StandardOutput=append:/home/agx/agentforge/logs/jules_worker.log
+StandardError=append:/home/agx/agentforge/logs/jules_worker.log
+
+# Автоперезапуск при падении
+StartLimitIntervalSec=600
+StartLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target
+
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
+Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
+# Pure cutover injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00 — rollback via FLYWHEEL_ENGINE=python or .disable_pure_rust_flywheel

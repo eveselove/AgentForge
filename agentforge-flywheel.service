@@ -1,0 +1,58 @@
+# === PURE RUST FLYWHEEL DEFAULT CUTOVER (Phase 3 — PRODUCTION EXCELLENCE) @ 2026-05-31T10:42:02+03:00 ===
+# Injected by bin/make_pure_rust_flywheel_default.sh
+# agentforge-runner sole engine (flywheel-step/candidate/continuous). Non-breaking additive.
+# Rollback: edit unit or set Environment=AGENTFORGE_FLYWHEEL_ENGINE=python + touch .disable_pure_rust_flywheel
+# !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
+# !!! PHASE 4 DELETION TARGET INFRA: agentforge-flywheel.service + .timer !!!
+# CURRENT: ExecStart points to bin/run_continuous_flywheel.sh (Python orchestration wrapper — DEPRECATED).
+# POST PHASE 4: Repoint to `agentforge-runner continuous --top-n 2 --json [--shadow]` (or thin .sh wrapper).
+# This unit is patched by bin/make_pure_rust_flywheel_default.sh during cutover.
+# Python continuous (flock/prioritize/promote/AB) removed after soak + direct binary proven on farm timer.
+# Guard everywhere: is_pure_rust_flywheel() from learning/utils.py (Phase 4 hardened, dotfile+env killswitches).
+# Risks: timer breakage on workers if unpatched before delete. Rollback: disable_pure script + git checkout pre-tag.
+# See PLAN sections on safe order (Tier 4 infra last-ish), current invocation map, rollback layers.
+# Banners added to all sh/services in final sweep. Never delete data (pending_candidates populated by Rust now).
+#
+[Unit]
+Description=AgentForge Continuous Rust Flywheel Autonomy Closer (meta-loop on top of after-task hooks)
+Documentation=https://github.com/agentforge (see CONTINUOUS_FLYWHEEL.md, ANTIGRAVITY_DEFAULT.md)
+After=agentforge-api.service agentforge-worker.service
+# 2026-06: Rust Flywheel now DEFAULT for Antigravity. This timer drives the continuous promote-and-ab closer
+# on top of the automatic per-task flywheel firehose. Disable via DISABLE_RUST_FLYWHEEL=1 in the env block below.
+#
+# !!! PHASE 3 FINAL DEPRECATION SWEEP + RUNNER UX POLISH !!!
+# Python orchestration (run_continuous_flywheel.sh + .py) heavily marked for removal.
+# Migrate to (COMPLETE surface): ExecStart=/home/agx/agentforge/rust/target/release/agentforge-runner continuous --top-n 2 --json [--shadow]
+#   (or via wrapper that detects pure + calls direct runner continuous; supports AGENTFORGE_RUST_FLYWHEEL_SHADOW)
+# Guarded by is_pure_rust_flywheel() + make_pure_rust_flywheel_default.sh patches.
+# Non-breaking during transition. Shadow for dual-run fidelity validation on farm.
+
+[Service]
+Type=oneshot
+User=agx
+Group=agx
+WorkingDirectory=/home/agx/agentforge
+# Full reuse of existing ENABLE + Rust env (non-breaking)
+# 2026-06 DEFAULT: These positive lines are now the normal state for Antigravity.
+# To disable the entire flywheel for this unit: add Environment=DISABLE_RUST_FLYWHEEL=1 and comment the three AGENTFORGE_RUST_* lines.
+Environment=ENABLE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_USE_RUST=1
+Environment=AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner
+Environment=PYTHONPATH=/home/agx
+# Safe default for timer: dry-run can be overridden by ExecStart override or remove comment
+# ExecStart=/home/agx/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2
+ExecStart=/home/agx/agentforge/bin/run_continuous_flywheel.sh --top-n 2
+StandardOutput=append:/home/agx/agentforge/logs/continuous_flywheel.log
+StandardError=append:/home/agx/agentforge/logs/continuous_flywheel.log
+# Reliability
+TimeoutStartSec=300
+KillMode=process
+
+[Install]
+WantedBy=default.target
+
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
+Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
+# Pure cutover injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00 — rollback via FLYWHEEL_ENGINE=python or .disable_pure_rust_flywheel

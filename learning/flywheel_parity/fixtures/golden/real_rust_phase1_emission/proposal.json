@@ -1,23 +1,140 @@
 {
-  "estimated_impact": "Should significantly reduce repeated failure patterns",
-  "generated_at": "2026-05-31T07:04:41.780438096+00:00",
+  "analysis": {
+    "avg_duration_sec": 0.008749999999999999,
+    "backoff_signals": true,
+    "efficiency_signals": false,
+    "error_taxonomy_signals": true,
+    "hypothesis_signals": false,
+    "llm_critique_invoked": false,
+    "llm_critique_path": "split_basic_llm_critique (AGENTFORGE_LLM_CMD direct multi-style preferred + JSON/plain + rich structured_fallback)",
+    "long_horizon": false,
+    "low_prm_tool_steps": false,
+    "new_sections_added_this_pass": [
+      "tool_selection",
+      "progress_heartbeat",
+      "error_taxonomy",
+      "hypothesis_tracking",
+      "output_contracts",
+      "retry_backoff_policy"
+    ],
+    "num_failures": 94,
+    "num_high_prm_successes": 0,
+    "output_contract_signals": true,
+    "planning_signals": false,
+    "progress_signals": false,
+    "proposal_sections_emitted": 11,
+    "reasoning_low_prm": false,
+    "records_analyzed": 96,
+    "recovery_signals": false,
+    "reflection_signals": false,
+    "state_signals": false,
+    "timeout_signals": false,
+    "tool_selection_signals": false,
+    "tool_signals": false,
+    "verification_weak": false
+  },
+  "estimated_impact": "high",
+  "generated_at": "2026-05-31T07:48:33.912481550+00:00",
   "high_learning_value_records": 0,
-  "new_system_prompt": "You are an expert at general-refactor. Always think step by step, use tools carefully, and recover from errors explicitly. Use checkpoints for long operations.",
-  "overall_rationale": "Analyzed 96 failures. Most common error pattern: 'unknown_error'. ",
+  "new_system_prompt": "You are an expert at general-refactor. Always think step by step, use tools carefully, and recover from errors explicitly. Use checkpoints for long operations. Classify outcome quality in one sentence after every action/tool. Attempt exactly one targeted recovery on non-success before next step. Emit structured reasoning on decisions. Key learned rules from flywheel data: Always attempt exactly ONE structured recovery (different approach) on non-success; classify OUTCOME first. Before complex sequences emit explicit PLAN (goal + 2-3 risks + first actions). Structured decision blocks at branches: Hypothesis | Evidence | Action+rationale | Falsifiers. After recovery: brief SELF_REFLECT (did classification match reality? did fix address root?). Maintain compact state checkpoints every 2-3 actions for safe resume on error/long horizon. CRITIQUE-DERIVED[source=structured_fallback]: For 'general-refactor': insert explicit PROGRESS_HEARTBEAT every 8-15s on long ops + hard per-action timeouts + single recovery (simplify/cached) on timeout. Use progress_heartbeat section. | BONUS: after recovery do brief SELF_REFLECT (classification accurate? root fixed?) + update state checkpoint..",
+  "overall_rationale": "Analyzed 96 failures. Most common error pattern: 'unknown_error'. No recovery behaviors observed in failures.  | CRITIQUE[source=structured_fallback]: For 'general-refactor': insert explicit PROGRESS_HEARTBEAT every 8-15s on long ops + hard per-action timeouts + single recovery (simplify/cached) on timeout. Use progress_heartbeat section. | BONUS: after recovery do brief SELF_REFLECT (classification accurate? root fixed?) + update state checkpoint.",
   "proposals": [
     {
+      "after": "You are an expert at general-refactor. Always think step by step, use tools carefully, and recover from errors explicitly. Use checkpoints for long operations. Classify outcome quality in one sentence after every action/tool. Attempt exactly one targeted recovery on non-success before next step. Emit structured reasoning on decisions. Key learned rules from flywheel data: Always attempt exactly ONE structured recovery (different approach) on non-success; classify OUTCOME first. Before complex sequences emit explicit PLAN (goal + 2-3 risks + first actions). Structured decision blocks at branches: Hypothesis | Evidence | Action+rationale | Falsifiers. After recovery: brief SELF_REFLECT (did classification match reality? did fix address root?). Maintain compact state checkpoints every 2-3 actions for safe resume on error/long horizon. CRITIQUE-DERIVED[source=structured_fallback]: For 'general-refactor': insert explicit PROGRESS_HEARTBEAT every 8-15s on long ops + hard per-action timeouts + single recovery (simplify/cached) on timeout. Use progress_heartbeat section. | BONUS: after recovery do brief SELF_REFLECT (classification accurate? root fixed?) + update state checkpoint..",
+      "before": null,
       "confidence": 0.78,
       "estimated_delta": "+4-9pp success on error classes",
-      "rationale": "Analyzed 96 failures. Most common error pattern: 'unknown_error'. ",
+      "rationale": "Analyzed 96 failures. Most common error pattern: 'unknown_error'. No recovery behaviors observed in failures.  | CRITIQUE[source=structured_fallback]: For 'general-refactor': insert explicit PROGRESS_HEARTBEAT every 8-15s on long ops + hard per-action timeouts + single recovery (simplify/cached) on timeout. Use progress_heartbeat section. | BONUS: after recovery do brief SELF_REFLECT (classification accurate? root fixed?) + update state checkpoint.",
       "section": "system_prompt"
+    },
+    {
+      "after": "After EVERY action or tool call: 1) Classify outcome quality in one sentence (success / partial / failure / timeout / empty). 2) If not success, attempt EXACTLY ONE targeted recovery (different args, fallback, or simplified approach). 3) Log the classification + recovery attempt clearly before next step.",
+      "before": "Implicit error handling, no structured recovery documented.",
+      "confidence": 0.85,
+      "estimated_delta": "+6-12pp on failure-heavy and low-PRM batches (primary lever)",
+      "rationale": "Data shows 94 failures (0 high-PRM successes mined). Add explicit outcome classification + one-attempt recovery after every action/tool.",
+      "section": "recovery_strategy"
+    },
+    {
+      "after": "Before tool call: validate args against known schema + state. After result: immediately verify shape/non-emptiness/error; if bad, classify + recover (see recovery_strategy). Prefer narrow, well-scoped tools over generic ones on first attempt.",
+      "before": "Direct tool calls with minimal post-call inspection.",
+      "confidence": 0.73,
+      "estimated_delta": "+3-8pp on tool-heavy tasks; fewer cascading failures",
+      "rationale": "Tool call errors or low-PRM tool steps observed in trajectories. Strengthen selection, arg validation, result verification and graceful degradation.",
+      "section": "tool_use"
+    },
+    {
+      "after": "Verification rule: After every non-trivial action/tool, produce a 1-line 'VERIFICATION:' note with (observed vs expected) + pass/fail. If fail, trigger recovery path immediately.",
+      "before": null,
+      "confidence": 0.68,
+      "estimated_delta": "+2-5pp via earlier error catching",
+      "rationale": "Low-quality steps often skip result validation. Mandate lightweight verification after actions.",
+      "section": "verification"
+    },
+    {
+      "after": "On any error or unexpected result: (a) Classify error class (transient / auth / schema / timeout / unknown) in <10 words. (b) Log the class + raw message snippet. (c) Apply recovery_strategy unless classified terminal. Never swallow errors.",
+      "before": "Errors passed through or minimally logged without classification.",
+      "confidence": 0.79,
+      "estimated_delta": "+5-10pp reduction in unhandled error loops",
+      "rationale": "Observed 94 failures with explicit errors. Add dedicated error classification + handling rules to prevent silent failures and cascading issues.",
+      "section": "error_handling"
+    },
+    {
+      "after": "After every 2-3 significant actions or on phase boundary: write compact CHECKPOINT (task_id, key state, last success classification). On restart/error use latest checkpoint to resume without full replay.",
+      "before": "No intermediate state saves; full re-compute or lost context on error.",
+      "confidence": 0.66,
+      "estimated_delta": "higher recovery success on long tasks",
+      "rationale": "Long-horizon or failure-prone trajectories benefit from explicit state checkpoints for safe resume/recovery.",
+      "section": "checkpointing"
+    },
+    {
+      "after": "Before major work: 1) Decompose goal into 2-5 subgoals. 2) Identify top 2 risks. 3) Pick first 1-2 actions with explicit leverage. Revisit plan on major outcome classification.",
+      "before": "Direct dive into actions with minimal or implicit planning.",
+      "confidence": 0.71,
+      "estimated_delta": "+5-11pp on multi-phase tasks",
+      "rationale": "Complex/long tasks show weak upfront planning. Mandate explicit decomposition + risk identification.",
+      "section": "planning_decomposition"
+    },
+    {
+      "after": "Always emit: DECISION: <why>, VERIF: <result>, RECOVERY: <what+why>, OUTCOME: <class>. Use consistent prefixes for easy parsing by PRM/flywheel.",
+      "before": "Minimal or absent structured logs of decisions, verifications, recoveries.",
+      "confidence": 0.7,
+      "estimated_delta": "+2-6pp via better downstream learning",
+      "rationale": "Rich signals (notes, errors, PRM) exist but agent observability is weak; stronger logs enable better future PRM + debugging.",
+      "section": "observability_logging"
+    },
+    {
+      "after": "On error: CLASSIFY <12 words (transient/auth/schema/timeout/rate-limit/permanent/unknown). Route: transient->retry once; auth/schema->escalate with context; permanent->fail fast. Log class always.",
+      "before": "All errors treated identically; no routing.",
+      "confidence": 0.76,
+      "estimated_delta": "+6-11pp better recovery routing",
+      "rationale": "94 failures with raw errors. Mandate lightweight classification to route recovery correctly.",
+      "section": "error_taxonomy"
+    },
+    {
+      "after": "For each major action declare expected OUTPUT_CONTRACT (keys|nonempty|type|bounds) in 1 line. After call: assert vs contract (1-line). Fail contract -> immediate recovery.",
+      "before": "Free-form results; ad-hoc inspection.",
+      "confidence": 0.67,
+      "estimated_delta": "+3-7pp earlier bad-result detection",
+      "rationale": "Result shapes vary or low-PRM post-action steps. Enforce lightweight contracts for verification.",
+      "section": "output_contracts"
+    },
+    {
+      "after": "Transient errors: exponential backoff (base 1.5s, max 3 attempts, jitter). Log attempt#. Permanent errors: no retry. Use for tool+http classes in error_taxonomy.",
+      "before": "Immediate retry or unbounded loops on transient.",
+      "confidence": 0.69,
+      "estimated_delta": "lower cost + fewer quota hits on transients",
+      "rationale": "Transient errors or rate/timeout patterns. Add explicit backoff to avoid thundering herd or quota burn.",
+      "section": "retry_backoff_policy"
     }
   ],
   "rust_pairs_used": 96,
   "skill": "general-refactor",
-  "source": "agentforge-runner/flywheel-step (pure Rust, Phase 1)",
+  "source": "agentforge-runner/flywheel-step (pure Rust, Phase1-max + split_basic_LLM_critique_path + 15+ conditional high-value sections)",
   "suggested_ci_checks": [
     "Run cargo test",
-    "Run cargo clippy"
+    "Run cargo clippy",
+    "python -m pytest -q --tb=line || true"
   ],
   "suggested_few_shots": []
 }

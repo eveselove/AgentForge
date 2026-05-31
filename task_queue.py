@@ -1,6 +1,23 @@
 """
-AgentForge Task Queue Server
-=============================
+DEPRECATED — MOVING TO RUST ONLY
+=================================
+This file is part of the legacy Python task management layer.
+
+As of 2026-05-31 we are executing a full migration to Rust-only operation.
+The long-term goal is to have `agentforge-runner` (or a small set of Rust services)
+handle task ingestion, dispatching, and the full agent conveyor.
+
+See: RUST_ONLY_MIGRATION_PLAN.md
+
+This Python implementation is kept temporarily for compatibility during the transition.
+New development should target the Rust side.
+
+Last major update before full deprecation effort: 2026-05-31
+"""
+
+"""
+AgentForge Task Queue Server (Legacy)
+=====================================
 Сервер очереди задач для оркестрации AI-агентов.
 Использует FastAPI + aiosqlite для асинхронного хранения задач.
 Биндится на 0.0.0.0:8080
@@ -14,6 +31,7 @@ AgentForge Task Queue Server
 import uuid
 import subprocess
 import os
+import sys
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
@@ -86,6 +104,12 @@ class TaskUpdate(BaseModel):
     assigned_agent: Optional[str] = None
     duration_seconds: Optional[float] = None
     skill: Optional[str] = None
+    retry_count: Optional[int] = None
+    tokens_used: Optional[int] = None
+    cost_usd: Optional[float] = None
+    retry_count: Optional[int] = 0
+    tokens_used: Optional[int] = 0
+    cost_usd: Optional[float] = 0.0
 
 class TaskResponse(BaseModel):
     """Модель ответа с данными задачи"""
@@ -106,6 +130,33 @@ class TaskResponse(BaseModel):
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
     skill: Optional[str] = None
+    retry_count: Optional[int] = 0
+    tokens_used: Optional[int] = 0
+    cost_usd: Optional[float] = 0.0
+
+class CheckpointCreate(BaseModel):
+    """Модель для создания чекпоинта промежуточного состояния"""
+    state: dict = Field(default_factory=dict, description="Промежуточное состояние задачи (JSON)")
+    step_index: int = Field(0, description="Индекс текущего шага выполнения")
+    message: str = Field("", description="Сообщение/комментарий к чекпоинту")
+
+
+class WebhookRegister(BaseModel):
+    """Модель для регистрации вебхука"""
+    url: str = Field(..., description="URL для отправки уведомлений (POST)")
+    events: list[str] = Field(default_factory=lambda: ["status_change"], description="Типы событий: status_change, task_created, task_completed")
+
+
+class SkillCapture(BaseModel):
+    """Модель для self-expansion: автоматического захвата нового YAML skill/playbook агентом"""
+    name: str = Field(..., min_length=2, max_length=64, description="Короткое kebab-case имя скилла (напр. parse-acme-api)")
+    description: str = Field(..., min_length=10, description="Краткое описание назначения скилла (для авто-подбора)")
+    system_prompt: str = Field(..., min_length=50, description="Полный system prompt, который будет инжектиться в задачи с подходящими тегами")
+    required_tags: list[str] = Field(default_factory=list, description="Теги, по которым этот скилл будет автоматически выбираться (select_skill)")
+    ci_checks: list[str] = Field(default_factory=list, description="Список shell-команд для CI-проверок после выполнения задач с этим скиллом")
+    timeout: int = Field(900, ge=60, le=7200, description="Таймаут выполнения задачи в секундах")
+    preferred_model: str = Field("grok", description="Предпочтительная модель (grok, antigravity и т.д.)")
+
 
 # === Инициализация приложения ===
 app = FastAPI(
@@ -241,50 +292,98 @@ async def init_db():
             "ALTER TABLE tasks ADD COLUMN started_at TEXT",
             "ALTER TABLE tasks ADD COLUMN completed_at TEXT",
             "ALTER TABLE tasks ADD COLUMN skill TEXT",
+            "ALTER TABLE tasks ADD COLUMN retry_count INTEGER DEFAULT 0",
+            "ALTER TABLE tasks ADD COLUMN tokens_used INTEGER DEFAULT 0",
+            "ALTER TABLE tasks ADD COLUMN cost_usd REAL DEFAULT 0.0",
         ]:
             try:
                 await db.execute(col)
             except Exception:
                 pass  # Колонка уже существует
         await db.commit()
+
+        # Таблица чекпоинтов для промежуточного состояния задач
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS checkpoints (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                state TEXT NOT NULL DEFAULT '{}',
+                step_index INTEGER DEFAULT 0,
+                message TEXT DEFAULT '',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (task_id) REFERENCES tasks(id)
+            )
+        """)
+
+        # Таблица зарегистрированных вебхуков для уведомлений
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS webhooks (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                events TEXT NOT NULL DEFAULT '["status_change"]',
+                active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            )
+        """)
+        await db.commit()
     finally:
         await db.close()
 
 # === Логика маршрутизации агентов ===
+# Изменено в рамках рефакторинга 2026-06 (Фаза 1)
+# См. AGENTFORGE_ROUTING_AND_EXECUTION_REFACTOR_PLAN.md
+# Основная идея: Grok — дефолт, Antigravity только по явному запросу или специальным тегам.
 
 def resolve_agent(task: dict) -> str:
     """
     Автоматическая маршрутизация задачи к подходящему агенту.
-    
-    Правила:
-    1. Если preferred_agent != auto → используем preferred_agent
-    2. Простая задача + теги 'test', 'docs' → jules (async PR)
-    3. Сложная задача или теги 'architecture', 'analysis', 'review' → antigravity (архитектор)
-    4. По умолчанию (включая rust, cargo, server) → grok (быстрый мультиагент)
+
+    Новая философия (см. AGENTFORGE_ROUTING_AND_EXECUTION_REFACTOR_PLAN.md):
+
+    - Grok — основной исполнитель по умолчанию (самый зрелый раннер).
+    - Jules — только при явных сигналах, что нужна работа с PR / документацией / тестами.
+    - Antigravity — только при ЯВНОМ желании пользователя (explicit preferred_agent=antigravity)
+      или при очень специфических тегах глубокого архитектурного анализа.
+      В большинстве случаев сложные задачи теперь идут на Grok.
+
+    Это исправляет ситуацию, когда почти все интересные задачи автоматически
+    улетали на Antigravity, у которого нет нормального автоматического исполнения.
     """
-    preferred = task.get("preferred_agent", "auto")
-    
-    # Правило 1: явно указанный агент
-    if preferred != "auto":
+    preferred = str(task.get("preferred_agent", "auto")).lower()
+
+    # Правило 1: явно указанный агент уважаем (кроме legacy "agy")
+    if preferred in ("grok", "jules", "antigravity"):
         return preferred
-    
+    if preferred == "agy":
+        return "antigravity"
+
+    # Если явно auto или неизвестно — анализируем дальше
     tags = task.get("tags", [])
     if isinstance(tags, str):
         import json
-        tags = json.loads(tags)
-    
+        try:
+            tags = json.loads(tags)
+        except Exception:
+            tags = []
+
     tags_lower = [t.lower() for t in tags]
-    complexity = task.get("complexity", "medium")
-    
-    # Правило 2: простые тесты/документация → jules
-    if complexity == "simple" and any(tag in tags_lower for tag in ["test", "docs"]):
+
+    # Сильные сигналы для Jules (PR / Docs / Tests heavy)
+    jules_signals = ["pr", "pull-request", "github", "documentation", "docs-heavy",
+                     "tests-heavy", "test-heavy", "refactor-with-tests"]
+    if any(sig in tags_lower for sig in jules_signals):
         return "jules"
-    
-    # Правило 3: сложные/архитектурные/аналитика → antigravity
-    if complexity == "complex" or any(tag in tags_lower for tag in ["architecture", "analysis", "algorithm", "review"]):
+
+    # Очень узкие сигналы для Antigravity (только глубокий архитектурный разбор)
+    antigravity_signals = [
+        "deep-analysis", "architecture-decision", "critical-review",
+        "antigravity", "antigravity-only", "principal-architect"
+    ]
+    if any(sig in tags_lower for sig in antigravity_signals):
         return "antigravity"
-    
-    # Правило 4: всё остальное → grok (rust, cargo, server, фиксы, рутина)
+
+    # Всё остальное — Grok (включая большинство complex задач, rust, краулеры,
+    # интеграции, оптимизации, server-side работу и т.д.)
     return "grok"
 
 
@@ -324,6 +423,55 @@ def get_skills() -> dict:
     return _skills_cache
 
 
+def save_skill_to_disk(skill_data: dict) -> str:
+    """
+    Self-Expansion core: сохраняет новый YAML-playbook в ~/agentforge/skills/.
+    Инвалидирует кэш, чтобы select_skill сразу видел новый skill.
+    Используется как из API, так и из skill_capture.py.
+    Возвращает путь к файлу.
+    """
+    os.makedirs(SKILLS_DIR, exist_ok=True)
+    name = skill_data.get("name") or "unnamed-skill"
+    safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in str(name).lower())
+    safe = "-".join(filter(None, safe.split("-")))[:64] or "unnamed-skill"
+
+    path = os.path.join(SKILLS_DIR, f"{safe}.yaml")
+
+    header = (
+        "# =============================================================================\n"
+        f"# AgentForge Skill: {safe}\n"
+        "# =============================================================================\n"
+        "# Автоматически сгенерирован через Tool Creation / self-expansion.\n"
+        "# Другие агенты получат system_prompt при совпадении required_tags.\n"
+        "# =============================================================================\n\n"
+    )
+
+    # Только разрешённые поля
+    allowed = ("name", "description", "system_prompt", "required_tags", "ci_checks", "timeout", "preferred_model")
+    clean: dict = {k: skill_data.get(k) for k in allowed if k in skill_data}
+
+    body = yaml.safe_dump(clean, allow_unicode=True, sort_keys=False, width=100, default_flow_style=False)
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(header + body)
+
+    global _skills_cache
+    _skills_cache = None  # force reload on next get_skills()
+
+    print(f"[AgentForge Skills] ✅ Self-expansion: captured new skill '{safe}' → {path}")
+    return path
+
+
+def capture_skill_from_dict(data: dict) -> dict:
+    """Удобный wrapper для вызова из раннеров и агентов."""
+    path = save_skill_to_disk(data)
+    return {
+        "status": "captured",
+        "name": data.get("name"),
+        "path": path,
+    }
+
+
 def select_skill(task: dict) -> Optional[str]:
     """
     При dispatch: подбор skill по пересечению тегов задачи и required_tags в YAML.
@@ -355,7 +503,10 @@ def select_skill(task: dict) -> Optional[str]:
             continue
         req = sdata.get("required_tags", []) or []
         req_lower = {str(r).lower() for r in req if r}
-        if tags_lower & req_lower:
+        overlap = tags_lower & req_lower
+        if overlap:
+            # Логируем почему выбран (полезно при отладке self-expansion)
+            print(f"[AgentForge Skills] select_skill: '{sdata.get('name') or sname}' matched via {overlap}")
             return sdata.get("name") or sname
     return None
 
@@ -372,6 +523,9 @@ def row_to_dict(row) -> dict:
             d["tags"] = json.loads(d["tags"])
         except (json.JSONDecodeError, TypeError):
             d["tags"] = []
+    # skill может быть NULL -> None
+    if d.get("skill") in ("", None):
+        d["skill"] = None
     return d
 
 def now_iso() -> str:
@@ -459,6 +613,9 @@ async def create_task(task: TaskCreate):
         new_task = row_to_dict(row)
         await ws_manager.notify_task_update(task_id, new_task)
         
+        # Webhooks: уведомляем о создании новой задачи
+        await _notify_webhooks("task_created", new_task)
+        
         return new_task
     finally:
         await db.close()
@@ -544,9 +701,23 @@ async def update_task(task_id: str, update: TaskUpdate):
             updates.append("duration_seconds = ?")
             values.append(update.duration_seconds)
         
+
         if update.skill is not None:
             updates.append("skill = ?")
             values.append(update.skill)
+            
+        if update.retry_count is not None:
+            updates.append("retry_count = ?")
+            values.append(update.retry_count)
+            
+        if update.tokens_used is not None:
+            updates.append("tokens_used = ?")
+            values.append(update.tokens_used)
+            
+        if update.cost_usd is not None:
+            updates.append("cost_usd = ?")
+            values.append(update.cost_usd)
+
         
         if not updates:
             raise HTTPException(status_code=400, detail="Нет полей для обновления")
@@ -570,9 +741,300 @@ async def update_task(task_id: str, update: TaskUpdate):
         updated_task = row_to_dict(row)
         await ws_manager.notify_task_update(task_id, updated_task)
         
+        # Webhooks: уведомляем зарегистрированные вебхуки при смене статуса
+        if update.status is not None:
+            await _notify_webhooks("status_change", updated_task)
+            # Дополнительное событие при завершении задачи
+            if update.status.value in ("done", "failed"):
+                await _notify_webhooks("task_completed", updated_task)
+        
         return updated_task
     finally:
         await db.close()
+
+# === Эндпоинты State Checkpoints ===
+
+@app.post("/tasks/{task_id}/checkpoint", tags=["Чекпоинты"], status_code=201)
+async def create_checkpoint(task_id: str, checkpoint: CheckpointCreate):
+    """
+    Сохранить промежуточное состояние (чекпоинт) задачи.
+    
+    Позволяет агенту сохранять прогресс выполнения задачи,
+    чтобы в случае сбоя можно было продолжить с последнего чекпоинта.
+    """
+    import json
+    
+    db = await get_db()
+    try:
+        # Проверяем что задача существует
+        cursor = await db.execute("SELECT id FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Задача {task_id} не найдена")
+        
+        checkpoint_id = str(uuid.uuid4())[:8]
+        now = now_iso()
+        
+        await db.execute(
+            """
+            INSERT INTO checkpoints (id, task_id, state, step_index, message, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                checkpoint_id,
+                task_id,
+                json.dumps(checkpoint.state, ensure_ascii=False),
+                checkpoint.step_index,
+                checkpoint.message,
+                now,
+            ),
+        )
+        await db.commit()
+        
+        print(f"[AgentForge] 💾 Чекпоинт {checkpoint_id} сохранён для задачи {task_id} (шаг {checkpoint.step_index})")
+        
+        return {
+            "id": checkpoint_id,
+            "task_id": task_id,
+            "state": checkpoint.state,
+            "step_index": checkpoint.step_index,
+            "message": checkpoint.message,
+            "created_at": now,
+        }
+    finally:
+        await db.close()
+
+
+@app.get("/tasks/{task_id}/checkpoint", tags=["Чекпоинты"])
+async def get_latest_checkpoint(task_id: str):
+    """
+    Получить последний чекпоинт задачи.
+    
+    Возвращает самое свежее промежуточное состояние,
+    с которого агент может продолжить выполнение.
+    """
+    import json
+    
+    db = await get_db()
+    try:
+        # Проверяем что задача существует
+        cursor = await db.execute("SELECT id FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Задача {task_id} не найдена")
+        
+        # Получаем последний чекпоинт
+        cursor = await db.execute(
+            "SELECT * FROM checkpoints WHERE task_id = ? ORDER BY created_at DESC LIMIT 1",
+            (task_id,),
+        )
+        checkpoint = await cursor.fetchone()
+        
+        if not checkpoint:
+            return {
+                "task_id": task_id,
+                "checkpoint": None,
+                "message": "Чекпоинтов для этой задачи пока нет",
+            }
+        
+        return {
+            "id": checkpoint[0],
+            "task_id": checkpoint[1],
+            "state": json.loads(checkpoint[2]) if checkpoint[2] else {},
+            "step_index": checkpoint[3],
+            "message": checkpoint[4],
+            "created_at": checkpoint[5],
+        }
+    finally:
+        await db.close()
+
+
+@app.get("/tasks/{task_id}/checkpoints", tags=["Чекпоинты"])
+async def get_all_checkpoints(task_id: str):
+    """
+    Получить все чекпоинты задачи (история промежуточных состояний).
+    
+    Возвращает список всех сохранённых чекпоинтов в хронологическом порядке.
+    """
+    import json
+    
+    db = await get_db()
+    try:
+        # Проверяем что задача существует
+        cursor = await db.execute("SELECT id FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Задача {task_id} не найдена")
+        
+        cursor = await db.execute(
+            "SELECT * FROM checkpoints WHERE task_id = ? ORDER BY created_at ASC",
+            (task_id,),
+        )
+        rows = await cursor.fetchall()
+        
+        checkpoints = []
+        for cp in rows:
+            checkpoints.append({
+                "id": cp[0],
+                "task_id": cp[1],
+                "state": json.loads(cp[2]) if cp[2] else {},
+                "step_index": cp[3],
+                "message": cp[4],
+                "created_at": cp[5],
+            })
+        
+        return {
+            "task_id": task_id,
+            "total": len(checkpoints),
+            "checkpoints": checkpoints,
+        }
+    finally:
+        await db.close()
+
+
+# === Эндпоинты Notification Webhooks ===
+
+async def _notify_webhooks(event_type: str, task_data: dict):
+    """
+    Внутренняя функция: отправить уведомление на все активные вебхуки.
+    Вызывается при смене статуса задачи или других событиях.
+    """
+    import json
+    import aiohttp
+    
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT url, events FROM webhooks WHERE active = 1"
+        )
+        hooks = await cursor.fetchall()
+    finally:
+        await db.close()
+    
+    for hook in hooks:
+        hook_url = hook[0]
+        hook_events = json.loads(hook[1]) if hook[1] else []
+        
+        # Проверяем что вебхук подписан на этот тип события
+        if event_type not in hook_events and "*" not in hook_events:
+            continue
+        
+        # Отправляем POST-запрос на URL вебхука (fire-and-forget)
+        payload = {
+            "event": event_type,
+            "timestamp": now_iso(),
+            "data": task_data,
+        }
+        
+        try:
+            # Используем asyncio.create_task чтобы не блокировать основной поток
+            async def _send(url, data):
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(
+                            url,
+                            json=data,
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as resp:
+                            print(f"[AgentForge Webhook] 📤 {url} → {resp.status}")
+                except Exception as e:
+                    print(f"[AgentForge Webhook] ⚠️ Ошибка отправки на {url}: {e}")
+            
+            asyncio.create_task(_send(hook_url, payload))
+        except Exception as e:
+            print(f"[AgentForge Webhook] ⚠️ Не удалось создать задачу для {hook_url}: {e}")
+
+
+@app.post("/webhooks/register", tags=["Вебхуки"], status_code=201)
+async def register_webhook(webhook: WebhookRegister):
+    """
+    Зарегистрировать вебхук для получения уведомлений.
+    
+    При смене статуса задачи или других событиях сервер отправит
+    POST-запрос на указанный URL с данными о событии.
+    
+    Поддерживаемые типы событий:
+    - status_change: при любом изменении статуса задачи
+    - task_created: при создании новой задачи
+    - task_completed: при переходе задачи в done/failed
+    """
+    import json
+    
+    webhook_id = str(uuid.uuid4())[:8]
+    now = now_iso()
+    
+    db = await get_db()
+    try:
+        await db.execute(
+            """
+            INSERT INTO webhooks (id, url, events, active, created_at)
+            VALUES (?, ?, ?, 1, ?)
+            """,
+            (
+                webhook_id,
+                webhook.url,
+                json.dumps(webhook.events, ensure_ascii=False),
+                now,
+            ),
+        )
+        await db.commit()
+        
+        print(f"[AgentForge] 🔔 Вебхук {webhook_id} зарегистрирован: {webhook.url} → {webhook.events}")
+        
+        return {
+            "id": webhook_id,
+            "url": webhook.url,
+            "events": webhook.events,
+            "active": True,
+            "created_at": now,
+        }
+    finally:
+        await db.close()
+
+
+@app.get("/webhooks", tags=["Вебхуки"])
+async def list_webhooks():
+    """Получить список всех зарегистрированных вебхуков"""
+    import json
+    
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM webhooks ORDER BY created_at DESC")
+        rows = await cursor.fetchall()
+        
+        webhooks = []
+        for row in rows:
+            webhooks.append({
+                "id": row[0],
+                "url": row[1],
+                "events": json.loads(row[2]) if row[2] else [],
+                "active": bool(row[3]),
+                "created_at": row[4],
+            })
+        
+        return {"total": len(webhooks), "webhooks": webhooks}
+    finally:
+        await db.close()
+
+
+@app.delete("/webhooks/{webhook_id}", tags=["Вебхуки"])
+async def delete_webhook(webhook_id: str):
+    """Удалить (деактивировать) вебхук"""
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT id FROM webhooks WHERE id = ?", (webhook_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Вебхук {webhook_id} не найден")
+        
+        await db.execute("UPDATE webhooks SET active = 0 WHERE id = ?", (webhook_id,))
+        await db.commit()
+        
+        print(f"[AgentForge] 🔕 Вебхук {webhook_id} деактивирован")
+        return {"id": webhook_id, "active": False, "message": "Вебхук деактивирован"}
+    finally:
+        await db.close()
+
 
 @app.post("/tasks/{task_id}/dispatch", tags=["Диспетчеризация"])
 async def dispatch_task(task_id: str):
@@ -606,6 +1068,12 @@ async def dispatch_task(task_id: str):
         skill = select_skill(task)
         if skill:
             print(f"[AgentForge Skills] Подобран skill '{skill}' для задачи {task_id} по тегам")
+        
+        # Важное предупреждение при маршрутизации на Antigravity
+        if agent == "antigravity":
+            print(f"[AgentForge WARNING] ⚠️  Задача {task_id} направлена на Antigravity. "
+                  "Это human-in-the-loop режим. Задача не будет выполнена автоматически. "
+                  "См. AGENTFORGE_ROUTING_AND_EXECUTION_REFACTOR_PLAN.md")
         
         # Обновляем статус, агента и skill
         now = now_iso()
@@ -643,6 +1111,46 @@ async def dispatch_task(task_id: str):
         }
     finally:
         await db.close()
+
+
+# === Self-Expansion: Tool Creation API (автогенерация YAML skills) ===
+
+@app.post("/skills/capture", tags=["Skills / Self-Expansion"])
+async def capture_skill_endpoint(skill: SkillCapture):
+    """
+    Главная точка входа для self-expansion.
+    Агент, написавший новый скрипт/парсер/API-клиент/деплой-тул, вызывает этот эндпоинт
+    (или использует /home/agx/agentforge/skill_capture.py), чтобы сохранить YAML-playbook.
+    После этого другие агенты с подходящими тегами будут автоматически получать system_prompt.
+    """
+    data = skill.dict()
+    path = save_skill_to_disk(data)
+    return {
+        "status": "captured",
+        "name": data["name"],
+        "path": path,
+        "required_tags": data.get("required_tags", []),
+        "message": "Skill saved to ~/agentforge/skills/. Future tasks with overlapping tags will auto-select it.",
+    }
+
+
+@app.get("/skills", tags=["Skills / Self-Expansion"])
+async def list_skills():
+    """Список всех загруженных playbooks (для отладки и для агентов)."""
+    skills = get_skills()
+    # Убираем дубли по basename
+    clean = {}
+    for k, v in skills.items():
+        if k.endswith((".yaml", ".yml")):
+            continue
+        clean[k] = {
+            "name": v.get("name", k),
+            "description": v.get("description", ""),
+            "required_tags": v.get("required_tags", []),
+            "timeout": v.get("timeout"),
+        }
+    return {"count": len(clean), "skills": clean, "skills_dir": SKILLS_DIR}
+
 
 # === Эндпоинт метрик ===
 
@@ -710,6 +1218,27 @@ async def get_agents():
             return json.load(f)
     return {"agents": [], "error": "agent_cards.json not found"}
 
+
+@app.get("/skills", tags=["Skills/Playbooks"])
+async def list_skills():
+    """Список доступных YAML playbooks (skills). system_prompt обрезан для краткости."""
+    skills = get_skills()
+    out = []
+    for name, data in skills.items():
+        if name.endswith(".yaml") or name.endswith(".yml"):
+            continue
+        out.append({
+            "name": name,
+            "description": (data.get("description") or "")[:200],
+            "required_tags": data.get("required_tags", []),
+            "timeout": data.get("timeout", 900),
+            "preferred_model": data.get("preferred_model", "grok"),
+            "has_system_prompt": bool(data.get("system_prompt")),
+            "ci_checks_count": len(data.get("ci_checks", [])),
+        })
+    return {"skills": out, "count": len(out), "dir": SKILLS_DIR}
+
+
 # === Guardian Agent (Автоматический код-ревью) ===
 
 
@@ -719,6 +1248,12 @@ class ArenaRequest(BaseModel):
     """Модель запроса Arena Mode"""
     agent_a: str = Field("grok", description="Первый агент для соревнования")
     agent_b: str = Field("jules", description="Второй агент для соревнования")
+
+
+class MoARequest(BaseModel):
+    """Модель запроса Mixture-of-Agents (MoA)"""
+    num_proposals: int = Field(3, ge=2, le=5, description="Количество параллельных proposer-агентов (2-5)")
+    aggregator: str = Field("grok", description="Агент-агрегатор, синтезирующий финальный результат из всех предложений")
 
 @app.post('/tasks/{task_id}/arena', tags=['Arena'])
 async def arena_mode(task_id: str, arena: ArenaRequest = ArenaRequest()):
@@ -920,6 +1455,306 @@ async def arena_judge(task_id: str):
         await db.close()
 
 
+# === Mixture-of-Agents (MoA): N parallel proposers + 1 aggregator (DeepMind pattern) ===
+
+@app.post('/tasks/{task_id}/moa', tags=['MoA'])
+async def moa_mode(task_id: str, moa: MoARequest = MoARequest()):
+    """
+    Mixture-of-Agents (MoA) — расширенная Arena Mode.
+    
+    Паттерн DeepMind: несколько proposer-агентов генерируют параллельные решения,
+    затем aggregator-агент синтезирует лучший результат.
+    
+    Создаёт N подзадач-предложений (суффиксы -moa-p1, -moa-p2, ...),
+    диспатчит их параллельно (через /dispatch для корректного выбора агента).
+    Оригинальная задача переводится в in_progress.
+    После завершения всех предложений используйте /moa/aggregate для запуска агрегатора.
+    """
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Задача {task_id} не найдена")
+        
+        task = row_to_dict(row)
+        
+        if task["status"] != "pending":
+            raise HTTPException(
+                status_code=400,
+                detail=f"MoA доступна только для pending задач (текущий: {task['status']})"
+            )
+        
+        n = max(2, min(5, moa.num_proposals))
+        now = now_iso()
+        proposal_tasks = []
+        
+        # Выбираем разнообразных proposers (цикл по сильным агентам)
+        proposer_pool = ["grok", "antigravity", "grok", "jules", "grok"]
+        
+        for i in range(1, n + 1):
+            proposal_id = f"{task_id[:8]}-moa-p{i}"
+            proposer = proposer_pool[(i - 1) % len(proposer_pool)]
+            
+            tags = task.get("tags", [])
+            if isinstance(tags, str):
+                try:
+                    tags = json_module.loads(tags)
+                except Exception:
+                    tags = []
+            tags_with_moa = tags + ["moa", f"moa-{task_id[:8]}", "proposer"]
+            
+            await db.execute(
+                """INSERT OR REPLACE INTO tasks 
+                   (id, title, description, priority, complexity, preferred_agent,
+                    status, assigned_agent, result, git_branch, created_at, updated_at, tags, skill)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    proposal_id,
+                    f"[MoA Proposal {i}/{n}] {task['title']}",
+                    task["description"],
+                    task["priority"],
+                    task["complexity"],
+                    proposer,
+                    "pending",
+                    None,
+                    None,
+                    f"agentforge/{proposal_id}",
+                    now,
+                    now,
+                    json_module.dumps(tags_with_moa, ensure_ascii=False),
+                    task.get("skill"),
+                )
+            )
+            proposal_tasks.append({"id": proposal_id, "agent": proposer})
+        
+        # Обновляем оригинальную задачу
+        await db.execute(
+            "UPDATE tasks SET status = ?, result = ?, updated_at = ? WHERE id = ?",
+            ("in_progress", f"MoA: {n} proposals (aggregator={moa.aggregator})", now, task_id)
+        )
+        await db.commit()
+        
+        # Диспатчим все proposal-задачи через API (корректно устанавливает assigned_agent + запускает runner)
+        for p in proposal_tasks:
+            try:
+                subprocess.Popen(
+                    ["curl", "-s", "-X", "POST", f"http://127.0.0.1:8080/tasks/{p['id']}/dispatch",
+                     "-o", "/dev/null"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception as e:
+                print(f"[AgentForge MoA] Не удалось диспатчить {p['id']}: {e}")
+        
+        await ws_manager.notify_task_update(task_id, {
+            "status": "in_progress",
+            "result": f"MoA: {n} proposals (aggregator={moa.aggregator})",
+            "moa_proposals": proposal_tasks,
+        })
+        
+        print(f"[AgentForge MoA] Запущен MoA для {task_id}: {n} proposers + aggregator={moa.aggregator}")
+        
+        return {
+            "task_id": task_id,
+            "mode": "moa",
+            "num_proposals": n,
+            "proposals": proposal_tasks,
+            "aggregator": moa.aggregator,
+            "message": f"MoA запущен: {n} параллельных предложений. Используйте POST /tasks/{task_id}/moa/aggregate для синтеза.",
+        }
+    finally:
+        await db.close()
+
+
+@app.post('/tasks/{task_id}/moa/aggregate', tags=['MoA'])
+async def moa_aggregate(task_id: str, aggregator: Optional[str] = None):
+    """
+    Запуск aggregator-агента для MoA.
+    
+    Собирает результаты всех proposal-подзадач (moa-p*), формирует
+    детальный промпт с инструкцией синтеза (паттерн DeepMind MoA),
+    создаёт отдельную aggregator-задачу {id}-moa-agg и диспатчит её.
+    После завершения агрегатора используйте /moa/finalize для применения результата.
+    """
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Задача {task_id} не найдена")
+        orig_task = row_to_dict(row)
+        
+        # Находим все proposal subtasks
+        prefix = f"{task_id[:8]}-moa-p"
+        cursor = await db.execute(
+            "SELECT * FROM tasks WHERE id LIKE ? ORDER BY id",
+            (prefix + "%",)
+        )
+        proposal_rows = await cursor.fetchall()
+        
+        if not proposal_rows:
+            raise HTTPException(status_code=404, detail="MoA proposal-подзадачи не найдены. Сначала вызовите /moa")
+        
+        proposals = [row_to_dict(r) for r in proposal_rows]
+        
+        # Собираем текст всех предложений (даже если не все done — берём что есть)
+        proposals_text = []
+        for i, p in enumerate(proposals, 1):
+            status = p.get("status", "?")
+            agent = p.get("assigned_agent") or p.get("preferred_agent", "?")
+            res = (p.get("result") or "(нет результата / ещё выполняется)").strip()
+            proposals_text.append(
+                f"=== ПРЕДЛОЖЕНИЕ #{i} (агент: {agent}, статус: {status}) ===\n{res}\n"
+            )
+        
+        agg_agent = aggregator or orig_task.get("result", "").split("aggregator=")[-1].split(")")[0] if "aggregator=" in (orig_task.get("result") or "") else "grok"
+        agg_agent = agg_agent.strip() or "grok"
+        
+        agg_id = f"{task_id[:8]}-moa-agg"
+        now = now_iso()
+        
+        agg_title = f"[MoA Aggregate] {orig_task['title']}"
+        agg_description = (
+            "Вы — Aggregator в Mixture-of-Agents (паттерн DeepMind).\n\n"
+            "ЗАДАЧА: Проанализировать несколько независимых предложений от proposer-агентов, "
+            "выявить сильные стороны каждого, исправить слабые, устранить противоречия и "
+            "синтезировать ЛУЧШЕЕ возможное финальное решение. Результат должен быть "
+            "существенно лучше любого отдельного предложения.\n\n"
+            "Оригинальная задача:\n"
+            f"Title: {orig_task['title']}\n"
+            f"Description: {orig_task['description']}\n\n"
+            "=== ВСЕ ПРЕДЛОЖЕНИЯ ДЛЯ СИНТЕЗА ===\n\n"
+            + "\n".join(proposals_text) +
+            "\n=== ИНСТРУКЦИИ ПО СИНТЕЗУ ===\n"
+            "1. Выдели ключевые идеи из каждого предложения.\n"
+            "2. Выбери лучшие подходы/фрагменты.\n"
+            "3. Улучши код/решение, добавь недостающее, убери ошибки.\n"
+            "4. Предоставь полный, готовый к использованию результат (код, план, ответ).\n"
+            "5. В конце кратко объясни, почему твой вариант лучше исходных.\n\n"
+            "Верни только финальный синтезированный результат + краткое обоснование."
+        )
+        
+        tags = orig_task.get("tags", [])
+        if isinstance(tags, str):
+            try:
+                tags = json_module.loads(tags)
+            except Exception:
+                tags = []
+        tags_agg = tags + ["moa", f"moa-{task_id[:8]}", "aggregator"]
+        
+        await db.execute(
+            """INSERT OR REPLACE INTO tasks 
+               (id, title, description, priority, complexity, preferred_agent,
+                status, assigned_agent, result, git_branch, created_at, updated_at, tags, skill)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                agg_id,
+                agg_title,
+                agg_description,
+                orig_task["priority"],
+                orig_task["complexity"],
+                agg_agent,
+                "pending",
+                None,
+                None,
+                f"agentforge/{agg_id}",
+                now,
+                now,
+                json_module.dumps(tags_agg, ensure_ascii=False),
+                orig_task.get("skill"),
+            )
+        )
+        await db.commit()
+        
+        # Диспатч агрегатора
+        try:
+            subprocess.Popen(
+                ["curl", "-s", "-X", "POST", f"http://127.0.0.1:8080/tasks/{agg_id}/dispatch", "-o", "/dev/null"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception as e:
+            print(f"[AgentForge MoA] Ошибка диспатча агрегатора {agg_id}: {e}")
+        
+        await ws_manager.notify_task_update(task_id, {
+            "status": "in_progress",
+            "result": f"MoA: aggregator запущен ({agg_id})",
+            "moa_aggregator": {"id": agg_id, "agent": agg_agent},
+        })
+        
+        print(f"[AgentForge MoA] Aggregator запущен для {task_id}: {agg_id} (agent={agg_agent})")
+        
+        return {
+            "task_id": task_id,
+            "aggregator_task_id": agg_id,
+            "aggregator_agent": agg_agent,
+            "num_proposals_collected": len(proposals),
+            "message": f"Aggregator task {agg_id} запущен. После его завершения вызовите /moa/finalize",
+        }
+    finally:
+        await db.close()
+
+
+@app.post('/tasks/{task_id}/moa/finalize', tags=['MoA'])
+async def moa_finalize(task_id: str):
+    """
+    Финализация MoA: применяет результат aggregator-агента к оригинальной задаче.
+    
+    Находит {id}-moa-agg, проверяет что он в хорошем статусе (done/review),
+    копирует его result в оригинальную задачу, переводит в done.
+    """
+    db = await get_db()
+    try:
+        agg_id = f"{task_id[:8]}-moa-agg"
+        
+        cursor = await db.execute("SELECT * FROM tasks WHERE id = ?", (agg_id,))
+        row_agg = await cursor.fetchone()
+        if not row_agg:
+            raise HTTPException(status_code=404, detail="Aggregator задача (moa-agg) не найдена. Сначала /moa/aggregate")
+        
+        agg = row_to_dict(row_agg)
+        status = agg.get("status", "")
+        
+        if status not in ("done", "review"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Aggregator ещё не завершён (статус: {status}). Дождитесь завершения или запустите Guardian."
+            )
+        
+        agg_result = agg.get("result") or "(aggregator не предоставил результат)"
+        agg_agent = agg.get("assigned_agent") or agg.get("preferred_agent", "aggregator")
+        
+        now = now_iso()
+        verdict = (
+            f"MoA Aggregate (by {agg_agent}): {agg_result[:500]}{'...' if len(agg_result) > 500 else ''}"
+        )
+        
+        await db.execute(
+            "UPDATE tasks SET status = ?, result = ?, assigned_agent = ?, updated_at = ? WHERE id = ?",
+            ("done", verdict, agg_agent, now, task_id)
+        )
+        await db.commit()
+        
+        await ws_manager.notify_task_update(task_id, {
+            "status": "done",
+            "result": verdict,
+            "moa_finalized_from": agg_id,
+        })
+        
+        print(f"[AgentForge MoA] {task_id} финализирован из агрегатора {agg_id}")
+        
+        return {
+            "task_id": task_id,
+            "status": "done",
+            "finalized_from": agg_id,
+            "aggregator_agent": agg_agent,
+            "message": "Результат MoA применён к оригинальной задаче",
+        }
+    finally:
+        await db.close()
+
+
 @app.post('/tasks/{task_id}/review', tags=['Гардиан'])
 async def guardian_review(task_id: str):
     """
@@ -1106,6 +1941,72 @@ async def ws_status():
     }
 
 
+# === Automated Failure Clustering API (taxonomy для targeted prompt/skill fixes) ===
+
+@app.get("/analysis/failures", tags=["Analysis"])
+async def get_failure_analysis(run_cluster: bool = False):
+    """
+    Получить таксономию ошибок агентов (failure modes).
+    Опционально: ?run_cluster=1 — запустить кластеринг (HDBSCAN + LLM) перед ответом.
+    Использует LanceDB + memory_helper (sentence-transformers).
+    """
+    import asyncio
+    mh = os.path.join(os.path.dirname(os.path.abspath(__file__)), "memory_helper.py")
+    
+    async def _run_cluster():
+        def _do():
+            try:
+                out = subprocess.check_output(
+                    [sys.executable, mh, "cluster-failures"],
+                    timeout=180, stderr=subprocess.STDOUT, text=True
+                )
+                return json_module.loads(out)
+            except Exception as e:
+                return {"error": str(e)}
+        return await asyncio.to_thread(_do)
+    
+    if run_cluster:
+        report = await _run_cluster()
+    else:
+        report = None
+    
+    # Всегда возвращаем текущую taxonomy
+    try:
+        tax_out = subprocess.check_output(
+            [sys.executable, mh, "show-taxonomy"],
+            timeout=30, stderr=subprocess.STDOUT, text=True
+        )
+        taxonomy = json_module.loads(tax_out)
+    except Exception as e:
+        taxonomy = {"error": f"taxonomy read failed: {e}"}
+    
+    return {
+        "taxonomy": taxonomy,
+        "cluster_report": report,
+        "note": "Use failure_modes[].suggested_prompt_fix to improve skills/*.yaml and grok_prompts",
+    }
+
+
+@app.post("/analysis/failures/cluster", tags=["Analysis"])
+async def trigger_failure_clustering():
+    """Явно запустить pipeline кластеринга failed траекторий и обновить taxonomy."""
+    import asyncio
+    mh = os.path.join(os.path.dirname(os.path.abspath(__file__)), "memory_helper.py")
+    
+    def _do():
+        try:
+            out = subprocess.check_output(
+                [sys.executable, mh, "cluster-failures"],
+                timeout=180, stderr=subprocess.STDOUT, text=True
+            )
+            return json_module.loads(out)
+        except Exception as e:
+            return {"error": str(e), "stdout": getattr(e, 'output', '')}
+    
+    report = await asyncio.to_thread(_do)
+    return report
+
+
 # === Точка входа ===
 
 if __name__ == "__main__":
@@ -1119,3 +2020,90 @@ if __name__ == "__main__":
         reload=False,
         log_level="info",
     )
+
+
+@app.post("/tasks/pull", response_model=Optional[TaskResponse], tags=["Задачи"])
+async def pull_task(agent: str):
+    """
+    Умный роутер с поддержкой Work-Stealing.
+    Агент запрашивает задачу для себя. API ищет задачу по его специализации.
+    Если подходящих задач нет, API смотрит, не завалены ли другие агенты (Work-Stealing),
+    и "крадёт" задачу у них.
+    """
+    db = await get_db()
+    try:
+        # 1. Считаем текущую нагрузку на всех агентов
+        cursor = await db.execute("SELECT assigned_agent, COUNT(*) as cnt FROM tasks WHERE status IN ('in_progress', 'dispatched') GROUP BY assigned_agent")
+        load = {row['assigned_agent']: row['cnt'] for row in await cursor.fetchall() if row['assigned_agent']}
+        
+        my_load = load.get(agent, 0)
+        
+        # 2. Ищем задачи со статусом pending
+        cursor = await db.execute("SELECT * FROM tasks WHERE status = 'pending' ORDER BY priority DESC, created_at ASC")
+        rows = await cursor.fetchall()
+        
+        best_task = None
+        stolen = False
+        
+        for row in rows:
+            task = row_to_dict(row)
+            target_agent = resolve_agent(task)
+            
+            # Если задача идеально подходит нам
+            if target_agent == agent:
+                best_task = task
+                break
+                
+            # Если задача чужая, проверяем Work-Stealing (порог = 2)
+            if target_agent != agent:
+                target_load = load.get(target_agent, 0)
+                if target_load >= 2 and my_load == 0:
+                    best_task = task
+                    stolen = True
+                    break
+                    
+        if not best_task:
+            return None
+            
+        task_id = best_task['id']
+        now = now_iso()
+        
+        if stolen:
+            print(f"[Work-Stealing] 🦸 Агент {agent} украл задачу {task_id} у загруженного агента!")
+        
+        # Обновляем статус на in_progress и назначаем текущему агенту
+        await db.execute(
+            "UPDATE tasks SET status = 'in_progress', assigned_agent = ?, started_at = ?, updated_at = ? WHERE id = ?",
+            (agent, now, now, task_id)
+        )
+        await db.commit()
+        
+        # Возвращаем обновленную задачу
+        cursor = await db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        updated_task = row_to_dict(row)
+        
+        await ws_manager.notify_task_update(task_id, updated_task)
+        await _notify_webhooks("status_change", updated_task)
+        
+        return updated_task
+    finally:
+        await db.close()
+
+
+@app.get("/blackboard/feed", tags=["Blackboard"])
+async def get_blackboard_feed():
+    """Получение активности (мыслей) агентов в реальном времени."""
+    import aiosqlite
+    try:
+        db = await aiosqlite.connect("/home/agx/planlytasksko/data/task_checkpoints.db")
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT agent, team_id, task_id, message, created_at FROM blackboard_activity ORDER BY created_at DESC LIMIT 50"
+        )
+        rows = await cursor.fetchall()
+        await db.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        return []
+

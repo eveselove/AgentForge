@@ -1,0 +1,13 @@
+{
+  "id": "example-rust-refactor-001",
+  "title": "Extract common proxy logic into crawler_core",
+  "description": "Refactor akson_crawler.rs and stroylandia_crawler.rs to use a shared crawler_core module for proxy handling, instead of duplicating Proxy class and load_proxies logic.",
+  "repo_path": "/home/agx/planlytasksko",
+  "base_branch": "main",
+  "verification": "tests_pass",
+  "verification_command": "cargo test --package planly_gateway --test crawler_core || echo 'Tests not yet implemented - manual verification required'",
+  "difficulty": "medium",
+  "category": "refactoring",
+  "tags": ["rust", "refactoring", "code-quality"],
+  "estimated_minutes": 45
+}

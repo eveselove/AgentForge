@@ -1,0 +1,12 @@
+{
+  "id": "agentforge-routing-improvement-001",
+  "title": "Улучшить систему маршрутизации задач между агентами в AgentForge",
+  "description": "Проанализировать текущую логику resolve_agent в task_queue.py и dispatcher.sh. Предложить и реализовать улучшения маршрутизации (учёт нагрузки агентов, исторической успешности, сложности задачи, стоимости). Цель — уменьшить количество задач, попадающих не к тому агенту.",
+  "repo_path": "/home/agx/agentforge",
+  "verification": "manual_review",
+  "difficulty": "hard",
+  "category": "architecture",
+  "tags": ["agentforge", "routing", "architecture", "meta"],
+  "estimated_minutes": 75,
+  "required_skills": ["python", "system-design", "agent-systems"]
+}

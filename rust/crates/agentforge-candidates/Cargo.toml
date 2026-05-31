@@ -1,0 +1,20 @@
+[package]
+name = "agentforge-candidates"
+version = "0.1.0"
+edition = "2021"
+description = "Pure-Rust pending_candidates store: ingest, prioritizer, promote, A/B prep (RUST_FULL_MIGRATION_PLAN.md)"
+
+[dependencies]
+agentforge-core = { path = "../agentforge-core" }
+agentforge-learning = { path = "../agentforge-learning" }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+
+# For flock / locking in continuous prioritizer (future)
+# fs2 = "0.4"

@@ -1,0 +1,20 @@
+{
+  "id": "lancedb-parser-bottleneck-001",
+  "title": "Диагностировать и предложить решение bottleneck в парсинге + LanceDB",
+  "description": "Проанализировать текущую архитектуру записи продуктов в LanceDB (lance_writer.rs, lance.rs, akson_crawler). Найти главные причины низкой скорости записи и предложить конкретные улучшения (batch size, индексы, параллелизм, schema design).",
+  "repo_path": "/home/agx/planlytasksko",
+  "verification": "manual_review",
+  "difficulty": "hard",
+  "category": "performance",
+  "tags": ["lancedb", "parser", "bottleneck", "database", "akson"],
+  "estimated_minutes": 90,
+  "required_skills": ["rust", "lancedb", "performance-analysis", "data-pipelines"],
+  "extra_context": {
+    "key_files": [
+      "planly_gateway/src/lance_writer.rs",
+      "planly_gateway/src/lance.rs",
+      "planly_gateway/src/akson_crawler.rs"
+    ],
+    "known_issues": "Много мелких записей, слабое использование batch, возможные проблемы со схемой"
+  }
+}

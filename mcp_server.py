@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
 """
-MCP (Model Context Protocol) сервер для AgentForge Task Queue.
+DEPRECATED — FULL MIGRATION TO RUST ONLY (started 2026-05-31)
+=============================================================
+This MCP server is part of the legacy Python task layer.
+
+AgentForge is moving to a Rust-only architecture.
+The Rust binary (`agentforge-runner`) and future Rust services will
+eventually replace Python for task management, agent dispatching,
+and the full self-improving flywheel.
+
+See: RUST_ONLY_MIGRATION_PLAN.md
+
+This file is retained temporarily for compatibility.
+"""
+
+"""
+MCP (Model Context Protocol) сервер для AgentForge Task Queue (Legacy).
 Позволяет любому чату Antigravity IDE управлять очередью задач напрямую.
 Транспорт: stdio
 """
@@ -278,6 +293,7 @@ async def _handle_create_task(arguments: dict) -> list[TextContent]:
         "priority": arguments.get("priority", "medium"),
         "complexity": arguments.get("complexity", "medium"),
         "tags": arguments.get("tags", []),
+        "preferred_agent": arguments.get("preferred_agent", "auto"),
     }
 
     result = await asyncio.to_thread(_api_request, "/tasks", "POST", payload)

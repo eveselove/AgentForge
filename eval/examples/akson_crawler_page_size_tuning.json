@@ -1,0 +1,17 @@
+{
+  "id": "akson-crawler-optimization-001",
+  "title": "Tune Akson crawler PAGE_SIZE and concurrency for 4G mobile proxies",
+  "description": "Analyze current akson_crawler.rs performance on mobile proxies. Propose and validate optimal PAGE_SIZE (currently 20 in code, 1000 in AGENTS.md), BATCH_SIZE, and adaptive throttle parameters to maximize throughput while keeping error rate < 5%.",
+  "repo_path": "/home/agx/planlytasksko",
+  "base_branch": "main",
+  "verification": "manual_review",
+  "verification_command": "echo 'Manual verification required: check throughput, error rate, and that changes respect AGENTS.md protected parameters.'",
+  "difficulty": "hard",
+  "category": "optimization",
+  "tags": ["crawler", "performance", "akson", "proxy", "tuning"],
+  "estimated_minutes": 90,
+  "extra_context": {
+    "protected_params": ["PAGE_SIZE", "BATCH_SIZE", "MAX_CEILING", "ERROR_RATE_THRESHOLD"],
+    "reference_doc": "planlytasksko/planly_gateway/AGENTS.md"
+  }
+}

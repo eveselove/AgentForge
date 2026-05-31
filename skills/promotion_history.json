@@ -1,0 +1,30 @@
+[
+  {
+    "ab_prepared": false,
+    "at": "2026-05-31T07:27:56.240193408Z",
+    "candidate_id": "done_cand_1",
+    "promoted_to": null,
+    "source": "rust-agentforge-runner"
+  },
+  {
+    "ab_prepared": false,
+    "at": "2026-05-31T07:27:56.240345537Z",
+    "candidate_id": "shadow_cont",
+    "promoted_to": null,
+    "source": "rust-agentforge-runner"
+  },
+  {
+    "ab_prepared": false,
+    "at": "2026-05-31T07:27:56.240729123Z",
+    "candidate_id": "multi_hist",
+    "promoted_to": null,
+    "source": "rust-agentforge-runner"
+  },
+  {
+    "ab_prepared": false,
+    "at": "2026-05-31T07:27:56.241525863Z",
+    "candidate_id": "shadow_cont",
+    "promoted_to": null,
+    "source": "rust-agentforge-runner"
+  }
+]

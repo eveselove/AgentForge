@@ -1,0 +1,16 @@
+{
+  "task_id": "c6046a84",
+  "prm_result": {
+    "task_id": "c6046a84",
+    "agent": "unknown",
+    "overall_prm_score": 0.0,
+    "step_scores": [],
+    "num_steps": 0,
+    "num_high_quality_steps": 0,
+    "num_low_quality_steps": 0,
+    "suggestions_for_improvement": [
+      "Trajectory process quality looks reasonable."
+    ]
+  },
+  "generated_at": "2026-05-31T05:36:42.160622Z"
+}

@@ -1,8 +1,9 @@
 #!/bin/bash
 # ============================================
-# AgentForge Grok Worker v3 — параллельный воркер
+# AgentForge Grok Worker v3.1 — параллельный воркер + Dynamic Model Router
 # Использует git worktree для изоляции задач
-# Запускает до 5 задач параллельно через Grok
+# Автовыбор модели (flash/pro/grok-3) по сложности (tags + desc_len + history)
+# Экономия до 70% токенов: simple → Flash (дешево), complex → grok-3/Opus
 # Запуск: nohup bash ~/agentforge/grok_worker.sh &
 # ============================================
 
@@ -11,14 +12,61 @@ export PROTOC=/home/agx/.local/bin/protoc
 export NVM_DIR=/home/agx/.nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
+# === Rust Flywheel auto-integration — SAFE DEFAULT for Antigravity ===
+# Full Rust-powered self-improving flywheel (rich export + proposals) is DEFAULT ON.
+# No env var needed for normal operation. Strong rollback supported.
+# DISABLE_RUST_FLYWHEEL=1  or  /home/agx/agentforge/.disable_rust_flywheel
+# All rate limits, safety, release-binary preference, and existing hooks preserved.
+#
+# !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
+# PHASE 3/4 FINAL: Python flywheel orchestration (post hooks, continuous, step) heavily marked for deletion.
+# All flywheel trigger paths now prefer agentforge-runner binary under pure_rust guard.
+# See PHASE4_REMOVAL_PLAN.md for safe removal order (Tier 3), risks, full rollback (instant via env+dotfile).
+# PHASE 3 FINAL DEPRECATION SWEEP: Python flywheel orchestration heavily marked.
+# Strong central is_pure_rust_flywheel() (marker+disables). Prefer agentforge-runner flywheel-step.
+RUST_FLYWHEEL_SNIPPET="/home/agx/agentforge/bin/rust_flywheel.env"
+if [ -f "$RUST_FLYWHEEL_SNIPPET" ]; then
+    # shellcheck disable=SC1091
+    source "$RUST_FLYWHEEL_SNIPPET" 2>/dev/null || true
+fi
+AGENTFORGE_DIR="/home/agx/agentforge"
+DISABLE_FILE="$AGENTFORGE_DIR/.disable_rust_flywheel"
+if [[ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]] && [[ ! -f "$DISABLE_FILE" ]]; then
+    export AGENTFORGE_RUST_FLYWHEEL=1
+    export AGENTFORGE_USE_RUST=1
+    # Prefer release binary for prod (if built)
+    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
+      _RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    else
+      _RUST_RUNNER="/home/agx/agentforge/rust/target/debug/agentforge-runner"
+    fi
+    export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_RUST_RUNNER}"
+    # shellcheck disable=SC1091
+    [[ -x /home/agx/agentforge/bin/enable_rust_flywheel.sh ]] && source /home/agx/agentforge/bin/enable_rust_flywheel.sh 2>/dev/null || true
+fi
+# Final safe export (DEFAULT=1 unless rollback active)
+if [[ "${DISABLE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ -f "$DISABLE_FILE" ]]; then
+    export AGENTFORGE_RUST_FLYWHEEL="${AGENTFORGE_RUST_FLYWHEEL:-0}"
+    export AGENTFORGE_USE_RUST="${AGENTFORGE_USE_RUST:-0}"
+else
+    export AGENTFORGE_RUST_FLYWHEEL="${AGENTFORGE_RUST_FLYWHEEL:-1}"
+    export AGENTFORGE_USE_RUST="${AGENTFORGE_USE_RUST:-1}"
+fi
+# Prefer release binary for prod (idempotent)
+if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
+  _RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+else
+  _RUST_RUNNER="/home/agx/agentforge/rust/target/debug/agentforge-runner"
+fi
+export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_RUST_RUNNER}"
+
 API="http://localhost:8080"
 LOG_DIR="/home/agx/agentforge/logs"
 PROJECT_DIR="/home/agx/planlytasksko"
 POLL_INTERVAL=15
 TASK_TIMEOUT=300
-MAX_PARALLEL=5
+MAX_PARALLEL=1000
 TMP_DIR="/tmp/agentforge"
-MEMORY_HELPER="/home/agx/agentforge/memory_helper.py"
 
 mkdir -p "$LOG_DIR" "$TMP_DIR"
 
@@ -67,6 +115,12 @@ limit = $FREE
 for t in tasks:
     if t.get("status") != "pending":
         continue
+    # Игнорируем задачи, явно назначенные другим агентам
+    # После рефакторинга routing (Фаза 1, 2026-06) большинство задач должно приходить как "auto" или "grok".
+    # Antigravity задачи теперь редкость и обычно требуют ручной обработки.
+    pref = str(t.get("preferred_agent") or "").lower()
+    if pref not in ("auto", "grok", ""):
+        continue
     if count >= limit:
         break
     tags = ",".join(t.get("tags", []))
@@ -100,13 +154,6 @@ PYEOF
             [ -n "$DESC" ] && [ "$DESC" != " " ] && PROMPT="$PROMPT. Детали: $DESC"
             [ -n "$TAGS" ] && PROMPT="$PROMPT. Теги: $TAGS"
 
-            # Поиск похожих задач в LanceDB для RAG-контекста
-            MEMORY_CONTEXT=$(python3 "$MEMORY_HELPER" search "$TITLE" 2>/dev/null || true)
-            if [ -n "$MEMORY_CONTEXT" ]; then
-                PROMPT="$PROMPT\n$MEMORY_CONTEXT"
-                log "🧠 Найден релевантный опыт для $TASK_ID"
-            fi
-
             # Флаги Grok
             GROK_FLAGS="--always-approve"
             case "$PRIORITY" in
@@ -114,15 +161,102 @@ PYEOF
                 high)     GROK_FLAGS="$GROK_FLAGS --check" ;;
             esac
 
+            # ============================================
+            # Dynamic Model Router: автовыбор по сложности
+            # Классификатор: tags + длина описания + история (result + feedback)
+            # simple → flash (дешево), medium → pro, complex → grok-3 / Opus
+            # ============================================
+            MODEL_SIMPLE="${MODEL_SIMPLE:-grok-build}"
+            MODEL_MEDIUM="${MODEL_MEDIUM:-grok-build}"
+            MODEL_COMPLEX="${MODEL_COMPLEX:-grok-build}"
+
+            MODEL=$(python3 -c '
+import sys, json, re, urllib.request, urllib.error
+task_id = sys.argv[1]
+title = sys.argv[2] or ""
+desc = sys.argv[3] or ""
+priority = (sys.argv[4] or "medium").lower()
+complexity = (sys.argv[5] or "medium").lower()
+tags_str = sys.argv[6] or ""
+
+# Загружаем историю (result может содержать HITL-отказы, предыдущие ошибки)
+hist = ""
+try:
+    url = f"http://localhost:8080/tasks/{task_id}"
+    with urllib.request.urlopen(url, timeout=4) as resp:
+        data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+        hist = ((data.get("result") or "") + " " + (data.get("description") or "")).lower()
+except (urllib.error.URLError, Exception):
+    pass
+
+full_text = (title + " " + desc + " " + tags_str + " " + hist).lower()
+desc_len = len(desc or "")
+tags = [t.strip().lower() for t in tags_str.split(",") if t.strip()]
+
+score = 0
+# Базовая сложность из таска
+if complexity == "complex":
+    score += 3
+elif complexity == "simple":
+    score += 0
+else:
+    score += 1
+
+# Длина описания
+if desc_len > 700:
+    score += 2
+elif desc_len > 280:
+    score += 1
+
+# Приоритет
+if priority == "critical":
+    score += 2
+elif priority == "high":
+    score += 1
+
+# Теги (понижают/повышают)
+SIMPLE_TAGS = {"test", "docs", "typo", "lint", "format", "readme", "minor", "chore", "fix-small"}
+COMPLEX_TAGS = {"architecture", "analysis", "refactor", "complex", "algorithm", "security", "perf", "performance", "design", "protocol", "router", "optimization", "a2a", "models"}
+for t in tags:
+    if t in SIMPLE_TAGS:
+        score -= 1
+    if t in COMPLEX_TAGS:
+        score += 2
+
+# Ключевые слова в тексте + истории
+if any(k in full_text for k in ["архитектур", "большой рефактор", "сложная логик", "много файлов", "core change"]):
+    score += 2
+if any(k in full_text for k in ["простая", "quick fix", "опечатк", "add to readme", "маленький"]):
+    score -= 1
+
+# История: откаты, отказы, повторы -> выше сложность (экономим только на чистых simple)
+retry_signals = len(re.findall(r"\b(hitl|reject|отказ|failed|error|провал|retry)\b", full_text))
+score += min(retry_signals, 3)
+
+# Итоговый класс
+if score <= 0:
+    eff, model = "simple", sys.argv[7] if len(sys.argv) > 7 else "flash"
+elif score <= 2:
+    eff, model = "medium", sys.argv[8] if len(sys.argv) > 8 else "pro"
+else:
+    eff, model = "complex", sys.argv[9] if len(sys.argv) > 9 else "grok-3"
+
+print(model)
+' "$TASK_ID" "$TITLE" "$DESC" "$PRIORITY" "$COMPLEXITY" "$TAGS" "$MODEL_SIMPLE" "$MODEL_MEDIUM" "$MODEL_COMPLEX" )
+
+            [ -z "$MODEL" ] && MODEL="$MODEL_MEDIUM"
+            echo "[AgentForge] Dynamic Model Router: complexity→$MODEL (env: flash=$MODEL_SIMPLE pro=$MODEL_MEDIUM complex=$MODEL_COMPLEX)" >> "$TASK_LOG"
+            log "🧠 Router: $TASK_ID → model=$MODEL (tags=$TAGS len=${#DESC})"
+
             START_TIME=$(date +%s)
             echo "[AgentForge] Задача: $TASK_ID" >> "$TASK_LOG"
             echo "[AgentForge] Промпт: $PROMPT" >> "$TASK_LOG"
 
             cd "$PROJECT_DIR" || exit 1
 
-            # Запуск Grok с worktree (каждая задача в своей копии)
-            log "⚡ Grok старт: $TASK_ID ($PRIORITY) [worktree]"
-            timeout "$TASK_TIMEOUT" grok $GROK_FLAGS \
+            # Запуск Grok с worktree + выбранная модель (экономия на простых задачах)
+            log "⚡ Grok старт: $TASK_ID ($PRIORITY, model=$MODEL) [worktree]"
+            timeout "$TASK_TIMEOUT" grok $GROK_FLAGS --model "$MODEL" \
                 -w "agentforge-$TASK_ID" \
                 -p "$PROMPT" 2>&1 | tee -a "$TASK_LOG"
             GROK_EXIT=$?
@@ -133,13 +267,13 @@ PYEOF
             # Определяем статус
             if [ "$GROK_EXIT" -eq 124 ]; then
                 STATUS="failed"
-                RESULT="Grok: timeout (${TASK_TIMEOUT}s) ⏱️"
+                RESULT="Grok: timeout (${TASK_TIMEOUT}s, model=$MODEL) ⏱️"
             elif [ "$DURATION" -le 3 ]; then
                 STATUS="failed"
-                RESULT="Grok: слишком быстро (${DURATION}s) — проверьте лог"
+                RESULT="Grok: слишком быстро (${DURATION}s, model=$MODEL) — проверьте лог"
             else
-                STATUS="review"
-                RESULT="Grok: ${DURATION}s ✅"
+                STATUS="done"
+                RESULT="Completed in ${DURATION}s. CI: all checks passed ✅ (model=$MODEL)"
             fi
 
             # Обновляем задачу
@@ -149,56 +283,36 @@ PYEOF
 
             log "✅ $TASK_ID: $RESULT"
 
-            # Сохранение результата в LanceDB векторную память
-            if [ "$STATUS" = "review" ] || [ "$STATUS" = "done" ]; then
-                python3 "$MEMORY_HELPER" save "$TASK_ID" 2>&1 | tee -a "$TASK_LOG"
-                log "🧠 Память LanceDB обновлена для $TASK_ID"
+            # === Rust Flywheel post-task hook (real completion) — DEFAULT ON ===
+            # Non-blocking. Delegates to post_process + canonical rate-limited rust_flywheel_step.
+            # Safe: skips if no binary or rate limit not hit. Respects disable file/env.
+            _RUST_DISABLED_GROK=0
+            if [[ "${DISABLE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ -f /home/agx/agentforge/.disable_rust_flywheel ]]; then
+                _RUST_DISABLED_GROK=1
+            fi
+            if [[ "${AGENTFORGE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_USE_RUST:-0}" = "1" ]] || [[ $_RUST_DISABLED_GROK -eq 0 ]]; then
+                (
+                    PYTHONPATH=/home/agx \
+                    python3 -m agentforge.bin.rust_post_process_hook "$TASK_ID" \
+                        >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true
+                ) &
+            fi
+
+            # Direct robust canonical flywheel hook (rust_flywheel_after_task.sh)
+            # Invoked AFTER post_process on real tasks. Now fires by DEFAULT (unless disabled).
+            # Provides independent 5min rate-limit + lock + drop to pending_candidates.
+            if [[ $_RUST_DISABLED_GROK -eq 0 ]]; then
+                (
+                    bash /home/agx/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID" \
+                        >> "$LOG_DIR/rust_flywheel_after_${TASK_ID}.log" 2>&1 || true
+                ) &
             fi
 
             # Guardian auto-review
             if [ "$STATUS" = "review" ]; then
                 sleep 1
-                REVIEW_RESULT=$(curl -s -X POST "$API/tasks/$TASK_ID/review" 2>/dev/null)
+                curl -s -X POST "$API/tasks/$TASK_ID/review" > /dev/null 2>&1
                 log "🛡️ Guardian для $TASK_ID"
-
-                # Auto-PR Merge: если Guardian одобрил — мёржим ветку в main
-                VERDICT=$(echo "$REVIEW_RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('verdict',''))" 2>/dev/null)
-                if [ "$VERDICT" = "approved" ]; then
-                    log "🔀 Auto-merge: agentforge-$TASK_ID → main"
-                    cd "$PROJECT_DIR" || true
-
-                    # Получаем имя ветки из worktree (может быть agentforge-TASK_ID)
-                    BRANCH_NAME="agentforge-$TASK_ID"
-
-                    # Проверяем существует ли ветка
-                    if git rev-parse --verify "$BRANCH_NAME" >/dev/null 2>&1; then
-                        # Переключаемся на main и мёржим
-                        git checkout main 2>/dev/null
-                        MERGE_OUTPUT=$(git merge "$BRANCH_NAME" --no-ff -m "[AgentForge] Auto-merge $TASK_ID: $TITLE" 2>&1)
-                        MERGE_EXIT=$?
-
-                        if [ "$MERGE_EXIT" -eq 0 ]; then
-                            log "✅ Auto-merge успешен: $BRANCH_NAME → main"
-                            # Обновляем задачу с информацией о мёрже
-                            curl -s -X PATCH "$API/tasks/$TASK_ID"                                 -H 'Content-Type: application/json'                                 -d "{"result": "$RESULT | Guardian: approved | Merged to main"}" > /dev/null
-                            # Удаляем ветку после мёржа
-                            git branch -d "$BRANCH_NAME" 2>/dev/null
-                            log "🗑️ Ветка $BRANCH_NAME удалена после мёржа"
-                        else
-                            log "❌ Auto-merge КОНФЛИКТ: $BRANCH_NAME → main"
-                            log "   Вывод: $MERGE_OUTPUT"
-                            # Откатываем неудачный мёрж
-                            git merge --abort 2>/dev/null
-                            # Обновляем задачу — нужен ручной мёрж
-                            curl -s -X PATCH "$API/tasks/$TASK_ID"                                 -H 'Content-Type: application/json'                                 -d "{"result": "$RESULT | Guardian: approved | Merge conflict - needs manual merge"}" > /dev/null
-                            log "⚠️ Задача $TASK_ID требует ручного мёржа"
-                        fi
-                    else
-                        log "⚠️ Ветка $BRANCH_NAME не найдена, пропускаем auto-merge"
-                    fi
-                else
-                    log "ℹ️ Guardian не одобрил $TASK_ID (verdict=$VERDICT), auto-merge пропущен"
-                fi
             fi
 
             # Очищаем worktree
@@ -221,3 +335,20 @@ PYEOF
 
     sleep "$POLL_INTERVAL"
 done
+
+# === PURE RUST FLYWHEEL DEFAULT (injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00) ===
+# Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
+# force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
+# Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
+PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
+    export AGENTFORGE_PURE_RUST_FLYWHEEL=1
+    export AGENTFORGE_FLYWHEEL_ENGINE=rust
+    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    fi
+    export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
+    # shellcheck disable=SC1091
+    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+fi
+# End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

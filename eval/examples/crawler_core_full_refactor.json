@@ -1,0 +1,12 @@
+{
+  "id": "crawler-core-full-refactor-001",
+  "title": "Полноценный рефакторинг на crawler_core для Akson + Stroylandia",
+  "description": "Вынести всю общую логику (ProxyPool, throttle, request building, error handling) в модуль crawler_core и перевести на него akson_crawler.rs и stroylandia_crawler.rs. Задача считается выполненной, если оба краулера используют общий код и не содержат дублирования логики прокси/ throttle.",
+  "repo_path": "/home/agx/planlytasksko",
+  "verification": "manual_review",
+  "difficulty": "hard",
+  "category": "refactoring",
+  "tags": ["rust", "refactoring", "modularization", "crawler"],
+  "estimated_minutes": 120,
+  "required_skills": ["rust", "architecture", "refactoring"]
+}
