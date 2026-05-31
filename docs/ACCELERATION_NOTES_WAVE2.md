@@ -63,3 +63,26 @@ This directly addresses the accumulation from the massive previous waves.
 - Combined with previous 8-agent harvest wave = 13 agents now actively working the review backlog.
 
 Current review firepower: 13 dedicated harvest agents + 6 review tasks in queue.
+
+**Extra harvest volume added (user: "хочу")**:
+- +6 more harvest agents (A1-1759 → A6-1759) focused purely on handoffs + the 38 agent/ branches.
+- Total dedicated review/harvest agents now ~19.
+- Prioritized list of critical items generated (see below).
+
+**Top priority AgentForge review items right now (Wave 2 closure)**:
+
+Branches:
+- agent/a1-agent-review-auto-task-306644eb (task 306644eb) — runner auto-review creation
+- agent/c2492e01-rust-ci (task c2492e01) — Rust tests + caching
+- agent/cm-c1-c2-antigravity-ci-policy-a8c59b4e (task a8c59b4e) — Antigravity policy
+- agent/cm-phase3-a2-rust-caching-90fcbf89 (task 90fcbf89) — already partially resolved (doc fix committed)
+- agent/d1-d2-branch-protection-3cdd6813 (task 3cdd6813)
+- agent/p4-e1-dogfood-tasks-69e55996 (task 69e55996)
+- agent/cm-x1-sync-plan-77af07e9 (task 77af07e9)
+
+Recent relevant handoffs:
+- e60042a1 → task 90fcbf89 (Rust caching) — Jules review done, one fix committed
+- e6d6a7bc → task 5f018f81 (mirror)
+- fe43bf96 → agent/p1-bp-direct (with existing jules review)
+
+Total in ~/.grok/handoffs/: 173 (mixed projects). AgentForge-relevant subset being attacked by the 19 harvest agents.

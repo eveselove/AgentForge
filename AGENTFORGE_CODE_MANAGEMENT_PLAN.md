@@ -213,3 +213,10 @@ Focus: smaller scope + higher volume to finish remaining clusters faster.
 - Top priority branches under active review: A1 runner auto-review (306644eb), Rust CI (c2492e01), Antigravity policy (a8c59b4e).
 
 This is the necessary harvest phase after extreme volume launches.
+
+**Review clearance acceleration (user: "хочу")**:
+- +6 more harvest agents (A*-1759), total dedicated to backlog now ~19.
+- Prioritized list of 7 key Wave 2 branches + matching handoffs documented in ACCELERATION_NOTES_WAVE2.md.
+- Concrete progress: one major item (90fcbf89 Rust caching handoff) already had review resolved and fix committed.
+
+The review pile from extreme volume is now under heavy dedicated attack.
