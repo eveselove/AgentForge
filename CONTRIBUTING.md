@@ -40,8 +40,11 @@ We practice **dogfooding**:
 # Launch multiple agents
 agent-team grok "task 1" "task 2"
 
-# Launch parallel Jules using both accounts
+# Launch parallel Jules using both accounts (maximum speed)
 ./bin/launch-jules-parallel "task A" "task B" --count 4 --parallel 3
+
+# Install pre-commit hook (do this once)
+./bin/install-pre-commit
 
 # Monitor Jules automation
 tail -f ~/.config/jules/jules-watch.log

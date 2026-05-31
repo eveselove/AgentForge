@@ -90,10 +90,10 @@ AgentForge should be developed like a frontier agentic system:
 4. ✅ Basic CI workflow added and improved
 5. ✅ Created 10+ high-quality tasks in queue for remaining Phase 2 & Phase 3 items
 6. ✅ Launched parallel Jules wave (both keys) + local Grok agents on Phase 2 tasks
-7. ✅ Created starter `bin/pre-commit`, `docs/BRANCHING_STRATEGY.md`, `REPO_STRUCTURE.md`
-8. In progress: Full agent swarm working on branching strategy, pre-commit integration, and automation quality
-9. Next priority: Strengthen CI (full tests + caching), finish branching strategy doc, wire pre-commit into agent workflows
-10. Phase 4 dogfooding: Start routing all remaining CM work exclusively through task queue + flywheel
+7. ✅ Created `bin/pre-commit` + `bin/install-pre-commit` + `docs/BRANCHING_STRATEGY.md` + `REPO_STRUCTURE.md`
+8. ✅ Launched parallel Jules + Grok agents on Phase 2 items
+9. In progress: Strengthening CI, finishing branching strategy, wiring pre-commit into workflows
+10. Next: Heavy push on full CI (Phase 3) + beginning of real Phase 4 dogfooding
 
 ---
 

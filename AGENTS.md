@@ -16,6 +16,7 @@ This document describes how agents (Grok, Jules, Gemini, etc.) are expected to w
 | `agent-team` (or `at`) | Launch parallel Grok/Jules/Gemini agents in tmux | High-volume parallel work |
 | `bin/launch-jules-parallel` | Launch many Jules sessions using both keys | Maximum throughput on coding tasks |
 | `bin/jules-watch.sh` | Automatically detect finished Jules sessions and create acceptance tasks | Always running in background |
+| `bin/pre-commit` + `bin/install-pre-commit` | Quality gates before commit | Before any commit (install once) |
 | Task Queue (localhost:8080) | Central source of work | Primary coordination mechanism |
 | `jules remote list --session` | Inspect current Jules work | Reviewing what agents have done |
 

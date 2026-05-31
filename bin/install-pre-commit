@@ -1,0 +1,19 @@
+#!/bin/bash
+# One-command installation of the project pre-commit hook
+
+set -e
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HOOK_SOURCE="$REPO_ROOT/bin/pre-commit"
+HOOK_DEST="$REPO_ROOT/.git/hooks/pre-commit"
+
+if [ ! -f "$HOOK_SOURCE" ]; then
+    echo "Error: bin/pre-commit not found"
+    exit 1
+fi
+
+cp "$HOOK_SOURCE" "$HOOK_DEST"
+chmod +x "$HOOK_DEST"
+
+echo "✅ Pre-commit hook installed successfully"
+echo "Hook will now run on every commit."
