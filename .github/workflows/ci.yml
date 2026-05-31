@@ -6,9 +6,13 @@ on:
   pull_request:
     branches: [main]
 
-# Task 9b18499d: Improved Rust CI with subdir-aware caching (rust/ workspace) + --locked
-# + cargo doc check + better Python pip caching. Fixes cargo commands that previously
-# could not locate the workspace Cargo.toml at repo root.
+# Task 9b18499d + PHASE3 A1 (task 75e69e39): Full reliable cargo test --workspace.
+# - Full workspace (not just --lib), --test-threads=4 for parallelization.
+# - Explicit timeouts (job + shell timeout wrapper) for reliability.
+# - Env vars so promote/continuous CLI smokes use real checkout pending_candidates/.
+# - Build bins step to exercise integration tests (no more silent skips).
+# - Removed continue-on-error (tests now reliable by design + tolerant units).
+# References: docs/PHASE3_TASK_BREAKDOWN.md A1, AGENTS.md (mandatory agent-review + worktree).
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,6 +21,7 @@ jobs:
   rust:
     name: Rust
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # A1: reasonable upper bound for full workspace + bins
     defaults:
       run:
         working-directory: rust
@@ -44,9 +49,24 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
 
-      - name: Test (lib)
-        run: cargo test --workspace --lib -- --test-threads=2
-        continue-on-error: true   # Many tests are still environment-dependent
+      - name: Build bins (for CLI integration smokes)
+        # A1: ensures target/debug/agentforge-runner exists so lib.rs tests that exec the bin
+        # (promote/continuous/shadow with real candidate IDs) actually run instead of early-return skip.
+        # Reuses rust-cache; fast incremental after check.
+        run: timeout 8m cargo build --workspace --bins
+
+      - name: Test (full workspace)
+        # A1 (task 75e69e39): full cargo test --workspace (was --lib only).
+        # --test-threads=4 for parallelization (reasonable on ubuntu-latest 2vCPU).
+        # Env vars make CandidateStore/promote find checkout data (real pending_candidates/ + skills/).
+        # Shell timeout + job timeout-minutes prevent hangs. No continue-on-error (reliable now).
+        # Tolerant unit tests + stub LLM + dry-run paths ensure green in CI.
+        run: timeout 12m cargo test --workspace -- --test-threads=4
+        env:
+          AGENTFORGE_PENDING_CANDIDATES_DIR: ../pending_candidates
+          AGENTFORGE_SKILLS_DIR: ../skills
+          # Defensive for any --real-data paths exercised by smokes (fallbacks exist but explicit is clearer)
+          AGENTFORGE_EVAL_TRAJECTORIES_DIR: ../eval/trajectories
 
       - name: Docs
         run: cargo doc --workspace --no-deps --locked
