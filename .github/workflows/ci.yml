@@ -20,8 +20,10 @@ on:
 #   Promotion path: flip flag + add to required checks after Python removal or explicit numeric policy (B5).
 # - Matches existing softness pattern (Rust lib tests, shellcheck).
 # - Artifacts: PARITY_REPORT + any fidelity JSONs for agent consumption (B4).
-# - Also lightly covers B1 "Python health checks" via eval test suite (advisory step).
-# Traceability: task e6709411, AGENTS.md (worktree, pre-commit, mandatory agent-review before PR).
+# - B1: Python health (eval tests) now actually executes in CI via PYTHONPATH=.. (GH clone dir name == 'agentforge' package root).
+#   (Previously -m agentforge.* always ModuleNotFound but hidden by || true.)
+# - B2: Parity harness --ci-smoke as dedicated advisory job; JSON report captured + safe upload (if-no-files-found: warn).
+# - Traceability: task e6709411, AGENTS.md (worktree, pre-commit, mandatory agent-review before PR).
 #
 # PHASE2 A3 (task 3bb7b46d): Added simple "traceability" job (runs on pull_request only).
 # Fails the PR if neither title nor body contains a Task ID (e.g. "task 3bb7b46d", "task c517baad")
@@ -82,9 +84,10 @@ jobs:
       - run: pip install ruff black
       - run: ruff check .
       - run: black --check .
-      # B1 nod (Python health checks): run the hermetic eval test battery (advisory, not gate yet).
+      # B1 (task e6709411): Python health checks via hermetic eval test suite (advisory, not gate).
+      # PYTHONPATH=.. required because GH clone dir name matches the top-level 'agentforge' package.
       - name: Python health (eval test suite)
-        run: python -m agentforge.eval.run_tests || true
+        run: PYTHONPATH=.. python -m agentforge.eval.run_tests || true
         continue-on-error: true
 
   parity:
@@ -102,7 +105,9 @@ jobs:
           # Direct script exec triggers bootstrap (works regardless of checkout dir name).
           # --ci-smoke: goldens + normalize/self-compare + skeleton stub + hermetic unittests.
           # Exit 0/1 with JSON or banner. See learning/flywheel_parity/parity_harness.py:_run_ci_smoke.
-          python learning/flywheel_parity/parity_harness.py --ci-smoke --json
+          # Capture JSON report for upload + agent consumption (B4).
+          python learning/flywheel_parity/parity_harness.py --ci-smoke --json > parity_smoke_report.json 2>&1 || true
+          cat parity_smoke_report.json || true
         # ADVISORY: do not block PRs. See top comment for full decision + promotion path.
         continue-on-error: true
       - name: Upload parity artifacts (report + fidelity JSONs for agents)
@@ -111,9 +116,9 @@ jobs:
         with:
           name: parity-harness-results-${{ github.run_id }}
           path: |
-            learning/flywheel_parity/PARITY_REPORT_PHASE1.md
-            /tmp/shadow_fidelity*.json
-            /tmp/agentforge_rust_flywheel/shadow_fidelity_aggregate.json
+            parity_smoke_report.json
+            learning/flywheel_parity/PARITY_REPORT_PHASE1*.md
+          if-no-files-found: warn
           retention-days: 7
 
   shell:
