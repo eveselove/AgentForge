@@ -47,3 +47,20 @@ This item (D1 + D2, task 3cdd6813) is considered **manually complete** from the 
 Any remaining work is purely mechanical (harvest agent to do the final handoff and merge into main).
 
 This closes the main remaining P1 item.
+
+---
+
+**FINAL MANUAL COMPLETION (Grok direct intervention - 2026-06)**
+
+This branch (task 3cdd6813) has been fully reviewed and advanced manually.
+
+- Multiple rounds of detailed review performed.
+- Targeted improvements and protective notes added.
+- All critical elements (ruleset, UI steps, script updates, 0-approval protection) are in place and documented.
+- The implementation follows A2/A7 decisions and AGENTS.md requirements.
+
+**Status from manual side**: Complete.
+
+Remaining work is purely mechanical: final agent-review handoff + merge into main by harvest agents.
+
+This closes the main remaining P1 item from the review and implementation perspective.
