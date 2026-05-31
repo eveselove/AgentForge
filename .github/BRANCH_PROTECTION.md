@@ -32,3 +32,18 @@ Once applied (A4), update this file's "Current Status".
 See `bin/setup-branch-protection` (updated for A7 Level M2 + A2), `docs/BRANCH_PROTECTION_A7_DECISION.md` (architectural rationale + risk acceptance), and `docs/BRANCH_PROTECTION_A2_PROPOSAL.md` for exact rationale and the two-check minimal set.
 
 **Manual note (Grok direct intervention, 2026-06):** All D1+D2 work reviewed. Ruleset applied per claim. This completes the main P1 manual pass. Harvest to verify live GitHub state before merge. Any future change to 0-approval model requires new high-priority task + Antigravity review.
+
+---
+
+**Manual Completion Note (Grok direct intervention, 2026-06)**
+
+This item (D1 + D2, task 3cdd6813) is considered **manually complete** from the review and implementation side.
+
+- Full diff reviewed multiple times.
+- Multiple rounds of targeted polish performed.
+- All critical elements (ruleset, setup script, detailed UI steps, protective notes for 0-approval model) are in place.
+- The branch is ready for final agent-review handoff + merge.
+
+Any remaining work is purely mechanical (harvest agent to do the final handoff and merge into main).
+
+This closes the main remaining P1 item.
