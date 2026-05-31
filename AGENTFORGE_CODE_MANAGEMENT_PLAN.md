@@ -51,7 +51,7 @@ AgentForge should be developed like a frontier agentic system:
 - [x] Decide on hosting location (GitHub personal/org, self-hosted Gitea/Forgejo, or internal) → **GitHub (eveselove/AgentForge)**
 - [x] Initialize remote + first push (`main` branch pushed to https://github.com/eveselove/AgentForge)
 - [ ] Set up branch protection rules (require agent review for merges where possible) — **blocked on GitHub Pro for private repo**
-- [ ] Mirror strategy or single source of truth decision
+- [x] Mirror strategy or single source of truth decision → **GitHub is the Single Source of Truth** (see `docs/PHASE1_B4_MIRROR_SOT_DECISION.md`, task 5f018f81 / B4)
 - [x] Created basic CI workflow (`.github/workflows/ci.yml`)
 
 ### Phase 2 — Development Workflow (Turbo with Agents)
@@ -134,3 +134,16 @@ Let's execute.
    - See: `docs/CODE_MGMT_DOCUMENTATION_STATUS.md` and `docs/REVIEWS_CLOSED_2026-05-31.md`
 
 Both reviews are now formally closed in the repository history.
+
+---
+
+## Decision Closed (2026-06)
+
+**CM-Phase1-09 / PHASE1 B4 — Mirror / Single Source of Truth Strategy**
+
+- **Decision**: GitHub (eveselove/AgentForge) is the official Single Source of Truth. Local paths are working clones only. See the full rationale and mitigations in the canonical artifact: `docs/PHASE1_B4_MIRROR_SOT_DECISION.md` (task 5f018f81).
+- **Rationale summary**: Aligns with Jules-native workflows, eliminates dual-master divergence risk under high agent parallelism, leverages GitHub's built-in durability + visibility, and matches the existing mandatory-PR + agent-review + pre-commit process model.
+- **Follow-up**: CM-Phase1-10 now limited to optional *backup* tooling (never promoted to SoT). Minor cross-references may be added to AGENTS.md / BRANCHING_STRATEGY.md in subsequent A5-style cleanup.
+- **Traceability**: This closure, the decision document, and all related commits/PRs reference task 5f018f81. Mandatory agent-review skill handoff executed and recorded before PR per AGENTS.md.
+
+This item is now complete. Phase 1 remote/hosting decisions are fully resolved.
