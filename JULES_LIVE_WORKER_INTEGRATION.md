@@ -1,3 +1,7 @@
+# Rust Migration Status (2026-06)
+
+> **Note**: This document was written during the heavy Python → Rust migration period. Many flows described here have been superseded by pure `agentforge-runner` paths. See `RUST_ONLY_MIGRATION_PLAN.md` and `ANTIGRAVITY_DEFAULT.md` for current state.
+
 # JULES_LIVE_WORKER_INTEGRATION.md
 
 > **2026-06+ Full Rust-Only Migration Active**: Worker integration now defaults to pure Rust (`agentforge-runner`). Python orchestration paths are deprecated and targeted for removal. See `RUST_ONLY_MIGRATION_PLAN.md` for the full transition plan. This doc is being updated as part of the migration.

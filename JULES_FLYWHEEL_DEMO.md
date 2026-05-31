@@ -1,3 +1,7 @@
+# Rust Migration Status (2026-06)
+
+> **Note**: This document was written during the heavy Python → Rust migration period. Many flows described here have been superseded by pure `agentforge-runner` paths. See `RUST_ONLY_MIGRATION_PLAN.md` and `ANTIGRAVITY_DEFAULT.md` for current state.
+
 # JULES_FLYWHEEL_DEMO.md
 
 > **2026-06 (Now Default)**: The demos and rich binary flows here are now the **automatic behavior** for Antigravity and all farm tasks. No explicit enable step required. The full "Rust Flywheel is now default for Antigravity" rollout package (including the Antigravity-specific blurb) lives in `ANTIGRAVITY_DEFAULT.md`. Use `bin/disable_rust_flywheel.sh` for clean opt-out during demos. — Track B: First Rust-Powered Autonomous Improvement

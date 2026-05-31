@@ -1,3 +1,7 @@
+# Rust Migration Status (2026-06)
+
+> **Note**: This document was written during the heavy Python → Rust migration period. Many flows described here have been superseded by pure `agentforge-runner` paths. See `RUST_ONLY_MIGRATION_PLAN.md` and `ANTIGRAVITY_DEFAULT.md` for current state.
+
 # JULES_PRODUCTION_POLISH.md
 
 > **2026-06 Milestone**: Production polish in this doc enabled the safe "Rust Flywheel DEFAULT for Antigravity" state. The communication surface (ANTIGRAVITY_DEFAULT.md, disable script, install_services updates, PENDING/JULES cross-links) ships as the final piece of that victory. The continuous self-improvement behavior is now the default experience for Antigravity architect work.
@@ -135,3 +139,32 @@ print(find_rust_runner())  # returns release if present
 **Turbo complete. Unified + polished for production farm use.**
 
 Next (optional): A/B the latest pending candidate via LearningEvaluator.
+
+## Current Status (2026-05-31)
+
+### Duplicate/Overlapping Tasks Cleanup
+The following tasks were identified as duplicates or already-completed work and closed:
+
+| Task ID | Reason | Resolution |
+|---------|--------|------------|
+| `78d73855` | Duplicate of `a19bb072` | Jules audit already in JULES_WORKER_AUDIT.md |
+| `1c3871ae` | Duplicate of `dc6e4ab6` | Claim workflow already in CLAIM_WORKFLOW_DESIGN.md |
+| `c7c624c0` | Duplicate of `a4234e76` | Task routing refactoring already completed |
+| `39f944d3` | Jules connectivity test | Jules CLI not on Jetson; accessed via GitHub integration |
+| `d71b99f8` | This documentation task | Status section added to this document |
+
+### Production Readiness Checklist
+- [x] Unified `core::Outcome` wired into Python bridge
+- [x] Release binary built and verified (841K, ARM aarch64)
+- [x] All worker scripts patched with release-first logic
+- [x] Real-data flywheel step completed end-to-end
+- [x] Pending collector receiving artifacts correctly
+- [x] Canonical outcome normalization verified
+- [x] Duplicate tasks cleaned up and consolidated
+- [ ] A/B testing of latest pending candidate via LearningEvaluator (optional, next step)
+
+### Key Metrics
+- **Release binary**: `/home/agx/agentforge/rust/target/release/agentforge-runner` (841 KiB)
+- **Records loaded**: 99 via Rust rich path
+- **Pending candidates**: 8 total in queue
+- **Status**: Production-ready, Rust flywheel is default for Antigravity

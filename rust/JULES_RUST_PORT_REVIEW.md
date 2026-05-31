@@ -1,3 +1,7 @@
+# Rust Migration Status
+
+> This document reflects work done during the Rust port. It is mostly still accurate as it describes Rust-side changes.
+
 # JULES_RUST_PORT_REVIEW.md
 
 **Reviewer/Implementer:** Jules (Rust + AgentForge expert)  

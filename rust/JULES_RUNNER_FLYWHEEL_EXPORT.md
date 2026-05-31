@@ -1,3 +1,7 @@
+# Rust Migration Status
+
+> This document reflects work done during the Rust port. It is mostly still accurate as it describes Rust-side changes.
+
 # JULES_RUNNER_FLYWHEEL_EXPORT
 
 Turbo enhancement to `agentforge-runner` binary: production-grade `flywheel-export` / `export-learning` subcommand.
