@@ -113,3 +113,23 @@ AgentForge should be developed like a frontier agentic system:
 **Mode:** Turbo + full dogfooding of AgentForge
 
 Let's execute.
+
+---
+
+## Reviews Closed (2026-05-31)
+
+**Two hanging Jules reviews closed by Grok:**
+
+1. **[Rust-Flywheel-100] Review and update all JULES_*.md docs for current Rust migration state** (#57bdc864)
+   - Status: ✅ Approved
+   - Action: Added clear "Rust Migration Status" headers to the 5 most important JULES documentation files.
+   - Commit: `c3987e6`
+   - See: `docs/REVIEWS_CLOSED_2026-05-31.md`
+
+2. **[Code Mgmt] Document AgentForge repository structure and development workflow**
+   - Status: ✅ Approved
+   - Action: Confirmed full coverage via existing docs (REPO_STRUCTURE.md, AGENTS.md, CONTRIBUTING.md, BRANCHING_STRATEGY.md v1.1) + formal closure note.
+   - Commit: `ef2e522`
+   - See: `docs/CODE_MGMT_DOCUMENTATION_STATUS.md` and `docs/REVIEWS_CLOSED_2026-05-31.md`
+
+Both reviews are now formally closed in the repository history.
