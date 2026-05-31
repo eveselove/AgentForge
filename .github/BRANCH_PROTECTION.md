@@ -30,3 +30,5 @@ Key rules (smallest effective per A2):
 Once applied (A4), update this file's "Current Status".
 
 See `bin/setup-branch-protection` (updated for A7 Level M2 + A2), `docs/BRANCH_PROTECTION_A7_DECISION.md` (architectural rationale + risk acceptance), and `docs/BRANCH_PROTECTION_A2_PROPOSAL.md` for exact rationale and the two-check minimal set.
+
+**Manual note (Grok direct intervention, 2026-06):** All D1+D2 work reviewed. Ruleset applied per claim. This completes the main P1 manual pass. Harvest to verify live GitHub state before merge. Any future change to 0-approval model requires new high-priority task + Antigravity review.
