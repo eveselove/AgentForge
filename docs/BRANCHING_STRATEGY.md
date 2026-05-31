@@ -1,125 +1,100 @@
 # AgentForge Branching Strategy
 
-**Status**: Official (v1.0)  
+**Status**: Official  
+**Version**: 1.1  
 **Last updated**: 2026-05-31  
-**Owner**: Current extreme agent wave + human coordinator  
-**Task**: CM-Phase2-01
+**Owner**: AgentForge Core Team (current extreme wave)
 
-This document defines how we manage Git branches in AgentForge — a project where the majority of coding work is done by autonomous agents (Grok, Jules, Antigravity, etc.).
+This document defines the official branching model for AgentForge. As a self-improving agentic system, our workflow is designed to maximize parallel development by both humans and autonomous agents while keeping history clean and traceable.
 
-## Core Principles
+## Core Model: Trunk-Based Development
 
-1. **Trunk-based development** — `main` is the only long-lived branch.
-2. **High parallelism** — We deliberately optimize for many agents working simultaneously, even if it increases conflict risk.
-3. **Traceability** — Every change must be clearly linked to a Task ID and/or Jules Session ID.
-4. **Speed over perfect cleanliness** — We accept some messiness in exchange for agent velocity.
-5. **Enforcement through tools** — We use automation (pre-commit, CI, jules-watch, Guardian-like scripts) rather than just documentation.
+AgentForge follows a **Trunk-Based Development** model optimized for high agent parallelism.
 
-## Branch Model
+- `main` is the only long-lived branch. It must always be in a deployable state.
+- All changes are introduced through short-lived branches + Pull Requests.
+- Direct pushes to `main` are strictly prohibited (enforced via branch protection when possible).
+- We deliberately accept a higher rate of conflicts in exchange for speed and parallelism.
 
-### Only `main` is protected
+## Branch Naming Conventions
 
-- `main` — single source of truth. Always deployable.
-- All other branches are short-lived.
-- Direct pushes to `main` are forbidden (will be enforced via GitHub branch protection / rulesets once possible).
+To keep history searchable and understandable for both humans and agents, all branches must follow these patterns:
 
-### Recommended Branch Naming
+| Prefix   | Pattern                        | When to use                                      | Example                              |
+|----------|--------------------------------|--------------------------------------------------|--------------------------------------|
+| `task/`  | `task/<task-short-id>`         | Work directly linked to a task in the queue      | `task/1870c84c`                      |
+| `agent/` | `agent/<kebab-desc>`           | Work initiated by local agents (Grok, etc.)      | `agent/improve-jules-watcher`        |
+| `jules/` | `jules/<session-id>`           | Work originating from a specific Jules session   | `jules/11158842600384206278`         |
+| `human/` | `human/<name>/<topic>`         | Exploratory or coordination work by humans       | `human/eveselove/audit-ci`           |
+| `feat/`  | `feat/<description>`           | Standard new feature work                        | `feat/multi-jules-support`           |
+| `fix/`   | `fix/<description>`            | Bug fixes (can be combined with other prefixes)  | `fix/watcher-parsing`                |
 
-| Prefix       | When to use                          | Example                              | Owner     |
-|--------------|--------------------------------------|--------------------------------------|-----------|
-| `agent/`     | Work started by any local agent      | `agent/grok/6f948c10-branching`     | Grok      |
-| `jules/`     | Work from a Jules session            | `jules/11158842600384206278`        | Jules     |
-| `task/`      | Work directly tied to a task queue ID| `task/1870c84c`                      | Any       |
-| `human/`     | Exploratory or complex human work    | `human/eveselove/fix-ci-flake`      | Human     |
-| `feat/`      | Standard feature branches            | `feat/add-jules-multi-account`      | Any       |
-| `fix/`       | Bug fixes                            | `fix/watcher-parsing`               | Any       |
-
-**Rule**: Always include a task ID or Jules session ID when possible.
+**Strong recommendation**: Always include a Task ID or Jules Session ID when possible.
 
 ## Workflow
 
 ### 1. Starting Work
-- Pull latest `main`.
-- Create a short-lived branch following the naming convention.
-- If the work comes from the task queue, the branch name should contain the task ID.
+- Always branch from the latest `main`.
+- Use the naming convention above.
+- If the work comes from the internal task queue, the branch should reference the task ID.
 
-### 2. During Work
-- Commit frequently with clear messages that reference the task/Jules session.
-- Use the pre-commit hook (`bin/install-pre-commit`).
-- For Jules work: the session itself usually creates the branch on GitHub.
+### 2. During Development
+- Commit frequently with clear messages that reference the originating Task ID and/or Jules Session ID.
+- Follow code style (run pre-commit hook).
+- For Jules work — the session usually creates the branch on GitHub automatically.
 
 ### 3. Finishing Work
 - Open a Pull Request to `main`.
-- **Mandatory**: Link the PR to at least one Task ID or Jules Session ID.
-- Run the new `jules-watch.sh` acceptance task (if it was a Jules session).
-- Get review (preferably via another agent using `agent-review` when possible).
-- Merge only after CI is green.
+- **Mandatory**: Link the PR to at least one Task ID or Jules Session ID (use the PR template).
+- Get review (preferably via another agent using the `agent-review` skill when possible).
+- All CI checks must pass.
 
 ### 4. After Merge
 - Delete the branch immediately.
 - Update the task status in the queue (if applicable).
-- The `jules-watch.sh` will eventually mark the Jules session as accepted.
-
-## Handling Parallelism and Conflicts
-
-We accept that multiple agents (especially multiple Jules sessions) will sometimes touch the same files.
-
-Current mitigation strategies:
-
-- **Task routing** — Try not to assign overlapping work to different agents at the same time.
-- **Small PRs** — Encourage agents to keep changes focused.
-- **Fast feedback** — CI + pre-commit should catch obvious problems quickly.
-- **Manual intervention** — When conflicts happen, a human (or a dedicated review agent) resolves them.
-
-Future improvements (Phase 3/4):
-- Better conflict prediction before dispatching tasks.
-- Semi-automatic conflict resolution agents.
-- More aggressive use of feature flags instead of long branches.
+- If it was a Jules session, the acceptance task created by `jules-watch.sh` should be completed.
 
 ## Enforcement
 
-| Level       | Mechanism                          | Status (2026-05-31) |
-|-------------|------------------------------------|---------------------|
-| Local       | `bin/pre-commit` hook              | Available           |
-| CI          | GitHub Actions (fmt, clippy, tests)| Basic version exists|
-| PR          | Mandatory linking + review         | PR template exists  |
-| Branch      | Protection on `main`               | Manual setup needed |
-| Process     | `jules-watch.sh` + task queue      | Running             |
+| Layer     | Tool / Mechanism                          | Current Status (2026-05-31)      |
+|-----------|-------------------------------------------|----------------------------------|
+| Local     | `bin/pre-commit` + `bin/install-pre-commit` | Available                      |
+| CI        | GitHub Actions (fmt, clippy, tests, etc.) | Basic version exists, being strengthened |
+| PR        | Mandatory linking + review                | PR template + CODEOWNERS exist   |
+| Branch    | Protection on `main`                      | Manual setup recommended (see `.github/BRANCHING_PROTECTION.md`) |
+| Process   | `jules-watch.sh` + task queue             | Running                          |
 
 ## Special Cases
 
 ### Hotfixes
-Use `fix/` or `hotfix/` prefix. Can be merged faster, but still must go through a PR (no direct pushes).
+Use `fix/` or `hotfix/` prefix. Still require a PR, but can be merged faster after CI + at least one quick review.
 
 ### Long-running experiments
-Avoid long-lived branches. Use feature flags or a separate `experiments/` namespace. Rebase frequently if you must keep a branch alive.
+Avoid long-lived branches. Prefer feature flags. If a long branch is unavoidable, it must be regularly rebased on `main`.
 
-### Jules-heavy periods
-When we run large parallel Jules waves (`launch-jules-parallel`), we expect more conflicts. This is acceptable. The priority is throughput, not zero conflicts.
+### High-volume Jules periods
+When running large parallel waves via `launch-jules-parallel`, we expect more conflicts and messier history. This is an accepted trade-off for speed.
 
-## Commit Message Guidelines
+## Commit & PR Message Guidelines
 
-Good example:
+Good examples:
 ```
 feat(branching): improve agent branch naming (task 6f948c10, jules/11158842600384206278)
+fix(jules): reduce precondition errors on parallel launches (task bcd05a4b)
 ```
 
-Bad example:
-```
-update docs
-```
+Every commit and PR should make it trivial to answer: "Why was this change made and by which task/session?"
 
-## Ownership & Updates
+## Relationship to Other Documents
 
-This document is owned by the current wave of agents working on Code Management Professionalization.
+- `CONTRIBUTING.md` — high-level contribution rules
+- `AGENTS.md` — detailed guide for agents (includes branching expectations)
+- `AGENTFORGE_CODE_MANAGEMENT_PLAN.md` — tracks the overall professionalization effort
 
-Anyone (human or agent) may propose improvements via PR. Major changes should be discussed as a task in the queue first.
+## Ownership & Evolution
+
+This document is maintained by the team running the Code Management Professionalization effort. Any agent or human can propose improvements via PR. Major changes should first be discussed as a task in the queue.
 
 ---
 
-**Related documents**:
-- `CONTRIBUTING.md`
-- `AGENTS.md`
-- `AGENTFORGE_CODE_MANAGEMENT_PLAN.md` (Phase 2)
-
-**Enforcement note**: This strategy is real. We will gradually add more automated checks to make it harder to violate.
+**Enforcement philosophy**: We prefer tooling and process over pure documentation. As we close Phase 3, we will add more automated checks to make violating this strategy increasingly difficult.
