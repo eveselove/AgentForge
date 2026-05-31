@@ -1,0 +1,40 @@
+#!/bin/bash
+# Simple but effective pre-commit hook for AgentForge
+# Install: cp bin/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+set -e
+
+echo "🔍 AgentForge pre-commit checks..."
+
+# Block obvious secrets
+if git diff --cached --name-only -z | xargs -0 grep -l -E '(AKIA[0-9A-Z]{16}|xai-[a-zA-Z0-9]{20,}|AQ\.Ab8RN)' 2>/dev/null; then
+    echo "❌ Possible secret found in staged files. Aborting."
+    exit 1
+fi
+
+# Block huge files
+if git diff --cached --name-only | while read f; do
+    if [ -f "$f" ] && [ $(stat -c%s "$f" 2>/dev/null || echo 0) -gt 500000 ]; then
+        echo "❌ File too large: $f"
+        exit 1
+    fi
+done; then :; fi
+
+# Rust checks (only if Rust files changed)
+if git diff --cached --name-only | grep -q '\.rs$'; then
+    echo "→ Running cargo fmt check..."
+    cargo fmt -- --check || (echo "❌ Run 'cargo fmt' first"; exit 1)
+    
+    echo "→ Running cargo clippy..."
+    cargo clippy --workspace -- -D warnings || exit 1
+fi
+
+# Python checks
+if git diff --cached --name-only | grep -qE '\.py$'; then
+    echo "→ Running ruff..."
+    ruff check . --fix || true
+    echo "→ Running black check..."
+    black --check . || (echo "❌ Run 'black .' first"; exit 1)
+fi
+
+echo "✅ Pre-commit checks passed"

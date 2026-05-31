@@ -1,12 +1,17 @@
-# Branching Strategy (Draft)
+# Branching Strategy (Draft v0.2)
 
-**Status**: Proposed — needs review and finalization (see task CM-Phase2-01)
+**Status**: Work in progress. Task: CM-Phase2-01
+
+**Owner of this doc**: Current extreme agent wave + human coordinator
+
+This is the proposed branching model for AgentForge as a self-improving agentic project.
 
 ## Recommended Model: Trunk-Based + Short-Lived Agent Branches
 
-- `main` is the single source of truth.
-- All changes come in via Pull Requests.
-- Agents create short-lived branches for their work.
+- `main` is the single source of truth and is always deployable.
+- All changes to `main` happen through Pull Requests.
+- Both humans and agents create short-lived branches.
+- We optimize for high parallelism (many agents + multiple Jules accounts) while keeping history clean.
 
 ### Branch Naming
 
