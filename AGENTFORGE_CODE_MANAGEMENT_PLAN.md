@@ -176,3 +176,16 @@ This is the final push. Extreme mode. Phases visibly closing right now. "да з
 
 ta / ats / atl N — watch the 10 new agents finish the job.
 
+
+---
+
+**Acceleration Update (executed live 2026-06)**
+
+Current tempo: 65+ agent windows active.
+Wave 2 micro-acceleration running:
+- 8 new narrow micro-tasks injected (6bb1204a and others)
+- 14 more agents launched (A1-1748 to A14-1748)
+- Direct execution by main Grok on quick mechanical items in parallel
+- docs/ACCELERATION_NOTES_WAVE2.md created
+
+Focus: smaller scope + higher volume to finish remaining clusters faster.
