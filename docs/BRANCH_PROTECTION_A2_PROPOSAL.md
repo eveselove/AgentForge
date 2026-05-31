@@ -4,7 +4,7 @@
 **Date**: 2026-06  
 **Owner / Producer**: Grok (this session)  
 **Status**: Proposal complete. Ready for review (mandatory agent-review), A3 playbook consolidation, and A4 implementation.  
-**Related**: A1 research (`docs/BRANCH_PROTECTION_A1_RESEARCH.md`), A7 architectural decision (recorded in `.github/BRANCH_PROTECTION.md`).
+**Related**: A1 research (`docs/A1_BRANCH_PROTECTION_RESEARCH_REPORT.md`), A7 architectural decision (Level M2 rationale — see `docs/BRANCH_PROTECTION_A7_DECISION.md`). This proposal (A2) supplies the concrete minimal rule *set* that implements the A7 level choice.
 
 ---
 
@@ -83,7 +83,7 @@ Bypass list: only the primary maintainer account (break-glass use must be logged
 **Why 0 GitHub approvals**:
 - Requiring 1+ human (or even agent) "Approve" clicks on the PR UI would serialize the output of the parallel agent system and create review debt.
 - The real, high-quality review already happens via the `agent-review` skill (separate memory, full context + diff on disk, structured issues list, recorded handoff). GitHub approval would often become rubber-stamping theater.
-- A7 architectural decision explicitly chose this model for agent-native velocity. A2 design aligns with and operationalizes it.
+- A7 architectural decision (see `docs/BRANCH_PROTECTION_A7_DECISION.md`, Level M2) explicitly chose the 0-approval + agent-review judgment model for agent-native velocity. A2 design aligns with and operationalizes it.
 
 **Why strict "up to date"**:
 - Prevents subtle integration bugs from landing.
@@ -112,7 +112,7 @@ This set gives ~95% of the protection value of a "stricter" 1- or 2-review + all
 
 - Supersedes the very early 1-review + "Rust (stable)" recommendation in the original short `.github/BRANCH_PROTECTION.md` and `bin/setup-branch-protection`.
 - Builds directly on A1 research (full capabilities available on public Free; no Pro purchase needed).
-- Is consistent with A7 "mechanical invariants + agent process" philosophy.
+- Is consistent with A7 "mechanical invariants + agent process" philosophy (see `docs/BRANCH_PROTECTION_A7_DECISION.md`).
 - Will be consolidated by A3 into the official "Branch Protection Playbook".
 - A4 will apply it (UI or improved script).
 - A5 will update AGENTS.md / CONTRIBUTING.md / PR template if needed (mostly already aligned).
@@ -135,7 +135,8 @@ This set gives ~95% of the protection value of a "stricter" 1- or 2-review + all
 
 - **This proposal fulfills A2** under internal task **bc6fa462**.
 - A1 research: `docs/BRANCH_PROTECTION_A1_RESEARCH.md`
-- A7 decision + current recommended config: `.github/BRANCH_PROTECTION.md`
+- A7 decision (architectural level rationale): `docs/BRANCH_PROTECTION_A7_DECISION.md`
+- A7 + A2 current recommended config: `.github/BRANCH_PROTECTION.md`
 - Branching rules: `docs/BRANCHING_STRATEGY.md` (v1.1, task 62a84821)
 - Agent requirements: `AGENTS.md` (mandatory pre-commit, mandatory agent-review before merge, task/Jules IDs in every commit + PR)
 - PR template: `.github/PULL_REQUEST_TEMPLATE.md` (already requires agent-review evidence)

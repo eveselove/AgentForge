@@ -65,7 +65,7 @@ Only after (a) a clean independent Jules review of the handoff package has been 
 
 **This file + the handoff dir (/home/agx/.grok/handoffs/606617a9/) + commit a536a08 constitute the fixed, auditable record of the mandatory agent-review step for task bc6fa462.**
 
-See also the A7 precedent: `docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md`.
+See also the A7 precedent: `docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md` + the canonical decision `docs/BRANCH_PROTECTION_A7_DECISION.md` (Level M2).
 
 ---
 

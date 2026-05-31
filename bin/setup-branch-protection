@@ -5,8 +5,8 @@ set -e
 
 REPO="eveselove/AgentForge"
 # Required checks are sourced from .github/workflows/ci.yml job names.
-# See .github/BRANCH_PROTECTION.md (A2 design task bc6fa462, later evolved) for the design rationale and current recommended values.
-REQUIRED_CHECKS=("Rust" "Python")  # A2 smallest effective (task bc6fa462): strict gates only. See docs/BRANCH_PROTECTION_A2_PROPOSAL.md
+# See .github/BRANCH_PROTECTION.md + docs/BRANCH_PROTECTION_A7_DECISION.md (A7 architectural level decision + A2 design, task bc6fa462) for the rationale and recommended values (Level M2: 0 approvals, mechanical invariants only).
+REQUIRED_CHECKS=("Rust" "Python")  # A2 smallest effective (task bc6fa462): strict gates only. See docs/BRANCH_PROTECTION_A2_PROPOSAL.md + docs/BRANCH_PROTECTION_A7_DECISION.md (Level M2, 0 approvals)
 
 echo "🔐 Setting up branch protection for $REPO/main ..."
 
@@ -28,9 +28,11 @@ echo "✅ gh is authenticated."
 
 echo ""
 echo "This script will attempt to configure branch protection with (A2/task bc6fa462 + A7):"
-echo "  - Require pull request (0 approvals — see A2 proposal)"
-echo "  - Require status checks (smallest effective): ${REQUIRED_CHECKS[*]}"
+echo "  - Require pull request (0 approvals per A7 Level M2 — judgment via mandatory agent-review + process)"
+echo "  - Require status checks (smallest effective per A2): ${REQUIRED_CHECKS[*]}"
 echo "  - Require branches up to date (strict)"
+echo ""
+echo "NOTE: The classic API path below is a legacy bridge. Preferred path for A4+: GitHub Ruleset (see docs/BRANCH_PROTECTION_A7_DECISION.md and .github/BRANCH_PROTECTION.md)."
 echo ""
 
 read -p "Proceed with branch protection setup? (y/N) " -n 1 -r
@@ -52,10 +54,10 @@ gh api \
   /repos/$REPO/branches/main/protection \
   -f required_status_checks.strict=true \
   -f enforce_admins=true \
-  -f required_pull_request_reviews.required_approving_review_count=1 \
+  -f required_pull_request_reviews.required_approving_review_count=0 \
   -f required_pull_request_reviews.dismiss_stale_reviews=true \
   -f required_pull_request_reviews.require_code_owner_review=false \
-  -f required_pull_request_reviews.required_review_thread_resolution=false \
+  -f required_pull_request_reviews.required_review_thread_resolution=true \
   -f restrictions.users[] \
   -f restrictions.teams[] \
   -f restrictions.apps[] \
@@ -67,8 +69,8 @@ gh api \
     echo "  - You need GitHub Pro / Organization permissions"
     echo "  - Better to configure manually via GitHub UI → Settings → Branches"
     echo ""
-    echo "Recommended manual settings (A2 smallest per docs/BRANCH_PROTECTION_A2_PROPOSAL.md):"
-    echo "  - Require a pull request before merging (0 approvals per A7)"
+    echo "Recommended manual settings (A2 smallest + A7 Level M2):"
+    echo "  - Require a pull request before merging (0 approvals — see docs/BRANCH_PROTECTION_A7_DECISION.md)"
     echo "  - Require status checks to pass before merging (strict):"
     for check in "${REQUIRED_CHECKS[@]}"; do
         echo "      • $check"
@@ -81,5 +83,6 @@ gh api \
     exit 1
 }
 
-echo "✅ Branch protection configuration attempted."
-echo "Please verify in GitHub UI that the rules were applied correctly."
+echo "✅ Branch protection configuration attempted (legacy classic path with 0 approvals per A7)."
+echo "Strongly prefer creating a Ruleset via UI (Evaluate mode) per docs/BRANCH_PROTECTION_A7_DECISION.md for A4."
+echo "Please verify in GitHub UI that the rules were applied correctly and update .github/BRANCH_PROTECTION.md status."

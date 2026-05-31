@@ -72,7 +72,7 @@ Private repos on Free have almost none of these features (require Pro+). Our pub
 - No branch protection rule on `main` (API 404 "Branch not protected").
 - No repository rulesets configured.
 - `bin/setup-branch-protection` exists (uses classic API; falls back gracefully).
-- `.github/BRANCH_PROTECTION.md` (expanded with A7 decision + A2 minimal design + A3 playbook) already documents the recommended path.
+- `docs/BRANCH_PROTECTION_A7_DECISION.md` (A7 architectural level decision: Level M2 for high-velocity agent-driven repo) + `docs/BRANCH_PROTECTION_A2_PROPOSAL.md` (concrete minimal set) + `.github/BRANCH_PROTECTION.md` (current status + pointer) document the full recommended path.
 
 ## Recommendations (for A2/A3/A4)
 
