@@ -1,0 +1,99 @@
+# AgentForge - Strong .gitignore (created during Code Management Professionalization 2026-05-31)
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Rust
+rust/target/
+rust/**/target/
+**/*.rs.bk
+Cargo.lock  # only if you want to ignore it (usually you don't for applications)
+
+# Logs (very noisy in this project)
+logs/
+*.log
+logs/**/*
+
+# Temporary and backup files from cutovers/migrations
+*.bak
+*.bak.*
+*.pure-rollback-*
+*.purecutover
+*.purecutover.*
+
+# Local markers and state
+.pure_rust_flywheel
+.enable_pure_rust_flywheel
+.disable_rust_flywheel
+.disable_pure_rust_flywheel
+.disable_flywheel
+.flywheel_disabled
+ENABLE_RUST_FLYWHEEL
+
+# Task system local state
+tasks.db
+tasks_debug.json
+pending_candidates/
+
+# Large generated / runtime data
+/tmp/agentforge/
+/tmp/agentforge_rust_flywheel/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets and local config (never commit)
+*.env
+.env.local
+secrets/
+*.pem
+*.key
+
+# Large binaries and test artifacts (keep only what's needed)
+rust/target/debug/
+rust/target/release/deps/
+*.rlib
+*.rmeta
+
+# Evaluation / learning large data (can be regenerated)
+eval/results/
+eval/trajectories/*_large*
+learning/datasets/
+
+# Misc
+*.sqlite
+*.sqlite3
+*.db-journal
