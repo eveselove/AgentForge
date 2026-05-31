@@ -58,9 +58,9 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
-          working-directory: rust
           # Prefix allows manual cache invalidation and namespaces for this repo
           prefix-key: "v0-agentforge"
+          workspaces: "rust"
 
       - name: Check
         run: cargo check --workspace --all-targets --locked
@@ -88,7 +88,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
       - run: pip install ruff black
       - run: ruff check .
       - run: black --check .
@@ -107,7 +106,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
       - run: pip install pyyaml
       - name: Run parity harness CI smoke (hermetic golden + skeleton; clear pass/fail per B2)
         run: |
