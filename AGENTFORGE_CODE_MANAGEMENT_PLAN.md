@@ -4,11 +4,12 @@
 **Goal:** Bring the entire AgentForge codebase under proper, professional source control and project management, using AgentForge itself (dogfooding) in turbo mode with Jules + local agents.
 
 > **Current Status (updated live):**  
-> Standalone GitHub repo created: https://github.com/eveselove/AgentForge  
+> Standalone GitHub repo: https://github.com/eveselove/AgentForge (now public)  
 > `main` branch initialized and pushed.  
-> Basic CI workflow added.  
-> Branch protection currently blocked (private repo on free plan).  
-> Extreme parallel agent execution in progress.
+> CONTRIBUTING.md + AGENTS.md + CODEOWNERS + PR template added.  
+> Basic CI workflow in place.  
+> Branch protection: Manual setup recommended (see `.github/BRANCH_PROTECTION.md`).  
+> Extreme parallel agent execution + Jules automation active.
 
 **Current Reality (as of this plan):**
 - Code lives only at `/home/agx/agentforge/`
