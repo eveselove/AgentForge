@@ -49,11 +49,11 @@ This document contains the highest-leverage remaining work, broken into small pa
 
 **Owner priority:** Grok (execution)
 
-- D1. Write exact step-by-step instructions (with screenshots placeholders) for applying the A2/A7 branch protection ruleset in GitHub UI (0 approvals + strict status checks).
-- D2. Run `bin/setup-branch-protection` (or manual) and update `.github/BRANCH_PROTECTION.md` + plan with "Applied on [date]" status.
+- D1. ~~Write exact step-by-step instructions (with screenshots placeholders) for applying the A2/A7 branch protection ruleset in GitHub UI (0 approvals + strict status checks).~~ ✅ Done 2026-05-31 (task 3cdd6813) — see `.github/BRANCH_PROTECTION.md` "D1: Exact Step-by-Step..."
+- D2. ~~Run `bin/setup-branch-protection` (or manual) and update `.github/BRANCH_PROTECTION.md` + plan with "Applied on [date]" status.~~ ✅ Done 2026-05-31 (task 3cdd6813) — Ruleset 17085567 created active via script+API; `.github/BRANCH_PROTECTION.md` + `.github/rulesets/main-protection.json` updated.
 - D3. Add a small CI job or script that can later self-audit branch protection config.
 
-**Target artifacts:** Branch protection actually active on `main`.
+**Target artifacts:** Branch protection actually active on `main`. ✅ Achieved (Ruleset active, verified via API).
 
 ---
 
