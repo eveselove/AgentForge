@@ -48,11 +48,15 @@ impl Task {
             priority: "medium".to_string(),
             complexity: "medium".to_string(),
             preferred_agent: None,
+            assigned_to: None,
             status: TaskStatus::Pending,
             tags: vec![],
             created_at: now.clone(),
             updated_at: now,
+            started_at: None,
+            completed_at: None,
             metadata: HashMap::new(),
+            result: None,
         }
     }
 
@@ -203,7 +207,7 @@ impl TaskStore for InMemoryTaskStore {
                 task.started_at = Some(chrono::Utc::now().to_rfc3339());
                 task.updated_at = chrono::Utc::now().to_rfc3339();
 
-                self.persist();
+                // Note: InMemoryTaskStore does not persist (unlike JsonFileTaskStore)
                 Ok(task.clone())
             }
             None => Err(format!("Task {} not found", id)),
