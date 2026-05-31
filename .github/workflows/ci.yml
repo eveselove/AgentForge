@@ -6,30 +6,40 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   rust:
-    name: Rust
+    name: Rust (${{ matrix.rust }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
 
-      - name: Cargo check
-        run: cargo check --workspace
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check
+        run: cargo check --workspace --all-targets
 
       - name: Clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Format check
+      - name: Format
         run: cargo fmt --all -- --check
 
-      - name: Run tests
+      - name: Test
         run: cargo test --workspace -- --test-threads=4
-        continue-on-error: true   # Many tests may still be environment-specific
+        continue-on-error: true  # Many tests are environment-specific for now
 
   python:
     name: Python
@@ -42,22 +52,33 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install tools
         run: |
           python -m pip install --upgrade pip
           pip install ruff black
 
-      - name: Ruff lint
+      - name: Ruff
         run: ruff check . || true
 
-      - name: Black format check
+      - name: Black
         run: black --check . || true
 
-  docs:
-    name: Documentation & Links
+  shellcheck:
+    name: Shell Scripts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check for broken markdown links (basic)
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: 'bin'
+        continue-on-error: true
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Markdown link check (basic)
         run: |
-          echo "Basic docs check passed (extend later with markdown-link-check)"
+          echo "Docs check placeholder - extend with markdown-link-check action later"

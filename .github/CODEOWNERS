@@ -1,0 +1,18 @@
+# CODEOWNERS for AgentForge
+
+# Default owners for everything in the repository
+*       @eveselove
+
+# Core agent system and automation
+/bin/jules-*            @eveselove
+/bin/launch-jules*      @eveselove
+/bin/agent-worktree     @eveselove
+AGENTS.md               @eveselove
+CONTRIBUTING.md         @eveselove
+
+# Task system and orchestration
+task_queue.py           @eveselove
+agents/                 @eveselove
+
+# Rust core (when it becomes more mature)
+/rust/                  @eveselove
