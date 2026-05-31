@@ -2,7 +2,7 @@
 
 **Status**: Official  
 **Version**: 1.3  
-**Last updated**: 2026-06 (added MIRROR_STRATEGY section for P1 B1 closure; GitHub eveselove/AgentForge declared single source of truth)  
+**Last updated**: 2026-06 (added MIRROR_STRATEGY section for P1 B1 + post-review polish per Jules handoff e1623c2d: linked CM_PHASE1_09 detailed decision + handoff 9471de35; GitHub eveselove/AgentForge declared single source of truth)  
 **Owner**: AgentForge Core Team (current extreme wave)
 
 This document defines the official branching model for AgentForge. As a self-improving agentic system, our workflow is designed to maximize parallel development by both humans and autonomous agents while keeping history clean and traceable.
@@ -24,7 +24,7 @@ This GitHub repository is the **canonical** and only authoritative source for th
 
 - All agent and human development clones from and submits PRs exclusively to this origin.
 - Local clones, worktrees (`bin/agent-worktree`), and any optional future read-only mirrors or git bundles are strictly secondary and must never be treated as authoritative for merges, releases, or traceability.
-- This decision (P1 B1 / CM-Phase1-04/09/10) was recorded during the "да зыкываем все фазы" extreme closure wave. See also CONTRIBUTING.md (Source of Truth & Mirrors) and AGENTFORGE_CODE_MANAGEMENT_PLAN.md.
+- This decision (P1 B1, CM-Phase1-04/09, tasks d68486fc / 5f018f81) was recorded during the "да зыкываем все фазы" extreme closure wave. See also the detailed rationale + prior formal closure record in `docs/CM_PHASE1_09_MIRROR_STRATEGY_DECISION.md` (Antigravity, handoff 9471de35) and CONTRIBUTING.md (Source of Truth & Mirrors).
 
 ## Branch Naming Conventions
 

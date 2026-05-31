@@ -46,7 +46,7 @@ When `jules-watch.sh` creates an "Accept Jules session" task:
    ```
 
 ### Code Changes
-- **Follow the full Branching Strategy** — see [docs/BRANCHING_STRATEGY.md](docs/BRANCHING_STRATEGY.md) (v1.0, task 62a84821 [CM-03]).
+- **Follow the full Branching Strategy** — see [docs/BRANCHING_STRATEGY.md](docs/BRANCHING_STRATEGY.md) (v1.3 + MIRROR_STRATEGY section, tasks 62a84821 / d68486fc / 5f018f81 [CM-03 + P1 B1]).
   - Canonical naming for agent/CM work: `agent/cm-xxx-description` (e.g. `agent/cm-03-branching-strategy-62a84821`) or `agent/<slug>`.
   - `bin/agent-worktree create <slug>` is the recommended way to get an isolated `agent/` branch + worktree.
 - Install the pre-commit hook in every fresh clone / worktree: `./bin/install-pre-commit`.

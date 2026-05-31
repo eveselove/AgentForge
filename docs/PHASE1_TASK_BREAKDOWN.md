@@ -2,7 +2,7 @@
 
 **Goal**: Finish the last 10-15% of Phase 1 (remote setup, branch protection, single source of truth) with parallel agents. Most heavy lifting (repo creation, first push, basic CI, public) is already done.
 
-**B1 (MIRROR_STRATEGY) status**: ✅ Completed (short section declared in BRANCHING_STRATEGY.md).
+**B1 (MIRROR_STRATEGY) status**: ✅ Completed (short section + post-review polish per Jules e1623c2d; cross-linked to CM_PHASE1_09 detailed decision).
 
 **Date**: 2026-06
 **Owner**: Current extreme closure wave (Grok + Antigravity)
@@ -27,7 +27,7 @@
 
 ## Cluster B: Mirror / Single Source of Truth & Backup
 
-- [x] B1. (Antigravity) Decide and document the official mirror/backup policy for AgentForge (GitHub = single source of truth; optional read-only mirrors to self-hosted Forgejo or git bundle strategy?) — **COMPLETED**: Short `MIRROR_STRATEGY` section added to `docs/BRANCHING_STRATEGY.md` v1.3 (task d68486fc / 5f018f81 / P1 B1). See also CONTRIBUTING.md. B2+ remain for optional implementation.
+- [x] B1. (Antigravity) Decide and document the official mirror/backup policy for AgentForge (GitHub = single source of truth; optional read-only mirrors to self-hosted Forgejo or git bundle strategy?) — **COMPLETED**: Short `MIRROR_STRATEGY` section added to `docs/BRANCHING_STRATEGY.md` v1.3 + post-review polish (Jules handoff e1623c2d addressed consistency with prior CM_PHASE1_09 detailed decision). (task d68486fc / 5f018f81 / P1 B1). See also CONTRIBUTING.md + docs/CM_PHASE1_09_MIRROR_STRATEGY_DECISION.md. B2+ remain for optional implementation.
 - B2. Create a `bin/mirror-to-secondary` (or docs recipe) for optional periodic push to a secondary location (if policy says yes)
 - B3. Add "How to clone and contribute from scratch" section to CONTRIBUTING.md or a new `docs/ONBOARDING.md` (covers SSH keys, worktree setup, task queue, pre-commit)
 - B4. Audit current `.git/config` and remotes in the live repo; ensure origin is correct and documented
