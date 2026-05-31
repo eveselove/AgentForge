@@ -56,3 +56,10 @@ This is near-maximum practical parallelism for the current setup.
 - Agents instructed to generate handoffs, decide on merges, create follow-up micro review tasks, and update checklists.
 
 This directly addresses the accumulation from the massive previous waves.
+
+**Handoff-specific harvest (additional)**:
+- ~25 recent handoffs in ~/.grok/handoffs/ (f30d72d9 and newer).
+- Launched extra 5 agents (A1-1757+) whose sole focus is reading handoffs, generating reviews, and clearing them.
+- Combined with previous 8-agent harvest wave = 13 agents now actively working the review backlog.
+
+Current review firepower: 13 dedicated harvest agents + 6 review tasks in queue.
