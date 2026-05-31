@@ -56,7 +56,7 @@ AgentForge should be developed like a frontier agentic system:
 
 ### Phase 2 — Development Workflow (Turbo with Agents)
 
-- [x] Define branching strategy (recommend: trunk-based with short-lived agent branches) → `docs/BRANCHING_STRATEGY.md` (v1.0) written and pushed
+- [x] Define branching strategy (recommend: trunk-based with short-lived agent branches) → `docs/BRANCHING_STRATEGY.md` (v1.1) — reviewed and integrated best parts from Jules sessions 11158842600384206278 + 5861866188344060320
 - [ ] Integrate task system with Git (every significant change linked to task ID)
 - [ ] Make `jules_runner` and local `implement` + `agent-review` the default path for changes
 - [x] Create `CONTRIBUTING.md` and `AGENTS.md` that describe "how we develop AgentForge using AgentForge"
@@ -83,18 +83,19 @@ AgentForge should be developed like a frontier agentic system:
 
 ---
 
-## Immediate Next Actions (Start in This Session) — Updated 2026-05-31 (Full Power Mode)
+## Immediate Next Actions (Start in This Session) — Updated 2026-05-31 (Aggressive Phase 2 Closure Mode)
 
 1. ✅ Backup branch + aggressive .gitignore + baseline commit done
 2. ✅ Standalone GitHub repo created (public): https://github.com/eveselove/AgentForge
-3. ✅ CONTRIBUTING.md + AGENTS.md + CODEOWNERS + PR template created
+3. ✅ CONTRIBUTING.md + AGENTS.md + CODEOWNERS + PR template + REPO_STRUCTURE.md created
 4. ✅ Basic CI workflow added and improved
-5. ✅ Created 10+ high-quality tasks in queue for remaining Phase 2 & Phase 3 items
-6. ✅ Launched parallel Jules wave (both keys) + local Grok agents on Phase 2 tasks
-7. ✅ Created `bin/pre-commit` + `bin/install-pre-commit` + `docs/BRANCHING_STRATEGY.md` + `REPO_STRUCTURE.md`
-8. ✅ Launched parallel Jules + Grok agents on Phase 2 items
-9. In progress: Strengthening CI, finishing branching strategy, wiring pre-commit into workflows
-10. Next: Heavy push on full CI (Phase 3) + beginning of real Phase 4 dogfooding
+5. ✅ `docs/BRANCHING_STRATEGY.md` (v1.1) created and pushed — Phase 2 item closed
+6. ✅ Created high-priority tasks for remaining Phase 2 items:
+   - [CM-Phase2-05] Integrate task system with Git (traceability) → task 3be670e1
+   - [CM-Phase2-06] Make agent-review + implement the default path → task 285c1c6d
+   - [CM-Phase2-07] Pre-commit / lint gates (work started with bin/pre-commit + install-pre-commit)
+7. **Now in full aggressive mode**: All available agents focused on closing the three remaining Phase 2 items at maximum speed.
+8. Current priority: Wire pre-commit into workflows/docs + implement mandatory task ID traceability in commits/PRs + establish agent-review as default path.
 
 ---
 
