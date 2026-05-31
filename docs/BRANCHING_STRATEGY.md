@@ -48,6 +48,7 @@ To keep history searchable and understandable for both humans and agents, all br
 - **Mandatory**: Link the PR to at least one Task ID or Jules Session ID (use the PR template).
 - Get review (preferably via another agent using the `agent-review` skill when possible).
 - All CI checks must pass.
+- Branch protection design for `main` (A2, task bc6fa462) lives in [`.github/BRANCH_PROTECTION.md`](.github/BRANCH_PROTECTION.md). The exact rules (1-review vs later evolution) are maintained there; always consult the live doc before assuming enforcement details.
 
 ### 4. After Merge
 - Delete the branch immediately.

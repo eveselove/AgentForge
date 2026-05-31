@@ -4,7 +4,9 @@
 set -e
 
 REPO="eveselove/AgentForge"
-REQUIRED_CHECKS=("Rust (stable)" "Python" "Shell & Scripts")
+# Required checks are sourced from .github/workflows/ci.yml job names.
+# See .github/BRANCH_PROTECTION.md (A2 design task bc6fa462, later evolved) for the design rationale and current recommended values.
+REQUIRED_CHECKS=("Rust" "Python")  # A2 smallest effective (task bc6fa462): strict gates only. See docs/BRANCH_PROTECTION_A2_PROPOSAL.md
 
 echo "🔐 Setting up branch protection for $REPO/main ..."
 
@@ -25,11 +27,10 @@ echo "✅ gh is authenticated."
 # or the repo needs to be public. Since AgentForge is now public, this should work.
 
 echo ""
-echo "This script will attempt to configure branch protection with:"
-echo "  - Require pull request"
-echo "  - Require at least 1 approving review"
-echo "  - Dismiss stale reviews"
-echo "  - Require status checks: ${REQUIRED_CHECKS[*]}"
+echo "This script will attempt to configure branch protection with (A2/task bc6fa462 + A7):"
+echo "  - Require pull request (0 approvals — see A2 proposal)"
+echo "  - Require status checks (smallest effective): ${REQUIRED_CHECKS[*]}"
+echo "  - Require branches up to date (strict)"
 echo ""
 
 read -p "Proceed with branch protection setup? (y/N) " -n 1 -r
