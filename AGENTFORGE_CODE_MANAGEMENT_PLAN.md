@@ -55,7 +55,7 @@ AgentForge should be developed like a frontier agentic system:
 
 ### Phase 2 — Development Workflow (Turbo with Agents)
 
-- [ ] Define branching strategy (recommend: trunk-based with short-lived agent branches)
+- [x] Define branching strategy (recommend: trunk-based with short-lived agent branches) → `docs/BRANCHING_STRATEGY.md` (v1.0) written and pushed
 - [ ] Integrate task system with Git (every significant change linked to task ID)
 - [ ] Make `jules_runner` and local `implement` + `agent-review` the default path for changes
 - [x] Create `CONTRIBUTING.md` and `AGENTS.md` that describe "how we develop AgentForge using AgentForge"
