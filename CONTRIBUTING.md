@@ -28,6 +28,18 @@ nohup ./bin/jules-watch.sh --loop >/dev/null 2>&1 &
 
 See `AGENTS.md` → "Automation Tools (`bin/`)" for full details on `jules-watch.sh`, `launch-jules-parallel`, `pre-commit`, and `agent-worktree`.
 
+## Source of Truth & Mirrors (Phase 1 closure)
+
+**Single source of truth**: https://github.com/eveselove/AgentForge (public)
+
+All official development, CI, releases, and history live here.
+
+- Optional read-only mirrors or git bundles may be maintained for disaster recovery / air-gapped farms in the future (see Phase 4).
+- Never treat a fork or local clone as the canonical source for PRs or releases.
+- This decision was recorded during the "да зыкываем все фазы" closure wave (P1 B1, Antigravity policy).
+
+For the full branching + traceability rules see `docs/BRANCHING_STRATEGY.md`.
+
 ## Development Workflow
 
 1. **Tasks first**

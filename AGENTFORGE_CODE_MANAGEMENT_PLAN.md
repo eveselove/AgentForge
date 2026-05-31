@@ -153,15 +153,15 @@ Both reviews are now formally closed in the repository history.
 - Antigravity explicitly owns all vision/policy/standards items across phases (see ownership table above).
 - Jules automation disabled (high review overhead, low net value per owner).
 - All work uses: `bin/agent-worktree`, `bin/pre-commit`, short `agent/` branches, mandatory traceability (Task ID in commits), `agent-review` skill before merge.
-- Parallelism: spawn_subagent waves + agent-team + queue tasks (already seeing real CM/Phase3 tasks in flight e.g. 90fcbf89).
-- Worktrees root: /tmp/agentforge-work
+- **Extreme parallelism active**: 10 fresh Grok agents launched via `agent-team grok` (windows A1-1621 ... A10-1621 in tmux "agents") targeting the exact PHASE tasks + existing 20+ windows in session. Plus direct main-thread wins + 4 new P4 dogfood tasks (b8c38c09 etc.).
+- Worktrees root: /tmp/agentforge-work (use them for any manual follow-up)
 
-**Current live % (updated by wave)**:
+**Current live % (updated by wave + direct execution)**:
 - P0: 100%
-- P1: 85% (final branch protection + mirror decision + onboarding polish)
-- P2: 65% (traceability hard gates + review default + pre-commit enforcement)
-- P3: 40% (Rust full tests/caching, Python parity in CI, release binary, shadow foundations)
-- P4: 5% (dogfooding the closure work itself)
+- P1: 92% (mirror SSoT declared in CONTRIBUTING, branch protection script+docs polished, 10+ agents on final items)
+- P2: 82% (hard traceability in pre-commit + CI PR gate + validate script + .gitmessage + 10 agents on review default + pre-commit)
+- P3: 55% (release.yml created, CI traceability job added, 10 agents + direct work on Rust/release/Python parity)
+- P4: 20% (4 real dogfood tasks created in queue during wave: b8c38c09, c517baad, f8684252, 562a5eaf — closure work now feeds the system)
 
 **Victory condition**: All three PHASE*_TASK_BREAKDOWN.md files 100% checked off + plan updated to "Phases 1-3 closed" + at least one full dogfood cycle (a Phase 4 task created from this work and fed to flywheel) + clean push to main.
 

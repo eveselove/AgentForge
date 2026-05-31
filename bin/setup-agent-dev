@@ -12,16 +12,23 @@ else
     echo "⚠️  bin/install-pre-commit not found"
 fi
 
+# Set commit template for mandatory traceability
+if [ -f ".gitmessage" ]; then
+    git config commit.template .gitmessage || true
+    echo "✅ Git commit template set (.gitmessage — enforces Task/Jules ID)"
+fi
+
 # Show current recommended workflow
 echo ""
 echo "✅ Setup complete. Recommended workflow:"
 echo "1. Always pull latest main before starting work"
 echo "2. Create short-lived branch (see docs/BRANCHING_STRATEGY.md)"
-echo "3. Work with task ID or Jules session ID in commits"
+echo "3. Work with task ID or Jules session ID in commits (enforced by pre-commit + CI)"
 echo "4. Open PR with links to task/Jules session"
-echo "5. Get review (preferably agent-review) before merging"
+echo "5. ALWAYS run agent-review skill before merge (default path)"
 echo ""
 echo "Key documents:"
 echo "  - docs/BRANCHING_STRATEGY.md"
 echo "  - AGENTS.md"
 echo "  - CONTRIBUTING.md"
+echo "  - docs/PHASE{1,2,3}_TASK_BREAKDOWN.md (current closure work)"
