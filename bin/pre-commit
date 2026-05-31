@@ -40,9 +40,31 @@ if git diff --cached --name-only | grep -qE '\.py$'; then
     black --check . || { echo "❌ Run 'black .' first"; exit 1; }
 fi
 
-# 5. Basic traceability hint (soft warning for now)
-if ! git log -1 --pretty=%B 2>/dev/null | grep -qE '(task |jules/|Jules)'; then
-    echo "⚠️  Reminder: Consider adding Task ID or Jules session ID to your commit message."
+# 5b. Shell scripts (shellcheck) - advisory for now, will become blocking
+if git diff --cached --name-only | grep -qE '\.sh$'; then
+    if command -v shellcheck >/dev/null 2>&1; then
+        echo "→ Shell: shellcheck on staged .sh..."
+        git diff --cached --name-only | grep '\.sh$' | xargs -r shellcheck || echo "⚠️  shellcheck warnings (non-blocking for now)"
+    fi
 fi
 
-echo "✅ Pre-commit checks passed"
+# 5. Mandatory traceability (Task ID or Jules session in commit message)
+if [ -x "./bin/validate-commit-msg" ]; then
+    # Use the reusable validator (reads last commit)
+    if ! ./bin/validate-commit-msg; then
+        echo "   Bypass (emergency only): PRECOMMIT_BYPASS_TRACE=1 git commit ..."
+        if [ "${PRECOMMIT_BYPASS_TRACE:-}" != "1" ]; then
+            exit 1
+        fi
+        echo "⚠️  Traceability bypass active (PRECOMMIT_BYPASS_TRACE=1)"
+    fi
+else
+    # Fallback inline check
+    COMMIT_MSG="$(git log -1 --pretty=%B 2>/dev/null || echo '')"
+    if ! echo "$COMMIT_MSG" | grep -qE '(task[[:space:]]*[0-9a-f]{6,}|jules[[:space:]]*[0-9]{10,}|JULES_[0-9]+|Jules[[:space:]]*[0-9]+)'; then
+        echo "❌ MANDATORY traceability missing. See bin/validate-commit-msg and .gitmessage"
+        [ "${PRECOMMIT_BYPASS_TRACE:-}" = "1" ] || exit 1
+    fi
+fi
+
+echo "✅ Pre-commit checks passed (traceability enforced)"

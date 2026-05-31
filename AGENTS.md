@@ -6,7 +6,7 @@ This document describes how agents (Grok, Jules, Gemini, etc.) are expected to w
 
 - **Dogfooding first**: We improve AgentForge using AgentForge.
 - **Task-driven**: Almost all non-trivial work starts as a task in the queue.
-- **Traceability**: Every change should reference a task ID and/or Jules session when possible.
+- **Traceability (enforced)**: Every commit/PR **must** reference a Task ID (e.g. task 90fcbf89) or Jules session. Enforced by `bin/pre-commit` (hard gate) + `bin/validate-commit-msg` + `.gitmessage` template. CI will also check soon. See docs/BRANCHING_STRATEGY.md.
 - **Parallelism**: We use multiple agents and multiple Jules accounts aggressively.
 
 ## Available Tools for Agents
@@ -17,8 +17,10 @@ This document describes how agents (Grok, Jules, Gemini, etc.) are expected to w
 | `bin/launch-jules-parallel` | Launch many Jules sessions in parallel using both account keys (--count/--parallel) | Maximum throughput on coding tasks |
 | `bin/jules-watch.sh` | Poll for finished Jules sessions and auto-create high-priority acceptance tasks in queue | Always running in background (--loop mode) |
 | `bin/pre-commit` + `bin/install-pre-commit` | Quality gates before commit (secrets, size, fmt/clippy/ruff/black) | Before any commit (install once) |
-| `bin/agent-worktree` | Isolated git worktrees for conflict-free parallel agent work | High-parallelism local agent runs |
+| `bin/agent-worktree` | Isolated git worktrees for conflict-free parallel agent work (MANDATORY for extreme waves) | High-parallelism local agent runs |
+| `bin/validate-commit-msg` + `.gitmessage` | Enforce Task ID / Jules session on every commit (hard gate in pre-commit) | Always |
 | Task Queue (localhost:8080) | Central source of work | Primary coordination mechanism |
+| `docs/PHASE{1,2,3}_TASK_BREAKDOWN.md` | Current parallel attack surface for closing Code Mgmt Plan (pick tasks here) | During all-phases closure waves |
 | `jules remote list --session` | Inspect current Jules work | Reviewing what agents have done |
 
 ## Recommended Patterns

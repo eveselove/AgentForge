@@ -1,0 +1,16 @@
+# <type>(<scope>): <subject>   (max 50 chars)
+#
+# [Mandatory] Reference at least one Task ID or Jules session:
+#   task 90fcbf89
+#   Jules 12237721410778183159
+#   (task 3be670e1, jules/11158842600384206278)
+#
+# Body (wrap at 72 chars):
+#
+# Why:
+#
+# How:
+#
+# Test:
+#
+# Refs: task XXXX (or Jules YYYY)
