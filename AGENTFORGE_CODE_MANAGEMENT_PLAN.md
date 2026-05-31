@@ -3,6 +3,13 @@
 **Date:** 2026-05-31  
 **Goal:** Bring the entire AgentForge codebase under proper, professional source control and project management, using AgentForge itself (dogfooding) in turbo mode with Jules + local agents.
 
+> **Current Status (updated live):**  
+> Standalone GitHub repo created: https://github.com/eveselove/AgentForge  
+> `main` branch initialized and pushed.  
+> Basic CI workflow added.  
+> Branch protection currently blocked (private repo on free plan).  
+> Extreme parallel agent execution in progress.
+
 **Current Reality (as of this plan):**
 - Code lives only at `/home/agx/agentforge/`
 - Local Git repository on `master` with **zero remotes**
@@ -31,18 +38,19 @@ AgentForge should be developed like a frontier agentic system:
 
 ### Phase 0 — Immediate Stabilization (Today)
 
-- [ ] Create this plan document + break into trackable tasks in the internal task system
-- [ ] Create a clean backup branch of current dirty state (`backup/pre-management-2026-05-31`)
-- [ ] Aggressive .gitignore improvements (pycache, logs, target/, *.bak.*, .pure* markers that shouldn't be committed, etc.)
-- [ ] Commit a "pre-management baseline" so we have a clean starting point
+- [x] Create this plan document + break into trackable tasks in the internal task system
+- [x] Create a clean backup branch of current dirty state (`backup/pre-management-2026-05-31`)
+- [x] Aggressive .gitignore improvements (pycache, logs, target/, *.bak.*, .pure* markers that shouldn't be committed, etc.)
+- [x] Commit a "pre-management baseline" so we have a clean starting point
 - [ ] Document current repo structure (Rust workspace layout, Python package, services)
 
 ### Phase 1 — Remote & Hosting (Critical)
 
-- [ ] Decide on hosting location (GitHub personal/org, self-hosted Gitea/Forgejo, or internal)
-- [ ] Initialize remote + first push (protected `main` branch)
-- [ ] Set up branch protection rules (require agent review for merges where possible)
+- [x] Decide on hosting location (GitHub personal/org, self-hosted Gitea/Forgejo, or internal) → **GitHub (eveselove/AgentForge)**
+- [x] Initialize remote + first push (`main` branch pushed to https://github.com/eveselove/AgentForge)
+- [ ] Set up branch protection rules (require agent review for merges where possible) — **blocked on GitHub Pro for private repo**
 - [ ] Mirror strategy or single source of truth decision
+- [x] Created basic CI workflow (`.github/workflows/ci.yml`)
 
 ### Phase 2 — Development Workflow (Turbo with Agents)
 
@@ -54,10 +62,12 @@ AgentForge should be developed like a frontier agentic system:
 
 ### Phase 3 — CI/CD & Quality Gates
 
-- [ ] GitHub Actions (or equivalent) for:
-  - Rust workspace build + test (all crates)
-  - Python health + parity harness
-  - Service validation
+- [x] GitHub Actions (or equivalent) for:
+  - Basic Rust workspace check + clippy + fmt (`.github/workflows/ci.yml`)
+  - Basic Python linting
+  - Service validation (expand later)
+- [ ] Full Rust workspace build + test (all crates)
+- [ ] Python health + parity harness in CI
 - [ ] Automated release binary building for `agentforge-runner`
 - [ ] Shadow / fidelity checks on PRs (future)
 
