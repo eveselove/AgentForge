@@ -1,6 +1,0 @@
-[AgentForge] Задача: 642ee802
-[AgentForge] Промпт: Route to Grok. Детали: high
-[AgentForge] Запуск Grok для задачи 642ee802
-[AgentForge] Включена самопроверка (--check)
-[AgentForge] Grok старт (worktree=agentforge-642ee802)
-[2m2026-05-27T06:51:36.351734Z[0m [31mERROR[0m tool_error: tool_output_error [3msession_id[0m[2m=[0m019e6830-d28b-7192-98d7-2035e0b33221 [3mtool_name[0m[2m=[0m"search_replace" [3meffective_tool_name[0m[2m=[0m"search_replace" [3mmodel_id[0m[2m=[0m"grok-build" [3merror_kind[0m[2m=[0m"tool_output_error" [3merror_message[0m[2m=[0m"The string to replace was not found in the file, use the read_file tool to see the correct string.\n\nNearest match: line 364:       btn.disabled = true;"

@@ -1,2 +1,0 @@
-[AgentForge] Задача: d9fbe733
-[AgentForge] Промпт: Оптимизация сетевого клиента (akson_crawler.rs) для 500 потоков. Детали: Отключить HTTP/2 (использовать http1_only), включить tcp_nodelay(true), включить асинхронный DNS через trust_dns(true), поднять стартовый пул per_proxy_start до 100 и эффективный concurrent лимит до 5. Теги: rust,network,optimization

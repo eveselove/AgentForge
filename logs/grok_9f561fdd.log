@@ -1,6 +1,0 @@
-[AgentForge] Задача: 9f561fdd
-[AgentForge] Промпт: Human-in-the-Loop: одобрение через дашборд. Детали: Добавить статус awaiting_approval между review и done. Для critical задач Guardian не авто-мёржит а ставит awaiting_approval. В дашборде кнопки Approve/Reject на карточке. POST /tasks/{id}/approve и /. Теги: hitl,dashboard,approval
-[AgentForge] Запуск Grok для задачи 9f561fdd
-[AgentForge] Включена самопроверка (--check)
-[AgentForge] Grok старт (worktree=agentforge-9f561fdd)
-[2m2026-05-27T06:50:01.296470Z[0m [31mERROR[0m tool_error: tool_output_error [3msession_id[0m[2m=[0m019e6830-dc44-7931-ba53-4db38c4ba486 [3mtool_name[0m[2m=[0m"read_file" [3meffective_tool_name[0m[2m=[0m"read_file" [3mmodel_id[0m[2m=[0m"grok-build" [3merror_kind[0m[2m=[0m"tool_output_error" [3merror_message[0m[2m=[0m"Error: /home/agx/planlytasksko/data/hitl_tasks.json does not exist.\nNote: your current working directory is /home/agx/planlytasksko"

@@ -1,4 +1,0 @@
-[AgentForge] Задача: f77f5594
-[AgentForge] Промпт: Skills/Playbooks: YAML-шаблоны для типов задач. Детали: Создать ~/agentforge/skills/ с YAML файлами: rust-fix.yaml, frontend-feature.yaml, architecture-review.yaml. Каждый содержит: system_prompt, required_tags, ci_checks, timeout, preferred_model. При dis. Теги: skills,yaml,templates
-[AgentForge] Запуск Grok для задачи f77f5594
-[AgentForge] Grok старт (worktree=agentforge-f77f5594)

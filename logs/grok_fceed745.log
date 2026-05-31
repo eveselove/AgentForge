@@ -1,5 +1,0 @@
-[AgentForge] Задача: fceed745
-[AgentForge] Промпт: State Checkpoints: crash recovery для задач. Детали: Сохранять состояние задачи после каждого шага (dispatch, git_clone, grok_start, grok_done, ci_start, ci_done, review). Если Jetson крашится - при перезапуске продолжить с последнего checkpoint. Таблиц. Теги: reliability,checkpoint,recovery
-[AgentForge] Запуск Grok для задачи fceed745
-[AgentForge] Включена самопроверка (--check)
-[AgentForge] Grok старт (worktree=agentforge-fceed745)
