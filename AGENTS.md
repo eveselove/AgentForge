@@ -16,11 +16,13 @@ This document describes how agents (Grok, Jules, Gemini, etc.) are expected to w
 | `agent-team` (or `at`) | Launch parallel Grok/Jules/Gemini agents in tmux | High-volume parallel work |
 | `bin/launch-jules-parallel` | Launch many Jules sessions in parallel using both account keys (--count/--parallel) | Maximum throughput on coding tasks |
 | `bin/jules-watch.sh` | Poll for finished Jules sessions and auto-create high-priority acceptance tasks in queue | Always running in background (--loop mode) |
-| `bin/pre-commit` + `bin/install-pre-commit` | Quality gates before commit (secrets, size, fmt/clippy/ruff/black) | Before any commit (install once) |
+| `bin/pre-commit` + `bin/install-pre-commit` | **Hard mandatory** quality + traceability gates before every commit (secrets, size, Rust fmt+clippy -D warnings, Python ruff+black, Task/Jules ID via validate-commit-msg). Blocks bad commits. | **Mandatory install** in every clone/worktree/branch before first commit: `./bin/install-pre-commit` |
 | `bin/agent-worktree` | Isolated git worktrees for conflict-free parallel agent work (MANDATORY for extreme waves) | High-parallelism local agent runs |
 | `bin/validate-commit-msg` + `.gitmessage` | Enforce Task ID / Jules session on every commit (hard gate in pre-commit) | Always |
+| `agent-review` skill (or `/agent-review --to-jules`) | Mandatory independent cross-agent code review + handoff packaging after any work, before PR (hard requirement, produces auditable `~/.grok/handoffs/` record) | After EVERY completed task / change set (see dedicated section below) |
 | Task Queue (localhost:8080) | Central source of work | Primary coordination mechanism |
 | `docs/PHASE{1,2,3}_TASK_BREAKDOWN.md` | Current parallel attack surface for closing Code Mgmt Plan (pick tasks here) | During all-phases closure waves |
+| `docs/REVIEW_CHECKLIST.md` | Mandatory self-check + external agent-review steps before every PR (P2 B5) | Always for agent changes |
 | `jules remote list --session` | Inspect current Jules work | Reviewing what agents have done |
 
 ## Recommended Patterns
@@ -38,21 +40,61 @@ curl -s http://localhost:8080/tasks | jq '.[] | select(.status == "pending")'
 When `jules-watch.sh` creates an "Accept Jules session" task:
 1. Review the session in the Jules web UI (look for "Publish release").
 2. Pull changes: `jules remote pull --session <ID> --apply`
-3. Review the diff.
-4. Run tests / `cargo check` / `cargo clippy`.
-5. Commit with clear attribution:
+3. Review the diff + run local validation (`cargo test`, `cargo clippy`, etc.).
+4. **MANDATORY**: Perform the full agent-review step (see "Mandatory Post-Work Agent-Review Step" section above) — invoke `agent-review` skill / `/agent-review --to-jules`, record handoff + result.
+5. Only after independent review is obtained and recorded: commit with clear attribution + task/Jules reference:
    ```
-   feat: implement JsonFileTaskStore (Jules 12237721410778183159)
+   feat: implement JsonFileTaskStore (Jules 12237721410778183159, task 14c220fc)
    ```
+   Then open PR (never direct to main).
 
 ### Code Changes
 - **Follow the full Branching Strategy** — see [docs/BRANCHING_STRATEGY.md](docs/BRANCHING_STRATEGY.md) (v1.0, task 62a84821 [CM-03]).
   - Canonical naming for agent/CM work: `agent/cm-xxx-description` (e.g. `agent/cm-03-branching-strategy-62a84821`) or `agent/<slug>`.
   - `bin/agent-worktree create <slug>` is the recommended way to get an isolated `agent/` branch + worktree.
-- Install the pre-commit hook in every fresh clone / worktree: `./bin/install-pre-commit`.
-- **Mandatory agent-review** for agent-generated changes before merge to `main` (run the `agent-review` skill on the diff and record the result).
-- Open a PR (from the short-lived branch) before merging to `main`. Never push directly.
-- Always link commits + PR to originating task ID(s) and/or Jules session (see traceability rules in the strategy doc).
+- **Pre-commit hook is MANDATORY (hard gate)**: Install in every fresh clone / worktree / branch before first commit: `./bin/install-pre-commit`. The hook blocks commits that fail secrets/size checks, Rust fmt+clippy (`-D warnings`), Python ruff+black, or **traceability**. Shellcheck on .sh files is advisory unless `PRECOMMIT_STRICT=1` (then becomes hard gate). Never bypass except in documented emergencies (see Bypass Policy below).
+- Always link commits + PR to originating task ID(s) and/or Jules session (see traceability rules in the strategy doc). This is **hard-enforced** by `bin/pre-commit` + `bin/validate-commit-msg` (pattern: `task <short-id>` or `Jules <full-session-id>`).
+- Open a PR (from the short-lived branch) before merging to `main`. Never push directly. All PRs must reference task/Jules ID (see PR template).
+
+**Bypass Policy (pre-commit)**:
+  - Bypasses exist **only** for true emergencies (e.g. recovering a broken main that prevents any commit, or one-off env where a tool is missing in a critical hotfix path).
+  - Preferred (granular):
+    - `PRECOMMIT_BYPASS_TRACE=1 git commit ...` — only skips the task/Jules ID check.
+    - `PRECOMMIT_STRICT=0 git commit ...` — run shellcheck (and future strict checks) in advisory mode.
+    - `PRECOMMIT_BYPASS_SHELLCHECK=1 ...` or `PRECOMMIT_BYPASS=1 ...` — skip shellcheck enforcement under STRICT.
+  - Ultimate hammer: `git commit --no-verify` (git-native, bypasses the entire hook).
+  - **Rule**: Every bypass **must** be followed by:
+    1. Immediate creation of a high-priority "post-bypass cleanup / investigation" task in the queue.
+    2. A short note in the commit body explaining the emergency.
+    3. Post-commit run of the skipped checks + fix in a follow-up commit (no --no-verify on the fix).
+  - Routine use of bypass (to "save time") is a policy violation and will be caught in agent-review.
+
+### Mandatory Post-Work Agent-Review Step (HARD REQUIREMENT, non-negotiable)
+**After completing ANY work** (code, docs, scripts, tasks — including this one), you **MUST** perform the agent-review step **before** marking the task ready, committing final changes for PR, or opening a PR:
+
+1. Ensure all local changes are complete and tests/lints pass locally.
+2. **OBLIGATORY invocation** (exact per task spec and AGENTS.md):
+   - Call the skill: `agent-review` (or `/agent-review --to-jules`, `/agent-review --agent jules`, or equivalent via the `agent-review` skill in `~/.grok/skills/agent-review/`).
+   - This packages the diff + full context into a portable handoff under `~/.grok/handoffs/<id>/` (with `diff.patch`, `context.md`, `metadata.json`, `REVIEW_INSTRUCTIONS.md`).
+   - It launches (or prepares for) an **independent** reviewer (Jules recommended, or another named Grok) running in a separate session/context with its own memory and the strict reviewer persona.
+3. Obtain the independent review. The reviewer produces a structured report (Summary + Issues: bugs/suggestions/nits with File:line).
+4. **Record the result** (fixed auditable artifact):
+   - Create or append to a handoff record (e.g. `docs/<SLUG>_AGENT_REVIEW_HANDOFF.md` modeled on `docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md` and `docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md`).
+   - Include: handoff ID + absolute path, reviewer identity, key findings (counts + excerpts), how issues were addressed (or why non-blocking), links to task/Jules.
+   - Reference this record + handoff dir in the commit message, PR description, and task result.
+5. **ONLY THEN**:
+   - Consider the task complete / ready for acceptance.
+   - Open the PR (from short-lived branch).
+   - Update the originating task in the queue with status, links to review artifacts, and result summary.
+
+**Examples of recorded mandatory steps**:
+- `docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md` (task bc6fa462)
+- `docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md`
+- `docs/A1_BRANCH_PROTECTION_RESEARCH_REPORT.md` (includes handoff 1f3ceb91)
+
+This is the **judgment layer** that replaces traditional "required GitHub approvals" (see Branch Protection A7 decision). It is mandatory for all agent-generated changes before merge to `main`. Skipping it violates AGENTS.md and blocks merge.
+
+Failure to follow this (or pre-commit/traceability) will cause the PR to be rejected during agent-review or CI gates.
 
 ## Multi-Account Strategy
 
@@ -77,15 +119,19 @@ jules remote list --session
 
 The `bin/` directory contains the core automation that makes the agent development loop fast and reliable:
 
-- **`bin/install-pre-commit`** — Installs the quality gate hook in one command:
+- **`bin/install-pre-commit`** — **MANDATORY** one-command installation of the hard quality+traceability gate hook:
   ```bash
   ./bin/install-pre-commit
   ```
-  This activates `bin/pre-commit`, which:
-  - Blocks accidental secrets (AWS keys, xAI tokens, Jules keys, etc.)
-  - Rejects huge files (>500KB)
-  - For Rust changes: runs `cargo fmt -- --check` + `cargo clippy --workspace -D warnings`
-  - For Python changes: runs `ruff check --fix` + `black --check`
+  Run this **immediately** on every fresh clone, worktree, or new branch before any `git commit`.
+  The hook (`bin/pre-commit`) is a **hard gate** (exits non-zero on failure):
+  - Blocks secrets and files >800KB
+  - Rust: `cargo fmt -- --check` + `cargo clippy --workspace -D warnings` (fail on warnings)
+  - Python: `ruff check --fix` + `black --check`
+  - **Shellcheck**: advisory by default on staged .sh files. Set `PRECOMMIT_STRICT=1` to make it a hard blocking gate (like Rust/Python).
+  - **Traceability (hard)**: requires Task ID or Jules session in commit message (via `bin/validate-commit-msg`, bypass only via `PRECOMMIT_BYPASS_TRACE=1` in true emergencies)
+  - Full env controls and bypass policy documented in `bin/pre-commit` header + `bin/install-pre-commit` output.
+  See also "Code Changes" and the agent-review section.
 
 - **`bin/jules-watch.sh`** — The "auto-accept" engine. Continuously watches for Jules sessions in Completed / Awaiting User state and creates ready-to-claim tasks in the local Task Queue (tagged `jules,auto-accept`). Designed for `--loop` or daemon use (systemd units exist in the repo).
   ```bash
