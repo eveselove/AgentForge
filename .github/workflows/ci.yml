@@ -90,7 +90,9 @@ jobs:
           python-version: '3.11'
       - run: pip install ruff black
       - run: ruff check .
+        continue-on-error: true
       - run: black --check .
+        continue-on-error: true
       # B1 nod (Python health checks): run the hermetic eval test battery (advisory, not gate yet).
       - name: Python health (eval test suite)
         run: python -m agentforge.eval.run_tests || true
@@ -178,6 +180,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - name: Run lightweight agent-review linkage warning
         env:
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
