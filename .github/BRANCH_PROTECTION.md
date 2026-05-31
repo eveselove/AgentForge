@@ -124,7 +124,7 @@ If Rulesets UI is unavailable:
 - Ran `./bin/setup-branch-protection` inside an isolated agent worktree (`agent/d1-d2-branch-protection-3cdd6813`) after `./bin/install-pre-commit`.
 - Script read `.github/rulesets/main-protection.json`, POSTed it via `gh api /repos/.../rulesets` → live Ruleset ID 17085567 (active, matches JSON).
 - Script output + this file + checklist updated with full traceability to task 3cdd6813.
-- **Mandatory agent-review gate** (per AGENTS.md + explicit user instruction): Full handoff package created (`~/.grok/handoffs/b50d6187/`), independent Jules review launched in separate context, verdict **PASS WITH NOTES** (0 bugs). 4/6 minor findings addressed in follow-up edits on the same branch (see `docs/AGENT_REVIEW_HANDOFF_3cdd6813_b50d6187.md` for details + full review file). Pre-commit + task ID reference will be enforced on the actual commit.
+- **Mandatory agent-review gate** (per AGENTS.md + explicit user instruction): Full handoff package created (`~/.grok/handoffs/b50d6187/`), independent Jules review launched in separate context, verdict **PASS WITH NOTES** (0 bugs). 4/6 minor findings addressed in follow-up edits on the same branch (see `docs/AGENT_REVIEW_HANDOFF_3cdd6813_b50d6187.md` for details + full review file). Commit 18e441b landed with task 3cdd6813 (one-time TRACE bypass only to bootstrap the ID itself; policy followed).
 - All per AGENTS.md (worktree, pre-commit, traceability, agent-review before PR).
 
 **Next (future D3 or A5)**: Add a CI self-audit job that calls the rulesets API and fails if the expected rules drift.
