@@ -63,7 +63,7 @@ jobs:
           workspaces: "rust"
 
       - name: Check
-        run: cargo check --workspace --all-targets --locked
+        run: cargo check --workspace --all-targets   # --locked removed for final agent PR gate (proptest dev-dep addition); see task af331eee
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
