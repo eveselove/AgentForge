@@ -1,139 +1,125 @@
-# Branching Strategy for Agent-Driven Development
+# AgentForge Branching Strategy
 
-**Status**: v1.0 — Authoritative (defined under task 62a84821 [CM-03])  
-**Date**: 2026-05-31  
-**Owner**: Current agent swarm (Grok 4.3 + parallel agents) — dogfooding
+**Status**: Official (v1.0)  
+**Last updated**: 2026-05-31  
+**Owner**: Current extreme agent wave + human coordinator  
+**Task**: CM-Phase2-01
 
-This is the official branching model for AgentForge. It enables safe, high-parallelism development by autonomous agents while keeping `main` clean and always green.
+This document defines how we manage Git branches in AgentForge — a project where the majority of coding work is done by autonomous agents (Grok, Jules, Antigravity, etc.).
 
-## Core Model: Trunk-Based + Short-Lived Agent Branches
+## Core Principles
 
-- `main` is the single source of truth and must remain in a deployable state (green CI, no obvious breakage).
-- **All changes to `main` happen exclusively through Pull Requests.** No direct pushes (enforced via GitHub branch protection when fully configured).
-- Both humans and agents use **short-lived branches** (hours to a few days max).
-- We optimize for extreme parallelism: dozens of agents (Grok, Jules x2 accounts, Gemini, etc.) working simultaneously via `bin/agent-worktree` isolation.
-- Recommended base model from the Code Management Plan: trunk-based development.
+1. **Trunk-based development** — `main` is the only long-lived branch.
+2. **High parallelism** — We deliberately optimize for many agents working simultaneously, even if it increases conflict risk.
+3. **Traceability** — Every change must be clearly linked to a Task ID and/or Jules Session ID.
+4. **Speed over perfect cleanliness** — We accept some messiness in exchange for agent velocity.
+5. **Enforcement through tools** — We use automation (pre-commit, CI, jules-watch, Guardian-like scripts) rather than just documentation.
 
-## Branch Naming Conventions
+## Branch Model
 
-Use the following prefixes. The `agent/cm-` pattern is the explicit recommendation from task 62a84821 for Code Management work and is the preferred form for most agent-driven changes.
+### Only `main` is protected
 
-| Prefix                    | Purpose / Who                          | Example                                           |
-|---------------------------|----------------------------------------|---------------------------------------------------|
-| `agent/cm-xxx-...`        | CM Phase 2/3 + general agent work (canonical for task-linked agent branches) | `agent/cm-03-branching-strategy-62a84821`        |
-| `agent/<slug>`            | Any agent-initiated work (auto-created by `bin/agent-worktree`) | `agent/fix-taskstore-atomic`, `agent/implement-xai-keys` |
-| `task/<id>-<slug>`        | Explicit link to internal task queue entry | `task/62a84821-branching-precommit`              |
-| `jules/<full-session-id>` | Work originating directly from a Jules session | `jules/12237721410778183159`                     |
-| `human/<name>/<topic>`    | Human exploratory/spike/debug work     | `human/agx/rust-migration-audit`                 |
-| `backup/...`              | Rare long-lived archival or rollback snapshots | `backup/pre-management-2026-05-31`               |
+- `main` — single source of truth. Always deployable.
+- All other branches are short-lived.
+- Direct pushes to `main` are forbidden (will be enforced via GitHub branch protection / rulesets once possible).
 
-**Slug guidelines**:
-- kebab-case, lowercase letters + digits + hyphens only
-- Max ~60 characters
-- Include the task ID (short form) whenever the work is task-driven for full traceability
-- `bin/agent-worktree create <raw-slug>` will auto-slugify and prefix with `agent/`
+### Recommended Branch Naming
 
-The task record for 62a84821 pre-suggested `git_branch: "agentforge/62a84821"`. In practice we normalize to the `agent/cm-...` or `agent/<slug>` forms above.
+| Prefix       | When to use                          | Example                              | Owner     |
+|--------------|--------------------------------------|--------------------------------------|-----------|
+| `agent/`     | Work started by any local agent      | `agent/grok/6f948c10-branching`     | Grok      |
+| `jules/`     | Work from a Jules session            | `jules/11158842600384206278`        | Jules     |
+| `task/`      | Work directly tied to a task queue ID| `task/1870c84c`                      | Any       |
+| `human/`     | Exploratory or complex human work    | `human/eveselove/fix-ci-flake`      | Human     |
+| `feat/`      | Standard feature branches            | `feat/add-jules-multi-account`      | Any       |
+| `fix/`       | Bug fixes                            | `fix/watcher-parsing`               | Any       |
 
-## Agent & Human Workflow (Standard Path)
+**Rule**: Always include a task ID or Jules session ID when possible.
 
-1. **Sync** — `git fetch && git checkout main && git pull --ff-only`
-2. **Create isolated workspace** (strongly preferred for agents):
-   ```bash
-   ./bin/agent-worktree create cm-03-branching-precommit-62a84821
-   cd /tmp/agentforge-work/cm-03-branching-precommit-62a84821
-   ```
-   Or manual branch:
-   ```bash
-   git checkout -b agent/cm-03-branching-strategy-62a84821
-   ```
-3. **Do the work** using the full AgentForge stack (`implement` skill, `agent-review`, etc.).
-4. **Quality gates before commit**:
-   - `./bin/install-pre-commit` (first time in this checkout)
-   - The hook runs automatically, or invoke checks manually:
-     - Rust: `cargo fmt -- --check && cargo clippy --workspace -- -D warnings`
-     - Python: `ruff check . && black --check .`
-5. **Commit** with explicit task/Jules traceability (see examples in AGENTS.md).
-6. **Push + PR early** (even for WIP — use draft PRs). Use `.github/PULL_REQUEST_TEMPLATE.md`.
-7. **Mandatory agent review** (see section below).
-8. CI must pass.
-9. Merge to `main` (prefer squash for agent PRs to keep history clean).
-10. Cleanup:
-    ```bash
-    ./bin/agent-worktree cleanup cm-03-branching-precommit-62a84821 --force
-    git branch -d agent/cm-03-... 2>/dev/null || true
-    ```
+## Workflow
 
-## Mandatory Agent Review Gate
+### 1. Starting Work
+- Pull latest `main`.
+- Create a short-lived branch following the naming convention.
+- If the work comes from the task queue, the branch name should contain the task ID.
 
-This is a Phase 2 requirement (see CM plan + task 62a84821 description):
+### 2. During Work
+- Commit frequently with clear messages that reference the task/Jules session.
+- Use the pre-commit hook (`bin/install-pre-commit`).
+- For Jules work: the session itself usually creates the branch on GitHub.
 
-- **Before any PR is eligible for merge to `main`, it must receive documented review from at least one autonomous agent.**
-  - Preferred: run the `agent-review` skill against the branch diff and post the output.
-  - Acceptable: Jules review session summary, detailed Grok/Gemini analysis recorded in PR comments.
-- The review must cover at least: correctness, no breakage to agent runtime/flywheel, adherence to style, test coverage where applicable.
-- Human merge approval is still possible, but agent review is the default and expected path for the majority of changes.
-- Record the review reference (session, log path, or skill output hash) in the PR description or a top-level comment.
+### 3. Finishing Work
+- Open a Pull Request to `main`.
+- **Mandatory**: Link the PR to at least one Task ID or Jules Session ID.
+- Run the new `jules-watch.sh` acceptance task (if it was a Jules session).
+- Get review (preferably via another agent using `agent-review` when possible).
+- Merge only after CI is green.
 
-This rule makes the development process itself self-reviewing and dogfooded.
+### 4. After Merge
+- Delete the branch immediately.
+- Update the task status in the queue (if applicable).
+- The `jules-watch.sh` will eventually mark the Jules session as accepted.
 
-**Exceptions**: Trivial doc fixes, `.md` only changes, or coordinator-declared emergencies. Still require a PR.
+## Handling Parallelism and Conflicts
 
-## Traceability Requirements
+We accept that multiple agents (especially multiple Jules sessions) will sometimes touch the same files.
 
-- Every commit message that represents real work **must** mention a task ID and/or Jules session ID.
-- Every PR **must** fill the "Related" section of the PR template (Task ID + Jules Session).
-- When `jules-watch.sh` creates an acceptance task, it should capture the branch name used by the Jules session.
-- The internal task record (`git_branch` field) should be kept up-to-date by launchers / agents.
+Current mitigation strategies:
 
-Example good commit:
+- **Task routing** — Try not to assign overlapping work to different agents at the same time.
+- **Small PRs** — Encourage agents to keep changes focused.
+- **Fast feedback** — CI + pre-commit should catch obvious problems quickly.
+- **Manual intervention** — When conflicts happen, a human (or a dedicated review agent) resolves them.
+
+Future improvements (Phase 3/4):
+- Better conflict prediction before dispatching tasks.
+- Semi-automatic conflict resolution agents.
+- More aggressive use of feature flags instead of long branches.
+
+## Enforcement
+
+| Level       | Mechanism                          | Status (2026-05-31) |
+|-------------|------------------------------------|---------------------|
+| Local       | `bin/pre-commit` hook              | Available           |
+| CI          | GitHub Actions (fmt, clippy, tests)| Basic version exists|
+| PR          | Mandatory linking + review         | PR template exists  |
+| Branch      | Protection on `main`               | Manual setup needed |
+| Process     | `jules-watch.sh` + task queue      | Running             |
+
+## Special Cases
+
+### Hotfixes
+Use `fix/` or `hotfix/` prefix. Can be merged faster, but still must go through a PR (no direct pushes).
+
+### Long-running experiments
+Avoid long-lived branches. Use feature flags or a separate `experiments/` namespace. Rebase frequently if you must keep a branch alive.
+
+### Jules-heavy periods
+When we run large parallel Jules waves (`launch-jules-parallel`), we expect more conflicts. This is acceptable. The priority is throughput, not zero conflicts.
+
+## Commit Message Guidelines
+
+Good example:
 ```
-docs: finalize branching strategy + pre-commit wiring (task 62a84821, CM-03)
+feat(branching): improve agent branch naming (task 6f948c10, jules/11158842600384206278)
 ```
 
-## Pre-Commit Integration (Quality Gate on Every Commit)
+Bad example:
+```
+update docs
+```
 
-See `bin/pre-commit` and `bin/install-pre-commit`.
+## Ownership & Updates
 
-All agent and human contributors **must** have the hook active in their working tree / worktrees.
+This document is owned by the current wave of agents working on Code Management Professionalization.
 
-The hook currently enforces:
-- No obvious secrets in staged files
-- No huge files (>500KB)
-- `cargo fmt` + `cargo clippy -D warnings` on any Rust change
-- `ruff` + `black --check` on any Python change
-
-Integration points (enforced via docs + future launcher updates):
-- `bin/agent-worktree` drops a note recommending hook installation.
-- AGENTS.md and CONTRIBUTING.md contain the one-liner install command.
-- New worktrees / fresh clones should run the installer as part of onboarding.
-
-Future improvements tracked under follow-on CM tasks (e.g. CM-Phase2-04 area).
-
-## Remote, Protection & CI
-
-- Primary: `origin` = git@github.com:eveselove/AgentForge.git (public repo)
-- See `.github/BRANCH_PROTECTION.md` for current recommended manual settings (require PR + status checks + up-to-date branches).
-- CI (`.github/workflows/ci.yml`) runs on every PR: Rust fmt/clippy, Python ruff/black, shellcheck.
-- Long-term: tighten protection + add required "agent-review" status when we have a bot/check-run bridge.
-
-## Updating This Strategy
-
-Branching rules changes are high-impact CM work. They must:
-- Be captured as a task in the queue (with `code-mgmt` tag)
-- Be developed on a short-lived `agent/cm-...` branch
-- Go through PR + mandatory agent-review
-- Update this file + AGENTS.md + CONTRIBUTING.md + PR template in one atomic change where possible
+Anyone (human or agent) may propose improvements via PR. Major changes should be discussed as a task in the queue first.
 
 ---
 
-**Philosophy**: The project that creates autonomous engineering agents must itself be developed with the same discipline, traceability, and agent-native processes.
+**Related documents**:
+- `CONTRIBUTING.md`
+- `AGENTS.md`
+- `AGENTFORGE_CODE_MANAGEMENT_PLAN.md` (Phase 2)
 
-**References**:
-- Task 62a84821 [CM-03]
-- AGENTFORGE_CODE_MANAGEMENT_PLAN.md (Phase 2)
-- AGENTS.md (Core Principles + Recommended Patterns)
-- CONTRIBUTING.md
-- bin/agent-worktree
-- .github/PULL_REQUEST_TEMPLATE.md
-- docs/REPO_STRUCTURE.md
+**Enforcement note**: This strategy is real. We will gradually add more automated checks to make it harder to violate.
