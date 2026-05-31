@@ -64,6 +64,12 @@ To keep history searchable and understandable for both humans and agents, all br
 | Branch    | Protection on `main`                      | Manual setup recommended (see `.github/BRANCHING_PROTECTION.md`) |
 | Process   | `jules-watch.sh` + task queue             | Running                          |
 
+## Agent-Specific Rules
+
+- **Worktree Isolation**: Agents **must** use `git worktree` (via `bin/agent-worktree` when available) to avoid file collisions when multiple agents run in parallel.
+- **Automatic Cleanup**: Execution runners (`agent-team`, `launch-jules-parallel`, custom scripts, etc.) are responsible for cleaning up their worktrees and local branches when a task completes or fails.
+- **Self-Verification**: For high-priority or complex tasks, agents should use the `--check` flag (or equivalent self-review mode) before marking the work ready for external review.
+
 ## Special Cases
 
 ### Hotfixes
@@ -72,10 +78,24 @@ Use `fix/` or `hotfix/` prefix. Still require a PR, but can be merged faster aft
 ### Long-running experiments
 Avoid long-lived branches. Prefer feature flags. If a long branch is unavoidable, it must be regularly rebased on `main`.
 
+## Emergency Procedures
+
+In case of critical failures on `main`:
+- Use existing rollback scripts such as `bin/disable_pure_rust_flywheel.sh` (or equivalent) as documented in `ANTIGRAVITY_DEFAULT.md`.
+- Prefer fast reverts over complex hotfixes when the fix would take more than ~15 minutes.
+- All fixes should still go through a (fast) PR process when possible.
+- High-priority "Fix the Build" tasks can be created in the task queue to coordinate recovery.
+
 ### High-volume Jules periods
 When running large parallel waves via `launch-jules-parallel`, we expect more conflicts and messier history. This is an accepted trade-off for speed.
 
 ## Commit & PR Message Guidelines
+
+**Mandatory linking** (enforced as much as possible):
+- Every commit **must** reference a Task ID or Jules Session ID.
+- Recommended formats:
+  - `type(scope): description (task <short-id>)`
+  - `type(scope): description (jules <session-id>)`
 
 Good examples:
 ```
@@ -83,7 +103,7 @@ feat(branching): improve agent branch naming (task 6f948c10, jules/1115884260038
 fix(jules): reduce precondition errors on parallel launches (task bcd05a4b)
 ```
 
-Every commit and PR should make it trivial to answer: "Why was this change made and by which task/session?"
+This makes history auditable and allows the system to automatically connect code changes to tasks and flywheel trajectories.
 
 ## Relationship to Other Documents
 
