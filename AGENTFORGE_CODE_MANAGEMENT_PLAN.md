@@ -65,15 +65,16 @@ AgentForge should be developed like a frontier agentic system:
 
 ### Phase 3 — CI/CD & Quality Gates
 
-- [x] GitHub Actions (or equivalent) for:
-  - Rust workspace check + clippy + fmt (`.github/workflows/ci.yml`)
-  - Python linting (ruff + black)
-  - Shellcheck on bin/
-- [ ] Full Rust workspace build + test (all crates) with caching
-- [ ] Python health + parity harness in CI
-- [ ] Automated release binary building for `agentforge-runner`
-- [ ] Shadow / fidelity checks on PRs (future)
-- [x] PULL_REQUEST_TEMPLATE.md created with task/Jules linking requirements
+- [x] GitHub Actions (or equivalent) for basic checks
+- [x] PULL_REQUEST_TEMPLATE.md created
+- **Now fully sliced** into ~17 small parallel tasks (see `docs/PHASE3_TASK_BREAKDOWN.md`):
+  - Rust CI hardening (full tests + caching)
+  - Python parity & health in CI (policy + integration)
+  - Automated release binary for `agentforge-runner`
+  - Shadow / fidelity foundations (Antigravity-led vision + Grok prototype)
+
+**Antigravity** owns the high-level policy and vision decisions.
+**Grok** owns implementation.
 
 ### Phase 4 — Self-Management (Dogfooding)
 
