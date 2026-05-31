@@ -1,0 +1,83 @@
+#!/bin/bash
+# setup-branch-protection — One-command (or near) setup for branch protection on AgentForge
+
+set -e
+
+REPO="eveselove/AgentForge"
+REQUIRED_CHECKS=("Rust (stable)" "Python" "Shell & Scripts")
+
+echo "🔐 Setting up branch protection for $REPO/main ..."
+
+# Check if gh is available and authenticated
+if ! command -v gh >/dev/null 2>&1; then
+    echo "❌ GitHub CLI (gh) is not installed."
+    exit 1
+fi
+
+if ! gh auth status >/dev/null 2>&1; then
+    echo "❌ Not logged in to GitHub CLI. Run: gh auth login"
+    exit 1
+fi
+
+echo "✅ gh is authenticated."
+
+# Note: Full automation via API often requires GitHub Pro/Enterprise for private repos
+# or the repo needs to be public. Since AgentForge is now public, this should work.
+
+echo ""
+echo "This script will attempt to configure branch protection with:"
+echo "  - Require pull request"
+echo "  - Require at least 1 approving review"
+echo "  - Dismiss stale reviews"
+echo "  - Require status checks: ${REQUIRED_CHECKS[*]}"
+echo ""
+
+read -p "Proceed with branch protection setup? (y/N) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborted."
+    exit 0
+fi
+
+# Using gh api to set branch protection (classic)
+# This may require owner permissions
+
+echo "Attempting to configure protection via GitHub API..."
+
+# This is a simplified version. Full control usually requires the web UI or advanced rulesets.
+gh api \
+  --method PUT \
+  -H "Accept: application/vnd.github+json" \
+  /repos/$REPO/branches/main/protection \
+  -f required_status_checks.strict=true \
+  -f enforce_admins=true \
+  -f required_pull_request_reviews.required_approving_review_count=1 \
+  -f required_pull_request_reviews.dismiss_stale_reviews=true \
+  -f required_pull_request_reviews.require_code_owner_review=false \
+  -f required_pull_request_reviews.required_review_thread_resolution=false \
+  -f restrictions.users[] \
+  -f restrictions.teams[] \
+  -f restrictions.apps[] \
+  -f allow_force_pushes=false \
+  -f allow_deletions=false 2>&1 || {
+    echo ""
+    echo "⚠️  API call failed or was partially applied."
+    echo "Most likely reasons:"
+    echo "  - You need GitHub Pro / Organization permissions"
+    echo "  - Better to configure manually via GitHub UI → Settings → Branches"
+    echo ""
+    echo "Recommended manual settings:"
+    echo "  - Require a pull request before merging"
+    echo "  - Require at least 1 approving review"
+    echo "  - Dismiss stale pull request approvals when new commits are pushed"
+    echo "  - Require status checks to pass before merging:"
+    for check in "${REQUIRED_CHECKS[@]}"; do
+        echo "      • $check"
+    done
+    echo "  - Require branches to be up to date before merging"
+    echo "  - Include administrators"
+    exit 1
+}
+
+echo "✅ Branch protection configuration attempted."
+echo "Please verify in GitHub UI that the rules were applied correctly."

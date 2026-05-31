@@ -94,8 +94,9 @@ AgentForge should be developed like a frontier agentic system:
    - [CM-Phase2-05] Integrate task system with Git (traceability) → task 3be670e1
    - [CM-Phase2-06] Make agent-review + implement the default path → task 285c1c6d
    - [CM-Phase2-07] Pre-commit / lint gates (work started with bin/pre-commit + install-pre-commit)
-7. **Now in full aggressive mode**: All available agents focused on closing the three remaining Phase 2 items at maximum speed.
-8. Current priority: Wire pre-commit into workflows/docs + implement mandatory task ID traceability in commits/PRs + establish agent-review as default path.
+7. **Now in full aggressive Phase 2 closure mode**: Multiple Grok agents launched on remaining items (pre-commit enforcement + task ID traceability + agent-review as default).
+8. Additional tooling created: bin/setup-agent-dev for fast onboarding.
+9. Goal: Close all remaining Phase 2 items within the current wave.
 
 ---
 
