@@ -4,12 +4,13 @@
 **Goal:** Bring the entire AgentForge codebase under proper, professional source control and project management, using AgentForge itself (dogfooding) in turbo mode with Jules + local agents.
 
 > **Current Status (updated live):**  
-> Standalone GitHub repo: https://github.com/eveselove/AgentForge (now public)  
+> **Phase 0 — Immediate Stabilization: ✅ COMPLETED**  
+> Standalone GitHub repo: https://github.com/eveselove/AgentForge (public)  
 > `main` branch initialized and pushed.  
-> CONTRIBUTING.md + AGENTS.md + CODEOWNERS + PR template added.  
+> CONTRIBUTING.md + AGENTS.md + CODEOWNERS + PR template + REPO_STRUCTURE.md + BRANCHING_STRATEGY.md added.  
 > Basic CI workflow in place.  
-> Branch protection: Manual setup recommended (see `.github/BRANCH_PROTECTION.md`).  
-> Extreme parallel agent execution + Jules automation active.
+> Branch protection: Manual setup recommended.  
+> Extreme parallel agent execution active (Jules currently paused).
 
 **Current Reality (as of this plan):**
 - Code lives only at `/home/agx/agentforge/`
@@ -43,7 +44,7 @@ AgentForge should be developed like a frontier agentic system:
 - [x] Create a clean backup branch of current dirty state (`backup/pre-management-2026-05-31`)
 - [x] Aggressive .gitignore improvements (pycache, logs, target/, *.bak.*, .pure* markers that shouldn't be committed, etc.)
 - [x] Commit a "pre-management baseline" so we have a clean starting point
-- [x] Document current repo structure (Rust workspace layout, Python package, services) — REPO_STRUCTURE.md created + AGENTS.md covers much of it
+- [x] Document current repo structure (Rust workspace layout, Python package, services) — `REPO_STRUCTURE.md` (v1.0) created and significantly improved
 
 ### Phase 1 — Remote & Hosting (Critical)
 
