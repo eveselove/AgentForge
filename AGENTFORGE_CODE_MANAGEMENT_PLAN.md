@@ -52,7 +52,7 @@ AgentForge should be developed like a frontier agentic system:
 - [x] Decide on hosting location (GitHub personal/org, self-hosted Gitea/Forgejo, or internal) → **GitHub (eveselove/AgentForge)**
 - [x] Initialize remote + first push (`main` branch pushed to https://github.com/eveselove/AgentForge)
 - [ ] Set up branch protection rules (require agent review for merges where possible) — **blocked on GitHub Pro for private repo**
-- [ ] Mirror strategy or single source of truth decision
+- [x] Mirror strategy or single source of truth decision — **COMPLETED** (P1 B1): short MIRROR_STRATEGY section added to docs/BRANCHING_STRATEGY.md v1.3 declaring https://github.com/eveselove/AgentForge as single source of truth. (tasks d68486fc, 5f018f81)
 - [x] Created basic CI workflow (`.github/workflows/ci.yml`)
 
 ### Phase 2 — Development Workflow (Turbo with Agents)
@@ -158,7 +158,7 @@ Both reviews are now formally closed in the repository history.
 
 **Current live % (updated by wave + direct execution)**:
 - P0: 100%
-- P1: 92% (mirror SSoT declared in CONTRIBUTING, branch protection script+docs polished, 10+ agents on final items)
+- P1: 93% (MIRROR_STRATEGY section added to BRANCHING_STRATEGY.md v1.3 declaring eveselove/AgentForge SSoT — B1 closed; remaining: branch protection application + polish)
 - P2: 82% (hard traceability in pre-commit + CI PR gate + validate script + .gitmessage + 10 agents on review default + pre-commit)
 - P3: 55% (release.yml created, CI traceability job added, 10 agents + direct work on Rust/release/Python parity)
 - P4: 20% (4 real dogfood tasks created in queue during wave: b8c38c09, c517baad, f8684252, 562a5eaf — closure work now feeds the system)

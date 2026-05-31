@@ -1,8 +1,8 @@
 # AgentForge Branching Strategy
 
 **Status**: Official  
-**Version**: 1.2  
-**Last updated**: 2026-06 (A2 + A7 Level M2 decision integrated, docs/BRANCH_PROTECTION_A7_DECISION.md created, consistency fixes)  
+**Version**: 1.3  
+**Last updated**: 2026-06 (added MIRROR_STRATEGY section for P1 B1 closure; GitHub eveselove/AgentForge declared single source of truth)  
 **Owner**: AgentForge Core Team (current extreme wave)
 
 This document defines the official branching model for AgentForge. As a self-improving agentic system, our workflow is designed to maximize parallel development by both humans and autonomous agents while keeping history clean and traceable.
@@ -15,6 +15,16 @@ AgentForge follows a **Trunk-Based Development** model optimized for high agent 
 - All changes are introduced through short-lived branches + Pull Requests.
 - Direct pushes to `main` are strictly prohibited (enforced via branch protection when possible).
 - We deliberately accept a higher rate of conflicts in exchange for speed and parallelism.
+
+## MIRROR_STRATEGY
+
+**Single source of truth**: https://github.com/eveselove/AgentForge (public)
+
+This GitHub repository is the **canonical** and only authoritative source for the entire AgentForge codebase, Git history, issues, PRs, CI runs, releases, and official artifacts.
+
+- All agent and human development clones from and submits PRs exclusively to this origin.
+- Local clones, worktrees (`bin/agent-worktree`), and any optional future read-only mirrors or git bundles are strictly secondary and must never be treated as authoritative for merges, releases, or traceability.
+- This decision (P1 B1 / CM-Phase1-04/09/10) was recorded during the "да зыкываем все фазы" extreme closure wave. See also CONTRIBUTING.md (Source of Truth & Mirrors) and AGENTFORGE_CODE_MANAGEMENT_PLAN.md.
 
 ## Branch Naming Conventions
 

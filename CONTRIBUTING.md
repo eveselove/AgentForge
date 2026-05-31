@@ -30,15 +30,17 @@ See `AGENTS.md` → "Automation Tools (`bin/`)" for full details on `jules-watch
 
 ## Source of Truth & Mirrors (Phase 1 closure)
 
+**MIRROR_STRATEGY** (official): see the dedicated section in `docs/BRANCHING_STRATEGY.md` (v1.3).
+
 **Single source of truth**: https://github.com/eveselove/AgentForge (public)
 
-All official development, CI, releases, and history live here.
+All official development, CI, releases, and history live exclusively here.
 
-- Optional read-only mirrors or git bundles may be maintained for disaster recovery / air-gapped farms in the future (see Phase 4).
+- Optional read-only mirrors or git bundles may be maintained for disaster recovery / air-gapped farms in the future (see Phase 4 / B2).
 - Never treat a fork or local clone as the canonical source for PRs or releases.
-- This decision was recorded during the "да зыкываем все фазы" closure wave (P1 B1, Antigravity policy).
+- This decision (P1 B1) was recorded during the "да зыкываем все фазы" closure wave (Antigravity policy, tasks d68486fc / 5f018f81).
 
-For the full branching + traceability rules see `docs/BRANCHING_STRATEGY.md`.
+For full branching + traceability rules see `docs/BRANCHING_STRATEGY.md`.
 
 ## Development Workflow
 
