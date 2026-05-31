@@ -1,40 +1,78 @@
 #!/bin/bash
-# Simple but effective pre-commit hook for AgentForge
-# Install: cp bin/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# AgentForge pre-commit hook — fast local quality gate
+# Install: ./bin/install-pre-commit
+# (or manually: cp bin/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit)
 
 set -e
 
 echo "🔍 AgentForge pre-commit checks..."
 
-# Block obvious secrets
-if git diff --cached --name-only -z | xargs -0 grep -l -E '(AKIA[0-9A-Z]{16}|xai-[a-zA-Z0-9]{20,}|AQ\.Ab8RN)' 2>/dev/null; then
-    echo "❌ Possible secret found in staged files. Aborting."
-    exit 1
-fi
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
 
-# Block huge files
-if git diff --cached --name-only | while read f; do
-    if [ -f "$f" ] && [ $(stat -c%s "$f" 2>/dev/null || echo 0) -gt 500000 ]; then
-        echo "❌ File too large: $f"
+# 1. Block obvious secrets in staged content
+if echo "$STAGED" | grep -q .; then
+    if git diff --cached --name-only -z | xargs -0 grep -l -E \
+        '(AKIA[0-9A-Z]{16}|xai-[a-zA-Z0-9]{20,}|AQ\.Ab8RN|sk-[a-zA-Z0-9]{32,}|ghp_[a-zA-Z0-9]{30,})' 2>/dev/null; then
+        echo "❌ Possible secret/credential found in staged files. Aborting commit."
+        echo "   Review the files and remove secrets before committing."
         exit 1
     fi
-done; then :; fi
-
-# Rust checks (only if Rust files changed)
-if git diff --cached --name-only | grep -q '\.rs$'; then
-    echo "→ Running cargo fmt check..."
-    cargo fmt -- --check || (echo "❌ Run 'cargo fmt' first"; exit 1)
-    
-    echo "→ Running cargo clippy..."
-    cargo clippy --workspace -- -D warnings || exit 1
 fi
 
-# Python checks
-if git diff --cached --name-only | grep -qE '\.py$'; then
-    echo "→ Running ruff..."
-    ruff check . --fix || true
-    echo "→ Running black check..."
-    black --check . || (echo "❌ Run 'black .' first"; exit 1)
+# 2. Block huge files (>500KB) among staged
+huge_blocked=0
+for f in $STAGED; do
+    if [ -n "$f" ] && [ -f "$f" ]; then
+        size=$(stat -c%s "$f" 2>/dev/null || echo 0)
+        if [ "$size" -gt 500000 ]; then
+            echo "❌ File too large (>500KB): $f ($((size/1024))KB)"
+            echo "   Large files should not be committed. Use Git LFS or exclude."
+            huge_blocked=1
+        fi
+    fi
+done
+[ "$huge_blocked" -eq 0 ] || exit 1
+
+# 3. Rust checks (only on staged .rs files)
+if echo "$STAGED" | grep -q '\.rs$'; then
+    echo "→ Rust changes detected — running fmt + clippy..."
+    cargo fmt -- --check || {
+        echo "❌ cargo fmt -- --check failed. Run 'cargo fmt' and re-stage."
+        exit 1
+    }
+    # Clippy only on workspace; keep fast by not restricting to package unless needed
+    cargo clippy --workspace -- -D warnings || {
+        echo "❌ cargo clippy failed with warnings treated as errors."
+        exit 1
+    }
 fi
 
-echo "✅ Pre-commit checks passed"
+# 4. Python checks (only on staged .py files when possible)
+PY_STAGED=$(echo "$STAGED" | grep -E '\.py$' || true)
+if [ -n "$PY_STAGED" ]; then
+    echo "→ Python changes detected — running ruff + black checks..."
+    # Run on specific files for speed + correctness (no auto-fix that touches unstaged files)
+    # shellcheck disable=SC2086
+    ruff check $PY_STAGED || {
+        echo "❌ ruff check failed on staged Python files. Fix issues (or run 'ruff check --fix' then re-stage)."
+        exit 1
+    }
+    # shellcheck disable=SC2086
+    black --check $PY_STAGED || {
+        echo "❌ black --check failed. Run 'black <files>' and re-stage the formatted versions."
+        exit 1
+    }
+fi
+
+# 5. Optional: shellcheck on staged shell scripts (if shellcheck is installed)
+SH_STAGED=$(echo "$STAGED" | grep -E '\.sh$' || true)
+if [ -n "$SH_STAGED" ] && command -v shellcheck >/dev/null 2>&1; then
+    echo "→ Shell scripts changed — running shellcheck..."
+    # shellcheck disable=SC2086
+    shellcheck -x $SH_STAGED || {
+        echo "⚠️  shellcheck warnings (non-fatal for now). Consider fixing before push."
+        # Not fatal yet — many scripts are intentionally complex.
+    }
+fi
+
+echo "✅ Pre-commit checks passed (staged files only where applicable)"

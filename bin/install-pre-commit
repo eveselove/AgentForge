@@ -1,5 +1,9 @@
 #!/bin/bash
-# One-command installation of the project pre-commit hook
+# One-command installation (and management) of the AgentForge pre-commit hook.
+# Usage:
+#   ./bin/install-pre-commit          # install / update
+#   ./bin/install-pre-commit --force  # overwrite even if different hook exists
+#   ./bin/install-pre-commit --uninstall
 
 set -e
 
@@ -8,12 +12,58 @@ HOOK_SOURCE="$REPO_ROOT/bin/pre-commit"
 HOOK_DEST="$REPO_ROOT/.git/hooks/pre-commit"
 
 if [ ! -f "$HOOK_SOURCE" ]; then
-    echo "Error: bin/pre-commit not found"
+    echo "❌ Error: $HOOK_SOURCE not found"
     exit 1
+fi
+
+case "${1:-}" in
+    --uninstall|-u)
+        if [ -f "$HOOK_DEST" ]; then
+            rm -f "$HOOK_DEST"
+            echo "✅ Pre-commit hook removed from .git/hooks/"
+        else
+            echo "ℹ️  No pre-commit hook present at $HOOK_DEST"
+        fi
+        exit 0
+        ;;
+    --force|-f)
+        FORCE=1
+        ;;
+    "")
+        FORCE=0
+        ;;
+    *)
+        echo "Usage: $0 [--force|-f] [--uninstall|-u]"
+        exit 1
+        ;;
+esac
+
+if [ -f "$HOOK_DEST" ]; then
+    if cmp -s "$HOOK_SOURCE" "$HOOK_DEST"; then
+        echo "✅ Pre-commit hook is already installed and up to date."
+        exit 0
+    fi
+    if [ "$FORCE" -eq 0 ]; then
+        echo "⚠️  A different pre-commit hook already exists at $HOOK_DEST"
+        echo "   Backup it manually or re-run with --force to overwrite."
+        echo "   Current hook size: $(wc -c < "$HOOK_DEST") bytes"
+        exit 1
+    fi
+    BACKUP="${HOOK_DEST}.bak.$(date +%Y%m%d_%H%M%S)"
+    cp "$HOOK_DEST" "$BACKUP"
+    echo "📦 Backed up existing hook → $BACKUP"
 fi
 
 cp "$HOOK_SOURCE" "$HOOK_DEST"
 chmod +x "$HOOK_DEST"
 
-echo "✅ Pre-commit hook installed successfully"
-echo "Hook will now run on every commit."
+echo "✅ AgentForge pre-commit hook installed / updated successfully."
+echo ""
+echo "   Hook location : $HOOK_DEST"
+echo "   Source        : $HOOK_SOURCE"
+echo ""
+echo "   The hook will now run automatically on 'git commit'."
+echo "   It enforces secrets check, file size limits, cargo fmt/clippy, ruff/black, (optional) shellcheck."
+echo ""
+echo "   To bypass for a single commit (emergency only): git commit --no-verify"
+echo "   To remove: ./bin/install-pre-commit --uninstall"
