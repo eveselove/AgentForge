@@ -38,3 +38,12 @@ Run in "maximum aggression" mode until the remaining clusters are cleared.
 - Still pushing micro-task volume + direct execution.
 
 Keep launching until the 7 core Wave 2 tasks + 8 micros show major progress.
+
+**Massive additional launch (user request "еще добавляй")**:
+- +5 new micro-tasks injected (22ee8a61, 5e7e9500, 2cfc8f2a, 0be86a20, 85f9df5c)
+- +10 more agents launched (A1-1751 to A10-1751)
+- Current total: 107+ agent windows in the session
+- All core Wave 2 items + every micro-task now have heavy dedicated coverage
+- Agents instructed to self-generate follow-up micro-tasks
+
+This is near-maximum practical parallelism for the current setup.
