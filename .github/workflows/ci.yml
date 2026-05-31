@@ -22,6 +22,12 @@ on:
 # - Artifacts: PARITY_REPORT + any fidelity JSONs for agent consumption (B4).
 # - Also lightly covers B1 "Python health checks" via eval test suite (advisory step).
 # Traceability: task e6709411, AGENTS.md (worktree, pre-commit, mandatory agent-review before PR).
+#
+# PHASE2 A3 (task 3bb7b46d): Added simple "traceability" job (runs on pull_request only).
+# Fails the PR if neither title nor body contains a Task ID (e.g. "task 3bb7b46d", "task c517baad")
+# or Jules session reference (e.g. "Jules 12237721410778183159"). Regex kept in sync with
+# bin/validate-commit-msg. Enforces the mandatory traceability rule from docs/BRANCHING_STRATEGY.md
+# and AGENTS.md at the CI layer (complements local pre-commit).
 
 env:
   CARGO_TERM_COLOR: always
