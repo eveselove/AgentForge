@@ -129,3 +129,4 @@ learning/flywheel_parity/fixtures/large/
 .env.xai
 .env.xai.*
 !.env.xai.example
+node_modules/

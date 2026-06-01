@@ -42,12 +42,42 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Using gh api to set branch protection (classic)
-# This may require owner permissions
+# Preferred: Repository Ruleset (A4 / D1+D2 task 3cdd6813, per A7 + A2)
+# Classic branch protection kept as legacy fallback only.
+RULESET_FILE=".github/rulesets/main-protection.json"
+RULESET_NAME="main-branch-protection (A2/A7 Level M2)"
 
-echo "Attempting to configure protection via GitHub API..."
+echo "Attempting preferred Ruleset configuration (A2/A7, task 3cdd6813)..."
 
-# This is a simplified version. Full control usually requires the web UI or advanced rulesets.
+if [ -f "$RULESET_FILE" ]; then
+    echo "Found $RULESET_FILE — posting to /rulesets API (enforcement=active; evaluate requires Enterprise plan, see A1 research)..."
+    if gh api --method POST \
+        -H "Accept: application/vnd.github+json" \
+        /repos/$REPO/rulesets \
+        --input "$RULESET_FILE" 2>&1; then
+        echo ""
+        echo "✅ Ruleset '$RULESET_NAME' created successfully in ACTIVE mode."
+        echo "   This fulfills D2 (task 3cdd6813)."
+        echo "   - Inspect: Settings → Rules → Rulesets (or via gh api)"
+        echo "   - Note: On Free personal accounts, 'Evaluate' mode is not available (Enterprise only per A1). Active is the only enforceable option."
+        echo "   - Soak by watching recent PRs; the rules are the minimal safe set (0 approvals, only core Rust+Python gates)."
+        echo "   - Authoritative JSON stored at $RULESET_FILE (committed for reproducibility)."
+        echo "   - Update .github/BRANCH_PROTECTION.md with Applied status (this script run)."
+        exit 0
+    else
+        echo ""
+        echo "⚠️  Ruleset POST failed (may already exist under same name, or other error)."
+        echo "   Common: duplicate name → delete old ruleset in UI first, or use UI steps below."
+        echo "   Falling back to legacy classic protection API..."
+    fi
+else
+    echo "No $RULESET_FILE found in checkout — skipping Ruleset API path. (Commit the JSON for full automation.)"
+fi
+
+# Legacy classic branch protection (still works on Free public; 0 approvals per A7)
+echo ""
+echo "Attempting legacy classic branch protection via GitHub API (0 approvals)..."
+
 gh api \
   --method PUT \
   -H "Accept: application/vnd.github+json" \
@@ -64,25 +94,22 @@ gh api \
   -f allow_force_pushes=false \
   -f allow_deletions=false 2>&1 || {
     echo ""
-    echo "⚠️  API call failed or was partially applied."
-    echo "Most likely reasons:"
-    echo "  - You need GitHub Pro / Organization permissions"
-    echo "  - Better to configure manually via GitHub UI → Settings → Branches"
+    echo "⚠️  Both Ruleset and classic API attempts failed or were partial."
+    echo "   Recommended: use the exact GitHub UI steps documented in .github/BRANCH_PROTECTION.md (D1)."
     echo ""
-    echo "Recommended manual settings (A2 smallest + A7 Level M2):"
-    echo "  - Require a pull request before merging (0 approvals — see docs/BRANCH_PROTECTION_A7_DECISION.md)"
-    echo "  - Require status checks to pass before merging (strict):"
-    for check in "${REQUIRED_CHECKS[@]}"; do
-        echo "      • $check"
-    done
-    echo "  - Require branches to be up to date before merging"
-    echo "  - Require conversation resolution"
-    echo "  - Do not allow bypassing (include admins)"
-    echo "  - Block force pushes and deletions"
-    echo "  Prefer Ruleset (evaluate mode) — see .github/BRANCH_PROTECTION.md"
+    echo "Manual settings summary (A2 smallest effective + A7 Level M2, 0 GitHub approvals):"
+    echo "  - Require a pull request before merging"
+    echo "  - Required approving reviews: 0"
+    echo "  - Require status checks (strict, up-to-date): ${REQUIRED_CHECKS[*]}"
+    echo "  - Require branches to be up to date before merging: yes"
+    echo "  - Require conversation resolution before merging: yes"
+    echo "  - Do not allow bypassing for administrators: yes (empty bypass list for ruleset)"
+    echo "  - Block force pushes + block deletions: yes"
+    echo ""
+    echo "See .github/BRANCH_PROTECTION.md for the full numbered click-by-click guide (with screenshot placeholders)."
     exit 1
 }
 
-echo "✅ Branch protection configuration attempted (legacy classic path with 0 approvals per A7)."
-echo "Strongly prefer creating a Ruleset via UI (Evaluate mode) per docs/BRANCH_PROTECTION_A7_DECISION.md for A4."
-echo "Please verify in GitHub UI that the rules were applied correctly and update .github/BRANCH_PROTECTION.md status."
+echo "✅ Legacy classic protection applied (0 approvals)."
+echo "   Strongly prefer migrating to Ruleset for future (see .github/rulesets/ and UI steps in BRANCH_PROTECTION.md)."
+echo "   Verify + update .github/BRANCH_PROTECTION.md (task 3cdd6813)."
