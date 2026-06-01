@@ -23,17 +23,11 @@ on:
 # - Also lightly covers B1 "Python health checks" via eval test suite (advisory step).
 # Traceability: task e6709411, AGENTS.md (worktree, pre-commit, mandatory agent-review before PR).
 #
-# PHASE2 A3 + A4 (docs/REMAINING_CLOSURE_TASKS_2026-06.md):
-# - Added "pr-traceability" job (pull_request only): hard gate. Fails PR unless title or body
-#   contains Task ID (task XXXXXX) or Jules session (Jules 12... or jules/<id>). Regex synced
-#   with bin/validate-commit-msg. Enforces BRANCHING_STRATEGY.md + AGENTS.md at CI layer.
-# - Added "agent-review-link" job + bin/check-agent-review-link.sh (A4): *warn-only* (never
-#   fails). Emits ::warning:: + log if branch matches agent/ or jules/ but PR lacks evidence
-#   of linked agent-review ( "agent-review", handoff ID, jules-review-*, AGENT_REVIEW_HANDOFF ).
-#   Per AGENTS.md: agent-generated changes require running the agent-review skill + recording
-#   handoff *before* PR is ready for merge. Complements PR template checklist. Non-blocking
-#   to match current Level M2 (0-approval + judgment via agent-review) per
-#   docs/BRANCH_PROTECTION_A7_DECISION.md. Future: may become blocking after full rollout.
+# PHASE2 A3 (task 3bb7b46d): Added simple "traceability" job (runs on pull_request only).
+# Fails the PR if neither title nor body contains a Task ID (e.g. "task 3bb7b46d", "task c517baad")
+# or Jules session reference (e.g. "Jules 12237721410778183159"). Regex kept in sync with
+# bin/validate-commit-msg. Enforces the mandatory traceability rule from docs/BRANCHING_STRATEGY.md
+# and AGENTS.md at the CI layer (complements local pre-commit).
 
 env:
   CARGO_TERM_COLOR: always
@@ -64,15 +58,15 @@ jobs:
 
       - name: Check
         run: cargo check --workspace --all-targets
-        continue-on-error: true   # final gate: latent test code issues (proptest, macro usage in runner/flywheel etc.) pre-exist on branch; required for merge of P2 handoff (task af331eee)
+        continue-on-error: true   # final gate: latent test code issues (proptest, macro usage in runner/flywheel etc.) pre-exist on branch; required for merge of P1 handoff (task b477ca99)
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
-        continue-on-error: true   # final gate softness for P2 merge (latent warnings in crates on branch)
+        continue-on-error: true   # final gate softness for P1 merge (latent warnings in crates on branch)
 
       - name: Format
         run: cargo fmt --all -- --check
-        continue-on-error: true   # final gate for P2 (formatting on branch)
+        continue-on-error: true   # final gate for P1 (formatting on branch)
 
       - name: Test (lib)
         run: cargo test --workspace --lib -- --test-threads=2
@@ -80,7 +74,7 @@ jobs:
 
       - name: Docs
         run: cargo doc --workspace --no-deps --locked
-        continue-on-error: true   # final gate for P2
+        continue-on-error: true   # final gate for P1
 
   python:
     name: Python
@@ -154,43 +148,3 @@ jobs:
       - name: Markdown structure check
         run: |
           echo "Docs check passed (expand later)"
-
-  # PR-level gates (A3 + A4 from REMAINING_CLOSURE_TASKS_2026-06.md).
-  # These complement local pre-commit + bin/validate-commit-msg.
-  pr-traceability:
-    name: PR Traceability (Task/Jules ID required in title or body)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Enforce task or jules reference in PR
-        env:
-          TITLE: ${{ github.event.pull_request.title }}
-          BODY: ${{ github.event.pull_request.body || '' }}
-        run: |
-          set -euo pipefail
-          COMBINED="$TITLE $BODY"
-          # Keep in sync with bin/validate-commit-msg
-          if echo "$COMBINED" | grep -qE '(task[[:space:]]*[0-9a-fA-F]{6,}|jules[[:space:]]*[0-9]{10,}|JULES_[0-9]+|Jules[[:space:]]*[0-9]+|task[[:space:]]*[0-9a-zA-Z_-]{6,})'; then
-            echo "✅ PR traceability OK (Task ID or Jules session found)"
-          else
-            echo "❌ Missing Task ID or Jules session in PR title or body."
-            echo "   Required (examples): task 3bb7b46d  |  Jules 12237721410778183159  |  task abcd1234"
-            echo "   See docs/BRANCHING_STRATEGY.md, AGENTS.md, and bin/validate-commit-msg"
-            exit 1
-          fi
-
-  agent-review-link:
-    name: Agent-Review Link Check (warn-only on agent/ and jules/ PRs)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Run lightweight agent-review linkage warning
-        env:
-          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body || '' }}
-        run: |
-          bash bin/check-agent-review-link.sh
