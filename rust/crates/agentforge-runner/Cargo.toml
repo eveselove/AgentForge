@@ -26,6 +26,10 @@ uuid = { workspace = true }
 [dev-dependencies]
 proptest = "1"
 
+[features]
+default = []
+lancedb = ["agentforge-core/lancedb"]  # Enables LanceDB-backed task storage (pulls lancedb 0.4 directly)
+
 [[example]]
 name = "phase2_3_vision"
 path = "examples/phase2_3_vision.rs"

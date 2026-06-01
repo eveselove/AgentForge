@@ -78,6 +78,15 @@ if ! git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" -b "agentforge/$TASK_ID"
   git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" "agentforge/$TASK_ID" 2>/dev/null || true
 fi
 cd "$WORKTREE_DIR" 2>/dev/null || cd "$PROJECT_DIR"
+# === КРИТИЧНО: Инициализация git submodules в worktree ===
+# chromimic — submodule, без которого cargo build/check/test невозможен
+# git worktree add НЕ checkout'ит submodule автоматически
+if [ -d "$WORKTREE_DIR" ]; then
+    git -C "$WORKTREE_DIR" submodule update --init --recursive 2>/dev/null || {
+        echo "[AgentForge] ⚠️ submodule init failed, пробуем symlink chromimic..." | tee -a $LOG_DIR/grok_$TASK_ID.log
+        ln -sfn "$PROJECT_DIR/chromimic" "$WORKTREE_DIR/chromimic" 2>/dev/null || true
+    }
+fi
 
 log_event "worktree_created" "{\"path\":\"$WORKTREE_DIR\"}" 2>/dev/null || true
 
@@ -648,7 +657,8 @@ fi
 # Если задача завершена успешно, сохраняем её в векторную память LanceDB
 if [ "$FINAL_STATUS" = "review" ]; then
     echo "[AgentForge Guardian] Авто-проверка задачи $TASK_ID..." | tee -a $LOG_DIR/grok_$TASK_ID.log
-    curl -s -X POST "http://localhost:8080/tasks/$TASK_ID/review" &
+    # Fix: убран & (фоновый режим) + добавлен retry, чтобы Guardian не терялся
+    curl -s --retry 3 --retry-delay 2 --max-time 10 -X POST "http://localhost:8080/tasks/$TASK_ID/review"
     echo "[AgentForge Memory] Сохраняем задачу в векторную память..." | tee -a $LOG_DIR/grok_$TASK_ID.log
     python3 /home/agx/agentforge/memory_helper.py save "$TASK_ID" >> $LOG_DIR/grok_$TASK_ID.log 2>&1
 fi

@@ -8,3 +8,12 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
+async-trait = { workspace = true }
+
+# LanceDB is optional because of heavy transitive dependencies (lance + AWS stuff)
+# that often cause resolution problems with certain crates.io mirrors.
+# Enable with: cargo build -p agentforge-core --features lancedb
+lancedb = { version = "0.4", optional = true }
+
+[features]
+lancedb = ["dep:lancedb"]  # Enables LanceDB-backed TaskStore

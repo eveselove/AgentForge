@@ -7,7 +7,9 @@ As of 2026-05-31 we are executing a full migration to Rust-only operation.
 The long-term goal is to have `agentforge-runner` (or a small set of Rust services)
 handle task ingestion, dispatching, and the full agent conveyor.
 
-See: RUST_ONLY_MIGRATION_PLAN.md
+See:
+- RUST_ONLY_MIGRATION_PLAN.md
+- docs/LANCE_TASK_STORE_MIGRATION_PLAN.md (we are replacing SQLite task storage with LanceDB)
 
 This Python implementation is kept temporarily for compatibility during the transition.
 New development should target the Rust side.
@@ -107,9 +109,6 @@ class TaskUpdate(BaseModel):
     retry_count: Optional[int] = None
     tokens_used: Optional[int] = None
     cost_usd: Optional[float] = None
-    retry_count: Optional[int] = 0
-    tokens_used: Optional[int] = 0
-    cost_usd: Optional[float] = 0.0
 
 class TaskResponse(BaseModel):
     """Модель ответа с данными задачи"""
@@ -173,6 +172,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# === Простая Bearer Token авторизация ===
+# Токен из переменной окружения AGENTFORGE_API_KEY
+# Если не задан — авторизация отключена (для обратной совместимости)
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+AGENTFORGE_API_KEY = os.environ.get("AGENTFORGE_API_KEY", "")
+
+class SimpleAuthMiddleware(BaseHTTPMiddleware):
+    """Простая проверка Bearer токена. Пропускает /health и /dashboard."""
+    async def dispatch(self, request, call_next):
+        # Авторизация отключена если ключ не задан
+        if not AGENTFORGE_API_KEY:
+            return await call_next(request)
+        # Пропускаем health и dashboard без авторизации
+        path = request.url.path
+        if path in ("/health", "/dashboard", "/docs", "/openapi.json") or path.startswith("/ws"):
+            return await call_next(request)
+        # Проверяем Authorization header
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header == f"Bearer {AGENTFORGE_API_KEY}":
+            return await call_next(request)
+        # Также проверяем query param ?api_key= (для curl удобства)
+        if request.query_params.get("api_key") == AGENTFORGE_API_KEY:
+            return await call_next(request)
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized. Set Authorization: Bearer <key>"})
+
+app.add_middleware(SimpleAuthMiddleware)
+if AGENTFORGE_API_KEY:
+    print(f"[AgentForge] 🔒 API auth ENABLED (key length: {len(AGENTFORGE_API_KEY)})")
+else:
+    print("[AgentForge] ⚠️ API auth DISABLED (set AGENTFORGE_API_KEY to enable)")
+
 
 # === WebSocket: менеджер подключений для real-time логов ===
 
@@ -1785,7 +1818,9 @@ async def guardian_review(task_id: str):
         
         # Проверка 2: CI не провалился
         result = task.get("result") or ""
-        if "fail" in result.lower() or "❌" in result:
+        # Fix: точные маркеры CI провала вместо простого "fail" (ложные срабатывания на pass/fail и т.п.)
+        ci_fail_markers = ["ci failed", "ci: failed", "build failed", "test failed", "pytest_fail", "cargo_fail", "clippy_fail", "compile_fail"]
+        if any(m in result.lower() for m in ci_fail_markers) or "❌" in result:
             issues.append(f"CI провалился: {result}")
         
         # Проверка 3: Статус должен быть review

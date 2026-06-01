@@ -372,6 +372,34 @@ def _flywheel_health_report():
         pass
 
 
+# === Auto-review sweep (подбирает задачи, застрявшие в review) ===
+_review_cycle_counter = 0
+
+def auto_review_stale():
+    """Подбирает задачи застрявшие в review."""
+    global _review_cycle_counter
+    _review_cycle_counter += 1
+    # Запускаем раз в 6 циклов (~60 сек при POLL_INTERVAL=10)
+    if _review_cycle_counter % 6 != 0:
+        return
+    try:
+        data = json.dumps({}).encode()
+        req = urllib.request.Request(
+            f"{API_BASE}/review/all",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read().decode())
+            reviewed = result.get("reviewed", 0)
+            if reviewed > 0:
+                approved = sum(1 for r in result.get("results", []) if r.get("verdict") == "approved")
+                log(f"🛡️ Auto-review sweep: {reviewed} задач проверено, {approved} одобрено")
+    except Exception as e:
+        log(f"⚠️ Auto-review sweep failed: {e}")
+
+
 def main():
     log("🚀 Запуск AgentForge Watchdog + Guardian (с учётом новой маршрутизации 2026-06)")
     while True:
@@ -395,6 +423,9 @@ def main():
                         
             # 2. Самоисцеление (Guardian)
             guardian_loop()
+
+            # 3. Подбор застрявших review-задач (sweep каждые ~60 сек)
+            auto_review_stale()
             
         except Exception as e:
             log(f"⚠️ Глобальная ошибка: {e}")

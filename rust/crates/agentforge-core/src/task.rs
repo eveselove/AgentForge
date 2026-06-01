@@ -218,6 +218,10 @@ impl TaskStore for InMemoryTaskStore {
 /// A more serious, persistent implementation of TaskStore.
 /// Stores tasks in a JSON file with atomic writes.
 /// This is the main storage we will use during the migration to Rust-only.
+///
+/// NOTE: We are actively migrating away from both JSON and SQLite toward
+/// LanceDB (see docs/LANCE_TASK_STORE_MIGRATION_PLAN.md).
+/// New persistent storage work should target `LanceTaskStore`.
 #[derive(Debug)]
 pub struct JsonFileTaskStore {
     path: std::path::PathBuf,

@@ -8,7 +8,7 @@ members = [
     "crates/agentforge-runner",
     "crates/agentforge-long-horizon",
     "crates/agentforge-flywheel",
-    "crates/agentforge-candidates",
+    "crates/agentforge-candidates", "crates/agentforge-mcp",
 ]
 
 resolver = "2"
@@ -26,6 +26,12 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Learning specific
 reqwest = { version = "0.11", features = ["json"] } # for future LLM calls in improver/trainer
+
+async-trait = "0.1"
+
+# LanceDB is intentionally not declared at workspace level.
+# It is pulled only when the `lancedb` feature is enabled in agentforge-core
+# (to avoid forcing the heavy dependency tree on every build / every mirror).
 
 # PyO3 (future, for tight Rust-Python interop on Dataset / runner)
 # pyo3 = { version = "0.21", optional = true }

@@ -254,6 +254,14 @@ print(model)
 
             cd "$PROJECT_DIR" || exit 1
 
+            # === КРИТИЧНО: chromimic submodule в worktree ===
+            # grok -w создаёт worktree, но submodule (chromimic) не инициализируется
+            # Создаём symlink заранее — grok подхватит его при checkout
+            WORKTREE_PATH="/tmp/agentforge/$TASK_ID"
+            if [ -d "$WORKTREE_PATH" ]; then
+                git -C "$WORKTREE_PATH" submodule update --init --recursive 2>/dev/null ||                     ln -sfn "$PROJECT_DIR/chromimic" "$WORKTREE_PATH/chromimic" 2>/dev/null || true
+            fi
+
             # Запуск Grok с worktree + выбранная модель (экономия на простых задачах)
             log "⚡ Grok старт: $TASK_ID ($PRIORITY, model=$MODEL) [worktree]"
             timeout "$TASK_TIMEOUT" grok $GROK_FLAGS --model "$MODEL" \

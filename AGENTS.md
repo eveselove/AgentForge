@@ -20,6 +20,7 @@ This document describes how agents (Grok, Jules, Gemini, etc.) are expected to w
 | `bin/agent-worktree` | Isolated git worktrees for conflict-free parallel agent work (MANDATORY for extreme waves) | High-parallelism local agent runs |
 | `bin/validate-commit-msg` + `.gitmessage` | Enforce Task ID / Jules session on every commit (hard gate in pre-commit) | Always |
 | `agent-review` skill (or `/agent-review --to-jules`) | Mandatory independent cross-agent code review + handoff packaging after any work, before PR (hard requirement, produces auditable `~/.grok/handoffs/` record) | After EVERY completed task / change set (see dedicated section below) |
+| `bin/consume-handoff-reviews.py` | **Post-100% Hardening (c48c5f56)**: Scans `~/.grok/handoffs/` for completed reviews (`jules-review-*.md`), bulk-approves via conservative heuristics, PATCHes originating task (from metadata) to `done` with full traceable notes + links. Idempotent, --dry-run safe by default, --stats/--list. | After review waves; manual or automated to clear "review" / post-handoff backlog |
 | Task Queue (localhost:8080) | Central source of work | Primary coordination mechanism |
 | `docs/PHASE{1,2,3}_TASK_BREAKDOWN.md` | Current parallel attack surface for closing Code Mgmt Plan (pick tasks here) | During all-phases closure waves |
 | `docs/REVIEW_CHECKLIST.md` | Mandatory self-check + external agent-review steps before every PR (P2 B5) | Always for agent changes |
@@ -82,7 +83,15 @@ When `jules-watch.sh` creates an "Accept Jules session" task:
    - Create or append to a handoff record (e.g. `docs/<SLUG>_AGENT_REVIEW_HANDOFF.md` modeled on `docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md` and `docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md`).
    - Include: handoff ID + absolute path, reviewer identity, key findings (counts + excerpts), how issues were addressed (or why non-blocking), links to task/Jules.
    - Reference this record + handoff dir in the commit message, PR description, and task result.
-5. **ONLY THEN**:
+5. **Consume reviewed handoffs (Post-100% Hardening automation)**:
+   - After independent reviews land as `jules-review-*.md` inside `~/.grok/handoffs/<id>/`, run the consumer (safe first):
+     ```bash
+     python3 bin/consume-handoff-reviews.py --stats --list
+     python3 bin/consume-handoff-reviews.py --dry-run --verbose --limit 20
+     python3 bin/consume-handoff-reviews.py --apply --handoff-id <id1>,<id2>   # or without filter for bulk clear approved ones
+     ```
+   - The script (c48c5f56) is the long-term mechanical closer for the review backlog. It only advances on explicit APPROVE heuristics (or --all-reviewed after vetting), writes .consumed markers, and injects rich result notes with full paths/links for traceability. Idempotent and logged.
+6. **ONLY THEN**:
    - Consider the task complete / ready for acceptance.
    - Open the PR (from short-lived branch).
    - Update the originating task in the queue with status, links to review artifacts, and result summary.
@@ -96,6 +105,8 @@ When `jules-watch.sh` creates an "Accept Jules session" task:
 This is the **judgment layer** that replaces traditional "required GitHub approvals" (see Branch Protection A7 decision). It is mandatory for all agent-generated changes before merge to `main`. 
 
 **Agent-review is now the default path**: Every agent (Grok, Antigravity, etc.) must run it after work and usually create a follow-up review task. This is the standard for the current closure waves.
+
+**CI Enforcement (Post-100% Hardening, task ee507687)**: The GitHub Actions job `agent-review-link` (powered by `bin/check-agent-review-link.sh`) is a **hard gate** for all PRs originating from `agent/` or `jules/` branches. The PR title or body **must** contain evidence of the completed agent-review + handoff record (e.g. handoff ID like "8806e0a2", "agent-review", "AGENT_REVIEW_HANDOFF", or link to the handoff doc). Missing evidence causes the CI job to fail. Use `AGENT_REVIEW_ADVISORY=1` only for local debugging. This makes the AGENTS.md process mechanically non-bypassable at the CI layer while preserving Level M2 (0 GitHub approvals).
 
 Failure to follow this (or pre-commit/traceability) will cause the PR to be rejected during agent-review or CI gates.
 

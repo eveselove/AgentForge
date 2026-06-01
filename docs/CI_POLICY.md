@@ -57,7 +57,7 @@ AgentForge использует модель ветвления **Trunk-Based De
 * Прохождение юнит- и интеграционных тестов Rust-воркспейса.
 * Соответствие контракту эквивалентности (Parity Harness).
 * PR-level traceability (Task ID / Jules session в title или body) — hard gate в job `pr-traceability`.
-* Warn-only проверка наличия linked agent-review (handoff) для PR из веток `agent/` / `jules/` — job `agent-review-link` + `bin/check-agent-review-link.sh` (A4, docs/REMAINING_CLOSURE_TASKS_2026-06.md). Не блокирует, но явно предупреждает и требует выполнения `agent-review` skill перед merge (см. AGENTS.md).
+* Hard gate для agent-review handoff records (post-100% hardening, task ee507687): job `agent-review-link` + `bin/check-agent-review-link.sh`. Для PR из веток `agent/` / `jules/` требует наличия ссылки на handoff (handoff ID, "agent-review", AGENT_REVIEW_HANDOFF и т.п. в title/body). При отсутствии — фейл CI (exit 1). Поддерживает advisory mode через AGENT_REVIEW_ADVISORY=1. Соответствует AGENTS.md (mandatory agent-review + recorded handoff) и Level M2 (BRANCH_PROTECTION_A7_DECISION.md). См. также обновлённый скрипт и top comments в .github/workflows/ci.yml.
 
 ---
 
