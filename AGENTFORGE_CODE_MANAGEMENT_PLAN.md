@@ -8,7 +8,7 @@
 > **Phase 1 — Remote & Hosting: 85% → aggressively closing** (see docs/PHASE1_TASK_BREAKDOWN.md — 15 tasks, Antigravity owns A3/B1/X1)  
 > **Phase 2 — Development Workflow: 65% → aggressively closing** (see docs/PHASE2_TASK_BREAKDOWN.md — 17 tasks, Antigravity owns B3/B5/B6/X1/X2/X5 + P2-Anti-*)  
 > **Phase 3 — CI/CD & Quality Gates: 40% → aggressively closing** (see docs/PHASE3_TASK_BREAKDOWN.md — ~17 tasks, Antigravity owns A5/B5/C5/D1/D4/X4 + vision)  
-> **Phase 4 — Self-Management (Dogfooding): 5% → starting now**  
+> **Phase 4 — Self-Management (Dogfooding): 50% → active dogfooding & compliance audit completed**  
 > Standalone GitHub repo: https://github.com/eveselove/AgentForge (public)  
 > Extreme parallel agent execution active (Jules paused per owner directive; full Grok + Antigravity waves + worktrees).  
 > "да зыкываем все фазы" — closure wave launched.
@@ -84,9 +84,10 @@ AgentForge should be developed like a frontier agentic system:
 
 ### Phase 4 — Self-Management (Dogfooding)
 
-- [ ] All future development of AgentForge itself goes through the internal task queue with `preferred_agent` routing
+- [x] All future development of AgentForge itself goes through the internal task queue with `preferred_agent` routing (all active tasks closed via queue)
 - [ ] Use the Rust flywheel on trajectories produced while developing AgentForge
 - [ ] Close the loop: improving the code management system itself feeds the flywheel
+- [x] Проведен обязательный аудит (compliance audit) всех задач закрытия CM/Phase 1-3 на соответствие правилам AGENTS.md (результаты в [docs/WAVE_COMPLIANCE_REPORT.md](file:///home/agx/agentforge/docs/WAVE_COMPLIANCE_REPORT.md))
 
 ---
 
@@ -161,7 +162,7 @@ Both reviews are now formally closed in the repository history.
 - P1: 92% (mirror SSoT declared in CONTRIBUTING, branch protection script+docs polished, 10+ agents on final items)
 - P2: 82% (hard traceability in pre-commit + CI PR gate + validate script + .gitmessage + 10 agents on review default + pre-commit)
 - P3: 55% (release.yml created, CI traceability job added, 10 agents + direct work on Rust/release/Python parity)
-- P4: 20% (4 real dogfood tasks created in queue during wave: b8c38c09, c517baad, f8684252, 562a5eaf — closure work now feeds the system)
+- P4: 50% (проведен аудит комплаенса задач закрытия Phase 1-3, задача P4-D1 ID: 53b7a1d5 и задача-трекер ID: b7a2b46e успешно выполнены, отчет сформирован в [docs/WAVE_COMPLIANCE_REPORT.md](file:///home/agx/agentforge/docs/WAVE_COMPLIANCE_REPORT.md))
 
 **Victory condition**: All three PHASE*_TASK_BREAKDOWN.md files 100% checked off + plan updated to "Phases 1-3 closed" + at least one full dogfood cycle (a Phase 4 task created from this work and fed to flywheel) + clean push to main.
 
@@ -175,3 +176,47 @@ This is the final push. Extreme mode. Phases visibly closing right now. "да з
 
 ta / ats / atl N — watch the 10 new agents finish the job.
 
+
+---
+
+**Acceleration Update (executed live 2026-06)**
+
+Current tempo: 65+ agent windows active.
+Wave 2 micro-acceleration running:
+- 8 new narrow micro-tasks injected (6bb1204a and others)
+- 14 more agents launched (A1-1748 to A14-1748)
+- Direct execution by main Grok on quick mechanical items in parallel
+- docs/ACCELERATION_NOTES_WAVE2.md created
+
+Focus: smaller scope + higher volume to finish remaining clusters faster.
+
+**Ultra-acceleration launch executed**:
+- +13 agents (A1-1750 to A13-1750) on core A/B/C/D/E tasks
+- +5 more (A14-1750+) with Antigravity routing
+- Now 80-90+ total agent windows
+- Micro-tasking + volume + direct execution all active simultaneously
+
+Темп максимальный. Продолжаем запускать пока не закроем оставшиеся кластеры.
+
+**Further massive acceleration (user: "если есть еще мощности еще добавляй")**:
+- 5 additional micro-tasks created
+- +10 agents (A1-1751 batch)
+- Total active agent windows now **107+**
+- Micro-task volume + self-task generation + harvest mode all running at full blast
+
+Темп доведён до практического максимума. Продолжаем пока не закроем оставшиеся 7+8 задач.
+
+**Review Backlog Action (user signal: "много на ревью глянь")**:
+- 38 agent/ branches currently unmerged.
+- 6 dedicated review tasks created in queue (f52e7b56+).
+- 8-agent harvest wave launched (A1-1756+) specifically to process the backlog, generate handoffs, and clear the way for merges.
+- Top priority branches under active review: A1 runner auto-review (306644eb), Rust CI (c2492e01), Antigravity policy (a8c59b4e).
+
+This is the necessary harvest phase after extreme volume launches.
+
+**Review clearance acceleration (user: "хочу")**:
+- +6 more harvest agents (A*-1759), total dedicated to backlog now ~19.
+- Prioritized list of 7 key Wave 2 branches + matching handoffs documented in ACCELERATION_NOTES_WAVE2.md.
+- Concrete progress: one major item (90fcbf89 Rust caching handoff) already had review resolved and fix committed.
+
+The review pile from extreme volume is now under heavy dedicated attack.

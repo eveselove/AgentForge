@@ -72,7 +72,7 @@ When `jules-watch.sh` creates an "Accept Jules session" task:
 ### Mandatory Post-Work Agent-Review Step (HARD REQUIREMENT, non-negotiable)
 **After completing ANY work** (code, docs, scripts, tasks — including this one), you **MUST** perform the agent-review step **before** marking the task ready, committing final changes for PR, or opening a PR:
 
-1. Ensure all local changes are complete and tests/lints pass locally.
+1. Ensure all local changes are complete and tests/lints pass locally. Run the full self-check from `docs/REVIEW_CHECKLIST.md` (P2 B5 deliverable, derived from 2026-05-31 wave defects).
 2. **OBLIGATORY invocation** (exact per task spec and AGENTS.md):
    - Call the skill: `agent-review` (or `/agent-review --to-jules`, `/agent-review --agent jules`, or equivalent via the `agent-review` skill in `~/.grok/skills/agent-review/`).
    - This packages the diff + full context into a portable handoff under `~/.grok/handoffs/<id>/` (with `diff.patch`, `context.md`, `metadata.json`, `REVIEW_INSTRUCTIONS.md`).
@@ -91,8 +91,11 @@ When `jules-watch.sh` creates an "Accept Jules session" task:
 - `docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md` (task bc6fa462)
 - `docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md`
 - `docs/A1_BRANCH_PROTECTION_RESEARCH_REPORT.md` (includes handoff 1f3ceb91)
+- `docs/REVIEW_CHECKLIST_AGENT_REVIEW_HANDOFF.md` (this checklist + related doc updates, P2 B5)
 
-This is the **judgment layer** that replaces traditional "required GitHub approvals" (see Branch Protection A7 decision). It is mandatory for all agent-generated changes before merge to `main`. Skipping it violates AGENTS.md and blocks merge.
+This is the **judgment layer** that replaces traditional "required GitHub approvals" (see Branch Protection A7 decision). It is mandatory for all agent-generated changes before merge to `main`. 
+
+**Agent-review is now the default path**: Every agent (Grok, Antigravity, etc.) must run it after work and usually create a follow-up review task. This is the standard for the current closure waves.
 
 Failure to follow this (or pre-commit/traceability) will cause the PR to be rejected during agent-review or CI gates.
 
