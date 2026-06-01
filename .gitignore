@@ -124,3 +124,8 @@ learning/flywheel_parity/fixtures/large/
 *.service.bak*
 *.sh.bak*
 *.timer.bak*
+
+# Секреты API (КРИТИЧНО — никогда не коммитить)
+.env.xai
+.env.xai.*
+!.env.xai.example
