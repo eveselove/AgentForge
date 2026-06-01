@@ -109,9 +109,6 @@ class TaskUpdate(BaseModel):
     retry_count: Optional[int] = None
     tokens_used: Optional[int] = None
     cost_usd: Optional[float] = None
-    retry_count: Optional[int] = 0
-    tokens_used: Optional[int] = 0
-    cost_usd: Optional[float] = 0.0
 
 class TaskResponse(BaseModel):
     """Модель ответа с данными задачи"""
@@ -175,6 +172,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# === Простая Bearer Token авторизация ===
+# Токен из переменной окружения AGENTFORGE_API_KEY
+# Если не задан — авторизация отключена (для обратной совместимости)
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+AGENTFORGE_API_KEY = os.environ.get("AGENTFORGE_API_KEY", "")
+
+class SimpleAuthMiddleware(BaseHTTPMiddleware):
+    """Простая проверка Bearer токена. Пропускает /health и /dashboard."""
+    async def dispatch(self, request, call_next):
+        # Авторизация отключена если ключ не задан
+        if not AGENTFORGE_API_KEY:
+            return await call_next(request)
+        # Пропускаем health и dashboard без авторизации
+        path = request.url.path
+        if path in ("/health", "/dashboard", "/docs", "/openapi.json") or path.startswith("/ws"):
+            return await call_next(request)
+        # Проверяем Authorization header
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header == f"Bearer {AGENTFORGE_API_KEY}":
+            return await call_next(request)
+        # Также проверяем query param ?api_key= (для curl удобства)
+        if request.query_params.get("api_key") == AGENTFORGE_API_KEY:
+            return await call_next(request)
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized. Set Authorization: Bearer <key>"})
+
+app.add_middleware(SimpleAuthMiddleware)
+if AGENTFORGE_API_KEY:
+    print(f"[AgentForge] 🔒 API auth ENABLED (key length: {len(AGENTFORGE_API_KEY)})")
+else:
+    print("[AgentForge] ⚠️ API auth DISABLED (set AGENTFORGE_API_KEY to enable)")
+
 
 # === WebSocket: менеджер подключений для real-time логов ===
 
