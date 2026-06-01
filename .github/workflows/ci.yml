@@ -27,13 +27,14 @@ on:
 # - Added "pr-traceability" job (pull_request only): hard gate. Fails PR unless title or body
 #   contains Task ID (task XXXXXX) or Jules session (Jules 12... or jules/<id>). Regex synced
 #   with bin/validate-commit-msg. Enforces BRANCHING_STRATEGY.md + AGENTS.md at CI layer.
-# - Added "agent-review-link" job + bin/check-agent-review-link.sh (A4): *warn-only* (never
-#   fails). Emits ::warning:: + log if branch matches agent/ or jules/ but PR lacks evidence
-#   of linked agent-review ( "agent-review", handoff ID, jules-review-*, AGENT_REVIEW_HANDOFF ).
-#   Per AGENTS.md: agent-generated changes require running the agent-review skill + recording
-#   handoff *before* PR is ready for merge. Complements PR template checklist. Non-blocking
-#   to match current Level M2 (0-approval + judgment via agent-review) per
-#   docs/BRANCH_PROTECTION_A7_DECISION.md. Future: may become blocking after full rollout.
+# - Added "agent-review-link" job + bin/check-agent-review-link.sh (A4): originally *warn-only*.
+#   **Post-100% Hardening (task ee507687)**: Promoted to HARD GATE. Now fails the job (exit 1)
+#   for PRs from agent/ or jules/ branches unless title or body contains evidence of proper
+#   agent-review handoff record (handoff ID, "agent-review", AGENT_REVIEW_HANDOFF link, etc.).
+#   Script supports AGENT_REVIEW_ADVISORY=1 for transitional warn-only. Matches AGENTS.md
+#   mandatory process + Level M2 (0 GitHub approvals + mechanical CI enforcement of
+#   agent judgment via handoff artifacts). See updated script header and docs/CI_POLICY.md.
+#   This completes the "CI-level hard gate enforcing agent-review handoff records".
 
 env:
   CARGO_TERM_COLOR: always
@@ -166,14 +167,16 @@ jobs:
           fi
 
   agent-review-link:
-    name: Agent-Review Link Check (warn-only on agent/ and jules/ PRs)
+    name: Agent-Review Handoff Gate (hard; ee507687) — agent/ & jules/ PRs require handoff evidence
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - name: Run lightweight agent-review linkage warning
+      - name: Enforce agent-review handoff record (hard gate for agent-origin branches)
         env:
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body || '' }}
         run: |
+          # Hard gate (post-100% hardening task ee507687). Fails unless handoff evidence present.
+          # See bin/check-agent-review-link.sh and AGENTS.md.
           bash bin/check-agent-review-link.sh

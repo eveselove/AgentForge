@@ -48,11 +48,15 @@ impl Task {
             priority: "medium".to_string(),
             complexity: "medium".to_string(),
             preferred_agent: None,
+            assigned_to: None,
             status: TaskStatus::Pending,
             tags: vec![],
             created_at: now.clone(),
             updated_at: now,
+            started_at: None,
+            completed_at: None,
             metadata: HashMap::new(),
+            result: None,
         }
     }
 
@@ -203,7 +207,7 @@ impl TaskStore for InMemoryTaskStore {
                 task.started_at = Some(chrono::Utc::now().to_rfc3339());
                 task.updated_at = chrono::Utc::now().to_rfc3339();
 
-                self.persist();
+                // Note: InMemoryTaskStore does not persist (unlike JsonFileTaskStore)
                 Ok(task.clone())
             }
             None => Err(format!("Task {} not found", id)),
@@ -214,6 +218,10 @@ impl TaskStore for InMemoryTaskStore {
 /// A more serious, persistent implementation of TaskStore.
 /// Stores tasks in a JSON file with atomic writes.
 /// This is the main storage we will use during the migration to Rust-only.
+///
+/// NOTE: We are actively migrating away from both JSON and SQLite toward
+/// LanceDB (see docs/LANCE_TASK_STORE_MIGRATION_PLAN.md).
+/// New persistent storage work should target `LanceTaskStore`.
 #[derive(Debug)]
 pub struct JsonFileTaskStore {
     path: std::path::PathBuf,

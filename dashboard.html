@@ -1035,6 +1035,14 @@
                 <div class="stat-value" id="statPending">0</div>
                 <div class="stat-label">В очереди</div>
             </div>
+            <div class="stat-card" data-type="failed" style="--stat-accent: var(--status-failed);">
+                <div class="stat-value" id="statFailed">0</div>
+                <div class="stat-label">❌ Failed</div>
+            </div>
+            <div class="stat-card" data-type="cancelled" style="--stat-accent: #6b7280;">
+                <div class="stat-value" id="statCancelled">0</div>
+                <div class="stat-label">🚫 Отменено
+            </div>
         </section>
 
         <!-- === Kanban-доска === -->
@@ -1249,13 +1257,20 @@
             const pending = allTasks.filter(t => t.status === 'pending');
             const inWork = allTasks.filter(t => t.status === 'dispatched' || t.status === 'in_progress');
             const review = allTasks.filter(t => t.status === 'review');
-            const done = allTasks.filter(t => t.status === 'done' || t.status === 'failed');
+            const done = allTasks.filter(t => t.status === 'done' || t.status === 'failed' || t.status === 'cancelled');
 
             // Обновляем статистику
             animateCounter(dom.statTotal, allTasks.length);
             animateCounter(dom.statProgress, inWork.length);
             animateCounter(dom.statDone, done.length);
             animateCounter(dom.statPending, pending.length);
+            // Отдельные счётчики failed и cancelled
+            const failedTasks = allTasks.filter(t => t.status === 'failed');
+            const cancelledTasks = allTasks.filter(t => t.status === 'cancelled');
+            const sfailed = document.getElementById('statFailed');
+            const scancelled = document.getElementById('statCancelled');
+            if (sfailed) animateCounter(sfailed, failedTasks.length);
+            if (scancelled) animateCounter(scancelled, cancelledTasks.length);
 
             // Обновляем счётчики колонок
             dom.countPending.textContent = pending.length;

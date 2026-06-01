@@ -7,7 +7,9 @@ As of 2026-05-31 we are executing a full migration to Rust-only operation.
 The long-term goal is to have `agentforge-runner` (or a small set of Rust services)
 handle task ingestion, dispatching, and the full agent conveyor.
 
-See: RUST_ONLY_MIGRATION_PLAN.md
+See:
+- RUST_ONLY_MIGRATION_PLAN.md
+- docs/LANCE_TASK_STORE_MIGRATION_PLAN.md (we are replacing SQLite task storage with LanceDB)
 
 This Python implementation is kept temporarily for compatibility during the transition.
 New development should target the Rust side.
@@ -1785,7 +1787,9 @@ async def guardian_review(task_id: str):
         
         # Проверка 2: CI не провалился
         result = task.get("result") or ""
-        if "fail" in result.lower() or "❌" in result:
+        # Fix: точные маркеры CI провала вместо простого "fail" (ложные срабатывания на pass/fail и т.п.)
+        ci_fail_markers = ["ci failed", "ci: failed", "build failed", "test failed", "pytest_fail", "cargo_fail", "clippy_fail", "compile_fail"]
+        if any(m in result.lower() for m in ci_fail_markers) or "❌" in result:
             issues.append(f"CI провалился: {result}")
         
         # Проверка 3: Статус должен быть review
