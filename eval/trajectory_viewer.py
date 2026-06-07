@@ -143,6 +143,8 @@ def generate_html(
         tid = trajectory.get("task_id", "traj")
         ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         output_path = Path(f"trajectory_{tid}_{ts}.html").absolute()
+    else:
+        output_path = Path(output_path)
 
     prm = trajectory.get("prm_result") if include_prm else None
     if not prm and include_prm:

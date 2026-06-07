@@ -64,29 +64,6 @@
         "self_check": "--check",
         "best_of_n": "--best-of-n N"
       }
-    },
-    {
-      "id": "jules",
-      "name": "Jules",
-      "description": "Асинхронный фоновый агент. Создаёт PR в GitHub.",
-      "capabilities": [
-        "git",
-        "github_pr",
-        "file_edit",
-        "tests"
-      ],
-      "models": [
-        "gemini-2.5-pro"
-      ],
-      "max_parallel": 1,
-      "strengths": [
-        "tests",
-        "documentation",
-        "refactoring",
-        "async_tasks"
-      ],
-      "location": "erbox_eveselove",
-      "invoke": "jules remote new --repo <repo> --session \"task\""
     }
   ]
 }
