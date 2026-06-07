@@ -266,7 +266,7 @@ fn main() {
         "task" => {
             let sub_action = args.get(2).map(|s| s.as_str()).unwrap_or("help");
             let store_path = std::path::PathBuf::from("/tmp/agentforge_tasks.json");
-            let mut store = JsonFileTaskStore::new(&store_path);
+            let mut store = JsonFileTaskStore::new(Some(store_path));
 
             match sub_action {
                 "create" => {

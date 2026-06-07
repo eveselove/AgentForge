@@ -483,28 +483,32 @@ else
         # "if ... fi | tee" + проверка $? после пайпа — статус сборки/тестов терялся,
         # CI_RESULT всегда оставался "pass" даже при падениях. Теперь используем ${PIPESTATUS[0]}
         # сразу после пайплайна (bash-only, но у нас #!/bin/bash).
-        echo "[CI] cargo nextest run (основной тестовый движок, ускорение CI)..." | tee -a $LOG_DIR/grok_$TASK_ID.log
-        cargo nextest run 2>&1 | tee -a $LOG_DIR/grok_$TASK_ID.log
-        nextest_rc=${PIPESTATUS[0]}
-        if [ $nextest_rc -ne 0 ]; then
-            CI_RESULT="nextest_fail"
-            echo "[CI] nextest завершился с ошибкой (код $nextest_rc) — помечаем как nextest_fail" | tee -a $LOG_DIR/grok_$TASK_ID.log
+        echo "[CI] Делегирование cargo nextest и cargo build на ноутбук (WSL)..." | tee -a $LOG_DIR/grok_$TASK_ID.log
+        QUEUE_DIR="/tmp/agentforge_build_queue"
+        RESP_DIR="/tmp/agentforge_build_resp"
+        mkdir -p $QUEUE_DIR $RESP_DIR
+        
+        # Отправляем заявку демону на ноутбук
+        echo "$WORKTREE_DIR" > $QUEUE_DIR/grok_$TASK_ID
+        
+        echo "[CI] Ожидание завершения компиляции на ноутбуке..." | tee -a $LOG_DIR/grok_$TASK_ID.log
+        # Ждем ответного файла
+        while [ ! -f "$RESP_DIR/grok_$TASK_ID" ]; do
+            sleep 2
+        done
+        
+        wsl_rc=$(cat "$RESP_DIR/grok_$TASK_ID")
+        rm "$RESP_DIR/grok_$TASK_ID"
+        
+        if [ -f "$WORKTREE_DIR/wsl_build.log" ]; then
+            cat "$WORKTREE_DIR/wsl_build.log" | tee -a $LOG_DIR/grok_$TASK_ID.log
         fi
         
-        # cargo build (dev). Статус capture через PIPESTATUS после tee (как и для nextest).
-        # Комментарий из предыдущей подзадачи сохранён для traceability.
-        # ИЗМЕНЕНИЕ (подзадача AgentForge: оркестрация и настройка, 4dc58362):
-        # Заменено `cargo build --release` на `cargo build` в скрипте проверки.
-        # Причина: --release выполняет полную оптимизацию, что сильно замедляет
-        # проверку после работы агента (CI в grok_runner.sh). Для быстрой
-        # валидации "all checks passed" достаточно обычной сборки без оптимизаций.
-        # Релизная сборка при необходимости делается отдельно вручную или в другом CI.
-        echo "[CI] cargo build (dev, без оптимизаций — по стандарту AgentForge)..." | tee -a $LOG_DIR/grok_$TASK_ID.log
-        cargo build 2>&1 | tee -a $LOG_DIR/grok_$TASK_ID.log
-        build_rc=${PIPESTATUS[0]}
-        if [ $build_rc -ne 0 ]; then
+        if [ "$wsl_rc" -ne 0 ]; then
             CI_RESULT="build_fail"
-            echo "[CI] cargo build завершился с ошибкой (код $build_rc)" | tee -a $LOG_DIR/grok_$TASK_ID.log
+            echo "[CI] Сборка на ноутбуке завершилась с ошибкой!" | tee -a $LOG_DIR/grok_$TASK_ID.log
+        else
+            echo "[CI] Сборка на ноутбуке успешно завершена." | tee -a $LOG_DIR/grok_$TASK_ID.log
         fi
     fi
 

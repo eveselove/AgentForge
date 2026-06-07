@@ -7,9 +7,9 @@
 # Запуск: nohup bash ~/agentforge/grok_worker.sh &
 # ============================================
 
-export PATH=/home/agx/.local/bin:/home/agx/.cargo/bin:/home/agx/.grok/bin:/home/agx/bin:$PATH
-export PROTOC=/home/agx/.local/bin/protoc
-export NVM_DIR=/home/agx/.nvm
+export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.grok/bin:$HOME/bin:$PATH
+export PROTOC=$HOME/.local/bin/protoc
+export NVM_DIR=$HOME/.nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 # === Rust Flywheel auto-integration — SAFE DEFAULT for Antigravity ===
@@ -24,25 +24,25 @@ export NVM_DIR=/home/agx/.nvm
 # See PHASE4_REMOVAL_PLAN.md for safe removal order (Tier 3), risks, full rollback (instant via env+dotfile).
 # PHASE 3 FINAL DEPRECATION SWEEP: Python flywheel orchestration heavily marked.
 # Strong central is_pure_rust_flywheel() (marker+disables). Prefer agentforge-runner flywheel-step.
-RUST_FLYWHEEL_SNIPPET="/home/agx/agentforge/bin/rust_flywheel.env"
+RUST_FLYWHEEL_SNIPPET="$HOME/agentforge/bin/rust_flywheel.env"
 if [ -f "$RUST_FLYWHEEL_SNIPPET" ]; then
     # shellcheck disable=SC1091
     source "$RUST_FLYWHEEL_SNIPPET" 2>/dev/null || true
 fi
-AGENTFORGE_DIR="/home/agx/agentforge"
+AGENTFORGE_DIR="$HOME/agentforge"
 DISABLE_FILE="$AGENTFORGE_DIR/.disable_rust_flywheel"
 if [[ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]] && [[ ! -f "$DISABLE_FILE" ]]; then
     export AGENTFORGE_RUST_FLYWHEEL=1
     export AGENTFORGE_USE_RUST=1
     # Prefer release binary for prod (if built)
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-      _RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "$HOME/agentforge/rust/target/release/agentforge-runner" ]; then
+      _RUST_RUNNER="$HOME/agentforge/rust/target/release/agentforge-runner"
     else
-      _RUST_RUNNER="/home/agx/agentforge/rust/target/debug/agentforge-runner"
+      _RUST_RUNNER="$HOME/agentforge/rust/target/debug/agentforge-runner"
     fi
     export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_RUST_RUNNER}"
     # shellcheck disable=SC1091
-    [[ -x /home/agx/agentforge/bin/enable_rust_flywheel.sh ]] && source /home/agx/agentforge/bin/enable_rust_flywheel.sh 2>/dev/null || true
+    [[ -x $HOME/agentforge/bin/enable_rust_flywheel.sh ]] && source $HOME/agentforge/bin/enable_rust_flywheel.sh 2>/dev/null || true
 fi
 # Final safe export (DEFAULT=1 unless rollback active)
 if [[ "${DISABLE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ -f "$DISABLE_FILE" ]]; then
@@ -53,16 +53,20 @@ else
     export AGENTFORGE_USE_RUST="${AGENTFORGE_USE_RUST:-1}"
 fi
 # Prefer release binary for prod (idempotent)
-if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-  _RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+if [ -x "$HOME/agentforge/rust/target/release/agentforge-runner" ]; then
+  _RUST_RUNNER="$HOME/agentforge/rust/target/release/agentforge-runner"
 else
-  _RUST_RUNNER="/home/agx/agentforge/rust/target/debug/agentforge-runner"
+  _RUST_RUNNER="$HOME/agentforge/rust/target/debug/agentforge-runner"
 fi
 export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_RUST_RUNNER}"
 
 API="http://localhost:8080"
-LOG_DIR="/home/agx/agentforge/logs"
-PROJECT_DIR="/home/agx/planlytasksko"
+LOG_DIR="$HOME/agentforge/logs"
+if [ -d "/data/planlytasksko" ]; then
+    PROJECT_DIR="/data/planlytasksko"
+else
+    PROJECT_DIR="$HOME/planlytasksko"
+fi
 POLL_INTERVAL=15
 TASK_TIMEOUT=300
 MAX_PARALLEL=1000
@@ -92,7 +96,7 @@ while true; do
 
     # Получаем задачи
     TASKS_FILE="$TMP_DIR/pending_tasks.json"
-    curl -s "$API/tasks" 2>/dev/null > "$TASKS_FILE"
+    curl -H "Authorization: Bearer $AGENTFORGE_API_KEY" -s "$API/tasks" 2>/dev/null > "$TASKS_FILE"
 
     if [ ! -s "$TASKS_FILE" ]; then
         sleep "$POLL_INTERVAL"
@@ -121,6 +125,11 @@ for t in tasks:
     pref = str(t.get("preferred_agent") or "").lower()
     if pref not in ("auto", "grok", ""):
         continue
+    
+    tags_lower = [str(tg).lower() for tg in t.get("tags", [])]
+    if "build" in tags_lower or "compile" in tags_lower:
+        continue
+
     if count >= limit:
         break
     tags = ",".join(t.get("tags", []))
@@ -142,7 +151,7 @@ PYEOF
         log "📋 [$RUNNING/$MAX_PARALLEL] $TASK_ID — $TITLE"
 
         # Диспатчим
-        curl -s -X POST "$API/tasks/$TASK_ID/dispatch" > /dev/null 2>&1
+        curl -H "Authorization: Bearer $AGENTFORGE_API_KEY" -s -X POST "$API/tasks/$TASK_ID/dispatch" > /dev/null 2>&1
 
         # Запускаем в фоне с worktree
         (
@@ -285,7 +294,7 @@ print(model)
             fi
 
             # Обновляем задачу
-            curl -s -X PATCH "$API/tasks/$TASK_ID" \
+            curl -H "Authorization: Bearer $AGENTFORGE_API_KEY" -s -X PATCH "$API/tasks/$TASK_ID" \
                 -H 'Content-Type: application/json' \
                 -d "{\"status\": \"$STATUS\", \"assigned_agent\": \"grok\", \"result\": \"$RESULT\", \"duration_seconds\": $DURATION}" > /dev/null
 
@@ -295,12 +304,12 @@ print(model)
             # Non-blocking. Delegates to post_process + canonical rate-limited rust_flywheel_step.
             # Safe: skips if no binary or rate limit not hit. Respects disable file/env.
             _RUST_DISABLED_GROK=0
-            if [[ "${DISABLE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ -f /home/agx/agentforge/.disable_rust_flywheel ]]; then
+            if [[ "${DISABLE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ -f $HOME/agentforge/.disable_rust_flywheel ]]; then
                 _RUST_DISABLED_GROK=1
             fi
             if [[ "${AGENTFORGE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_USE_RUST:-0}" = "1" ]] || [[ $_RUST_DISABLED_GROK -eq 0 ]]; then
                 (
-                    PYTHONPATH=/home/agx \
+                    PYTHONPATH=$HOME \
                     python3 -m agentforge.bin.rust_post_process_hook "$TASK_ID" \
                         >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true
                 ) &
@@ -311,7 +320,7 @@ print(model)
             # Provides independent 5min rate-limit + lock + drop to pending_candidates.
             if [[ $_RUST_DISABLED_GROK -eq 0 ]]; then
                 (
-                    bash /home/agx/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID" \
+                    bash $HOME/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID" \
                         >> "$LOG_DIR/rust_flywheel_after_${TASK_ID}.log" 2>&1 || true
                 ) &
             fi
@@ -319,7 +328,7 @@ print(model)
             # Guardian auto-review
             if [ "$STATUS" = "review" ]; then
                 sleep 1
-                curl -s -X POST "$API/tasks/$TASK_ID/review" > /dev/null 2>&1
+                curl -H "Authorization: Bearer $AGENTFORGE_API_KEY" -s -X POST "$API/tasks/$TASK_ID/review" > /dev/null 2>&1
                 log "🛡️ Guardian для $TASK_ID"
             fi
 
@@ -348,15 +357,15 @@ done
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="$HOME/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "$HOME/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="$HOME/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "$HOME/agentforge/bin/rust_flywheel.env" ] && source "$HOME/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

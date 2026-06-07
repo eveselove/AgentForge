@@ -179,26 +179,56 @@ app.add_middleware(
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+import base64
+
+# Try to load from .env if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.expanduser("~/agentforge/.env"))
+except ImportError:
+    pass
+
 AGENTFORGE_API_KEY = os.environ.get("AGENTFORGE_API_KEY", "")
 
 class SimpleAuthMiddleware(BaseHTTPMiddleware):
-    """Простая проверка Bearer токена. Пропускает /health и /dashboard."""
+    """Проверка Bearer токена и Basic Auth. Пропускает /health."""
     async def dispatch(self, request, call_next):
-        # Авторизация отключена если ключ не задан
         if not AGENTFORGE_API_KEY:
             return await call_next(request)
-        # Пропускаем health и dashboard без авторизации
+        
         path = request.url.path
-        if path in ("/health", "/dashboard", "/docs", "/openapi.json") or path.startswith("/ws"):
+        # Пропускаем только health. Дашборд теперь защищен!
+        if path in ("/health",):
             return await call_next(request)
-        # Проверяем Authorization header
+            
         auth_header = request.headers.get("Authorization", "")
+        
+        # Check Bearer Token
         if auth_header == f"Bearer {AGENTFORGE_API_KEY}":
             return await call_next(request)
-        # Также проверяем query param ?api_key= (для curl удобства)
+            
+        # Check query param
         if request.query_params.get("api_key") == AGENTFORGE_API_KEY:
             return await call_next(request)
-        return JSONResponse(status_code=401, content={"detail": "Unauthorized. Set Authorization: Bearer <key>"})
+            
+        # Check Basic Auth (browser will prompt for this on /dashboard)
+        if auth_header.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+                # Basic auth format is "username:password". We just check if password == API_KEY
+                if ":" in decoded:
+                    _, pwd = decoded.split(":", 1)
+                    if pwd == AGENTFORGE_API_KEY:
+                        return await call_next(request)
+            except Exception:
+                pass
+
+        # If it's a browser requesting HTML (like /dashboard), challenge with Basic Auth
+        if "text/html" in request.headers.get("Accept", "") or path == "/dashboard":
+            from starlette.responses import Response
+            return Response("Unauthorized", status_code=401, headers={"WWW-Authenticate": 'Basic realm="AgentForge Dashboard"'})
+
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized. Set Authorization: Bearer <key> or Basic Auth"})
 
 app.add_middleware(SimpleAuthMiddleware)
 if AGENTFORGE_API_KEY:
@@ -673,6 +703,76 @@ async def list_tasks(status: Optional[TaskStatus] = None):
             )
         rows = await cursor.fetchall()
         return [row_to_dict(r) for r in rows]
+    finally:
+        await db.close()
+
+
+
+@app.get("/tasks/for/{agent_id}", response_model=list[TaskResponse], tags=["Задачи"])
+async def list_tasks_for_agent(agent_id: str):
+    """
+    Получение задач, предназначенных для конкретного агента.
+    Использует resolve_agent() для определения маршрута.
+    Приоритетная сортировка: critical > high > medium > low.
+    """
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT * FROM tasks WHERE status = 'pending' ORDER BY "
+            "CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 "
+            "WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, created_at ASC"
+        )
+        rows = await cursor.fetchall()
+        result = []
+        for row in rows:
+            task = row_to_dict(row)
+            pref = (task.get("preferred_agent") or "").lower()
+            if pref == agent_id.lower():
+                result.append(task)
+            elif pref == "auto":
+                routed = resolve_agent(task)
+                if routed.lower() == agent_id.lower():
+                    result.append(task)
+        return result
+    finally:
+        await db.close()
+
+
+@app.post("/tasks/{task_id}/retry", response_model=TaskResponse, tags=["Задачи"])
+async def retry_task(task_id: str):
+    """
+    Повторная попытка выполнения failed задачи.
+    Эскалация: grok → antigravity → grok (цикл). Лимит: 3 retry.
+    """
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Задача {task_id} не найдена")
+        task = row_to_dict(row)
+        if task["status"] != "failed":
+            raise HTTPException(status_code=400, detail=f"Retry доступен только для failed задач")
+        # Считаем retry по содержимому result
+        result_text = task.get("result") or ""
+        retry_count = result_text.count("[retry")
+        if retry_count >= 3:
+            raise HTTPException(status_code=400, detail=f"Лимит retry исчерпан ({retry_count}/3)")
+        # Эскалация агента
+        prev_agent = (task.get("assigned_agent") or "").lower()
+        escalation = {"grok": "antigravity", "antigravity": "grok", "jules": "grok"}
+        next_agent = escalation.get(prev_agent, "grok")
+        now = datetime.now(timezone.utc).isoformat()
+        new_result = f"[retry {retry_count+1}/3 от {prev_agent} → {next_agent}] {result_text[:300]}"
+        await db.execute(
+            "UPDATE tasks SET status = ?, preferred_agent = ?, assigned_agent = NULL, result = ?, updated_at = ? WHERE id = ?",
+            ("pending", next_agent, new_result, now, task_id),
+        )
+        await db.commit()
+        cursor = await db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = await cursor.fetchone()
+        print(f"[AgentForge] 🔄 Retry задачи {task_id}: {prev_agent} → {next_agent} (попытка {retry_count+1}/3)")
+        return row_to_dict(row)
     finally:
         await db.close()
 
@@ -2131,7 +2231,12 @@ async def get_blackboard_feed():
     """Получение активности (мыслей) агентов в реальном времени."""
     import aiosqlite
     try:
-        db = await aiosqlite.connect("/home/agx/planlytasksko/data/task_checkpoints.db")
+        db_path = "/data/planlytasksko/data/task_checkpoints.db"
+        if not os.path.exists(db_path):
+            db_path = "/home/agx/planlytasksko/data/task_checkpoints.db"
+            if not os.path.exists(db_path):
+                db_path = os.path.expanduser("~/planlytasksko/data/task_checkpoints.db")
+        db = await aiosqlite.connect(db_path)
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
             "SELECT agent, team_id, task_id, message, created_at FROM blackboard_activity ORDER BY created_at DESC LIMIT 50"

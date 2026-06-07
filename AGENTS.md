@@ -106,6 +106,8 @@ This is the **judgment layer** that replaces traditional "required GitHub approv
 
 **Agent-review is now the default path**: Every agent (Grok, Antigravity, etc.) must run it after work and usually create a follow-up review task. This is the standard for the current closure waves.
 
+**Special rule for Antigravity**: See the dedicated [Antigravity Orchestration Protocol](docs/ANTIGRAVITY_ORCHESTRATION_PROTOCOL.md). Antigravity's primary output is **delegated work via the task queue**, not solo implementation. Heavy decomposition + parallel dispatch is mandatory for non-trivial initiatives.
+
 **CI Enforcement (Post-100% Hardening, task ee507687)**: The GitHub Actions job `agent-review-link` (powered by `bin/check-agent-review-link.sh`) is a **hard gate** for all PRs originating from `agent/` or `jules/` branches. The PR title or body **must** contain evidence of the completed agent-review + handoff record (e.g. handoff ID like "8806e0a2", "agent-review", "AGENT_REVIEW_HANDOFF", or link to the handoff doc). Missing evidence causes the CI job to fail. Use `AGENT_REVIEW_ADVISORY=1` only for local debugging. This makes the AGENTS.md process mechanically non-bypassable at the CI layer while preserving Level M2 (0 GitHub approvals).
 
 Failure to follow this (or pre-commit/traceability) will cause the PR to be rejected during agent-review or CI gates.

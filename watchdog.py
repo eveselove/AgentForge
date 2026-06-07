@@ -24,7 +24,11 @@ import re
 import sys
 
 # Добавляем путь к planlytasksko для импорта task_checkpoints
-sys.path.append("/home/agx/planlytasksko")
+for p in ["/data/planlytasksko", "/home/agx/planlytasksko", os.path.expanduser("~/planlytasksko")]:
+    if os.path.exists(p):
+        sys.path.append(p)
+        break
+
 try:
     from scripts.task_checkpoints import get_last_checkpoint, search_similar_tasks
 except ImportError:
@@ -32,7 +36,7 @@ except ImportError:
     search_similar_tasks = None
 
 API_BASE = "http://localhost:8080"
-LOG_DIR = "/home/agx/agentforge/logs"
+LOG_DIR = os.path.expanduser("~/agentforge/logs")
 POLL_INTERVAL = 10
 LOOP_THRESHOLD = 5 # Если одинаковая строка-ошибка или шаблон появляется >5 раз
 MAX_LOG_SIZE_MB = 2.0 # Лимит размера лога (защита от спама)
@@ -200,7 +204,7 @@ def guardian_loop():
             # Поскольку API не поддерживает обновление description, мы обновим его напрямую через sqlite3
             import sqlite3
             try:
-                conn = sqlite3.connect("/home/agx/agentforge/tasks.db")
+                conn = sqlite3.connect(os.path.expanduser("~/agentforge/tasks.db"))
                 conn.execute("UPDATE tasks SET description = ? WHERE id = ?", (new_desc, task_id))
                 conn.commit()
                 conn.close()
@@ -336,7 +340,7 @@ def _flywheel_health_report():
             "flywheel_high_lv_pending": high_lv,
             "last_ab_age_min": last_ab_age,
             "continuous_last_run": (health.get("last_continuous") or {}).get("finished_at"),
-            "enable_marker": (state_dir.parent / "agentforge/ENABLE_RUST_FLYWHEEL").exists() or Path("/home/agx/agentforge/ENABLE_RUST_FLYWHEEL").exists(),
+            "enable_marker": (state_dir.parent / "agentforge/ENABLE_RUST_FLYWHEEL").exists() or Path(os.path.expanduser("~/agentforge/ENABLE_RUST_FLYWHEEL")).exists(),
             # Deep timer rollout fields:
             "timer_mode": timer_info["mode"],
             "timer_active": timer_info["active"],

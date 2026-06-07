@@ -1,0 +1,18 @@
+[Unit]
+Description=AgentForge Antigravity Worker — автономный AI-агент
+After=network.target agentforge.service
+Wants=agentforge.service
+
+[Service]
+User=eveselove
+WorkingDirectory=/home/eveselove/planlytasksko
+ExecStart=/usr/bin/python3 /home/eveselove/agentforge/antigravity_worker.py
+Restart=always
+RestartSec=10
+Environment=PATH=/home/eveselove/.grok/bin:/home/eveselove/.local/bin:/home/eveselove/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PROTOC=/home/eveselove/.local/bin/protoc
+StandardOutput=append:/home/eveselove/agentforge/logs/antigravity_worker.log
+StandardError=append:/home/eveselove/agentforge/logs/antigravity_worker.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1097,14 +1097,19 @@
 
         // === Конфигурация ===
         // Автоопределение API с fallback по нескольким адресам
+        // ФИКС ДЛЯ PORT 9090: используем относительный URL ('') по умолчанию.
+        // Это решает "Fetch Error Failed to fetch / signal timed out at fetchTasks"
+        // при доступе через SSH-туннель (localhost:9090 → внутренний :8080).
+        // Относительные fetch('/tasks') автоматически используют origin страницы.
+        // Для случая открытия HTML как file:// сохраняем автоопределение + candidates.
         let API_BASE = window.location.protocol === 'file:'
-            ? 'http://127.0.0.1:9090'   // SSH-туннель (file:// → localhost)
-            : window.location.origin;    // Сервер (http:// → тот же origin)
+            ? 'http://127.0.0.1:9090'   // SSH-туннель (file:// → localhost:9090)
+            : '';                       // ОТНОСИТЕЛЬНЫЙ URL — ключевой фикс для tunneled dashboard
         const REFRESH_INTERVAL = 10000; // 10 секунд
 
-        // Список адресов для автоматического перебора (file:// протокол)
+        // Список адресов для автоматического перебора (только file:// протокол)
         const API_CANDIDATES = [
-            'http://127.0.0.1:9090',     // SSH-туннель
+            'http://127.0.0.1:9090',     // SSH-туннель на порт 9090
             'http://127.0.0.1:8080',     // Прямой проброс
             'http://146.120.89.199:8080', // Прямой IP Jetson
         ];
@@ -1215,7 +1220,8 @@
 
         async function checkHealth() {
             try {
-                const resp = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(5000) });
+                // Используем fetchWithRetry (см. ниже) — устойчивость к таймаутам туннеля
+                const resp = await fetchWithRetry('/health', { signal: AbortSignal.timeout(5000) });
                 const data = await resp.json();
                 if (data.status === 'ok') {
                     dom.statusDot.classList.remove('offline');
@@ -1223,27 +1229,61 @@
                     return true;
                 }
             } catch (e) {
-                // Сервер недоступен
+                // Сервер недоступен (после всех ретраев)
             }
             dom.statusDot.classList.add('offline');
             dom.statusText.textContent = 'Офлайн';
             return false;
         }
 
-        // === Загрузка задач ===
+        // === Загрузка задач с retry + backoff (ФИКС бага alert popup на 9090) ===
+
+        /**
+         * Универсальный fetch с экспоненциальным backoff и ретраями.
+         * Решает проблему "signal timed out" и "Failed to fetch" при нестабильном SSH-туннеле на порт 9090.
+         * Все комментарии — на русском, по требованиям AGENTS.md и user query.
+         */
+        async function fetchWithRetry(path, options = {}, maxRetries = 3) {
+            // path всегда начинается с / (относительный или с API_BASE)
+            const fullUrl = API_BASE ? `${API_BASE}${path}` : path;
+            let lastErr;
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    const resp = await fetch(fullUrl, options);
+                    return resp;  // успех — сразу возвращаем
+                } catch (e) {
+                    lastErr = e;
+                    if (attempt < maxRetries) {
+                        // exponential backoff: 300ms, 600ms, 1200ms ...
+                        const delay = 300 * Math.pow(2, attempt);
+                        console.warn(`[AgentForge] fetch ${path} попытка ${attempt + 1}/${maxRetries + 1} неудачна (${e.message}), backoff ${delay}ms`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+            throw lastErr;  // все ретраи исчерпаны
+        }
 
         async function fetchTasks() {
             try {
-                const resp = await fetch(`${API_BASE}/tasks`, { signal: AbortSignal.timeout(8000) });
+                // КЛЮЧЕВОЙ ФИКС: относительный URL + retry+backoff вместо прямого fetch
+                // Больше нет alert() popup, который блокировал UI при таймауте туннеля.
+                const resp = await fetchWithRetry('/tasks', { signal: AbortSignal.timeout(8000) });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 allTasks = await resp.json();
                 renderAll();
-                // Обновляем время
+                // Обновляем время последнего успешного обновления
                 const now = new Date();
                 dom.lastUpdate.textContent = `Обновлено: ${now.toLocaleTimeString('ru-RU')}`;
             } catch (e) {
-                alert("Fetch Error: " + e.message + "\n" + e.stack);
-                console.error('[AgentForge] Ошибка загрузки задач:', e);
+                // ФИКС: заменено alert() на console.warn + (опционально) не-блокирующий toast
+                console.warn('[AgentForge] Ошибка загрузки задач после всех ретраев:', e.message || e);
+                // Не используем alert — это было причиной UX проблемы на port 9090
+                if (typeof showToast === 'function') {
+                    showToast('⚠️ Не удалось загрузить задачи: ' + (e.message || 'таймаут'), 'alert');
+                } else {
+                    console.error('[AgentForge] Полная ошибка fetchTasks:', e);
+                }
             }
         }
 
@@ -1540,8 +1580,14 @@
          * Вычисляет WebSocket URL из текущего API_BASE
          * http://host:port -> ws://host:port
          * https://host:port -> wss://host:port
+         * ФИКС: поддержка относительного API_BASE='' (для туннеля 9090)
          */
         function getWsUrl() {
+            if (!API_BASE) {
+                // Относительный WS — используем текущий хост страницы (работает через 9090 туннель)
+                const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                return `${wsProto}//${window.location.host}/ws/logs`;
+            }
             const base = API_BASE.replace(/^http/, 'ws');
             return `${base}/ws/logs`;
         }

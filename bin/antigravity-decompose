@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""
+Antigravity Decomposition Helper
+
+Usage:
+    python bin/antigravity-decompose "High level goal here" --count 12 --priority high
+
+This tool is meant to be invoked by or for Antigravity when it needs to force
+aggressive task breakdown instead of doing the work itself.
+
+It prints a ready-to-use set of task creation commands / JSON that can be fed
+into the task queue or turned into a Dispatch Plan.
+"""
+
+import argparse
+import json
+import sys
+from datetime import datetime
+
+def main():
+    parser = argparse.ArgumentParser(description="Force aggressive decomposition for Antigravity")
+    parser.add_argument("goal", help="High-level goal or initiative")
+    parser.add_argument("--count", type=int, default=10, help="Target number of parallel tasks")
+    parser.add_argument("--priority", default="high", choices=["critical", "high", "medium", "low"])
+    parser.add_argument("--complexity", default="medium", choices=["low", "medium", "high"])
+    parser.add_argument("--output", choices=["text", "json"], default="text")
+    args = parser.parse_args()
+
+    base_id = datetime.now().strftime("%Y%m%d%H%M")
+
+    tasks = []
+    for i in range(1, args.count + 1):
+        task = {
+            "id": f"antigravity-wave-{base_id}-{i:02d}",
+            "title": f"[Antigravity Wave] {args.goal} — Part {i}",
+            "description": f"Sub-task {i} of aggressive decomposition for: {args.goal}\n\n"
+                          f"Acceptance criteria: [Fill in during dispatch]\n"
+                          f"preferred_agent: grok | jules | auto\n"
+                          f"parent: [Link to main Antigravity initiative task]",
+            "priority": args.priority,
+            "complexity": args.complexity,
+            "preferred_agent": "auto",
+            "status": "pending",
+            "tags": ["antigravity", "wave", "decomposed"]
+        }
+        tasks.append(task)
+
+    if args.output == "json":
+        print(json.dumps(tasks, indent=2, ensure_ascii=False))
+    else:
+        print(f"# Antigravity Dispatch Wave — {args.goal}")
+        print(f"# Generated: {datetime.now().isoformat()}")
+        print(f"# Target parallel tasks: {args.count}\n")
+        for t in tasks:
+            print(f"## {t['title']}")
+            print(f"ID suggestion: {t['id']}")
+            print(f"Priority: {t['priority']} | Complexity: {t['complexity']}")
+            print(t['description'])
+            print("-" * 60 + "\n")
+
+        print("\n# Recommended next steps for Antigravity:")
+        print("1. Review and refine the tasks above")
+        print("2. Create them in the queue (via API or UI)")
+        print("3. Launch parallel agents using bin/launch-jules-parallel or agent-team")
+        print("4. Monitor via jules-watch + bin/consume-handoff-reviews.py")
+
+if __name__ == "__main__":
+    main()
