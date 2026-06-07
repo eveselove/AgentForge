@@ -22,7 +22,7 @@
 - `--input` (and aliases `--from`/`-i`/`-f`) accepts:
   - Directories of eval results (`*.json` in `eval/results`)
   - JSONL files: full `TrajectoryRecord`s, learning export pairs/flat, or raw trajectory event streams (fallback synthesizes record)
-- Smart candidate resolution (absolute + `/home/agx/agentforge/<path>` + relatives) so relative paths work from `rust/` cwd.
+- Smart candidate resolution (absolute + `/home/eveselove/agentforge/<path>` + relatives) so relative paths work from `rust/` cwd.
 - Uses new `TrajectoryDataset::load_from_real_input` / `load_from_eval_results_dir` / `load_from_jsonl` + lenient outcome parser.
 - `compute_learning_value()` always run before exports.
 
@@ -66,13 +66,13 @@
 
 ## Verification Commands (all succeed)
 ```bash
-cd /home/agx/agentforge/rust
+cd /home/eveselove/agentforge/rust
 cargo build --offline -p agentforge-runner
 ./target/debug/agentforge-runner --help
 ./target/debug/agentforge-runner --json version
 ./target/debug/agentforge-runner --json stats --input eval/results
 ./target/debug/agentforge-runner --json export-pairs --input eval/results --output /tmp/p.jsonl
-./target/debug/agentforge-runner export-prm-steps --input /home/agx/agentforge/eval/results --output /tmp/prm.jsonl
+./target/debug/agentforge-runner export-prm-steps --input /home/eveselove/agentforge/eval/results --output /tmp/prm.jsonl
 cargo run --offline -p agentforge-runner --example phase2_3_vision
 cargo test --offline -p agentforge-runner
 cargo test --offline --workspace  # (broader context)

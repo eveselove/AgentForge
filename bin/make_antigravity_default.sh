@@ -14,7 +14,7 @@
 # - Safe service handling (notes + optional restart for user-mode workers/timer; never blind system)
 # - Runs healthcheck.sh with Flywheel/Timer focus
 # - Full verification printout (env, timer, health json, binary, pending list)
-# - Prints FULL FARM ROLLOUT PACKAGE (exact scp+ssh per-host or master /tmp/farm_antigravity_rollout.sh wrapper with dry-first + per-remote health/timer/default-probe verify + rollback notes) for grok-work/* ssh-1..N agent* team-* Jetsons etc.
+# - Prints FULL FARM ROLLOUT PACKAGE (exact scp+ssh per-host or master /tmp/farm_antigravity_rollout.sh wrapper with dry-first + per-remote health/timer/default-probe verify + rollback notes) for grok-work/* ssh-1..N agent* team-* Erboxs etc.
 # - Prints clean DISABLE path (the only killswitch: DISABLE_RUST_FLYWHEEL=1)
 #
 # Production guarantees:
@@ -33,7 +33,7 @@
 # - ENABLE_RUST_FLYWHEEL.md + CONTINUOUS_FLYWHEEL.md + PENDING_CANDIDATES.md (timer + real A/B)
 # - bin/enable_*.sh + bin/trigger_real_ab_on_farm.sh + real_ab_farm_commands.txt
 #
-# Usage (from /home/agx/agentforge):
+# Usage (from /home/eveselove/agentforge):
 #   bash bin/make_antigravity_default.sh                 # full production enable + verify
 #   bash bin/make_antigravity_default.sh --dry-run       # safe simulation only
 #   bash bin/make_antigravity_default.sh --no-timer      # skip continuous (just rust default)
@@ -49,7 +49,7 @@
 set -u
 # Resilience: explicit error handling only on critical paths
 
-AGENTFORGE_ROOT="/home/agx/agentforge"
+AGENTFORGE_ROOT="/home/eveselove/agentforge"
 cd "$AGENTFORGE_ROOT" 2>/dev/null || true
 
 LOG_DIR="$AGENTFORGE_ROOT/logs"
@@ -107,7 +107,7 @@ if [ $DRY_RUN -eq 0 ]; then
         bash "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" 2>&1 | tail -20 || log "enable_rust non-fatal"
     else
         log "WARNING: enable_rust_flywheel.sh not executable — falling back to python activator"
-        PYTHONPATH=/home/agx python3 -m agentforge.enable_rust_flywheel 2>/dev/null || true
+        PYTHONPATH=/home/eveselove python3 -m agentforge.enable_rust_flywheel 2>/dev/null || true
     fi
 
     if [ $NO_TIMER -eq 0 ]; then
@@ -199,11 +199,11 @@ done
 echo ""
 
 echo "Pending candidates (top recent):"
-PYTHONPATH=/home/agx python -m agentforge.list_pending_candidates list --limit 5 --sort value 2>/dev/null | cat || echo "  (run after first flywheel step)"
+PYTHONPATH=/home/eveselove python -m agentforge.list_pending_candidates list --limit 5 --sort value 2>/dev/null | cat || echo "  (run after first flywheel step)"
 echo ""
 
 echo "Quick post_process default-on probe (no mutation):"
-PYTHONPATH=/home/agx python3 -c '
+PYTHONPATH=/home/eveselove python3 -c '
 import os
 os.environ.pop("DISABLE_RUST_FLYWHEEL", None)
 from agentforge.eval.post_process import post_process_task
@@ -218,7 +218,7 @@ log "=== FARM-WIDE ONE-COMMAND ACTIVATION (copy-paste ready) ==="
 cat << 'FARM_BLOCK'
 
 # === 1. MAIN HOST (Autonomy / API / dispatcher / timer host) ===
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 bash bin/make_antigravity_default.sh                 # <-- THE ONE COMMAND (or --dry-run first)
 # Full verify:
 bash healthcheck.sh | grep -E 'Flywheel|Timer|Rust'
@@ -240,35 +240,35 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 # * Prefer PER-HOST rollout first wave (one remote at a time, watch load/dashboard).
 # * Master wrapper (below) ALWAYS does --dry-run per remote + short pause + (interactive or --yes).
 # * Only proceed to real after dry output looks clean on that host.
-# * ROLLBACK per remote (instant): ssh <host> 'DISABLE_RUST_FLYWHEEL=1 bash /home/agx/agentforge/bin/disable_rust_flywheel.sh 2>/dev/null || true; systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true; rm -f /home/agx/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || true'
+# * ROLLBACK per remote (instant): ssh <host> 'DISABLE_RUST_FLYWHEEL=1 bash /home/eveselove/agentforge/bin/disable_rust_flywheel.sh 2>/dev/null || true; systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true; rm -f /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || true'
 # * Timer primarily on main Autonomy host(s). Workers + hooks on all remotes.
 # * Low-load window recommended. Monitor with: tail -f logs/*.log + dashboard + healthcheck.
 # * All commands are idempotent; re-run make_ script to re-arm default anywhere.
-# * Jetson uses full user@IP (key auth from history); add more hosts to REMOTES if new Jetsons appear.
+# * Erbox uses full user@IP (key auth from history); add more hosts to REMOTES if new Erboxs appear.
 
-# Known remotes (from grok-work/* layout + agent_cards.json Jetson + history):
-#   agent1..5 ssh-1..8 team-code/perf/rust/services/singbox/ssh + agx@146.120.89.199 (jetson)
+# Known remotes (from grok-work/* layout + agent_cards.json Erbox + history):
+#   agent1..5 ssh-1..8 team-code/perf/rust/services/singbox/ssh + eveselove@146.120.89.199 (erbox)
 # Edit the list in the MASTER below if fleet changes.
 
 # --- ONE CLEAN COMMAND STYLE (manual / per-host, max safety) ---
 # Example for a single remote (repeat pattern; replace HOST):
-#   scp /home/agx/agentforge/bin/make_antigravity_default.sh \
-#       /home/agx/agentforge/bin/{enable_rust_flywheel.sh,enable_continuous_flywheel.sh,disable_rust_flywheel.sh,rust_flywheel.env,run_continuous_flywheel.*} \
-#       /home/agx/agentforge/agentforge-flywheel.{service,timer} \
-#       /home/agx/agentforge/ENABLE_RUST_FLYWHEEL \
-#       /home/agx/agentforge/healthcheck.sh \
+#   scp /home/eveselove/agentforge/bin/make_antigravity_default.sh \
+#       /home/eveselove/agentforge/bin/{enable_rust_flywheel.sh,enable_continuous_flywheel.sh,disable_rust_flywheel.sh,rust_flywheel.env,run_continuous_flywheel.*} \
+#       /home/eveselove/agentforge/agentforge-flywheel.{service,timer} \
+#       /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL \
+#       /home/eveselove/agentforge/healthcheck.sh \
 #       HOST:/tmp/antigravity-default/
 #   ssh HOST '
 #     mkdir -p /tmp/antigravity-default && cd /tmp/antigravity-default
 #     bash make_antigravity_default.sh --dry-run
 #     # ... review output ...
 #     bash make_antigravity_default.sh --no-timer || bash make_antigravity_default.sh
-#     touch /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
-#     systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || (pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null; bash /home/agx/agentforge/grok_worker.sh & bash /home/agx/agentforge/jules_worker.sh &) || true
+#     touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
+#     systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || (pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null; bash /home/eveselove/agentforge/grok_worker.sh & bash /home/eveselove/agentforge/jules_worker.sh &) || true
 #     # POST-VERIFY (healthcheck + timer + default probe):
-#     bash /home/agx/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|✅|⚠️|ONLINE" | head -12 || true
+#     bash /home/eveselove/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|✅|⚠️|ONLINE" | head -12 || true
 #     systemctl --user status agentforge-flywheel.timer --no-pager 2>/dev/null | head -6 || systemctl --user list-timers 2>/dev/null | grep -iE "flywheel|NEXT" || true
-#     ls -l /home/agx/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || echo "ENABLE present via default-on"
+#     ls -l /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || echo "ENABLE present via default-on"
 #     python3 -c "import os; os.environ.pop(\"DISABLE_RUST_FLYWHEEL\",None); print(\"post_process Rust default guard: ACTIVE\")" 2>/dev/null || true
 #   '
 # After fleet: on main run healthcheck + list_pending + (optional) continuous dry step.
@@ -282,18 +282,18 @@ cat > /tmp/farm_antigravity_rollout.sh << 'MASTER_ROLLOUT'
 # (Rust flywheel now default everywhere). Generated from bin/make_antigravity_default.sh
 # Turbo + safe: dry first everywhere, per-host control, full verification, easy rollback.
 set -u
-AGENTFORGE="/home/agx/agentforge"
+AGENTFORGE="/home/eveselove/agentforge"
 cd "$AGENTFORGE" || exit 1
 
 AUTO_YES=0
 [ "${1:-}" = "--yes" ] && AUTO_YES=1
 
-# === FULL PRODUCTION FARM LIST (grok-work/* + Jetson from history) ===
+# === FULL PRODUCTION FARM LIST (grok-work/* + Erbox from history) ===
 REMOTES=(
   agent1 agent2 agent3 agent4 agent5
   ssh-1 ssh-2 ssh-3 ssh-4 ssh-5 ssh-6 ssh-7 ssh-8
   team-code team-perf team-rust team-services team-singbox team-ssh
-  agx@146.120.89.199   # jetson (primary Jetson; add others as agx@IP if discovered)
+  eveselove@146.120.89.199   # erbox (primary Erbox; add others as agx@IP if discovered)
 )
 
 # Core payload (make + enables + disable for rollback + env + units + marker + health)
@@ -352,14 +352,14 @@ for host in "${REMOTES[@]}"; do
     mkdir -p /tmp/antigravity-default
     cd /tmp/antigravity-default
     bash make_antigravity_default.sh --no-timer 2>&1 | tail -20 || bash make_antigravity_default.sh 2>&1 | tail -15
-    touch /home/agx/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || true
+    touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || true
     # Safe worker bounce (user units preferred; fallback direct)
     if systemctl --user is-active --quiet agentforge-worker 2>/dev/null || systemctl --user is-active --quiet agentforge-jules-worker 2>/dev/null; then
       systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true
     else
       pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null || true
-      (nohup bash /home/agx/agentforge/grok_worker.sh > /dev/null 2>&1 &)
-      (nohup bash /home/agx/agentforge/jules_worker.sh > /dev/null 2>&1 &)
+      (nohup bash /home/eveselove/agentforge/grok_worker.sh > /dev/null 2>&1 &)
+      (nohup bash /home/eveselove/agentforge/jules_worker.sh > /dev/null 2>&1 &)
     fi
     echo "  Workers signalled on $host"
   ' 2>&1 | tail -25 || echo "     (ssh real warning on $host — check manually)"
@@ -368,11 +368,11 @@ for host in "${REMOTES[@]}"; do
   echo "  [4/4] POST-PUSH VERIFICATION on $host..."
   ssh -o ConnectTimeout=15 -o BatchMode=yes "$host" '
     echo "=== $host POST-VERIFY (health + timer + default probe) ==="
-    bash /home/agx/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|✅|⚠️|Task Queue|ONLINE|OFFLINE" | head -15 || true
+    bash /home/eveselove/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|✅|⚠️|Task Queue|ONLINE|OFFLINE" | head -15 || true
     echo "--- Timer status ---"
     (systemctl --user status agentforge-flywheel.timer --no-pager -l 2>/dev/null | head -7) || (systemctl --user list-timers --all 2>/dev/null | grep -iE "flywheel|agentforge" | head -3) || echo "  (no user timer or system mode)"
     echo "--- Default-on probe (ENABLE marker + guard) ---"
-    ls -l /home/agx/agentforge/ENABLE_RUST_FLYWHEEL /home/agx/agentforge/.disable_rust_flywheel 2>/dev/null || echo "  ENABLE marker (or implicit via post-2026-05 default-on logic)"
+    ls -l /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL /home/eveselove/agentforge/.disable_rust_flywheel 2>/dev/null || echo "  ENABLE marker (or implicit via post-2026-05 default-on logic)"
     python3 -c "
 import os, sys
 os.environ.pop(\"DISABLE_RUST_FLYWHEEL\", None)
@@ -390,15 +390,15 @@ echo ""
 echo "================================================================"
 echo "=== FARM ROLLOUT COMPLETE ==="
 echo "Next steps on MAIN (Antigravity Default now live everywhere):"
-echo "  bash /home/agx/agentforge/healthcheck.sh | grep -E \"Flywheel|Timer|Rust\""
+echo "  bash /home/eveselove/agentforge/healthcheck.sh | grep -E \"Flywheel|Timer|Rust\""
 echo "  python -m agentforge.list_pending_candidates list --limit 5 --sort value"
 echo "  systemctl --user status agentforge-flywheel.timer || true"
 echo ""
 echo "Per-host rollback (example):"
-echo "  ssh agent3 'DISABLE_RUST_FLYWHEEL=1 bash /home/agx/agentforge/bin/disable_rust_flywheel.sh || true; systemctl --user restart agentforge-worker agentforge-jules-worker || true'"
+echo "  ssh agent3 'DISABLE_RUST_FLYWHEEL=1 bash /home/eveselove/agentforge/bin/disable_rust_flywheel.sh || true; systemctl --user restart agentforge-worker agentforge-jules-worker || true'"
 echo ""
 echo "Re-arm default on any host:"
-echo "  ssh HOST 'bash /home/agx/agentforge/bin/make_antigravity_default.sh'"
+echo "  ssh HOST 'bash /home/eveselove/agentforge/bin/make_antigravity_default.sh'"
 echo "================================================================"
 MASTER_ROLLOUT
 chmod +x /tmp/farm_antigravity_rollout.sh
@@ -434,7 +434,7 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 # (remove AGENTFORGE_RUST_* lines)
 
 # Clean marker + timer (full flywheel no-op, keeps legacy paths happy):
-rm -f /home/agx/agentforge/ENABLE_RUST_FLYWHEEL /home/agx/agentforge/.disable_rust_flywheel 2>/dev/null || true
+rm -f /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL /home/eveselove/agentforge/.disable_rust_flywheel 2>/dev/null || true
 systemctl --user disable --now agentforge-flywheel.timer 2>/dev/null || sudo systemctl disable --now agentforge-flywheel.timer 2>/dev/null || true
 rm -f ~/.config/systemd/user/agentforge-flywheel.* /etc/systemd/system/agentforge-flywheel.* 2>/dev/null || true
 systemctl --user daemon-reload 2>/dev/null; sudo systemctl daemon-reload 2>/dev/null || true
@@ -443,7 +443,7 @@ systemctl --user daemon-reload 2>/dev/null; sudo systemctl daemon-reload 2>/dev/
 DISABLE_RUST_FLYWHEEL=1 PYTHONPATH=. python -m agentforge.eval.post_process <task_id>
 
 # Re-arm default (one command):
-bash /home/agx/agentforge/bin/make_antigravity_default.sh
+bash /home/eveselove/agentforge/bin/make_antigravity_default.sh
 
 # Evidence that disable is respected everywhere: post_process.py, dispatcher.sh, phase2_3_integration.py, all *_worker.sh, enable_*.sh, watchdog.py
 
@@ -457,7 +457,7 @@ log "Only off-switch: DISABLE_RUST_FLYWHEEL=1 (env or .disable_rust_flywheel fil
 # Final safe dry invocation of continuous (reuses all paths)
 if [ $DRY_RUN -eq 0 ]; then
     log "Final safe verification dry-run of continuous closer..."
-    env PYTHONPATH=/home/agx ENABLE_RUST_FLYWHEEL=1 timeout 20s python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run 2>&1 | tail -10 || true
+    env PYTHONPATH=/home/eveselove ENABLE_RUST_FLYWHEEL=1 timeout 20s python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run 2>&1 | tail -10 || true
 fi
 
 exit 0

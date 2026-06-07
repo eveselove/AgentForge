@@ -11,22 +11,22 @@ Requires=agentforge-api.service
 Type=simple
 User=agx
 Group=agx
-WorkingDirectory=/home/agx/planlytasksko
-Environment=PATH=/home/agx/.local/bin:/home/agx/.cargo/bin:/home/agx/.grok/bin:/home/agx/.nvm/versions/node/v20.20.1/bin:/usr/local/bin:/usr/bin:/bin
-Environment=PROTOC=/home/agx/.local/bin/protoc
-Environment=HOME=/home/agx
+WorkingDirectory=/home/eveselove/planlytasksko
+Environment=PATH=/home/eveselove/.local/bin:/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove/.nvm/versions/node/v20.20.1/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PROTOC=/home/eveselove/.local/bin/protoc
+Environment=HOME=/home/eveselove
 # Rust Flywheel live farm integration (Jules track): enable + runner path for post-task auto fire
 # 2026-06: Now DEFAULT for Antigravity. Prefers release binary for production speed.
 Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1
-Environment=AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner
+Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 # To fully disable for this worker: Environment=DISABLE_RUST_FLYWHEEL=1 (and comment the three lines above)
 # Optional rate: Environment=AGENTFORGE_RUST_FLYWHEEL_EVERY_N=5
-ExecStart=/bin/bash /home/agx/agentforge/grok_worker.sh
+ExecStart=/bin/bash /home/eveselove/agentforge/grok_worker.sh
 Restart=always
 RestartSec=10
-StandardOutput=append:/home/agx/agentforge/logs/grok_worker.log
-StandardError=append:/home/agx/agentforge/logs/grok_worker.log
+StandardOutput=append:/home/eveselove/agentforge/logs/grok_worker.log
+StandardError=append:/home/eveselove/agentforge/logs/grok_worker.log
 
 # Автоперезапуск при падении
 StartLimitIntervalSec=600

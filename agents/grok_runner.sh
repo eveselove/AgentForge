@@ -14,8 +14,8 @@ export CARGO_TARGET_DIR=/dev/shm/cargo-target
 # Запуск Grok Build для задачи AgentForge
 # Поддерживает --check (самопроверка) и --best-of-n (параллельный запуск)
 # Git Worktrees: изоляция агентов — каждый агент в /tmp/agentforge/TASK_ID (нет конфликтов)
-export PATH=/home/agx/.cargo/bin:/home/agx/.grok/bin:/home/agx/bin:$PATH
-export NVM_DIR=/home/agx/.nvm
+export PATH=/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove/bin:$PATH
+export NVM_DIR=/home/eveselove/.nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 # === AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) ===
@@ -27,27 +27,27 @@ export NVM_DIR=/home/agx/.nvm
 # call later in this runner (line ~540) automatically fires rate-limited rust_flywheel_step
 # (via phase2_3_integration) when AGENTFORGE_RUST_FLYWHEEL=1 + binary present.
 # === Rust Flywheel now DEFAULT for Antigravity (unless DISABLE_RUST_FLYWHEEL=1) ===
-RUST_FLYWHEEL_SNIPPET="/home/agx/agentforge/bin/rust_flywheel.env"
+RUST_FLYWHEEL_SNIPPET="/home/eveselove/agentforge/bin/rust_flywheel.env"
 if [ -f "$RUST_FLYWHEEL_SNIPPET" ]; then
     source "$RUST_FLYWHEEL_SNIPPET" 2>/dev/null || true
 fi
 if [ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]; then
-    [ -x "/home/agx/agentforge/bin/enable_rust_flywheel.sh" ] && source "/home/agx/agentforge/bin/enable_rust_flywheel.sh" 2>/dev/null || true
+    [ -x "/home/eveselove/agentforge/bin/enable_rust_flywheel.sh" ] && source "/home/eveselove/agentforge/bin/enable_rust_flywheel.sh" 2>/dev/null || true
     export AGENTFORGE_RUST_FLYWHEEL=1
     export AGENTFORGE_USE_RUST=1
 fi
 export AGENTFORGE_RUST_FLYWHEEL="${AGENTFORGE_RUST_FLYWHEEL:-0}"
 export AGENTFORGE_USE_RUST="${AGENTFORGE_USE_RUST:-0}"
 # Prefer release for prod polish
-if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then _R="/home/agx/agentforge/rust/target/release/agentforge-runner"; else _R="/home/agx/agentforge/rust/target/debug/agentforge-runner"; fi
+if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then _R="/home/eveselove/agentforge/rust/target/release/agentforge-runner"; else _R="/home/eveselove/agentforge/rust/target/debug/agentforge-runner"; fi
 export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_R}"
 
 TASK_ID="$1"
 TASK_DESC="$2"
-PROJECT_DIR="${3:-/home/agx/planlytasksko}"
+PROJECT_DIR="${3:-/home/eveselove/planlytasksko}"
 PRIORITY="${4:-medium}"
 SKILL="${5:-}"
-LOG_DIR="/home/agx/agentforge/logs"
+LOG_DIR="/home/eveselove/agentforge/logs"
 AGENT="grok"
 
 # === Structured Trajectory Logging (Phase 1 - unified + robust) ===
@@ -55,8 +55,8 @@ AGENT="grok"
 # log_trajectory.sh now always emits canonical JSONL with "data" wrapper.
 export TASK_ID="$TASK_ID"
 export AGENT="grok"
-export TRAJECTORY_DIR="/home/agx/agentforge/eval/trajectories"
-source "/home/agx/agentforge/eval/log_trajectory.sh" 2>/dev/null || true
+export TRAJECTORY_DIR="/home/eveselove/agentforge/eval/trajectories"
+source "/home/eveselove/agentforge/eval/log_trajectory.sh" 2>/dev/null || true
 log_task_start "${TASK_TITLE:-$TASK_DESC}" "$PRIORITY" "${TAGS:-}" 2>/dev/null || true
 
 # Optional: enable automatic PRM post-processing on every grok task end
@@ -108,12 +108,12 @@ trap cleanup_worktree EXIT INT TERM
 #     backtrace остаются полезными (файл:строка), без overhead полных debuginfo.
 #   - Скрипт ensure_cargo_optimization.sh идемпотентен, пишет только на русском.
 #   - Соответствует рекомендации в ОПТИМИЗАЦИЯ_ГЛОБАЛЬНОГО_CARGO_CONFIG_ДЛЯ_AGENTFORGE.md
-if [[ -x "/home/agx/agentforge/scripts/ensure_cargo_optimization.sh" ]]; then
+if [[ -x "/home/eveselove/agentforge/scripts/ensure_cargo_optimization.sh" ]]; then
     echo "[AgentForge] 🔧 Применение оптимизации Cargo (jobs=12, debug=\"line-tables-only\" — облегчённые символы)..." | tee -a "$LOG_DIR/grok_$TASK_ID.log"
     log_event "infra_step" "{\"step\":\"cargo_optimization\"}" 2>/dev/null || true
-    bash "/home/agx/agentforge/scripts/ensure_cargo_optimization.sh" 2>&1 | tee -a "$LOG_DIR/grok_$TASK_ID.log" || echo "[AgentForge] ⚠️ ensure_cargo_optimization.sh завершился с предупреждением (не критично)" | tee -a "$LOG_DIR/grok_$TASK_ID.log"
+    bash "/home/eveselove/agentforge/scripts/ensure_cargo_optimization.sh" 2>&1 | tee -a "$LOG_DIR/grok_$TASK_ID.log" || echo "[AgentForge] ⚠️ ensure_cargo_optimization.sh завершился с предупреждением (не критично)" | tee -a "$LOG_DIR/grok_$TASK_ID.log"
 else
-    echo "[AgentForge] ⚠️ Скрипт ensure_cargo_optimization.sh не найден в /home/agx/agentforge/scripts/ — облегчённые debug-символы могут отсутствовать. Рекомендуется запустить install_services.sh или скопировать скрипт." | tee -a "$LOG_DIR/grok_$TASK_ID.log"
+    echo "[AgentForge] ⚠️ Скрипт ensure_cargo_optimization.sh не найден в /home/eveselove/agentforge/scripts/ — облегчённые debug-символы могут отсутствовать. Рекомендуется запустить install_services.sh или скопировать скрипт." | tee -a "$LOG_DIR/grok_$TASK_ID.log"
 fi
 
 # === Обеспечение Rust DevTools (cargo-binstall, cargo-machete, cargo-nextest) ===
@@ -124,7 +124,7 @@ fi
 #   - Гарантирует, что cargo-nextest (и binstall/machete) присутствуют ДО первой cargo-команды
 #     в блоке CI (clippy / nextest / build).
 #   - Скрипт ensure_rust_devtools.sh идемпотентен, пишет только на русском, сам обрабатывает
-#     aarch64 + glibc несовместимости prebuilt (Jetson / Ubuntu 22.04).
+#     aarch64 + glibc несовместимости prebuilt (Erbox / Ubuntu 22.04).
 #   - Если nextest не удастся поставить — CI продолжит через cargo test (graceful degradation).
 #   - Ранее nextest уже упоминался в коде, но не устанавливался → падения "command not found".
 #     Теперь устранено централизованно (как для оптимизаций cargo config).
@@ -132,10 +132,10 @@ fi
 # Интеграция с rust-fix skill: при использовании playbook rust-fix.yaml CI-чекер
 # всё ещё использует cargo test, но fallback-блок grok_runner (когда SKILL_CI_CHECKS пуст)
 # теперь будет использовать nextest — это и есть целевое ускорение проверок.
-if [[ -x "/home/agx/agentforge/scripts/ensure_rust_devtools.sh" ]]; then
+if [[ -x "/home/eveselove/agentforge/scripts/ensure_rust_devtools.sh" ]]; then
     echo "[AgentForge] 🦀 Подготовка Rust DevTools (cargo-binstall + machete + nextest) для CI..." | tee -a "$LOG_DIR/grok_$TASK_ID.log"
     log_event "infra_step" "{\"step\":\"rust_devtools\"}" 2>/dev/null || true
-    bash "/home/agx/agentforge/scripts/ensure_rust_devtools.sh" 2>&1 | tee -a "$LOG_DIR/grok_$TASK_ID.log" || echo "[AgentForge] ⚠️ ensure_rust_devtools.sh завершился с предупреждением (nextest может быть недоступен — используем cargo test fallback)" | tee -a "$LOG_DIR/grok_$TASK_ID.log"
+    bash "/home/eveselove/agentforge/scripts/ensure_rust_devtools.sh" 2>&1 | tee -a "$LOG_DIR/grok_$TASK_ID.log" || echo "[AgentForge] ⚠️ ensure_rust_devtools.sh завершился с предупреждением (nextest может быть недоступен — используем cargo test fallback)" | tee -a "$LOG_DIR/grok_$TASK_ID.log"
 else
     echo "[AgentForge] ⚠️ Скрипт ensure_rust_devtools.sh не найден — cargo-nextest не будет установлен автоматически. CI может упасть на 'cargo nextest'." | tee -a "$LOG_DIR/grok_$TASK_ID.log"
 fi
@@ -156,12 +156,12 @@ fi
 #   - Вызывается централизованно из grok_runner (как ensure_cargo_optimization и ensure_rust_devtools).
 #   - Также вызывается из install_services.sh при развёртывании.
 #   - После этого шага rust-fix skill и агенты получают быстрые сборки "из коробки".
-if [[ -x "/home/agx/agentforge/scripts/ensure_mold.sh" ]]; then
+if [[ -x "/home/eveselove/agentforge/scripts/ensure_mold.sh" ]]; then
     echo "[AgentForge] 🔗 Подготовка mold (быстрый линкер) — копирование в ~/.cargo/bin/mold + права..." | tee -a "$LOG_DIR/grok_$TASK_ID.log"
     log_event "infra_step" "{\"step\":\"mold_linker\"}" 2>/dev/null || true
-    bash "/home/agx/agentforge/scripts/ensure_mold.sh" 2>&1 | tee -a "$LOG_DIR/grok_$TASK_ID.log" || echo "[AgentForge] ⚠️ ensure_mold.sh завершился с предупреждением (сборки продолжатся без mold — медленнее линковка)" | tee -a "$LOG_DIR/grok_$TASK_ID.log"
+    bash "/home/eveselove/agentforge/scripts/ensure_mold.sh" 2>&1 | tee -a "$LOG_DIR/grok_$TASK_ID.log" || echo "[AgentForge] ⚠️ ensure_mold.sh завершился с предупреждением (сборки продолжатся без mold — медленнее линковка)" | tee -a "$LOG_DIR/grok_$TASK_ID.log"
 else
-    echo "[AgentForge] ⚠️ Скрипт ensure_mold.sh не найден в /home/agx/agentforge/scripts/ — mold не будет доступен. Рекомендуется запустить install_services.sh или скопировать скрипт вручную." | tee -a "$LOG_DIR/grok_$TASK_ID.log"
+    echo "[AgentForge] ⚠️ Скрипт ensure_mold.sh не найден в /home/eveselove/agentforge/scripts/ — mold не будет доступен. Рекомендуется запустить install_services.sh или скопировать скрипт вручную." | tee -a "$LOG_DIR/grok_$TASK_ID.log"
 fi
 
 # Определяем флаги в зависимости от приоритета (совместимо с headless grok CLI)
@@ -251,7 +251,7 @@ fi
 # RAG по заголовку/описанию
 RAG_QUERY="$TASK_TITLE"
 [ -z "$RAG_QUERY" ] && RAG_QUERY="$TASK_DESC"
-CONTEXT=$(python3 /home/agx/agentforge/memory_helper.py search "$RAG_QUERY" 2>/dev/null)
+CONTEXT=$(python3 /home/eveselove/agentforge/memory_helper.py search "$RAG_QUERY" 2>/dev/null)
 if [ -n "$CONTEXT" ]; then
     echo "[AgentForge RAG] Найдена релевантная информация в векторной памяти." | tee -a $LOG_DIR/grok_$TASK_ID.log
     log_event "rag_context" "{\"query_length\":\"${#RAG_QUERY}\"}" 2>/dev/null || true
@@ -350,25 +350,25 @@ At every major step (plan formulation, key decision, before+after EVERY tool use
 Examples (copy/adapt literally; TASK_ID for THIS run is pre-filled):
 
   # Detailed reasoning / thought / plan update
-  bash -c '\''source /home/agx/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_reasoning "Concise but rich: current hypothesis/plan/why this approach. Include alternatives considered and tradeoffs."'\''
+  bash -c '\''source /home/eveselove/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_reasoning "Concise but rich: current hypothesis/plan/why this approach. Include alternatives considered and tradeoffs."'\''
 
   # Decision point (critical for PRM)
-  bash -c '\''source /home/agx/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_decision "chose_edit_over_refactor" "Rationale: minimal diff risk, directly addresses E0123 at line 87; verified by clippy mental model"'\''
+  bash -c '\''source /home/eveselove/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_decision "chose_edit_over_refactor" "Rationale: minimal diff risk, directly addresses E0123 at line 87; verified by clippy mental model"'\''
 
   # Before tool call (with args + rationale)
-  bash -c '\''source /home/agx/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_event "tool_call" "{\"tool\":\"edit\",\"args\":{\"file\":\"src/main.rs\",\"change\":\"add throttle param + tests\"},\"rationale\":\"Addresses adaptive throttling requirement from spec\",\"expected\":\"compiles + test passes\"}"'\''
+  bash -c '\''source /home/eveselove/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_event "tool_call" "{\"tool\":\"edit\",\"args\":{\"file\":\"src/main.rs\",\"change\":\"add throttle param + tests\"},\"rationale\":\"Addresses adaptive throttling requirement from spec\",\"expected\":\"compiles + test passes\"}"'\''
 
   # After tool result / observation (full result metadata where possible)
-  bash -c '\''source /home/agx/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_event "tool_result" "{\"tool\":\"edit\",\"result_preview\":\"patch applied cleanly, 14 lines\",\"success\":true,\"duration_ms\":420,\"next_step\":\"run cargo check\"}"'\''
+  bash -c '\''source /home/eveselove/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_event "tool_result" "{\"tool\":\"edit\",\"result_preview\":\"patch applied cleanly, 14 lines\",\"success\":true,\"duration_ms\":420,\"next_step\":\"run cargo check\"}"'\''
 
   # Error + recovery (high value signal)
-  bash -c '\''source /home/agx/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_error_recovery "cargo clippy failed on unused import" "Will run machete + targeted remove; re-verify with nextest"'\''
+  bash -c '\''source /home/eveselove/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_error_recovery "cargo clippy failed on unused import" "Will run machete + targeted remove; re-verify with nextest"'\''
 
   # LLM internal turn / self-critique (use for multi-turn visibility)
-  bash -c '\''source /home/agx/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_event "llm_turn" "{\"turn\":2,\"focus\":\"replan after test failure\",\"confidence\":0.75,\"tokens_est\":650}"'\'' 
+  bash -c '\''source /home/eveselove/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_event "llm_turn" "{\"turn\":2,\"focus\":\"replan after test failure\",\"confidence\":0.75,\"tokens_est\":650}"'\'' 
 
   # Generic rich event for anything else
-  bash -c '\''source /home/agx/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_event "agent_step" "{\"phase\":\"verification\",\"detail\":\"...\"}"'\''
+  bash -c '\''source /home/eveselove/agentforge/eval/log_trajectory.sh 2>/dev/null || true; TASK_ID="'" + tid + r'''" AGENT=grok log_event "agent_step" "{\"phase\":\"verification\",\"detail\":\"...\"}"'\''
 
 Rules:
 - Log CONCISELY (previews <= 400 chars) but with enough metadata for PRM scoring (args, rationale, outcome, duration, errors).
@@ -466,7 +466,7 @@ else
         #
         # Почему nextest:
         #   - cargo test последователен и медленнее; nextest запускает тесты параллельно по умолчанию
-        #     (до 4-12x ускорение на многоядерных Jetson/рабочих станциях).
+        #     (до 4-12x ускорение на многоядерных Erbox/рабочих станциях).
         #   - Отличный отчёт: группировка по модулям, быстрый показ первых падений, поддержка
         #     --retries для flaky-тестов, .config/nextest.toml для тонкой настройки.
         #   - Полная совместимость: `cargo nextest run` принимает те же фильтры, что cargo test.
@@ -537,7 +537,7 @@ if echo "$FULL_PROMPT $TASK_DESC $SKILL" | grep -qiE "$TOOL_CREATION_HINTS"; the
     echo "" | tee -a $LOG_DIR/grok_$TASK_ID.log
     echo "[AgentForge Self-Expansion] ⚠️  Эта задача выглядит как создание нового инструмента." | tee -a $LOG_DIR/grok_$TASK_ID.log
     echo "[AgentForge Self-Expansion]    ОБЯЗАТЕЛЬНО выполни захват скилла перед финишем:" | tee -a $LOG_DIR/grok_$TASK_ID.log
-    echo "[AgentForge Self-Expansion]    python /home/agx/agentforge/skill_capture.py --stdin <<JSON" | tee -a $LOG_DIR/grok_$TASK_ID.log
+    echo "[AgentForge Self-Expansion]    python /home/eveselove/agentforge/skill_capture.py --stdin <<JSON" | tee -a $LOG_DIR/grok_$TASK_ID.log
     echo '[AgentForge Self-Expansion]    { "name": "kebab-name-here", "description": "...", "system_prompt": "...", "required_tags": ["parser","yourdomain"] }' | tee -a $LOG_DIR/grok_$TASK_ID.log
     echo "[AgentForge Self-Expansion]    JSON" | tee -a $LOG_DIR/grok_$TASK_ID.log
     echo "[AgentForge Self-Expansion]    Или используй POST /skills/capture. Skill будет доступен всем агентам." | tee -a $LOG_DIR/grok_$TASK_ID.log
@@ -650,7 +650,7 @@ if [ -n "$TRAJ_FILE" ] && [ -f "$TRAJ_FILE" ]; then
         # transitional. The canonical path is now agentforge-runner flywheel-step (pure Rust emission live).
         # When AGENTFORGE_FLYWHEEL_ENGINE=rust the Python orchestration is deprecated/no-op.
         if [ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]; then
-            ( AGENTFORGE_USE_RUST=1 python /home/agx/agentforge/bin/rust_post_process_hook.py "$TASK_ID" \
+            ( AGENTFORGE_USE_RUST=1 python /home/eveselove/agentforge/bin/rust_post_process_hook.py "$TASK_ID" \
               >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true ) &
         fi
     fi
@@ -664,13 +664,13 @@ if [ "$FINAL_STATUS" = "review" ]; then
     # Fix: убран & (фоновый режим) + добавлен retry, чтобы Guardian не терялся
     curl -s --retry 3 --retry-delay 2 --max-time 10 -X POST "http://localhost:8080/tasks/$TASK_ID/review"
     echo "[AgentForge Memory] Сохраняем задачу в векторную память..." | tee -a $LOG_DIR/grok_$TASK_ID.log
-    python3 /home/agx/agentforge/memory_helper.py save "$TASK_ID" >> $LOG_DIR/grok_$TASK_ID.log 2>&1
+    python3 /home/eveselove/agentforge/memory_helper.py save "$TASK_ID" >> $LOG_DIR/grok_$TASK_ID.log 2>&1
 fi
 
 # При failure — сохраняем траекторию для automated failure clustering + taxonomy
 if [ "$FINAL_STATUS" = "failed" ]; then
     echo "[AgentForge FailureCluster] Сохраняем failed trajectory для кластеринга..." | tee -a $LOG_DIR/grok_$TASK_ID.log
-    python3 /home/agx/agentforge/memory_helper.py save-failure "$TASK_ID" >> $LOG_DIR/grok_$TASK_ID.log 2>&1 || true
+    python3 /home/eveselove/agentforge/memory_helper.py save-failure "$TASK_ID" >> $LOG_DIR/grok_$TASK_ID.log 2>&1 || true
 fi
 
 # Явная очистка worktree (trap уже стоит, но для надёжности)
@@ -681,16 +681,16 @@ echo "[AgentForge] Worktree $WORKTREE_DIR removed (isolation complete)" | tee -a
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.
 

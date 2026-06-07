@@ -1,5 +1,5 @@
 {
-  "source": "fresh release agentforge-runner flywheel-step --real-data --trajectories /home/agx/agentforge/eval/trajectories (prm sidecars enriched)",
+  "source": "fresh release agentforge-runner flywheel-step --real-data --trajectories /home/eveselove/agentforge/eval/trajectories (prm sidecars enriched)",
   "generated": "2026-05-31 via Jules turbo parity harness",
   "records_loaded": 96,
   "high_learning_value": null,

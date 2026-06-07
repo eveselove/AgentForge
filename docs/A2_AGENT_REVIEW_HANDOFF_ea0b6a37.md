@@ -3,7 +3,7 @@
 **Date**: 2026-05-31  
 **Task**: A2: Add requires_agent_review flag to task system + auto-create review tasks (ea0b6a37)  
 **Handoff ID**: cae18ccb  
-**Handoff Package**: `/home/agx/.grok/handoffs/cae18ccb/` (context.md, metadata.json, diff.patch, REVIEW_INSTRUCTIONS.md, jules-review-cae18ccb.md)  
+**Handoff Package**: `/home/eveselove/.grok/handoffs/cae18ccb/` (context.md, metadata.json, diff.patch, REVIEW_INSTRUCTIONS.md, jules-review-cae18ccb.md)  
 **Reviewer**: Independent Jules (via general-purpose subagent simulating strict peer per skill; external `grok --agent jules` equivalent in real flow)  
 **Origin**: Grok implementation of A2; this document records the mandatory AGENTS.md post-work agent-review step.
 
@@ -20,7 +20,7 @@ See jules-review-cae18ccb.md for full details. Added `requires_agent_review` (bo
 - Strengths: Happy path + live test solid; recursion birth guard good; DB/Rust compat; directly enables + dogfoods the mandatory AGENTS.md policy (this review *is* the artifact for ea0b6a37).
 
 Full structured review (with exact `[severity] path:line` issues + recommended fixes + Traceability section confirming meta-support for the policy):  
-`/home/agx/.grok/handoffs/cae18ccb/jules-review-cae18ccb.md`
+`/home/eveselove/.grok/handoffs/cae18ccb/jules-review-cae18ccb.md`
 
 ## Actions Taken / Planned (per reviewer next steps)
 1. [x] Address bugs (dedup query before INSERT; harden recursion in PATCH + spawn fn + title prefix check) + security (sanitize title/desc interpolation via .replace newlines/backticks + limit). Post-review fixes applied immediately after independent review.

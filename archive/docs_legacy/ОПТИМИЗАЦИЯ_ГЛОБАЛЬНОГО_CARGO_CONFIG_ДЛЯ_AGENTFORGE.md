@@ -21,7 +21,7 @@
 4. Сделать изменение **идемпотентным** — добавить скрипт, который можно запускать при настройке новой рабочей станции / после переустановки.
 
 ## Текущее состояние (после оптимизации + облегчённые debug-символы)
-Файл: `/home/agx/.cargo/config.toml`
+Файл: `/home/eveselove/.cargo/config.toml`
 
 ```toml
 [build]
@@ -51,11 +51,11 @@ protocol = "sparse"
 - rustc 1.94.0 (или новее), 12 ядер — конфиг идеально соответствует оборудованию и нуждам AgentForge.
 
 ## Созданные / обновлённые артефакты
-- [scripts/ensure_cargo_optimization.sh](/home/agx/agentforge/scripts/ensure_cargo_optimization.sh) — идемпотентный скрипт (расширен под облегчённые debug-символы).
+- [scripts/ensure_cargo_optimization.sh](/home/eveselove/agentforge/scripts/ensure_cargo_optimization.sh) — идемпотентный скрипт (расширен под облегчённые debug-символы).
   - Проверяет `codegen-units = 1`, `jobs = 12`, `debug = "line-tables-only"`
   - При необходимости backup + перезапись
   - Безопасен для многократного запуска
-- [install_services.sh](/home/agx/agentforge/install_services.sh) — добавлен вызов `ensure_cargo_optimization.sh` (строки ~48-56) для автоматической настройки при переустановке.
+- [install_services.sh](/home/eveselove/agentforge/install_services.sh) — добавлен вызов `ensure_cargo_optimization.sh` (строки ~48-56) для автоматической настройки при переустановке.
 
 ## Влияние на AgentForge (оркестрация и настройка)
 - Все Rust-сборки внутри задач агентов (Grok, Jules, rust-fix skill и др.) теперь используют полную мощность CPU.
@@ -75,7 +75,7 @@ protocol = "sparse"
 
 ## Рекомендации по дальнейшей интеграции (выполнено / в процессе)
 1. ✅ Вызов `ensure_cargo_optimization.sh` добавлен в `install_services.sh` (вместе с ensure_rust_devtools).
-2. Задокументировать в главном README.md AgentForge (в /home/agx/agentforge/README.md).
+2. Задокументировать в главном README.md AgentForge (в /home/eveselove/agentforge/README.md).
 3. ✅ При создании новых worktree в `/tmp/agentforge/<id>` (grok_runner.sh) автоматически вызывается ensure_cargo_optimization.sh — это обеспечивает облегчённые debug-символы + jobs=12 для **каждой** задачи агента (включая rust-fix, chat 4dc58362).
 4. ✅ Для production в workspace Cargo.toml — `codegen-units = 1` только в `[profile.production]`.
 5. ✅ Вызов `ensure_cargo_optimization.sh` добавлен в `agents/grok_runner.sh` (сразу после worktree + trap, перед любыми cargo-командами в CI). Полная гарантия "line-tables-only" в глобальном ~/.cargo/config.toml для всех запусков оркестрации. Аналогично рекомендуется для jules_runner.sh и др. (минимальный приоритет).

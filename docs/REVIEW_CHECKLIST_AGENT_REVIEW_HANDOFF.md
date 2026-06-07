@@ -6,7 +6,7 @@
 **Branch / Work**: agent/ context (worktree recommended per rules; changes limited to 5 intentional files)  
 **Agent**: grok (this session)  
 **Handoff ID**: 82c8ff44  
-**Full path**: `/home/agx/.grok/handoffs/82c8ff44/`
+**Full path**: `/home/eveselove/.grok/handoffs/82c8ff44/`
 
 ## Summary of Changes Reviewed
 - **Primary deliverable (new)**: `docs/REVIEW_CHECKLIST.md` v1.0 (110+ lines) — a practical, checkbox-driven one-pager synthesized directly from the 10 most common defect classes surfaced by independent Jules reviews in the 2026-05-31 P2 closure wave (85b2d0e6 pre-commit STRICT + bypass policy, 14c220fc mandatory docs, p1-bp-direct branch-protection script fixes, 9471de35 mirror decision handoff, and related runner/doc updates).
@@ -26,7 +26,7 @@
   - `REVIEW_INSTRUCTIONS.md` (full Jules contract + persona + A7-style guidance + guardrails referencing 348e4b24 / 842c25af / 9471de35 artifacts)
 - Launch command executed (background):
   ```
-  GROK_AGENT_REVIEW=1 /home/agx/.local/bin/grok --agent jules -p "$(cat ~/.grok/handoffs/82c8ff44/REVIEW_INSTRUCTIONS.md)" --cwd /home/agx/agentforge --always-approve --output-format json
+  GROK_AGENT_REVIEW=1 /home/eveselove/.local/bin/grok --agent jules -p "$(cat ~/.grok/handoffs/82c8ff44/REVIEW_INSTRUCTIONS.md)" --cwd /home/eveselove/agentforge --always-approve --output-format json
   ```
 - Background task (launcher): `019e7e7a-3d26-7f11-a6a2-74b43e1f1820` (via run_terminal_command tool)
 - Child grok --agent jules PID: 609728 (recorded in reviewer.pid)

@@ -12,8 +12,8 @@
 # Under pure: services invoke binary directly; health from /tmp/.../flywheel_health.json + Rust JSON.
 # Rollback: use disable_pure_rust_flywheel.sh or set env + restart services.
 
-export PATH=/home/agx/.grok/bin:/home/agx/.cargo/bin:/home/agx/bin:$PATH
-export NVM_DIR=/home/agx/.nvm
+export PATH=/home/eveselove/.grok/bin:/home/eveselove/.cargo/bin:/home/eveselove/bin:$PATH
+export NVM_DIR=/home/eveselove/.nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 API="http://localhost:8080"
@@ -51,15 +51,15 @@ else
 fi
 
 # 4. Grok CLI
-if [ -f "/home/agx/.grok/bin/grok" ]; then
-    VER=$(/home/agx/.grok/bin/grok --version 2>/dev/null | head -1)
+if [ -f "/home/eveselove/.grok/bin/grok" ]; then
+    VER=$(/home/eveselove/.grok/bin/grok --version 2>/dev/null | head -1)
     echo -e "  ${GREEN}✅${NC} Grok CLI            $VER"
 else
     echo -e "  ${RED}❌${NC} Grok CLI            NOT INSTALLED"
 fi
 
 # 5. Jules CLI
-JULES_PATH=$(find /home/agx/.nvm -name 'jules' -type f 2>/dev/null | head -1)
+JULES_PATH=$(find /home/eveselove/.nvm -name 'jules' -type f 2>/dev/null | head -1)
 if [ -n "$JULES_PATH" ]; then
     echo -e "  ${GREEN}✅${NC} Jules CLI           $JULES_PATH"
 else
@@ -90,7 +90,7 @@ else
 fi
 
 # 9. Свободное место
-DISK=$(df -h /home/agx | tail -1 | awk '{print $4}')
+DISK=$(df -h /home/eveselove | tail -1 | awk '{print $4}')
 echo -e "  ${GREEN}✅${NC} Disk Space          $DISK free"
 
 # 10. Uptime
@@ -157,15 +157,15 @@ echo ""
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

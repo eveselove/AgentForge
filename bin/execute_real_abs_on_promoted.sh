@@ -7,7 +7,7 @@
 # Master runner for REAL A/B tests on the 3 flywheel-promoted general-refactor candidates.
 # Generated in turbo mode 2026-05-31.
 # Usage (after live farm ready):
-#   cd /home/agx/agentforge
+#   cd /home/eveselove/agentforge
 #   ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 bash bin/execute_real_abs_on_promoted.sh
 #
 # WARNING: This dispatches REAL tasks to the farm via LearningEvaluator (real mode).
@@ -20,7 +20,7 @@
 
 set -euo pipefail
 
-AGENTFORGE_ROOT="/home/agx/agentforge"
+AGENTFORGE_ROOT="/home/eveselove/agentforge"
 cd "$AGENTFORGE_ROOT"
 
 echo "=== AgentForge REAL A/B Master Runner (post-promote flywheel variants) ==="
@@ -35,7 +35,7 @@ CANDIDATES=(
   "20260531_053416_general-refactor_81e7d546"
 )
 
-PYTHONPATH="$AGENTFORGE_ROOT:/home/agx"
+PYTHONPATH="$AGENTFORGE_ROOT:/home/eveselove"
 export PYTHONPATH
 export ENABLE_RUST_FLYWHEEL=1
 export AGENTFORGE_USE_RUST=1
@@ -124,15 +124,15 @@ echo "  (see also: cat bin/real_ab_farm_commands.txt)"
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

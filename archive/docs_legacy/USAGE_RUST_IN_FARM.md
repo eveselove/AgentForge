@@ -9,7 +9,7 @@
 ```bash
 # In your shell / worker env (or prefix commands)
 export AGENTFORGE_USE_RUST=1
-export AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/debug/agentforge-runner
+export AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/debug/agentforge-runner
 # (binary auto-discovered from common locations if RUST_RUNNER unset)
 ```
 

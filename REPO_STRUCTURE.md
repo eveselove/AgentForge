@@ -7,7 +7,7 @@
 ## Top-Level Layout
 
 ```
-/home/agx/agentforge/
+/home/eveselove/agentforge/
 ├── AGENTFORGE_CODE_MANAGEMENT_PLAN.md   # The main plan for professionalizing code management
 ├── CONTRIBUTING.md                      # Contribution guidelines (agent-first workflow)
 ├── AGENTS.md                            # Detailed guide for AI agents

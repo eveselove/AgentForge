@@ -3,7 +3,7 @@
 **Date**: 2026-05-31  
 **Task**: 3cdd6813 — D1 + D2: Write exact steps + apply branch protection ruleset in GitHub UI for main (A2/A7 0-approval)  
 **Handoff ID**: b50d6187  
-**Handoff Package**: `/home/agx/.grok/handoffs/b50d6187/` (portable, auditable)  
+**Handoff Package**: `/home/eveselove/.grok/handoffs/b50d6187/` (portable, auditable)  
 **Reviewer Target**: Jules (independent `grok --agent jules` with full separate context + GROK_AGENT_REVIEW=1 guard)  
 **Status**: ✅ Complete. Reviewer finished (PASS WITH NOTES), 4 findings addressed, commit 18e441b landed on agent/d1-d2-branch-protection-3cdd6813 (with required bypass note + task ID). Ready to open PR per AGENTS.md (from short-lived branch, link handoff).
 
@@ -28,10 +28,10 @@
 ## Launch Details
 - Command: `grok --agent jules ...` with the full REVIEW_INSTRUCTIONS.md as -p, cwd set to the worktree, env guards set.
 - Background task ID (harness): 019e7e7f-9eef-7e53-a0c0-edba6b8c4b14
-- Expected output file from reviewer: `/home/agx/.grok/handoffs/b50d6187/jules-review-b50d6187.md`
+- Expected output file from reviewer: `/home/eveselove/.grok/handoffs/b50d6187/jules-review-b50d6187.md`
 
 ## Next (per AGENTS.md mandatory gate)
-1. Wait for reviewer completion (poll `cat /home/agx/.grok/handoffs/b50d6187/jules-review-b50d6187.md` or the log).
+1. Wait for reviewer completion (poll `cat /home/eveselove/.grok/handoffs/b50d6187/jules-review-b50d6187.md` or the log).
 2. Review the findings.
 3. If any **bugs** (must-fix) or high-impact suggestions: address them in follow-up commits on this branch (still referencing task 3cdd6813), re-run agent-review if substantial.
 4. Only when 0 blocking issues: consider the task complete, open PR from the short-lived agent/ branch, link the handoff + this doc in the PR description.
@@ -48,7 +48,7 @@
 ## Independent Review Result (Jules, handoff b50d6187)
 
 **Verdict from Jules**: PASS WITH NOTES (0 bugs, 3 suggestions, 3 nits)  
-**Review file**: `/home/agx/.grok/handoffs/b50d6187/jules-review-b50d6187.md` (8.2 KB, full structured findings + positive observations + recommendation)  
+**Review file**: `/home/eveselove/.grok/handoffs/b50d6187/jules-review-b50d6187.md` (8.2 KB, full structured findings + positive observations + recommendation)  
 **Date of review**: 2026-05-31 (independent context, full read of sources + live GitHub ruleset 17085567)
 
 ### Key Excerpts from Jules Review

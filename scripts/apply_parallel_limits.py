@@ -1,8 +1,8 @@
 import os
 
 def update_worker_scripts():
-    grok_worker_path = "/home/agx/agentforge/grok_worker.sh"
-    grok_xai_worker_path = "/home/agx/agentforge/grok_xai_worker.sh"
+    grok_worker_path = "/home/eveselove/agentforge/grok_worker.sh"
+    grok_xai_worker_path = "/home/eveselove/agentforge/grok_xai_worker.sh"
     
     # 1. Update grok_worker.sh
     if os.path.exists(grok_worker_path):
@@ -12,11 +12,11 @@ def update_worker_scripts():
         target = 'MAX_PARALLEL=1000'
         replacement = '''# === Ресурсные лимиты (MAX_PARALLEL) ===
 # Загружаем лимит из .env файла, если он существует.
-# Безопасное значение по умолчанию для Jetson AGX: MAX_PARALLEL=2.
+# Безопасное значение по умолчанию для Erbox: MAX_PARALLEL=2.
 # Это предотвращает исчерпание памяти (OOM) при компиляции тяжелых Rust-проектов.
-if [ -f "/home/agx/agentforge/.env" ]; then
+if [ -f "/home/eveselove/agentforge/.env" ]; then
     # shellcheck disable=SC1091
-    source "/home/agx/agentforge/.env" 2>/dev/null || true
+    source "/home/eveselove/agentforge/.env" 2>/dev/null || true
 fi
 MAX_PARALLEL="${MAX_PARALLEL:-2}"'''
         
@@ -36,10 +36,10 @@ MAX_PARALLEL="${MAX_PARALLEL:-2}"'''
         target = 'MAX_PARALLEL=6          # Сколько задач этот воркер может держать одновременно'
         replacement = '''# === Ресурсные лимиты (MAX_PARALLEL) ===
 # Загружаем лимит из .env файла, если он существует.
-# Безопасное значение по умолчанию для Jetson AGX: MAX_PARALLEL=2.
-if [ -f "/home/agx/agentforge/.env" ]; then
+# Безопасное значение по умолчанию для Erbox: MAX_PARALLEL=2.
+if [ -f "/home/eveselove/agentforge/.env" ]; then
     # shellcheck disable=SC1091
-    source "/home/agx/agentforge/.env" 2>/dev/null || true
+    source "/home/eveselove/agentforge/.env" 2>/dev/null || true
 fi
 MAX_PARALLEL="${MAX_PARALLEL:-2}"'''
         

@@ -22,7 +22,7 @@ After=agentforge-api.service agentforge-worker.service
 #
 # !!! PHASE 3 FINAL DEPRECATION SWEEP + RUNNER UX POLISH !!!
 # Python orchestration (run_continuous_flywheel.sh + .py) heavily marked for removal.
-# Migrate to (COMPLETE surface): ExecStart=/home/agx/agentforge/rust/target/release/agentforge-runner continuous --top-n 2 --json [--shadow]
+# Migrate to (COMPLETE surface): ExecStart=/home/eveselove/agentforge/rust/target/release/agentforge-runner continuous --top-n 2 --json [--shadow]
 #   (or via wrapper that detects pure + calls direct runner continuous; supports AGENTFORGE_RUST_FLYWHEEL_SHADOW)
 # Guarded by is_pure_rust_flywheel() + make_pure_rust_flywheel_default.sh patches.
 # Non-breaking during transition. Shadow for dual-run fidelity validation on farm.
@@ -31,20 +31,20 @@ After=agentforge-api.service agentforge-worker.service
 Type=oneshot
 User=agx
 Group=agx
-WorkingDirectory=/home/agx/agentforge
+WorkingDirectory=/home/eveselove/agentforge
 # Full reuse of existing ENABLE + Rust env (non-breaking)
 # 2026-06 DEFAULT: These positive lines are now the normal state for Antigravity.
 # To disable the entire flywheel for this unit: add Environment=DISABLE_RUST_FLYWHEEL=1 and comment the three AGENTFORGE_RUST_* lines.
 Environment=ENABLE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1
-Environment=AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner
-Environment=PYTHONPATH=/home/agx
+Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
+Environment=PYTHONPATH=/home/eveselove
 # Safe default for timer: dry-run can be overridden by ExecStart override or remove comment
-# ExecStart=/home/agx/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2
-ExecStart=/home/agx/agentforge/bin/run_continuous_flywheel.sh --top-n 2
-StandardOutput=append:/home/agx/agentforge/logs/continuous_flywheel.log
-StandardError=append:/home/agx/agentforge/logs/continuous_flywheel.log
+# ExecStart=/home/eveselove/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2
+ExecStart=/home/eveselove/agentforge/bin/run_continuous_flywheel.sh --top-n 2
+StandardOutput=append:/home/eveselove/agentforge/logs/continuous_flywheel.log
+StandardError=append:/home/eveselove/agentforge/logs/continuous_flywheel.log
 # Reliability
 TimeoutStartSec=300
 KillMode=process

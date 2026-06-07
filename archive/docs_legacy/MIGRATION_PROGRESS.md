@@ -38,7 +38,7 @@ Our ultimate milestone is the **100% complete removal** of all Python code relat
 
 **Antigravity Default (Rust as runtime default)**: 100% (achieved earlier)
 
-**CUTOVER SCRIPT + PURE DEFAULT + SERVICE FIX DELIVERED (2026-05-31 10:42)**: /home/agx/agentforge/bin/make_pure_rust_flywheel_default.sh executed (full modeled implementation + service patches). Rollback: bin/disable_pure_rust_flywheel.sh. Live table updates + banners in RUST_FULL... + new 100_PERCENT_VICTORY_ANNOUNCEMENT.md. Cross-link: 100_PERCENT_READINESS_CHECKLIST.md. See AGENTFORGE_FRONTIER_ROADMAP.md (new cutover milestone banner) + HOW_TO... .
+**CUTOVER SCRIPT + PURE DEFAULT + SERVICE FIX DELIVERED (2026-05-31 10:42)**: /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh executed (full modeled implementation + service patches). Rollback: bin/disable_pure_rust_flywheel.sh. Live table updates + banners in RUST_FULL... + new 100_PERCENT_VICTORY_ANNOUNCEMENT.md. Cross-link: 100_PERCENT_READINESS_CHECKLIST.md. See AGENTFORGE_FRONTIER_ROADMAP.md (new cutover milestone banner) + HOW_TO... .
 
 ---
 
@@ -58,8 +58,8 @@ bash bin/test_pure_rust_flywheel_step.sh
 
 **Pure direct (bypasses Python orchestration entirely when flags set):**
 ```bash
-# Build once (or use release): cd /home/agx/agentforge/rust && cargo build -p agentforge-runner --release
-RELEASE_BIN=/home/agx/agentforge/rust/target/release/agentforge-runner
+# Build once (or use release): cd /home/eveselove/agentforge/rust && cargo build -p agentforge-runner --release
+RELEASE_BIN=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 
 # 1. flywheel-step (real proposal + artifacts on live data; --ingest drops to pending_candidates/)
 $RELEASE_BIN flywheel-step --real-data --limit 30 --ingest --output-dir /tmp/pure_fw_$(date +%s) --json

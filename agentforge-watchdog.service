@@ -8,12 +8,12 @@ After=network.target agentforge-api.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /home/agx/agentforge/watchdog.py
-WorkingDirectory=/home/agx/agentforge
+ExecStart=/usr/bin/python3 /home/eveselove/agentforge/watchdog.py
+WorkingDirectory=/home/eveselove/agentforge
 Restart=always
 RestartSec=5
-StandardOutput=append:/home/agx/agentforge/logs/watchdog.log
-StandardError=append:/home/agx/agentforge/logs/watchdog.log
+StandardOutput=append:/home/eveselove/agentforge/logs/watchdog.log
+StandardError=append:/home/eveselove/agentforge/logs/watchdog.log
 
 [Install]
 WantedBy=default.target

@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-31  
 **Handoff ID**: 1eb188dd  
-**Full path**: `/home/agx/.grok/handoffs/1eb188dd/`  
+**Full path**: `/home/eveselove/.grok/handoffs/1eb188dd/`  
 **Task**: c2492e01 — B1 + B2: Make cargo test --workspace required in CI + fix rust caching (docs/REMAINING_CLOSURE_TASKS_2026-06.md Cluster B)  
 **Commit**: a62c305 (on agent/c2492e01-rust-ci)  
 **Worktree**: /tmp/agentforge-work/c2492e01-rust-ci (created via bin/agent-worktree)
@@ -37,7 +37,7 @@ The package is portable and self-contained.
 - Process: Fully compliant.
 - Recommendation: Accept and open PR...
 
-Full review and package at `/home/agx/.grok/handoffs/1eb188dd/`
+Full review and package at `/home/eveselove/.grok/handoffs/1eb188dd/`
 
 ## Post-Bypass Cleanup Task
 Created task `03ae8424` (high priority, requires_agent_review) as required by bin/pre-commit bypass policy. Title covers audit of the single bypass usage during worktree setup.
@@ -45,7 +45,7 @@ Created task `03ae8424` (high priority, requires_agent_review) as required by bi
 ## Next (per requirement)
 Only after this recorded independent review + handoff is the c2492e01 work considered complete and eligible for PR to main.
 
-**This file + the handoff dir (/home/agx/.grok/handoffs/1eb188dd/) + commit a62c305 + post-bypass task 03ae8424 constitute the fixed, auditable record of the mandatory agent-review step for task c2492e01.**
+**This file + the handoff dir (/home/eveselove/.grok/handoffs/1eb188dd/) + commit a62c305 + post-bypass task 03ae8424 constitute the fixed, auditable record of the mandatory agent-review step for task c2492e01.**
 
 ---
 *Traceability footer*: Produced as part of closing c2492e01 (B1+B2). All artifacts reference the task ID. Dogfooding + process complete. Ready for PR.

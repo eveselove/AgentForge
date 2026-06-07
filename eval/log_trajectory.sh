@@ -2,7 +2,7 @@
 # Structured Trajectory Logger for AgentForge (Phase 1 - robust & unified)
 #
 # Usage:
-#   source /home/agx/agentforge/eval/log_trajectory.sh
+#   source /home/eveselove/agentforge/eval/log_trajectory.sh
 #   log_event "task_start" '{"title":"..."}'
 #   log_llm_call "grok" 1200 850 0.0023
 #
@@ -13,7 +13,7 @@
 # trajectory.load_trajectory(), PRM, post_process, runner auto-attach, etc.
 # Python construction used for 100% safe escaping (fallback printf kept).
 
-TRAJECTORY_DIR="/home/agx/agentforge/eval/trajectories"
+TRAJECTORY_DIR="/home/eveselove/agentforge/eval/trajectories"
 mkdir -p "$TRAJECTORY_DIR" 2>/dev/null || true
 
 log_event() {

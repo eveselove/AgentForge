@@ -33,9 +33,9 @@
 
 ## Созданные / изменённые артефакты
 
-- [scripts/ensure_rust_devtools.sh](/home/agx/agentforge/scripts/ensure_rust_devtools.sh) — главный скрипт обеспечения (87+ строк, идемпотентный, безопасный для повторных запусков).
-- [install_services.sh](/home/agx/agentforge/install_services.sh) — добавлен блок вызова ensure-скрипта с комментарием (строки 48–55).
-- [УСТАНОВКА_CARGO_BINSTALL_И_CARGO_MACHETE_AGENTFORGE.md](/home/agx/agentforge/УСТАНОВКА_CARGO_BINSTALL_И_CARGO_MACHETE_AGENTFORGE.md) — данный отчёт (полностью на русском).
+- [scripts/ensure_rust_devtools.sh](/home/eveselove/agentforge/scripts/ensure_rust_devtools.sh) — главный скрипт обеспечения (87+ строк, идемпотентный, безопасный для повторных запусков).
+- [install_services.sh](/home/eveselove/agentforge/install_services.sh) — добавлен блок вызова ensure-скрипта с комментарием (строки 48–55).
+- [УСТАНОВКА_CARGO_BINSTALL_И_CARGO_MACHETE_AGENTFORGE.md](/home/eveselove/agentforge/УСТАНОВКА_CARGO_BINSTALL_И_CARGO_MACHETE_AGENTFORGE.md) — данный отчёт (полностью на русском).
 
 ## Влияние на AgentForge (оркестрация и настройка)
 
@@ -71,7 +71,7 @@ fi
 
 ```
 === Self-Verification AgentForge: cargo-binstall + cargo-machete ===
-cargo-binstall: /home/agx/.cargo/bin/cargo-binstall  [1.19.1]
+cargo-binstall: /home/eveselove/.cargo/bin/cargo-binstall  [1.19.1]
 ✅ [AgentForge Rust DevTools] Завершено успешно (чат 4dc58362...)
 ```
 

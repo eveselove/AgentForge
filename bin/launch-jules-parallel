@@ -83,15 +83,15 @@ for i in "${!TASKS[@]}"; do
     if tmux has-session -t agents 2>/dev/null; then
         win="JULES-P$(printf "%02d" $i)-$(date +%H%M)"
         tmux new-window -t agents -n "$win" \
-            "cd /home/agx && \
+            "cd /home/eveselove && \
              echo '=== Jules Parallel #$i ===' && \
              echo 'Task: $task' && \
              echo 'Key slot: $KEY_INDEX' && \
-             /home/agx/.nvm/versions/node/v20.20.1/bin/jules new --repo '$REPO' --parallel '$PARALLEL_PER_KEY' '$task. Работай максимально быстро и качественно. В конце используй команду publish/release если возможно.' 2>&1 | tee -a ~/.config/jules/jules-parallel.log; \
+             /home/eveselove/.nvm/versions/node/v20.20.1/bin/jules new --repo '$REPO' --parallel '$PARALLEL_PER_KEY' '$task. Работай максимально быстро и качественно. В конце используй команду publish/release если возможно.' 2>&1 | tee -a ~/.config/jules/jules-parallel.log; \
              echo '✅ Jules #$i finished. Check web UI for Publish release button.'"
         log "  → tmux window: $win"
     else
-        nohup /home/agx/.nvm/versions/node/v20.20.1/bin/jules new --repo "$REPO" --parallel "$PARALLEL_PER_KEY" \
+        nohup /home/eveselove/.nvm/versions/node/v20.20.1/bin/jules new --repo "$REPO" --parallel "$PARALLEL_PER_KEY" \
             "$task. Работай максимально быстро." \
             > ~/.config/jules/jules-p$i.log 2>&1 &
         log "  → background PID $!"

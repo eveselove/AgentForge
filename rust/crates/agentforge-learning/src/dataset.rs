@@ -407,7 +407,7 @@ impl TrajectoryDataset {
     /// High-level flywheel loader: trajectories dir (with optional separate prm sidecar dir) + optional eval results dir.
     /// Returns (num_from_trajectories, num_prm_enriched, num_from_results). Always calls compute_learning_value internally.
     /// Supports --trajectories + --prm-dir for real farm data (sidecars may be colocated or separate).
-    /// Graceful on partial/missing data; tolerant path resolution for /home/agx/agentforge etc.
+    /// Graceful on partial/missing data; tolerant path resolution for /home/eveselove/agentforge etc.
     pub fn load_flywheel_data(
         &mut self,
         trajectories_dir: Option<impl AsRef<std::path::Path>>,
@@ -421,7 +421,7 @@ impl TrajectoryDataset {
             let td = td.as_ref();
             let cands: Vec<std::path::PathBuf> = vec![
                 td.to_path_buf(),
-                std::path::PathBuf::from("/home/agx/agentforge").join(td),
+                std::path::PathBuf::from("/home/eveselove/agentforge").join(td),
                 std::path::PathBuf::from("../../../agentforge").join(td),
                 std::path::PathBuf::from("..").join(td),
             ];
@@ -449,7 +449,7 @@ impl TrajectoryDataset {
             let pd = pd.as_ref();
             let cands: Vec<std::path::PathBuf> = vec![
                 pd.to_path_buf(),
-                std::path::PathBuf::from("/home/agx/agentforge").join(pd),
+                std::path::PathBuf::from("/home/eveselove/agentforge").join(pd),
                 std::path::PathBuf::from("../../../agentforge").join(pd),
                 std::path::PathBuf::from("..").join(pd),
             ];
@@ -468,7 +468,7 @@ impl TrajectoryDataset {
             let rd = rd.as_ref();
             let cands: Vec<std::path::PathBuf> = vec![
                 rd.to_path_buf(),
-                std::path::PathBuf::from("/home/agx/agentforge").join(rd),
+                std::path::PathBuf::from("/home/eveselove/agentforge").join(rd),
                 std::path::PathBuf::from("../../../agentforge").join(rd),
                 std::path::PathBuf::from("..").join(rd),
             ];

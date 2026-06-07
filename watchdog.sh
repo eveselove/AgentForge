@@ -11,7 +11,7 @@
 # ============================================
 
 API="http://localhost:8080"
-LOG_DIR="/home/agx/agentforge/logs"
+LOG_DIR="/home/eveselove/agentforge/logs"
 TIMEOUT_MINUTES=30  # Таймаут для обычных задач
 CRITICAL_TIMEOUT=60 # Таймаут для critical (best-of-n дольше)
 

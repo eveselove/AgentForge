@@ -6,7 +6,7 @@
 
 **Reviewer/Implementer:** Jules (Rust + AgentForge expert)  
 **Date:** 2026-05-30 (turbo autonomous session)  
-**Scope:** /home/agx/agentforge/rust/ — deep review + polish of all crates post recent Phase 0/1/2/3 port (learning full trainers+versioned+learning_value; planning topo+checkpoint; new long-horizon; safety enhanced; obs real Span+replay+PRM+OTEL).  
+**Scope:** /home/eveselove/agentforge/rust/ — deep review + polish of all crates post recent Phase 0/1/2/3 port (learning full trainers+versioned+learning_value; planning topo+checkpoint; new long-horizon; safety enhanced; obs real Span+replay+PRM+OTEL).  
 **Constraints followed:** Only report at end (or fatal); parallel where possible via tools; cargo check --offline often (10+ invocations); no questions (no fatal blockers); edits via search_replace after reads; new files ONLY when task-mandated (PYO3 md + runner main + final review md); all within rust/; tests added.
 
 ## 1. Deep Review of Current State + Recent Changes (key .rs read + git + cargo)
@@ -53,7 +53,7 @@ All via precise search_replace post-reads + repeated cargo check.
 - **Total new:** ~12. All `cargo test --workspace` **green** (100% pass, no failures).
 
 ## 4. PyO3 Optional Bridge Stub
-- Chose **document** (per "or"): Created `/home/agx/agentforge/rust/PYO3_INTEGRATION.md` (abs. nec. per task 4).
+- Chose **document** (per "or"): Created `/home/eveselove/agentforge/rust/PYO3_INTEGRATION.md` (abs. nec. per task 4).
 - Covers: file-based/subprocess (preferred now), PyO3 stub code example (pyfunction + pymodule for decompose/Dataset/run/Span), Python sketch for eval integration.
 - Ties to ARCHITECTURE.md phases + runner bin.
 
@@ -125,12 +125,12 @@ index 0000000..e69de29
 Rust port now production-ready for hybrid use + Python exec interop. Turbo done.
 
 **Absolute paths referenced:**  
-- /home/agx/agentforge/rust/Cargo.toml  
-- /home/agx/agentforge/rust/ARCHITECTURE.md  
-- /home/agx/agentforge/rust/PYO3_INTEGRATION.md (new)  
-- /home/agx/agentforge/rust/JULES_RUST_PORT_REVIEW.md (this)  
-- /home/agx/agentforge/rust/crates/*/src/*.rs (all  key read/edited)  
-- /home/agx/agentforge/rust/examples/phase2_3_vision.rs (updated)  
-- /home/agx/agentforge/rust/crates/agentforge-runner/src/main.rs (new binary + export)  
+- /home/eveselove/agentforge/rust/Cargo.toml  
+- /home/eveselove/agentforge/rust/ARCHITECTURE.md  
+- /home/eveselove/agentforge/rust/PYO3_INTEGRATION.md (new)  
+- /home/eveselove/agentforge/rust/JULES_RUST_PORT_REVIEW.md (this)  
+- /home/eveselove/agentforge/rust/crates/*/src/*.rs (all  key read/edited)  
+- /home/eveselove/agentforge/rust/examples/phase2_3_vision.rs (updated)  
+- /home/eveselove/agentforge/rust/crates/agentforge-runner/src/main.rs (new binary + export)  
 
 **Status:** Ready for main thread continuation. (cargo test + python -c "subprocess... --export-demo" validates win.)

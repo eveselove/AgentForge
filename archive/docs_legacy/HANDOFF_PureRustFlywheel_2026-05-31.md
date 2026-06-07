@@ -82,7 +82,7 @@ Three parallel high-quality reviews completed:
 
 ```bash
 # 1. Quick guard check
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 PYTHONPATH=. python -c "
 from agentforge.learning.utils import is_pure_rust_flywheel
 print('Pure Rust active:', is_pure_rust_flywheel())

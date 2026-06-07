@@ -105,7 +105,7 @@ Full composition now works: `run_long_task_with_planning_safety_and_prm_logging`
   - `--check` (self-verification via the `/check` skill – see below)
   - `--best-of-n N` (parallel MoA / Arena proposals)
 - **When selected**: Default for `rust`, `cargo`, `server`, `fix`, routine engineering (most tasks).
-- **Location**: Jetson AGX (or other Linux boxes) running the Grok CLI.
+- **Location**: Erbox (or other Linux boxes) running the Grok CLI.
 - **Special behavior in AgentForge**: Heavy use of worktree isolation, skill injection, RAG, CI gates, and automatic self-expansion hooks.
 
 ### Jules
@@ -178,7 +178,7 @@ YAML files in `~/agentforge/skills/*.yaml` (and `~/.grok/skills/*/SKILL.md` for 
 
 **Self-Expansion** (the killer feature):
 - Any agent that creates a reusable parser, crawler, deploy script, API client, etc., is *required* (by the `tool-creation` skill and hooks in runners) to synthesize a high-quality standalone `system_prompt` and persist it via:
-  - `python /home/agx/agentforge/skill_capture.py --stdin < JSON`
+  - `python /home/eveselove/agentforge/skill_capture.py --stdin < JSON`
   - `POST /skills/capture`
   - Direct file write
 - The new skill immediately becomes available for future tasks with matching tags.
@@ -234,9 +234,9 @@ Or use the provided `start.sh`.
 
 ### Environment
 
-- Primary project: `/home/agx/planlytasksko` (configurable)
+- Primary project: `/home/eveselove/planlytasksko` (configurable)
 - DB: `~/agentforge/tasks.db`
-- Vector memory: `/home/agx/lance_data`
+- Vector memory: `/home/eveselove/lance_data`
 - Logs: `~/agentforge/logs/`
 
 ### GitHub Integration

@@ -16,7 +16,7 @@
 #   GH_REPO=owner/repo ./github_watcher.sh
 #
 # Crontab (автоматически добавляется скриптом установки):
-#   */5 * * * * bash /home/agx/agentforge/github_watcher.sh >> /home/agx/agentforge/logs/github_watcher.log 2>&1
+#   */5 * * * * bash /home/eveselove/agentforge/github_watcher.sh >> /home/eveselove/agentforge/logs/github_watcher.log 2>&1
 #
 # Config (env):
 #   GH_REPO     — репозиторий для мониторинга (по умолчанию agx/planlytasksko)
@@ -27,8 +27,8 @@
 set -euo pipefail
 
 API="${API:-http://localhost:8080}"
-LOG_DIR="/home/agx/agentforge/logs"
-DATA_DIR="/home/agx/agentforge/data"
+LOG_DIR="/home/eveselove/agentforge/logs"
+DATA_DIR="/home/eveselove/agentforge/data"
 SEEN_FILE="$DATA_DIR/seen_agentforge_issues.txt"
 
 # Определяем репозиторий (можно переопределить GH_REPO=... в cron или окружении)

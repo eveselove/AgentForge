@@ -19,7 +19,7 @@
 set -euo pipefail
 
 API="http://localhost:8080"
-LOG_DIR="/home/agx/agentforge/logs"
+LOG_DIR="/home/eveselove/agentforge/logs"
 POLL_INTERVAL=10
 MAX_PARALLEL=6          # Сколько задач этот воркер может держать одновременно
 TASK_TIMEOUT=600

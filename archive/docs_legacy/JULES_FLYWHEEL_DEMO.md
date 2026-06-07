@@ -19,16 +19,16 @@ First real end-to-end "Rust-powered autonomous improvement suggestion" generated
 
 ## Files Delivered / Modified (all absolute paths)
 
-- **New production script**: `/home/agx/agentforge/rust_flywheel_step.py`
+- **New production script**: `/home/eveselove/agentforge/rust_flywheel_step.py`
   - `python -m agentforge.rust_flywheel_step --real-data --use-rust`
   - Full module with argparse, robust real-data loader (trajectories dir + sidecar `.prm.json` via new `load_from_trajectories_dir`), Rust bridge, SkillImprover, simulation, artifact writer under `/tmp/agentforge_rust_flywheel/`.
 
 - **Enhanced existing**:
-  - `/home/agx/agentforge/learning/trajectory_dataset.py` — added `load_from_trajectories_dir(...)` (direct `.prm.json` sidecar support + learning value) + `compute_learning_value()`.
-  - `/home/agx/agentforge/learning/skill_improver.py` — small robustness fix in `_analyze_failures`.
-  - `/home/agx/agentforge/phase2_3_integration.py` — added `run_rust_flywheel_step_if_enabled()`, env guard `AGENTFORGE_RUST_FLYWHEEL`, auto-wiring in `__main__`, and call site.
+  - `/home/eveselove/agentforge/learning/trajectory_dataset.py` — added `load_from_trajectories_dir(...)` (direct `.prm.json` sidecar support + learning value) + `compute_learning_value()`.
+  - `/home/eveselove/agentforge/learning/skill_improver.py` — small robustness fix in `_analyze_failures`.
+  - `/home/eveselove/agentforge/phase2_3_integration.py` — added `run_rust_flywheel_step_if_enabled()`, env guard `AGENTFORGE_RUST_FLYWHEEL`, auto-wiring in `__main__`, and call site.
 
-- **Documentation**: `/home/agx/agentforge/JULES_FLYWHEEL_DEMO.md` (this file).
+- **Documentation**: `/home/eveselove/agentforge/JULES_FLYWHEEL_DEMO.md` (this file).
 
 - Artifacts produced on every run (example timestamped dirs):
   - `/tmp/agentforge_rust_flywheel/20260531_051613/proposal.json`
@@ -40,22 +40,22 @@ First real end-to-end "Rust-powered autonomous improvement suggestion" generated
 
 ```bash
 # Master production run (requires the env guard)
-cd /home/agx
-AGENTFORGE_RUST_FLYWHEEL=1 PYTHONPATH=/home/agx \
+cd /home/eveselove
+AGENTFORGE_RUST_FLYWHEEL=1 PYTHONPATH=/home/eveselove \
   python -m agentforge.rust_flywheel_step --real-data --use-rust --limit 30
 ```
 
 ```bash
 # Direct test (bypass guard for CI/dev)
-cd /home/agx
-PYTHONPATH=/home/agx \
+cd /home/eveselove
+PYTHONPATH=/home/eveselove \
   python -m agentforge.rust_flywheel_step --real-data --use-rust --no-env-guard
 ```
 
 ```bash
 # Via the official integration layer (also triggers when guard set)
-cd /home/agx
-AGENTFORGE_RUST_FLYWHEEL=1 PYTHONPATH=/home/agx \
+cd /home/eveselove
+AGENTFORGE_RUST_FLYWHEEL=1 PYTHONPATH=/home/eveselove \
   python -m agentforge.phase2_3_integration
 ```
 
@@ -68,7 +68,7 @@ result = run_rust_flywheel_step_if_enabled(force=False)  # or True
 ```
 
 **Rust binary discovery** (auto):
-- `AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/debug/agentforge-runner`
+- `AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/debug/agentforge-runner`
 - Falls back to common build locations (`rust/target/debug/...`).
 
 ## Sample Output (from real run on 2026-05-31 farm data)
@@ -81,7 +81,7 @@ Timestamp: 2026-05-31T05:16:13.600347Z
 Rust bridge present: True
 [TrajectoryDataset] Loaded 22 records from trajectories dir (with sidecar PRM where available)
 [rust_flywheel] Loaded 22 real farm records (trajectories + .prm sidecars + results)
-[rust_flywheel] RUST BRIDGE ACTIVE — calling agentforge-runner at /home/agx/agentforge/rust/target/debug/agentforge-runner
+[rust_flywheel] RUST BRIDGE ACTIVE — calling agentforge-runner at /home/eveselove/agentforge/rust/target/debug/agentforge-runner
 [learning.rust_bridge] Got 1 pairs from Rust
 [rust_flywheel] SkillImprover proposing for 'general-refactor' using 10 failures + 0 successes + 1 Rust pairs
 [SkillImprover] Analyzing failures for skill 'general-refactor' (10 trajectories)
@@ -89,7 +89,7 @@ Rust bridge present: True
 ========================================================================
            AGENTFORGE RUST FLYWHEEL — AUTONOMOUS IMPROVEMENT STEP
 ========================================================================
-Rust runner: /home/agx/agentforge/rust/target/debug/agentforge-runner
+Rust runner: /home/eveselove/agentforge/rust/target/debug/agentforge-runner
 Records from real farm (trajectories + .prm.json + results): 22
 Rust-exported preference pairs used: 1
 

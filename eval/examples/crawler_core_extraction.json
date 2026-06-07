@@ -2,7 +2,7 @@
   "id": "crawler-core-extraction-001",
   "title": "Extract shared proxy + throttle logic into crawler_core.rs",
   "description": "Multiple crawlers (akson, stroylandia, glavsnab) duplicate ProxyPool, load_proxies, and throttle logic. Create a clean crawler_core module and refactor at least two crawlers to use it without breaking functionality.",
-  "repo_path": "/home/agx/planlytasksko",
+  "repo_path": "/home/eveselove/planlytasksko",
   "verification": "tests_pass",
   "verification_command": "cargo check -p planly_gateway && echo 'Refactoring check passed (add real tests later)'",
   "difficulty": "medium",

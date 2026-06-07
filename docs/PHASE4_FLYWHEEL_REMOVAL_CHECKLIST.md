@@ -167,7 +167,7 @@ cargo test --offline --workspace -- --quiet
 
 ```bash
 # Вариант 1: Быстрый killswitch (менее 60с)
-touch /home/agx/agentforge/.disable_pure_rust_flywheel
+touch /home/eveselove/agentforge/.disable_pure_rust_flywheel
 export DISABLE_RUST_FLYWHEEL=1
 export AGENTFORGE_FLYWHEEL_ENGINE=python
 systemctl --user restart agentforge-*
@@ -215,7 +215,7 @@ git revert commit-hash
 ## 🔍 Команды аудита (запускать перед каждым тиром)
 
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 
 # 1. Немаркированные flywheel refs (должно быть пусто или только данные)
 find . \( -name "*.py" -o -name "*.sh" \) \

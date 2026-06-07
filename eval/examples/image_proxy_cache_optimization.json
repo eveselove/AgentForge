@@ -2,7 +2,7 @@
   "id": "image-proxy-cache-optimization-001",
   "title": "Оптимизировать систему image proxy cache",
   "description": "Проанализировать текущую реализацию image_proxy.rs и кэширования изображений. Предложить и обосновать улучшения по скорости, hit rate, хранению и инвалидации кэша (особенно для Akson/Stroylandia).",
-  "repo_path": "/home/agx/planlytasksko",
+  "repo_path": "/home/eveselove/planlytasksko",
   "verification": "manual_review",
   "difficulty": "medium",
   "category": "performance",

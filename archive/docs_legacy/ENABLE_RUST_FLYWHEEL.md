@@ -2,7 +2,7 @@
 
 # ============================================================
 # 🚀 ANTIGRAVITY DEFAULT ACHIEVED — FINAL ONE-COMMAND LOCKDOWN (2026-05-31)
-# THE SCRIPT: bash /home/agx/agentforge/bin/make_antigravity_default.sh   (or --dry-run)
+# THE SCRIPT: bash /home/eveselove/agentforge/bin/make_antigravity_default.sh   (or --dry-run)
 # Does in one shot: touch ENABLE, enable_rust + enable_continuous, safe service notes, healthcheck, full verify.
 # Victory + Timer + Real A/B: VICTORY_SUMMARY.md + HOW_WE_FINISHED_WITH_AGENTS.md + bin/trigger_real_ab_on_farm.sh
 # Full farm (main + remotes) + DISABLE path printed by the script itself.
@@ -33,12 +33,12 @@ All real task completions will then:
 
 ## Prerequisites
 - Rust toolchain + `cargo` available
-- Binary built at least once: `cd /home/agx/agentforge/rust && cargo build -p agentforge-runner --release`
+- Binary built at least once: `cd /home/eveselove/agentforge/rust && cargo build -p agentforge-runner --release`
 - (Recommended) Release binary for prod speed.
 
 ## Single Command Enable (Recommended)
 
-From `/home/agx`:
+From `/home/eveselove`:
 
 ```bash
 PYTHONPATH=. python -c 'import agentforge.enable_rust_flywheel as e; e.activate()'
@@ -53,12 +53,12 @@ This:
 ## Shell Wrapper (still supported, now calls the Python module)
 
 ```bash
-bash /home/agx/agentforge/bin/enable_rust_flywheel.sh
+bash /home/eveselove/agentforge/bin/enable_rust_flywheel.sh
 # or (safe to source in workers):
-source /home/agx/agentforge/bin/enable_rust_flywheel.sh 2>/dev/null || true
+source /home/eveselove/agentforge/bin/enable_rust_flywheel.sh 2>/dev/null || true
 ```
 
-It also writes `/home/agx/agentforge/bin/rust_flywheel.env` for easy sourcing.
+It also writes `/home/eveselove/agentforge/bin/rust_flywheel.env` for easy sourcing.
 
 ## Make It Permanent Across the Farm (Workers + Services)
 
@@ -70,7 +70,7 @@ See `FARM_ROLLOUT_CHECKLIST.md` for the complete production checklist (includes 
 Edit these files and add near the top (after PATH exports):
 
 ```bash
-source /home/agx/agentforge/bin/rust_flywheel.env 2>/dev/null || true
+source /home/eveselove/agentforge/bin/rust_flywheel.env 2>/dev/null || true
 ```
 
 Affected files (at minimum):
@@ -88,7 +88,7 @@ In any embedded python -c or .py called by workers:
 
 ```python
 import sys
-sys.path.insert(0, "/home/agx")
+sys.path.insert(0, "/home/eveselove")
 import agentforge.enable_rust_flywheel as e
 e.activate()
 ```
@@ -102,7 +102,7 @@ Add under `[Service]`:
 ```
 Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1
-Environment=AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner
+Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 ```
 
 Then:
@@ -139,31 +139,31 @@ After=network.target
 [Service]
 Type=oneshot
 User=agx
-WorkingDirectory=/home/agx/agentforge
-Environment=PYTHONPATH=/home/agx
+WorkingDirectory=/home/eveselove/agentforge
+Environment=PYTHONPATH=/home/eveselove
 ExecStart=/usr/bin/python3 -c "
 import sys
-sys.path.insert(0, '/home/agx')
+sys.path.insert(0, '/home/eveselove')
 import agentforge.enable_rust_flywheel as e
 e.activate(quiet=True)
 import subprocess, os
 # optional: nudge a bounded step (rate-limited inside)
 if os.environ.get('AGENTFORGE_RUST_FLYWHEEL') == '1':
-    subprocess.call(['python3', '-m', 'agentforge.rust_flywheel_step', '--real-data', '--use-rust', '--limit', '8'], cwd='/home/agx/agentforge')
+    subprocess.call(['python3', '-m', 'agentforge.rust_flywheel_step', '--real-data', '--use-rust', '--limit', '8'], cwd='/home/eveselove/agentforge')
 "
 ```
 
 Enable:
 
 ```bash
-sudo cp /home/agx/agentforge/ENABLE_RUST_FLYWHEEL.md /tmp/  # (copy units if you put them in repo)
+sudo cp /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL.md /tmp/  # (copy units if you put them in repo)
 sudo systemctl enable --now agentforge-rust-flywheel.timer
 ```
 
 Simple cron alternative (crontab -e):
 
 ```
-*/20 * * * * PYTHONPATH=/home/agx /usr/bin/python3 -c 'import sys;sys.path.insert(0,"/home/agx");import agentforge.enable_rust_flywheel as e;e.activate(quiet=True)' >> /home/agx/agentforge/logs/flywheel-arm.log 2>&1
+*/20 * * * * PYTHONPATH=/home/eveselove /usr/bin/python3 -c 'import sys;sys.path.insert(0,"/home/eveselove");import agentforge.enable_rust_flywheel as e;e.activate(quiet=True)' >> /home/eveselove/agentforge/logs/flywheel-arm.log 2>&1
 ```
 
 ## Verify It's Working

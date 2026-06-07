@@ -37,7 +37,7 @@
 ## Release Binary Details (post-build verification)
 
 ```
--rwxrwxr-x 2 agx agx 841K May 31 08:24 /home/agx/agentforge/rust/target/release/agentforge-runner
+-rwxrwxr-x 2 agx agx 841K May 31 08:24 /home/eveselove/agentforge/rust/target/release/agentforge-runner
 ELF 64-bit LSB pie executable, ARM aarch64, ... stripped
 agentforge-runner 0.1.0
 ```
@@ -48,9 +48,9 @@ agentforge-runner 0.1.0
 
 **Command run** (explicit release + full canonical step):
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 PYTHONPATH=. \
-AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner \
+AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner \
 AGENTFORGE_USE_RUST=1 \
 python rust_flywheel_step.py --real-data --use-rust --limit 12 --no-env-guard --slice first
 ```
@@ -60,7 +60,7 @@ python rust_flywheel_step.py --real-data --use-rust --limit 12 --no-env-guard --
 [learning.rust_bridge] Rich flywheel-export ran ...
 [rust_flywheel] Direct rich flywheel-export succeeded: ? recs, ? pairs, stats={'avg_prm': 0.0, 'high_value_count': 2, ..., 'record_count': 99, 'success_rate': 0.0202...}
 [rust_flywheel] Rich export --json sample stdout: {"cmd":"flywheel-export",...,"record_count":99,... "rich_keys":["preference_pairs","prm_step_labels","per_record_learning_values","stats"] ...
-Rust runner: /home/agx/agentforge/rust/target/release/agentforge-runner
+Rust runner: /home/eveselove/agentforge/rust/target/release/agentforge-runner
 Records from real farm (trajectories + .prm.json + results): 6
 ...
 BEFORE (real farm data):
@@ -93,17 +93,17 @@ Sample richer export outcomes (Rust canonical expected):
 
 ```bash
 # One-shot whole-farm activation (recommended):
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 PYTHONPATH=. python -m agentforge.enable_rust_flywheel --force
 
 # Or via shell (sources snippet + invokes Python activator + patches workers):
 bash bin/enable_rust_flywheel.sh
 
 # For a worker (source early in grok_worker.sh / jules_worker.sh / dispatchers):
-source /home/agx/agentforge/bin/rust_flywheel.env
+source /home/eveselove/agentforge/bin/rust_flywheel.env
 
 # Direct canonical step with release (verification / manual):
-PYTHONPATH=. AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner \
+PYTHONPATH=. AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner \
   AGENTFORGE_USE_RUST=1 \
   python rust_flywheel_step.py --real-data --use-rust --limit 40 --no-env-guard
 
@@ -111,7 +111,7 @@ PYTHONPATH=. AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/age
 bash bin/rust_flywheel_after_task.sh <task_id>
 
 # Build (if needed):
-cd /home/agx/agentforge/rust && cargo build --release -p agentforge-runner
+cd /home/eveselove/agentforge/rust && cargo build --release -p agentforge-runner
 
 # Discover binary programmatically (Python):
 from agentforge.learning.trajectory_dataset import find_rust_runner
@@ -164,7 +164,7 @@ The following tasks were identified as duplicates or already-completed work and 
 - [ ] A/B testing of latest pending candidate via LearningEvaluator (optional, next step)
 
 ### Key Metrics
-- **Release binary**: `/home/agx/agentforge/rust/target/release/agentforge-runner` (841 KiB)
+- **Release binary**: `/home/eveselove/agentforge/rust/target/release/agentforge-runner` (841 KiB)
 - **Records loaded**: 99 via Rust rich path
 - **Pending candidates**: 8 total in queue
 - **Status**: Production-ready, Rust flywheel is default for Antigravity

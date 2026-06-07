@@ -2,7 +2,7 @@
   "id": "adaptive-throttle-tuning-001",
   "title": "Improve adaptive throttle parameters for 4G mobile proxies",
   "description": "Current adaptive_throttle.rs has MAX_CEILING=200, ERROR_RATE_THRESHOLD=0.40, SCALE_DOWN_FACTOR=0.70. Analyze real logs and propose better values that increase throughput while keeping error rate stable under varying mobile network conditions.",
-  "repo_path": "/home/agx/planlytasksko",
+  "repo_path": "/home/eveselove/planlytasksko",
   "verification": "manual_review",
   "difficulty": "hard",
   "category": "performance",

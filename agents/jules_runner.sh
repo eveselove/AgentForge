@@ -11,42 +11,42 @@
 # Запуск Jules для задачи AgentForge
 # Jules работает в облаке Google — поддерживает --parallel N
 # Git Worktrees: изоляция агентов (подготовка /tmp/agentforge/TASK_ID для consistency)
-export PATH=/home/agx/.cargo/bin:/home/agx/bin:$PATH
-export NVM_DIR=/home/agx/.nvm
+export PATH=/home/eveselove/.cargo/bin:/home/eveselove/bin:$PATH
+export NVM_DIR=/home/eveselove/.nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 # === Rust Flywheel + Trajectory integration (Jules live farm) ===
 # Source snippet so AGENTFORGE_RUST_FLYWHEEL propagates; runner will trigger post_process hook on real completion.
 # === Rust Flywheel now DEFAULT for Antigravity (unless DISABLE_RUST_FLYWHEEL=1) ===
-RUST_FLYWHEEL_SNIPPET="/home/agx/agentforge/bin/rust_flywheel.env"
+RUST_FLYWHEEL_SNIPPET="/home/eveselove/agentforge/bin/rust_flywheel.env"
 if [ -f "$RUST_FLYWHEEL_SNIPPET" ]; then
     source "$RUST_FLYWHEEL_SNIPPET" 2>/dev/null || true
 fi
 if [ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]; then
-    [ -x "/home/agx/agentforge/bin/enable_rust_flywheel.sh" ] && source "/home/agx/agentforge/bin/enable_rust_flywheel.sh" 2>/dev/null || true
+    [ -x "/home/eveselove/agentforge/bin/enable_rust_flywheel.sh" ] && source "/home/eveselove/agentforge/bin/enable_rust_flywheel.sh" 2>/dev/null || true
     export AGENTFORGE_RUST_FLYWHEEL=1
     export AGENTFORGE_USE_RUST=1
 fi
 export AGENTFORGE_RUST_FLYWHEEL="${AGENTFORGE_RUST_FLYWHEEL:-0}"
 export AGENTFORGE_USE_RUST="${AGENTFORGE_USE_RUST:-0}"
 # Prefer release for prod polish
-if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then _R="/home/agx/agentforge/rust/target/release/agentforge-runner"; else _R="/home/agx/agentforge/rust/target/debug/agentforge-runner"; fi
+if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then _R="/home/eveselove/agentforge/rust/target/release/agentforge-runner"; else _R="/home/eveselove/agentforge/rust/target/debug/agentforge-runner"; fi
 export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_R}"
 
 # Structured Trajectory + auto post_process for Jules (feeds PRM + Rust flywheel on completion)
 export TASK_ID="$TASK_ID"
 export AGENT="jules"
-export TRAJECTORY_DIR="/home/agx/agentforge/eval/trajectories"
+export TRAJECTORY_DIR="/home/eveselove/agentforge/eval/trajectories"
 export AUTO_PRM="${AUTO_PRM:-1}"
 export EVAL_AUTO_POSTPROCESS="${EVAL_AUTO_POSTPROCESS:-1}"
-source "/home/agx/agentforge/eval/log_trajectory.sh" 2>/dev/null || true
+source "/home/eveselove/agentforge/eval/log_trajectory.sh" 2>/dev/null || true
 log_task_start "${TASK_DESC:-jules-task}" "$PRIORITY" "${TAGS:-}" 2>/dev/null || true
 
 TASK_ID="$1"
 TASK_DESC="$2"
 REPO="${3:-eveselove/planlytasksko}"
 PRIORITY="${4:-medium}"
-LOG_DIR="/home/agx/agentforge/logs"
+LOG_DIR="/home/eveselove/agentforge/logs"
 
 echo "[AgentForge] Запуск Jules для задачи $TASK_ID" | tee -a $LOG_DIR/jules_$TASK_ID.log
 
@@ -54,11 +54,11 @@ echo "[AgentForge] Запуск Jules для задачи $TASK_ID" | tee -a $LO
 WORKTREE_DIR="/tmp/agentforge/${TASK_ID}"
 mkdir -p /tmp/agentforge
 # Non-fatal: Jules не редактирует локально (создаёт PR удалённо), но worktree обеспечивает чистую среду
-git -C "/home/agx/planlytasksko" worktree add "$WORKTREE_DIR" -b "agentforge/$TASK_ID" 2>/dev/null || \
-  git -C "/home/agx/planlytasksko" worktree add "$WORKTREE_DIR" "agentforge/$TASK_ID" 2>/dev/null || true
+git -C "/home/eveselove/planlytasksko" worktree add "$WORKTREE_DIR" -b "agentforge/$TASK_ID" 2>/dev/null || \
+  git -C "/home/eveselove/planlytasksko" worktree add "$WORKTREE_DIR" "agentforge/$TASK_ID" 2>/dev/null || true
 
 cleanup_worktree() {
-  git -C "/home/agx/planlytasksko" worktree remove --force "$WORKTREE_DIR" 2>/dev/null || true
+  git -C "/home/eveselove/planlytasksko" worktree remove --force "$WORKTREE_DIR" 2>/dev/null || true
 }
 trap cleanup_worktree EXIT INT TERM
 
@@ -154,7 +154,7 @@ log_event "jules_execution_end" "{\"status\":\"review\",\"duration_seconds\":$DU
 if [ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]; then
     _PURE_J=$(python3 -c '
 import os
-os.environ.setdefault("PYTHONPATH","/home/agx")
+os.environ.setdefault("PYTHONPATH","/home/eveselove")
 try:
     from agentforge.learning.utils import is_pure_rust_flywheel as f
     print(1 if f() else 0)
@@ -165,7 +165,7 @@ except Exception:
         echo "[DEPRECATION PHASE 3 jules_runner] is_pure_rust_flywheel()=1 — legacy python post hook; prefer agentforge-runner flywheel-step" >> "$LOG_DIR/jules_$TASK_ID.log" 2>/dev/null || true
     fi
     (
-        PYTHONPATH=/home/agx \
+        PYTHONPATH=/home/eveselove \
         python3 -m agentforge.bin.rust_post_process_hook "$TASK_ID" \
             >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true
     ) &
@@ -179,16 +179,16 @@ echo "[AgentForge] Worktree $WORKTREE_DIR cleaned (jules isolation complete)" | 
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.
 

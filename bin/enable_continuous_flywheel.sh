@@ -35,7 +35,7 @@
 set -u
 # No -e: resilience + explicit rollback paths
 
-AGENTFORGE_ROOT="/home/agx/agentforge"
+AGENTFORGE_ROOT="/home/eveselove/agentforge"
 cd "$AGENTFORGE_ROOT" 2>/dev/null || true
 
 LOG_DIR="$AGENTFORGE_ROOT/logs"
@@ -94,7 +94,7 @@ if [ -x "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" ]; then
         # shellcheck disable=SC1091
         source "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" 2>/dev/null || true
         # Also python activator
-        PYTHONPATH=/home/agx python3 -m agentforge.enable_rust_flywheel 2>/dev/null || true
+        PYTHONPATH=/home/eveselove python3 -m agentforge.enable_rust_flywheel 2>/dev/null || true
     else
         log "[dry] would source + invoke enable_rust_flywheel.sh + python activator"
     fi
@@ -223,7 +223,7 @@ for f in /tmp/agentforge_rust_flywheel/flywheel_health.json /tmp/agentforge_rust
 done
 
 # Quick python health probe (reuses same logic)
-PYTHONPATH=/home/agx python3 -c '
+PYTHONPATH=/home/eveselove python3 -c '
 import json
 from pathlib import Path
 p = Path("/tmp/agentforge_rust_flywheel/watchdog_flywheel_status.json")
@@ -252,7 +252,7 @@ log "=== FARM-WIDE ACTIVATION (grok/jules workers + dispatcher + API + Autonomy 
 cat << 'FARM_EOF'
 
 # === 1. THIS HOST (main Autonomy / API / dispatcher host) ===
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 touch ENABLE_RUST_FLYWHEEL
 bash bin/enable_continuous_flywheel.sh                 # user mode (recommended)
 # OR for system-style (matches install_services.sh):
@@ -266,22 +266,22 @@ systemctl --user status agentforge-flywheel.timer || sudo systemctl status agent
 # Workers already source ENABLE + rust_flywheel.env on startup (grok_worker.sh, jules_worker.sh, agents/*_runner.sh, dispatcher.sh)
 # Just ensure marker + (re)start workers. Timer itself runs on main host(s).
 for w in grok jules; do
-  touch /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
+  touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
   # If running via systemd user:
   #   systemctl --user restart agentforge-${w}-worker   (or whatever unit)
   # If direct:
   #   pkill -f ${w}_worker.sh || true
-  #   bash /home/agx/agentforge/${w}_worker.sh &   # or via start.sh / tmux
+  #   bash /home/eveselove/agentforge/${w}_worker.sh &   # or via start.sh / tmux
 done
 
-# === 3. REMOTE / MULTI-HOST FARM (grok-work/ ssh-* teams, other Jetsons, etc.) ===
+# === 3. REMOTE / MULTI-HOST FARM (grok-work/ ssh-* teams, other Erboxs, etc.) ===
 # On each remote (example for one ssh-N or agentN):
-#   scp /home/agx/agentforge/bin/enable_continuous_flywheel.sh \
-#       /home/agx/agentforge/agentforge-flywheel.{service,timer} \
-#       /home/agx/agentforge/ENABLE_RUST_FLYWHEEL \
-#       /home/agx/agentforge/bin/{enable_rust_flywheel.sh,rust_flywheel.env,run_continuous_flywheel.*} \
+#   scp /home/eveselove/agentforge/bin/enable_continuous_flywheel.sh \
+#       /home/eveselove/agentforge/agentforge-flywheel.{service,timer} \
+#       /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL \
+#       /home/eveselove/agentforge/bin/{enable_rust_flywheel.sh,rust_flywheel.env,run_continuous_flywheel.*} \
 #       remote-host:/tmp/agentforge-rollout/
-#   ssh remote-host 'cd /tmp/agentforge-rollout && cp *.service *.timer ~/.config/systemd/user/ 2>/dev/null || sudo cp *.service *.timer /etc/systemd/system/; bash enable_continuous_flywheel.sh --user || bash enable_continuous_flywheel.sh --system; touch /home/agx/agentforge/ENABLE_RUST_FLYWHEEL'
+#   ssh remote-host 'cd /tmp/agentforge-rollout && cp *.service *.timer ~/.config/systemd/user/ 2>/dev/null || sudo cp *.service *.timer /etc/systemd/system/; bash enable_continuous_flywheel.sh --user || bash enable_continuous_flywheel.sh --system; touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL'
 # Repeat for every grok-work/agent* , ssh-1..N , team-* hosts.
 # (Also ensure their grok_worker.sh / jules_worker.sh have the ENABLE guard + source lines — already present in main tree.)
 
@@ -289,8 +289,8 @@ done
 # Already covered by step 1. Ensure uvicorn / task_queue sees PYTHONPATH + env (via agentforge-api.service or user unit).
 
 # === 5. After any farm change: re-verify everywhere ===
-#   bash /home/agx/agentforge/healthcheck.sh
-#   PYTHONPATH=/home/agx ENABLE_RUST_FLYWHEEL=1 python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run
+#   bash /home/eveselove/agentforge/healthcheck.sh
+#   PYTHONPATH=/home/eveselove ENABLE_RUST_FLYWHEEL=1 python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run
 #   journalctl --user -u agentforge-flywheel.service --since "10 min ago" | tail -20
 
 FARM_EOF
@@ -302,7 +302,7 @@ log "All paths reuse ENABLE_RUST_FLYWHEEL exactly — zero breakage risk."
 # Final safe manual one-shot dry test (always safe)
 if [ $DRY_RUN -eq 0 ]; then
     log "Final safe dry test invocation (reuses all paths)..."
-    env PYTHONPATH=/home/agx ENABLE_RUST_FLYWHEEL=1 timeout 25s python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run 2>&1 | tail -15 || true
+    env PYTHONPATH=/home/eveselove ENABLE_RUST_FLYWHEEL=1 timeout 25s python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run 2>&1 | tail -15 || true
 fi
 
 exit 0
@@ -311,15 +311,15 @@ exit 0
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

@@ -57,7 +57,7 @@ DISABLE_RUST_FLYWHEEL=1 PYTHONPATH=. python -m agentforge.eval.post_process <tas
 **Clean disable script (new in this rollout):**
 
 ```bash
-bash /home/agx/agentforge/bin/disable_rust_flywheel.sh
+bash /home/eveselove/agentforge/bin/disable_rust_flywheel.sh
 ```
 
 This script symmetrically unsets the positive envs, exports `DISABLE_RUST_FLYWHEEL=1`, updates the snippet, and is safe to source.
@@ -121,8 +121,8 @@ AGENTFORGE_RUST_FLYWHEEL=1 python -m agentforge.rust_flywheel_step \
 
 # Full status + evidence of default
 env | grep -E 'RUST_FLYWHEEL|DISABLE_RUST'
-ls -l /home/agx/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || echo "Marker optional under new default"
-cat /home/agx/agentforge/rust/target/release/agentforge-runner --help 2>/dev/null | head -5 || echo "Build release binary for best perf"
+ls -l /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || echo "Marker optional under new default"
+cat /home/eveselove/agentforge/rust/target/release/agentforge-runner --help 2>/dev/null | head -5 || echo "Build release binary for best perf"
 ```
 
 See also:

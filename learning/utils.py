@@ -105,7 +105,7 @@ def is_pure_rust_flywheel() -> bool:
     Usage (all files): pure = is_pure_rust_flywheel()
     Non-breaking default: False (legacy Python 100% intact until Phase 4 deletion).
     """
-    root = Path("/home/agx/agentforge")
+    root = Path("/home/eveselove/agentforge")
 
     # PHASE 4 HARDENED: expanded disable variants (catch more bypass patterns)
     disable_envs = [
@@ -153,7 +153,7 @@ def get_rust_runner_path() -> Optional[Path]:
         if p.is_file() and os.access(p, os.X_OK):
             return p
 
-    root = Path("/home/agx/agentforge")
+    root = Path("/home/eveselove/agentforge")
     candidates = [
         root / "rust" / "target" / "release" / "agentforge-runner",
         root / "rust" / "target" / "debug" / "agentforge-runner",
@@ -181,7 +181,7 @@ def is_rust_flywheel_disabled() -> bool:
     Direct migration: when this is True, prefer full bypass to agentforge-runner commands.
     See is_pure_rust_flywheel() for the positive decision (calls this internally).
     """
-    root = Path("/home/agx/agentforge")
+    root = Path("/home/eveselove/agentforge")
 
     disable_envs = [
         "DISABLE_RUST_FLYWHEEL", "AGENTFORGE_DISABLE_RUST_FLYWHEEL",

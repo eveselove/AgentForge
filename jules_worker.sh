@@ -12,7 +12,7 @@ export NVM_DIR=$HOME/.nvm
 # === Rust Flywheel auto-integration — FULL RUST-ONLY DIRECTION (2026-05-31) ===
 # Python flywheel orchestration is being removed. Prefer agentforge-runner everywhere.
 # Full Rust-powered self-improving flywheel is DEFAULT ON (no env needed).
-# Strong simple rollback: DISABLE_RUST_FLYWHEEL=1 or /home/agx/agentforge/.disable_rust_flywheel
+# Strong simple rollback: DISABLE_RUST_FLYWHEEL=1 or /home/eveselove/agentforge/.disable_rust_flywheel
 # Sources canonical enable + snippet. Release binary preferred. Rate limits/safety untouched.
 #
 # !!! AGGRESSIVE FINAL DEPRECATION SWEEP + PHASE 4 PLAN (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!

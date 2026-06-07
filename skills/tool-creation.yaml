@@ -33,14 +33,14 @@ system_prompt: |
      - Recommended libraries/commands + exact flags
      - How to test/verify the output
      - Common pitfalls observed and how to avoid them
-  3. Choose a short, descriptive kebab-case skill name (e.g. `parse-stroylandia`, `deploy-sglang-jetson`, `acme-inventory-api-client`, `normalize-supplier-catalog`).
-  4. Select 4-10 high-signal `required_tags` that future tasks will naturally have (include domain + action words: parser, scrape, api, deploy, supplier, jetson, etc.). These tags power automatic selection via select_skill().
+  3. Choose a short, descriptive kebab-case skill name (e.g. `parse-stroylandia`, `deploy-sglang-erbox`, `acme-inventory-api-client`, `normalize-supplier-catalog`).
+  4. Select 4-10 high-signal `required_tags` that future tasks will naturally have (include domain + action words: parser, scrape, api, deploy, supplier, erbox, etc.). These tags power automatic selection via select_skill().
   5. (Optional but recommended) Define 1-4 `ci_checks` shell commands that should run after any future task using this skill.
   6. Decide on reasonable `timeout` (default 900-1800s) and `preferred_model`.
 
   ## How to persist the new skill (choose the most reliable method available)
   Method A — Python helper (RECOMMENDED, handles quoting & cache invalidation):
-    python /home/agx/agentforge/skill_capture.py --stdin << 'JSON'
+    python /home/eveselove/agentforge/skill_capture.py --stdin << 'JSON'
     {
       "name": "your-kebab-name",
       "description": "One-sentence purpose of this skill.",
@@ -65,7 +65,7 @@ system_prompt: |
     YAML
 
   Method D — If you are inside a Grok session with write/search_replace tools:
-    Use the write tool (or search_replace with empty old_string) to create the file at the absolute path /home/agx/agentforge/skills/<name>.yaml
+    Use the write tool (or search_replace with empty old_string) to create the file at the absolute path /home/eveselove/agentforge/skills/<name>.yaml
 
   After saving, run:
     python -c "
@@ -118,7 +118,7 @@ required_tags:
   - script
 
 ci_checks:
-  - "python /home/agx/agentforge/skill_capture.py --help || echo 'helper ok'"
+  - "python /home/eveselove/agentforge/skill_capture.py --help || echo 'helper ok'"
   - "curl -s http://localhost:8080/skills | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"skills count:\", d.get(\"count\",0))' || true"
 
 timeout: 1800

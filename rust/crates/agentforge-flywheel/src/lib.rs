@@ -750,8 +750,8 @@ mod tests {
             real_data: true,
             limit: Some(5),
             output_dir: Some(PathBuf::from("/tmp/fw")),
-            trajectories_dir: Some(PathBuf::from("/home/agx/agentforge/eval/trajectories")),
-            prm_dir: Some(PathBuf::from("/home/agx/agentforge/eval/trajectories")),
+            trajectories_dir: Some(PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
+            prm_dir: Some(PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
             min_prm: Some(0.4),
             ..Default::default()
         };
@@ -819,8 +819,8 @@ mod tests {
             skill_name: "real-data-emit".into(),
             dry_run: true,
             real_data: true,
-            trajectories_dir: Some(std::path::PathBuf::from("/home/agx/agentforge/eval/trajectories")),
-            prm_dir: Some(std::path::PathBuf::from("/home/agx/agentforge/eval/trajectories")),
+            trajectories_dir: Some(std::path::PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
+            prm_dir: Some(std::path::PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
             limit: Some(10),
             ..Default::default()
         };
@@ -916,8 +916,8 @@ mod tests {
             dry_run: true,
             real_data: true,
             limit: Some(3),
-            trajectories_dir: Some(std::path::PathBuf::from("/home/agx/agentforge/eval/trajectories")),
-            prm_dir: Some(std::path::PathBuf::from("/home/agx/agentforge/eval/trajectories")),
+            trajectories_dir: Some(std::path::PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
+            prm_dir: Some(std::path::PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
             min_prm: Some(0.1),
             ..Default::default()
         };

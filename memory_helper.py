@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-DB_PATH = "/home/agx/lance_data"
+DB_PATH = "/home/eveselove/lance_data"
 TABLE_NAME = "agentforge_memory"
 FAILURE_TABLE = "agentforge_failures"
 TAXONOMY_PATH = os.path.expanduser("~/agentforge/failure_taxonomy.json")
@@ -157,10 +157,10 @@ def _now_iso() -> str:
 def _get_log_excerpt(task_id: str, max_chars: int = 3500) -> str:
     """Извлечь хвост лога задачи (самое релевантное для анализа failure)."""
     candidates = [
-        f"/home/agx/agentforge/logs/grok_{task_id}.log",
-        f"/home/agx/agentforge/logs/jules_{task_id}.log",
-        f"/home/agx/agentforge/logs/agy_{task_id}.log",
-        f"/home/agx/agentforge/logs/gemini_{task_id}.log",
+        f"/home/eveselove/agentforge/logs/grok_{task_id}.log",
+        f"/home/eveselove/agentforge/logs/jules_{task_id}.log",
+        f"/home/eveselove/agentforge/logs/agy_{task_id}.log",
+        f"/home/eveselove/agentforge/logs/gemini_{task_id}.log",
     ]
     for log_path in candidates:
         if os.path.exists(log_path):

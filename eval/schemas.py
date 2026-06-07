@@ -53,7 +53,7 @@ class BenchmarkTask:
     description: str
 
     # Execution context
-    repo_path: str = "/home/agx/planlytasksko"
+    repo_path: str = "/home/eveselove/planlytasksko"
     base_branch: str = "main"
 
     # Verification (how do we know it succeeded?)

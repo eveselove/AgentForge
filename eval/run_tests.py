@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 
 # Robust path setup so the runner works in all common invocation styles:
-#   1. python -m agentforge.eval.run_tests          (from /home/agx)
+#   1. python -m agentforge.eval.run_tests          (from /home/eveselove)
 #   2. python eval/run_tests.py                     (from inside agentforge/)
 #   3. python -m agentforge.eval.run_tests          (from inside agentforge/ — falls back)
 HERE = Path(__file__).resolve().parent          # .../agentforge/eval

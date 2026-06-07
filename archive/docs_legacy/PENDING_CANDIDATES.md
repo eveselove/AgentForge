@@ -33,7 +33,7 @@ See `RUST_FULL_MIGRATION_PLAN.md` (exec summary, detailed phases 0–4, risk mat
 ## Central Location
 
 ```
-/home/agx/agentforge/pending_candidates/
+/home/eveselove/agentforge/pending_candidates/
 ```
 
 (Override via env: `AGENTFORGE_PENDING_CANDIDATES_DIR=/your/preferred/store` — also accepts the legacy `AGENTFORGE_PENDING_CANDIDATES`.)
@@ -163,12 +163,12 @@ python -m agentforge.list_pending_candidates promote <winning_id> --copy-to-skil
 
 ## Files / Modules Changed or Added (this track)
 
-- `/home/agx/agentforge/pending_candidates/` — the dir (central store)
-- `/home/agx/agentforge/learning/pending_candidates.py` — full helper (ingest, list+summary, promote stub, meta)
-- `/home/agx/agentforge/learning/__init__.py` — exports for the new APIs
-- `/home/agx/agentforge/rust_flywheel_step.py` — enhanced with batch slicing args + **auto-ingest after every write_artifacts**
-- `/home/agx/agentforge/list_pending_candidates.py` — the tiny CLI (`python -m agentforge.list_pending_candidates`)
-- `/home/agx/agentforge/PENDING_CANDIDATES.md` — this doc (and references added to JULES_FLYWHEEL_DEMO.md)
+- `/home/eveselove/agentforge/pending_candidates/` — the dir (central store)
+- `/home/eveselove/agentforge/learning/pending_candidates.py` — full helper (ingest, list+summary, promote stub, meta)
+- `/home/eveselove/agentforge/learning/__init__.py` — exports for the new APIs
+- `/home/eveselove/agentforge/rust_flywheel_step.py` — enhanced with batch slicing args + **auto-ingest after every write_artifacts**
+- `/home/eveselove/agentforge/list_pending_candidates.py` — the tiny CLI (`python -m agentforge.list_pending_candidates`)
+- `/home/eveselove/agentforge/PENDING_CANDIDATES.md` — this doc (and references added to JULES_FLYWHEEL_DEMO.md)
 - JULES_FLYWHEEL_DEMO.md updated with pointer to this file + new run examples
 
 ## Next Immediate Steps (out of this deliverable)
@@ -205,10 +205,10 @@ ls -1t logs/grok_*.log | head -5
 
 ### Manually exercise the full chain (after-task hook + post_process + step)
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 export AGENTFORGE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 \
-  AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner
-export PYTHONPATH=/home/agx
+  AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
+export PYTHONPATH=/home/eveselove
 
 # Clear rate limits for verification (optional for force)
 rm -f /tmp/agentforge_rust_flywheel/.last_after_task_run /tmp/agentforge_rust_flywheel/.flywheel*counter*
@@ -323,8 +323,8 @@ python -m agentforge.list_pending_candidates promote-and-ab 20260531_053416_gene
 
 **Real (safe) promotes (3x):**
 - Created (timestamped, safe):
-  - `/home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml`
-  - `/home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml`
+  - `/home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml`
+  - `/home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml`
 - Per-candidate A/B artifacts written (example for 416):
   - `pending_candidates/20260531_053416_general-refactor_81e7d546/ab_test_config.json`
   - `.../run_ab_after_promote.py` (chmod +x)
@@ -338,7 +338,7 @@ python -m agentforge.list_pending_candidates promote-and-ab 20260531_053416_gene
 ```
 # Exact command / snippet for A/B on this candidate (20260531_053416_general-refactor_81e7d546) vs general-refactor
 # 1. Recommended:
-python /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_after_promote.py
+python /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_after_promote.py
 
 # 2. One-liner (simulate):
 python -c '
@@ -349,7 +349,7 @@ cfg=ABTestConfig(name="cli-ab-...", agent="grok", n_runs_per_arm=1, simulate=Tru
 print(e.ab_test_skill_versions(
   ["example_rust_refactor", "lancedb_parser_bottleneck", "adaptive_throttle_tuning"],
   "general-refactor",
-  str(Path(r"/home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml")),
+  str(Path(r"/home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml")),
   cfg
 ).summary())
 '
@@ -375,14 +375,14 @@ Jules — 2026-05-31. Turbo. No stops. A/B skeleton + promote-and-ab delivered w
 - `general-refactor-flywheel-202605310534.promoted.20260531_053853.yaml` (candidate 20260531_053412_general-refactor_81e7d546)
 
 Corresponding pending_candidates dirs (all with generated artifacts):
-- `/home/agx/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/`
-- `/home/agx/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/`
-- `/home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/`
+- `/home/eveselove/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/`
+- `/home/eveselove/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/`
+- `/home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/`
 
 **Executed (using existing generated scripts, simulate mode first):**
 ```sh
 # Core commands (full output captured):
-cd /home/agx/agentforge && PYTHONPATH=/home/agx/agentforge:/home/agx \
+cd /home/eveselove/agentforge && PYTHONPATH=/home/eveselove/agentforge:/home/eveselove \
   python pending_candidates/20260531_053411_general-refactor_81e7d546/run_ab_after_promote.py
 
 # (identical pattern for 053412 and 053416)
@@ -433,7 +433,7 @@ Jules — 2026-05-31. Full turbo track execution + recording complete.
 - Cargo test (learning + runner crates) launched in workspace.
 
 **Master real A/B executor created (ready for farm):**
-- `/home/agx/agentforge/bin/execute_real_abs_on_promoted.sh`
+- `/home/eveselove/agentforge/bin/execute_real_abs_on_promoted.sh`
 - Edits the 3 `run_ab_after_promote.py` in-place (simulate=False, wait_for_real=True, n_runs>=2), runs with full PYTHONPATH + ENABLE_RUST_FLYWHEEL=1.
 - Logs to `logs/real_ab_<cid>_<ts>.log`, updates metas with real-run timestamps.
 - Usage: `ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 bash bin/execute_real_abs_on_promoted.sh` (only on live farm).
@@ -602,8 +602,8 @@ This is the moment when everything we built becomes the default self-improving e
 
 **Key closer actions this wave (this meta-agent):**
 - Full survey of 4 previous agent waves + all main-thread artifacts (JULES_*.md, 236 pending_candidates/ dirs with rich manifests, 3 promoted + complete ab_results/ meta/ run_* scripts, IMPACT_REPORT.md, CONTINUOUS_FLYWHEEL.md, FARM_ROLLOUT_CHECKLIST.md, all hooks/binaries/services, Rust release binary + 7 crates).
-- Created `/home/agx/agentforge/VICTORY_SUMMARY.md` (high-signal deliverable list, before/after, exact last-step commands for real A/B + timer enable).
-- Created `/home/agx/agentforge/HOW_WE_FINISHED_WITH_AGENTS.md` (precise process description of deliberate agent-system self-execution).
+- Created `/home/eveselove/agentforge/VICTORY_SUMMARY.md` (high-signal deliverable list, before/after, exact last-step commands for real A/B + timer enable).
+- Created `/home/eveselove/agentforge/HOW_WE_FINISHED_WITH_AGENTS.md` (precise process description of deliberate agent-system self-execution).
 - Appended this ultimate "Plan Closed by Agent System" section.
 - Updated top of AGENTFORGE_FRONTIER_ROADMAP.md with strongest victory language + "Executed via parallel agent system (Jules swarm)".
 
@@ -613,13 +613,13 @@ This is the moment when everything we built becomes the default self-improving e
 Real task completions (grok/jules) → rate-limited `bin/rust_flywheel_after_task.sh` + `eval/post_process.py` (Rust + PRM) → `rust_flywheel_step` (rich `agentforge-runner flywheel-export`) → auto-ingest 236+ candidates in `pending_candidates/` (142 rich with `rust_rich_flywheel_export.json`, 2879 high_learning_value_records) → `list_pending_candidates promote-and-ab` + LearningEvaluator (3 promoted with full sim A/B: tie/low/0-delta = safe gate) → promotion (timestamped safe + canonical `skills/general-refactor-flywheel.yaml`) → (next: real A/B via `bin/execute_real_abs_on_promoted.sh` for measurable lift) → continuous prioritizer/timer (ready: `agentforge-flywheel.timer`) → watchdog health → back into flywheel.
 
 **Evidence locations (absolute, all live):**
-- `/home/agx/agentforge/VICTORY_SUMMARY.md`
-- `/home/agx/agentforge/HOW_WE_FINISHED_WITH_AGENTS.md`
-- `/home/agx/agentforge/AGENTFORGE_FRONTIER_ROADMAP.md` (updated top + 100% sections)
-- `/home/agx/agentforge/IMPACT_REPORT.md` (236/142/2879 stats + 3 A/B + projections)
-- `/home/agx/agentforge/CONTINUOUS_FLYWHEEL.md` + `agentforge-flywheel.timer` + `bin/run_continuous_flywheel.py`
-- `/home/agx/agentforge/PENDING_CANDIDATES.md` (this file, full history)
-- `/home/agx/agentforge/FARM_ROLLOUT_CHECKLIST.md` + `ENABLE_RUST_FLYWHEEL.md`
+- `/home/eveselove/agentforge/VICTORY_SUMMARY.md`
+- `/home/eveselove/agentforge/HOW_WE_FINISHED_WITH_AGENTS.md`
+- `/home/eveselove/agentforge/AGENTFORGE_FRONTIER_ROADMAP.md` (updated top + 100% sections)
+- `/home/eveselove/agentforge/IMPACT_REPORT.md` (236/142/2879 stats + 3 A/B + projections)
+- `/home/eveselove/agentforge/CONTINUOUS_FLYWHEEL.md` + `agentforge-flywheel.timer` + `bin/run_continuous_flywheel.py`
+- `/home/eveselove/agentforge/PENDING_CANDIDATES.md` (this file, full history)
+- `/home/eveselove/agentforge/FARM_ROLLOUT_CHECKLIST.md` + `ENABLE_RUST_FLYWHEEL.md`
 - 3 promoted pending dirs + 4 promoted yamls in `skills/` + `promotion_history.json`
 - Release binary + all 7 Rust crates under `rust/`
 - All JULES_*.md (previous waves) + hooks in `bin/` + patches in workers/services
@@ -637,7 +637,7 @@ Real task completions (grok/jules) → rate-limited `bin/rust_flywheel_after_tas
 - 20260531_053412_...: rich 99 / 0.0202 / 17 HV; ab tie (ab-6f03d33c4a); promoted ...053853.yaml (also prior); same.
 - 20260531_053416_...: rich 99 / 0.0202 / 28 HV; ab tie (ab-34fd5246b4); promoted ...053640.yaml (chosen for canonical); same.
 
-**Evidence (abs paths):** See full tables/projections in `/home/agx/agentforge/IMPACT_REPORT.md`. Key:
+**Evidence (abs paths):** See full tables/projections in `/home/eveselove/agentforge/IMPACT_REPORT.md`. Key:
 - ab_results: `pending_candidates/20260531_0534{11,12,16}_general-refactor_81e7d546/ab_results.json`
 - Metas + rich exports: same dirs + `rust_rich_flywheel_export.json`
 - History: `skills/promotion_history.json`, `pending_candidates/promotions.jsonl`
@@ -646,7 +646,7 @@ Real task completions (grok/jules) → rate-limited `bin/rust_flywheel_after_tas
 
 **Projections:** Real A/B (higher farm variance + PRM) on these variants (or the 4 high-sr 0.0813 ones) expected to surface +success_rate / PRM lifts (cite 2879 HV records + positive learning_values from real trajectories). Target: measurable Δ success_rate ≥+0.10 on refactor benches post-real run.
 
-**Verification (reproducible, cd /home/agx/agentforge):**
+**Verification (reproducible, cd /home/eveselove/agentforge):**
 ```sh
 # Totals + aggregates (rich flywheel health)
 find pending_candidates -mindepth 1 -maxdepth 1 -type d | wc -l
@@ -733,7 +733,7 @@ Continuous self-improvement loop now autonomous. Evidence: new scripts/units + d
 
 **The entire AGENTFORGE_FRONTIER_ROADMAP (original + all phases + Rust + closed flywheel + autonomy) is now formally 100% complete and archived via deliberate execution by the system's own parallel agent architecture (Jules swarm + spawn_subagent pattern).**
 
-See the preceding "PLAN CLOSED BY AGENT SYSTEM" section + new `/home/agx/agentforge/VICTORY_SUMMARY.md` + `/home/agx/agentforge/HOW_WE_FINISHED_WITH_AGENTS.md` for the complete declaration, deliverable catalog (236 candidates, 7 Rust crates, release binary, 3 promoted + A/B, timer, IMPACT, all hooks), before/after, and last-step commands.
+See the preceding "PLAN CLOSED BY AGENT SYSTEM" section + new `/home/eveselove/agentforge/VICTORY_SUMMARY.md` + `/home/eveselove/agentforge/HOW_WE_FINISHED_WITH_AGENTS.md` for the complete declaration, deliverable catalog (236 candidates, 7 Rust crates, release binary, 3 promoted + A/B, timer, IMPACT, all hooks), before/after, and last-step commands.
 
 **System bootstrapped its own frontier level.** All evidence live. Real A/B + timer enable are the final operational steps on the farm.
 
@@ -751,7 +751,7 @@ See the preceding "PLAN CLOSED BY AGENT SYSTEM" section + new `/home/agx/agentfo
 - **Data quality (avg_lv=0 everywhere):** Confirmed — no prm_overall scores in the export snapshots (prm null even with sidecar flags) → Rust/Python lv compute yields no variance/boost → meta 0. (See full root cause + 3-line fix in IMPACT_REPORT.md "Real A/B Projections..." section.)
 - **Expected first lift (honest: sim variance=0 vs real farm 4.1× observed spread + PRM):** Real A/B (on the 3 promoted 05341{1,2,6} or top 0.0813 cands) via LearningEvaluator real path (simulate=False + PRM) → **+8-15pp success_rate on refactor tasks** once winner promoted (treatment recovery logic targets exactly the 2879 HV failure patterns). From ~0.02-0.08 farm baseline toward/above the 0.0813 peaks. Sim tie was safe gate only.
 
-**Exact commands to run after first real A/B batch lands** (cd /home/agx/agentforge; production tone, paste & execute; feeds IMPACT + decide promotion; no new files needed):
+**Exact commands to run after first real A/B batch lands** (cd /home/eveselove/agentforge; production tone, paste & execute; feeds IMPACT + decide promotion; no new files needed):
 
 ```sh
 # 1. Capture real deltas + re-verify aggregates (the 3 + any high-sr)
@@ -806,7 +806,7 @@ Jules turbo (REAL IMPACT MEASUREMENT & PROJECTION CLOSER) — 2026-05-31. Missio
 
 ### Exact Trigger Command (recommended — covers 3 promoted + top 3 current HV)
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 PYTHONPATH=. \
   bash bin/trigger_real_ab_on_farm.sh 2>&1 | tee logs/trigger_real_ab_$(date +%Y%m%d_%H%M%S).log
 ```
@@ -842,7 +842,7 @@ cfg=ABTestConfig(name="direct-farm-ab-1", agent="grok", n_runs_per_arm=3, simula
 print(e.ab_test_skill_versions(
     ["example_rust_refactor","lancedb_parser_bottleneck","adaptive_throttle_tuning"],
     "general-refactor",
-    "/home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml",
+    "/home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml",
     cfg
 ).summary())
 '
@@ -909,13 +909,13 @@ Jules turbo — REAL A/B EXECUTION LAYER COMPLETE. Farm dispatch unlocked.
 ### Exact farm-wide activation (copy-paste)
 ```bash
 # Main host (API + dispatcher + Autonomy timer host)
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 touch ENABLE_RUST_FLYWHEEL
 bash bin/enable_continuous_flywheel.sh                 # or --dry-run first; or --system
 bash healthcheck.sh | grep -E 'Flywheel|Timer'
 
 # All workers (grok/jules): marker + restart (env sourcing already wired in grok_worker.sh, jules_worker.sh, dispatcher.sh, agents/*_runner.sh)
-touch /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
+touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
 # systemctl --user restart ... or pkill + restart workers as needed
 
 # Remotes / full farm (repeat per host in grok-work/agent*/ssh-*/team-*)
@@ -934,13 +934,13 @@ touch /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
 
 ### Verification sequence (always)
 ```bash
-bash /home/agx/agentforge/healthcheck.sh | cat
+bash /home/eveselove/agentforge/healthcheck.sh | cat
 systemctl --user status agentforge-flywheel.timer || sudo systemctl status ...
 systemctl --user list-timers | grep -E 'flywheel|NEXT'
 cat /tmp/agentforge_rust_flywheel/{flywheel_health,watchdog_flywheel_status}.json 2>/dev/null | python3 -m json.tool | head -30
 journalctl --user -u agentforge-flywheel.* --since "30 min ago" | tail -30
-PYTHONPATH=/home/agx ENABLE_RUST_FLYWHEEL=1 python -m agentforge.bin.run_continuous_flywheel --top-n 2 --dry-run
-tail -30 /home/agx/agentforge/logs/continuous_flywheel.log
+PYTHONPATH=/home/eveselove ENABLE_RUST_FLYWHEEL=1 python -m agentforge.bin.run_continuous_flywheel --top-n 2 --dry-run
+tail -30 /home/eveselove/agentforge/logs/continuous_flywheel.log
 ```
 
 ### Rollback (instant)
@@ -950,7 +950,7 @@ systemctl --user disable --now agentforge-flywheel.timer
 sudo systemctl disable --now agentforge-flywheel.timer 2>/dev/null || true
 rm -f ~/.config/systemd/user/agentforge-flywheel.* /etc/systemd/system/agentforge-flywheel.*
 systemctl --user daemon-reload 2>/dev/null; sudo systemctl daemon-reload 2>/dev/null || true
-rm -f /home/agx/agentforge/ENABLE_RUST_FLYWHEEL   # global no-op for whole flywheel
+rm -f /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL   # global no-op for whole flywheel
 ```
 
 **Result**: 24/7 continuous flywheel (meta-closer on top of after-task generation) now live farm-wide. Timer drives prioritizer + promote-and-ab + winner detection autonomously every ~20min (randomized). All existing ENABLE / flock / timeout / logging / idempotency paths 100% reused. Non-breaking. New workers auto-get it via install_services.sh re-run.
@@ -968,8 +968,8 @@ Jules turbo (AUTONOMY TIMER PRODUCTION ROLLOUT) — 2026-05-31. 24/7 autonomy ac
 **Executed via parallel agent system (Jules swarm) using deliberate spawn_subagent orchestration — exactly per the roadmap's meta directive and the user's explicit mission for this closer wave.**
 
 **Final artifacts from this meta-closer (surveying all 4 previous agents + main waves + this):**
-- `/home/agx/agentforge/VICTORY_SUMMARY.md` — clean high-signal victory (full deliverable paths, before/after contrast, exact real A/B + timer commands).
-- `/home/agx/agentforge/HOW_WE_FINISHED_WITH_AGENTS.md` — process narrative of the agent-system self-execution.
+- `/home/eveselove/agentforge/VICTORY_SUMMARY.md` — clean high-signal victory (full deliverable paths, before/after contrast, exact real A/B + timer commands).
+- `/home/eveselove/agentforge/HOW_WE_FINISHED_WITH_AGENTS.md` — process narrative of the agent-system self-execution.
 - This ultimate EOF capstone + the major "PLAN CLOSED BY AGENT SYSTEM" section earlier in file.
 - Top of `AGENTFORGE_FRONTIER_ROADMAP.md` updated with strongest victory banner + "Executed via parallel agent system (Jules swarm)".
 
@@ -1002,7 +1002,7 @@ rm -f /tmp/agentforge_rust_flywheel/.last_after_task_run /tmp/agentforge_rust_fl
 
 **Primary launch (on live farm, ENABLE_RUST_FLYWHEEL active, release binary)**:
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 export PYTHONPATH=.
 export ENABLE_RUST_FLYWHEEL=1
 export AGENTFORGE_USE_RUST=1
@@ -1020,7 +1020,7 @@ from agentforge.learning.evaluator import LearningEvaluator, ABTestConfig
 from pathlib import Path
 e=LearningEvaluator()
 cfg=ABTestConfig(name="real-wave-direct", agent="grok", n_runs_per_arm=3, simulate=False, wait_for_real=True, timeout_minutes=20)
-print(e.ab_test_skill_versions(["example_rust_refactor","lancedb_parser_bottleneck","adaptive_throttle_tuning"], "general-refactor", "/home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml", cfg).summary())
+print(e.ab_test_skill_versions(["example_rust_refactor","lancedb_parser_bottleneck","adaptive_throttle_tuning"], "general-refactor", "/home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml", cfg).summary())
 ' 
 ```
 
@@ -1047,7 +1047,7 @@ cat pending_candidates/20260531_053411_general-refactor_81e7d546/ab_results.json
 **The "Rust flywheel default for Antigravity" story is now complete with a single production enabler:**
 
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 # (The full "Rust Flywheel now default for Antigravity" rollout is complete via ANTIGRAVITY_DEFAULT.md + bin/{enable,disable}_rust_flywheel.sh + install_services.sh)
 ```
 
@@ -1085,12 +1085,12 @@ ls -l logs/real_ab_*.log | tail -5
 **Post-wave next**: Inspect real deltas (success/PRM/lift). If non-regression or treatment win (medium+ conf) → full prod cutover using the promote_winner_real.sh patterns + update agent_cards/routing. Re-run wave for power. All real data auto-feeds Rust flywheel via post_process.
 
 **Generated/updated for this wave (absolute paths)**:
-- /home/agx/agentforge/bin/real_ab_farm_commands.txt (full content below in final report)
-- /home/agx/agentforge/bin/execute_real_abs_on_promoted.sh (enhanced)
-- /home/agx/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/run_ab_real_farm.py (and 2 siblings)
-- /home/agx/agentforge/pending_candidates/*/ab_sim_results_*.json + updated candidate_meta.json (3 promoted + 5 high-value)
-- /home/agx/agentforge/learning/evaluator.py (robustness patch for sim runs)
-- /home/agx/agentforge/PENDING_CANDIDATES.md (this section)
+- /home/eveselove/agentforge/bin/real_ab_farm_commands.txt (full content below in final report)
+- /home/eveselove/agentforge/bin/execute_real_abs_on_promoted.sh (enhanced)
+- /home/eveselove/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/run_ab_real_farm.py (and 2 siblings)
+- /home/eveselove/agentforge/pending_candidates/*/ab_sim_results_*.json + updated candidate_meta.json (3 promoted + 5 high-value)
+- /home/eveselove/agentforge/learning/evaluator.py (robustness patch for sim runs)
+- /home/eveselove/agentforge/PENDING_CANDIDATES.md (this section)
 - Also: 3 new promoted yamls + ab_test_config/run_ab/suggested for the expanded cands via promote-and-ab
 
 **Evidence of prep complete**: All 3 promoted have real_ab_prepared_at + note; farm_commands.txt + real scripts + master ready for immediate live execution with zero further changes.
@@ -1104,7 +1104,7 @@ ls -l logs/real_ab_*.log | tail -5
 **One-command default enabler (the final story):**
 
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 # Full "default for Antigravity" rollout already shipped (see ANTIGRAVITY_DEFAULT.md + updated install_services.sh + disable script)
 ```
 
@@ -1171,12 +1171,12 @@ Antigravity (the architect agent) no longer just solves hard problems — its ev
 
 ## Farm Rollout Commands (Antigravity Default — Production Fleet Flip)
 
-**Trivial one-go flip for the entire farm (grok-work/*, ssh-1..8, agent1..5, team-*, Jetson agx@146.120.89.199 + any future).**
+**Trivial one-go flip for the entire farm (grok-work/*, ssh-1..8, agent1..5, team-*, Jetson eveselove@146.120.89.199 + any future).**
 
 After local prep on main Autonomy host:
 
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 bash bin/make_antigravity_default.sh --dry-run   # ZERO MUTATION PREFLIGHT (mandatory first)
 ```
 
@@ -1210,7 +1210,7 @@ bash /tmp/farm_antigravity_rollout.sh --yes   # for known fleet (still does dry 
 
 **Rollback (any single host, instant):**
 ```bash
-ssh agent3 'DISABLE_RUST_FLYWHEEL=1 bash /home/agx/agentforge/bin/disable_rust_flywheel.sh || true; systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true'
+ssh agent3 'DISABLE_RUST_FLYWHEEL=1 bash /home/eveselove/agentforge/bin/disable_rust_flywheel.sh || true; systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true'
 # (or the full per-host string printed by the master)
 ```
 

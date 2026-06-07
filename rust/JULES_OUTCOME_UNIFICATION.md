@@ -2,7 +2,7 @@
 
 **Jules (Rust + AgentForge) — Track A complete (turbo, no questions, only actions + final)**  
 **Date:** 2026-05-30  
-**Scope:** ONLY /home/agx/agentforge/rust/ — core::Outcome canonical + learning alias/unify + serde+cross tests + polish (runner/long/etc) + zero warnings + all tests green.  
+**Scope:** ONLY /home/eveselove/agentforge/rust/ — core::Outcome canonical + learning alias/unify + serde+cross tests + polish (runner/long/etc) + zero warnings + all tests green.  
 **Constraints:** Repeated `cargo check --offline -p ... --tests`; `cargo test --offline` after edits; ONLY search_replace + write (for tests/md); no broad scope.
 
 ## Summary
@@ -76,7 +76,7 @@ diff --git a/rust/crates/agentforge-runner/src/lib.rs b/...
 
 (runner main.rs: cleanups for zero-warn + uses updated Outcome prints + learning::Outcome refs now canonical)
 
-## Verification Commands (all must pass; run from /home/agx/agentforge/rust/)
+## Verification Commands (all must pass; run from /home/eveselove/agentforge/rust/)
 ```bash
 cargo check --offline -p agentforge-core --tests
 cargo check --offline -p agentforge-learning --tests
@@ -96,16 +96,16 @@ cargo test --offline -p agentforge-runner cross_crate_outcome -- --nocapture
 Also (from root of agentforge for full context): `cd rust && cargo test --offline --workspace 2>&1 | grep -E 'test result|cross_crate|outcome_serde'`
 
 ## Files Touched (abs paths)
-- /home/agx/agentforge/rust/crates/agentforge-core/src/outcome.rs
-- /home/agx/agentforge/rust/crates/agentforge-learning/Cargo.toml
-- /home/agx/agentforge/rust/crates/agentforge-learning/src/lib.rs
-- /home/agx/agentforge/rust/crates/agentforge-learning/src/types.rs
-- /home/agx/agentforge/rust/crates/agentforge-learning/src/dataset.rs
-- /home/agx/agentforge/rust/crates/agentforge-learning/src/improver.rs
-- /home/agx/agentforge/rust/crates/agentforge-runner/src/lib.rs
-- /home/agx/agentforge/rust/crates/agentforge-runner/src/main.rs
-- /home/agx/agentforge/rust/crates/agentforge-long-horizon/src/task_manager.rs
-- /home/agx/agentforge/rust/JULES_OUTCOME_UNIFICATION.md (this)
+- /home/eveselove/agentforge/rust/crates/agentforge-core/src/outcome.rs
+- /home/eveselove/agentforge/rust/crates/agentforge-learning/Cargo.toml
+- /home/eveselove/agentforge/rust/crates/agentforge-learning/src/lib.rs
+- /home/eveselove/agentforge/rust/crates/agentforge-learning/src/types.rs
+- /home/eveselove/agentforge/rust/crates/agentforge-learning/src/dataset.rs
+- /home/eveselove/agentforge/rust/crates/agentforge-learning/src/improver.rs
+- /home/eveselove/agentforge/rust/crates/agentforge-runner/src/lib.rs
+- /home/eveselove/agentforge/rust/crates/agentforge-runner/src/main.rs
+- /home/eveselove/agentforge/rust/crates/agentforge-long-horizon/src/task_manager.rs
+- /home/eveselove/agentforge/rust/JULES_OUTCOME_UNIFICATION.md (this)
 
 ## Status
 **COMPLETE. Zero warnings. All tests green (pre-existing + 2 new Outcome serde + 1 cross-crate).**  

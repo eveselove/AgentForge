@@ -136,7 +136,7 @@ mod tests {
         let bin = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/debug/agentforge-runner");
         if !bin.exists() { return; }
         // Use absolute real input that always exists
-        let input = "/home/agx/agentforge/eval/results";
+        let input = "/home/eveselove/agentforge/eval/results";
         let out = std::process::Command::new(&bin)
             .args(["--json", "stats", "--input", input])
             .output().expect("exec stats json");
@@ -153,7 +153,7 @@ mod tests {
             return; // skip when not built (cargo test -p agentforge-runner will build it first in practice)
         }
         // Use common real farm path (graceful if empty/missing sidecars)
-        let traj_dir = "/home/agx/agentforge/eval/trajectories";
+        let traj_dir = "/home/eveselove/agentforge/eval/trajectories";
         // Test default (pairs) + explicit --format full + stats + prm-steps
         for fmt in ["pairs", "full", "stats", "prm-steps"] {
             let out = std::process::Command::new(&bin)

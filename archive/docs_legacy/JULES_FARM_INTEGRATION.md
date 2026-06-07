@@ -5,19 +5,19 @@
 **Date**: 2026-05-30 (turbo integration complete)
 **Status**: Rust `agentforge-runner` now callable from live running farm (grok/jules workers + post_process) with minimal friction + full graceful fallback.
 
-All changes are inside `/home/agx/agentforge/` tree. Zero breaking changes.
+All changes are inside `/home/eveselove/agentforge/` tree. Zero breaking changes.
 
 ## 1. One-Time Build (if not already up-to-date)
 
 ```bash
-cd /home/agx/agentforge/rust
+cd /home/eveselove/agentforge/rust
 cargo build -p agentforge-runner --offline   # or without --offline if needed
 # Binary lands at: target/debug/agentforge-runner  (or release for prod)
 ```
 
 Verify:
 ```bash
-/home/agx/agentforge/rust/target/debug/agentforge-runner --help
+/home/eveselove/agentforge/rust/target/debug/agentforge-runner --help
 # Should list export-pairs, export-records, stats, improve-skill etc.
 ```
 
@@ -27,17 +27,17 @@ Export in your worker environment (or prefix every launch). Add to `~/.bashrc`, 
 
 ```bash
 export AGENTFORGE_USE_RUST=1
-export AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/debug/agentforge-runner
+export AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/debug/agentforge-runner
 ```
 
 **For current running workers** (no restart needed for new tasks):
 ```bash
 # In any shell that will dispatch tasks, or before nohup:
 export AGENTFORGE_USE_RUST=1
-export AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/debug/agentforge-runner
+export AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/debug/agentforge-runner
 
 # Then (re)start worker as usual, e.g.:
-nohup bash /home/agx/agentforge/agents/grok_runner.sh ... &
+nohup bash /home/eveselove/agentforge/agents/grok_runner.sh ... &
 # or the root grok_worker.sh / jules_worker.sh
 ```
 
@@ -47,7 +47,7 @@ Edit `agents/grok_runner.sh` (around the post-process block ~line 540) or equiva
 
 ```bash
 # After the existing python -m agentforge.eval.post_process block, add:
-( AGENTFORGE_USE_RUST=1 python /home/agx/agentforge/bin/rust_post_process_hook.py "$TASK_ID" \
+( AGENTFORGE_USE_RUST=1 python /home/eveselove/agentforge/bin/rust_post_process_hook.py "$TASK_ID" \
   >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true ) &
 ```
 
@@ -64,7 +64,7 @@ With this, every real task completion produces + attaches `rust_flywheel_candida
 ## 5. Verify in Live Shell (on Real Trajectory)
 
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 AGENTFORGE_USE_RUST=1 PYTHONPATH=. python -c '
 from agentforge.bin.rust_post_process_hook import main as hook
 from agentforge.eval.post_process import post_process_task

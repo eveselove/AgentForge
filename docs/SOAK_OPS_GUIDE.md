@@ -65,10 +65,10 @@ find ~/agentforge/logs/ -name '*.log' -mtime -1 -exec grep -l 'ERROR\|FAIL\|pani
 # Добавить ежедневный отчёт в cron (запуск в 09:00)
 crontab -e
 # Добавить строку:
-0 9 * * * cd /home/agx/agentforge && bash scripts/soak_daily_report.sh >> logs/soak_cron.log 2>&1
+0 9 * * * cd /home/eveselove/agentforge && bash scripts/soak_daily_report.sh >> logs/soak_cron.log 2>&1
 
 # Опционально: ночной health-check в 03:00
-0 3 * * * cd /home/agx/agentforge && bash scripts/soak_health_check.sh >> logs/soak_health_cron.log 2>&1
+0 3 * * * cd /home/eveselove/agentforge && bash scripts/soak_health_check.sh >> logs/soak_health_cron.log 2>&1
 ```
 
 ## Расширенные метрики (дополнение к soak_daily_report.sh)
@@ -80,7 +80,7 @@ crontab -e
 # Показать тренд fidelity score за все дни soak
 # Использование: bash scripts/soak_trend.sh
 
-REPORTS_DIR="/home/agx/agentforge/logs/soak_reports"
+REPORTS_DIR="/home/eveselove/agentforge/logs/soak_reports"
 
 echo "=== Тренд Fidelity Score ==="
 echo "День | Score | Решение | Дата"
@@ -107,12 +107,12 @@ done
 # Обнаружение деградации: если score упал >10 пунктов за сутки
 # Использование: bash scripts/soak_degradation_check.sh
 
-REPORTS_DIR="/home/agx/agentforge/logs/soak_reports"
+REPORTS_DIR="/home/eveselove/agentforge/logs/soak_reports"
 
 python3 << 'PYEOF'
 import json, glob, sys
 
-files = sorted(glob.glob("/home/agx/agentforge/logs/soak_reports/soak_day_*.json"))
+files = sorted(glob.glob("/home/eveselove/agentforge/logs/soak_reports/soak_day_*.json"))
 if len(files) < 2:
     print("Недостаточно данных для анализа тренда (нужно >= 2 дней)")
     sys.exit(0)
@@ -139,7 +139,7 @@ else:
 PYEOF
 ```
 
-### 3. Мониторинг ресурсов Jetson
+### 3. Мониторинг ресурсов Erbox
 
 ```bash
 #!/bin/bash
@@ -156,7 +156,7 @@ free -h | head -2
 # Диск
 echo ""
 echo "--- Disk ---"
-df -h /home/agx | tail -1
+df -h /home/eveselove | tail -1
 
 # CPU Load
 echo ""
@@ -168,7 +168,7 @@ echo ""
 echo "--- AgentForge Processes ---"
 ps aux | grep -c '[a]gentforge'
 
-# GPU (если Jetson)
+# GPU (если Erbox)
 echo ""
 echo "--- GPU ---"
 if command -v tegrastats &>/dev/null; then
@@ -182,9 +182,9 @@ fi
 # Размер логов
 echo ""
 echo "--- Log Size ---"
-du -sh /home/agx/agentforge/logs/ 2>/dev/null
+du -sh /home/eveselove/agentforge/logs/ 2>/dev/null
 echo "Pending candidates:"
-du -sh /home/agx/agentforge/pending_candidates/ 2>/dev/null
+du -sh /home/eveselove/agentforge/pending_candidates/ 2>/dev/null
 ```
 
 ### 4. Сводка за неделю
@@ -194,12 +194,12 @@ du -sh /home/agx/agentforge/pending_candidates/ 2>/dev/null
 # Еженедельная сводка soak (запускать на 7-й и 14-й день)
 # Использование: bash scripts/soak_weekly_summary.sh
 
-REPORTS_DIR="/home/agx/agentforge/logs/soak_reports"
+REPORTS_DIR="/home/eveselove/agentforge/logs/soak_reports"
 
 python3 << 'PYEOF'
 import json, glob
 
-files = sorted(glob.glob("/home/agx/agentforge/logs/soak_reports/soak_day_*.json"))
+files = sorted(glob.glob("/home/eveselove/agentforge/logs/soak_reports/soak_day_*.json"))
 if not files:
     print("Нет отчётов soak")
     exit(0)
@@ -261,7 +261,7 @@ PYEOF
 
 ```bash
 # Немедленный откат на Python flywheel
-touch /home/agx/agentforge/.disable_rust_flywheel
+touch /home/eveselove/agentforge/.disable_rust_flywheel
 # ИЛИ
 export DISABLE_RUST_FLYWHEEL=1
 
@@ -271,7 +271,7 @@ sudo systemctl restart grok-worker
 sudo systemctl restart grok-xai-worker@{1,2}
 
 # Для возврата на Rust:
-rm /home/agx/agentforge/.disable_rust_flywheel
+rm /home/eveselove/agentforge/.disable_rust_flywheel
 ```
 
 ## Структура отчётов
@@ -352,7 +352,7 @@ bash scripts/soak_weekly_summary.sh > logs/soak_final_report.txt
 tar czf soak_reports_backup.tar.gz logs/soak_reports/
 
 # 2. Откатиться на Python
-touch /home/agx/agentforge/.disable_rust_flywheel
+touch /home/eveselove/agentforge/.disable_rust_flywheel
 
 # 3. Запланировать повторный soak после фикса
 # Обновить soak_start.txt после исправлений

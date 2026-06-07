@@ -26,7 +26,7 @@
 
 ## 1. New Pre-Removal Tooling Created / Enhanced
 
-Per task: safe "pre-removal" tooling delivered as /home/agx/agentforge/bin/phase4_pre_removal_audit.sh (new;  executable, read-only, idempotent).
+Per task: safe "pre-removal" tooling delivered as /home/eveselove/agentforge/bin/phase4_pre_removal_audit.sh (new;  executable, read-only, idempotent).
 
 **Capabilities**:
 - Executes exact post-sweep audit commands from PHASE4_REMOVAL_PLAN.md §10 (and §7).
@@ -179,7 +179,7 @@ git rm -f rust_flywheel_step.py bin/run_continuous_flywheel.py learning/skill_im
 - **Tier 3**: High. Core logic. Risk: if Rust parity regresses post-soak (extremely low probability after 14d + 100% harness). Rollback: 1. bin/disable_pure_rust_flywheel.sh (or manual dotfile + env) + systemctl restart; 2. git checkout <pre-phase4-removal-tag> -- <exact tier files>; 3. Rebuild + 24h legacy soak. 4. Root cause post-mortem. 5. Binary fallback. (PLAN §4: 5+ layers; <60s for env killswitch.)
 - **Tier 4**: Medium. Surface/docs. Risk: missed sh patch causing transient invocation error. Rollback: same as above + git checkout for __init__.py + patch revert. Full farm: documented in FARM_ROLLOUT_CHECKLIST.md.
 
-**Instant Killswitch (any tier, pre/post deletion)**: touch /home/agx/agentforge/.disable_pure_rust_flywheel (or .disable_rust_flywheel etc.) or export DISABLE_RUST_FLYWHEEL=1 AGENTFORGE_FLYWHEEL_ENGINE=python. Forces is_pure_rust_flywheel()==False everywhere (utils.py precedence absolute). Then restart affected processes. Re-arm via make_pure or manual.
+**Instant Killswitch (any tier, pre/post deletion)**: touch /home/eveselove/agentforge/.disable_pure_rust_flywheel (or .disable_rust_flywheel etc.) or export DISABLE_RUST_FLYWHEEL=1 AGENTFORGE_FLYWHEEL_ENGINE=python. Forces is_pure_rust_flywheel()==False everywhere (utils.py precedence absolute). Then restart affected processes. Re-arm via make_pure or manual.
 
 **Probability of rollback**: Extremely low post 14d+ soak + parity + canary (historical precedent clean).
 

@@ -7,7 +7,7 @@ AgentForge Skill Capture — Self-Expansion Tool Creation Helper
 деплой-тулов и т.п.
 
 Использование агентом в конце задачи:
-  python /home/agx/agentforge/skill_capture.py \
+  python /home/eveselove/agentforge/skill_capture.py \
     --name "parse-newsupplier" \
     --description "Парсер каталога нового поставщика NewSupplier (скрапинг + нормализация)" \
     --tags "parser,scrape,supplier,newsupplier" \
@@ -19,7 +19,7 @@ AgentForge Skill Capture — Self-Expansion Tool Creation Helper
   cat > /tmp/skill.json <<'J'
   {"name": "...", "description": "...", "system_prompt": "...", "required_tags": ["a","b"]}
   J
-  python /home/agx/agentforge/skill_capture.py --stdin < /tmp/skill.json
+  python /home/eveselove/agentforge/skill_capture.py --stdin < /tmp/skill.json
 
 После сохранения skill становится доступен для select_skill() при следующих dispatch.
 """

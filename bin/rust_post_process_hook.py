@@ -20,7 +20,7 @@ This is the zero-friction hook to drop into worker post-task steps so the Rust f
 affects live farm runs immediately.
 
 Usage (from shell after a task):
-    AGENTFORGE_USE_RUST=1 python /home/agx/agentforge/bin/rust_post_process_hook.py <task_id>
+    AGENTFORGE_USE_RUST=1 python /home/eveselove/agentforge/bin/rust_post_process_hook.py <task_id>
 
 Or in worker scripts (non-blocking):
     ( AGENTFORGE_USE_RUST=1 python -m agentforge.bin.rust_post_process_hook $TASK_ID \
@@ -59,9 +59,9 @@ import subprocess
 from pathlib import Path
 
 # Make "import agentforge.xxx" work when script run directly (outside -m / installed pkg)
-# Package dir is .../agentforge ; its parent (/home/agx) must be on sys.path
+# Package dir is .../agentforge ; its parent (/home/eveselove) must be on sys.path
 ROOT = Path(__file__).resolve().parent.parent  # agentforge/
-PKG_PARENT = ROOT.parent  # e.g. /home/agx
+PKG_PARENT = ROOT.parent  # e.g. /home/eveselove
 if str(PKG_PARENT) not in sys.path:
     sys.path.insert(0, str(PKG_PARENT))
 
@@ -159,11 +159,11 @@ def main(argv: list[str] | None = None) -> int:
                     runner_path = None
                 if not runner_path:
                     runner_path = os.environ.get("AGENTFORGE_RUST_RUNNER")
-                release_pref = Path("/home/agx/agentforge/rust/target/release/agentforge-runner")
+                release_pref = Path("/home/eveselove/agentforge/rust/target/release/agentforge-runner")
                 if release_pref.is_file() and os.access(str(release_pref), os.X_OK):
                     runner_path = release_pref
                 if not runner_path:
-                    runner_path = "/home/agx/agentforge/rust/target/release/agentforge-runner"
+                    runner_path = "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
 
                 try:
                     from datetime import datetime as _dt
@@ -252,7 +252,7 @@ def main(argv: list[str] | None = None) -> int:
     # Matches post_process + after_task. Promote is next obvious step after candidates appear.
     if pure_rust_hook or str(os.environ.get("AGENTFORGE_RUST_FLYWHEEL_SHADOW", "0")).lower() in ("1", "true"):
         try:
-            rpath = os.environ.get("AGENTFORGE_RUST_RUNNER") or "/home/agx/agentforge/rust/target/release/agentforge-runner"
+            rpath = os.environ.get("AGENTFORGE_RUST_RUNNER") or "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
             if os.path.isfile(rpath) and os.access(rpath, os.X_OK):
                 import subprocess
                 ccmd = [rpath, "--json", "continuous", "--top-n", "2"]

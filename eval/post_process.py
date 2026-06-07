@@ -166,9 +166,9 @@ def post_process_task(task_id: str, trajectories_dir: Optional[Path] = None, use
                 try:
                     from agentforge.learning.trajectory_dataset import find_rust_runner  # type: ignore
                     discovered = find_rust_runner()
-                    runner = os.getenv("AGENTFORGE_RUST_RUNNER") or (str(discovered) if discovered else "/home/agx/agentforge/rust/target/release/agentforge-runner")
+                    runner = os.getenv("AGENTFORGE_RUST_RUNNER") or (str(discovered) if discovered else "/home/eveselove/agentforge/rust/target/release/agentforge-runner")
                 except Exception:
-                    runner = os.getenv("AGENTFORGE_RUST_RUNNER", "/home/agx/agentforge/rust/target/release/agentforge-runner")
+                    runner = os.getenv("AGENTFORGE_RUST_RUNNER", "/home/eveselove/agentforge/rust/target/release/agentforge-runner")
                 if os.path.isfile(runner) and os.access(runner, os.X_OK):
                     # Rate limit using simple atomic-ish counter (respects AGENTFORGE_RUST_FLYWHEEL_EVERY_N from snippet)
                     counter_dir = Path("/tmp/agentforge_rust_flywheel")
@@ -248,7 +248,7 @@ def post_process_task(task_id: str, trajectories_dir: Optional[Path] = None, use
                     except Exception:
                         pass
                 if not runner_for_shadow:
-                    runner_for_shadow = os.getenv("AGENTFORGE_RUST_RUNNER", "/home/agx/agentforge/rust/target/release/agentforge-runner")
+                    runner_for_shadow = os.getenv("AGENTFORGE_RUST_RUNNER", "/home/eveselove/agentforge/rust/target/release/agentforge-runner")
 
                 # PURE RUST BRIDGE - Phase 1 hardened (2026-05-31)
                 # For pure_rust (is_pure_rust_flywheel() or AGENTFORGE_FLYWHEEL_ENGINE=rust or AGENTFORGE_PURE_RUST_FLYWHEEL or .pure_rust_flywheel marker):
@@ -261,7 +261,7 @@ def post_process_task(task_id: str, trajectories_dir: Optional[Path] = None, use
                 #   Non-breaking when !pure_rust: do_rust_path / do_python_path / legacy flow completely unchanged.
                 #   Release binary is explicitly forced as the preferred candidate for pure (production quality).
                 if pure_rust and not shadow_mode:
-                    release_pref = Path("/home/agx/agentforge/rust/target/release/agentforge-runner")
+                    release_pref = Path("/home/eveselove/agentforge/rust/target/release/agentforge-runner")
                     if release_pref.is_file() and os.access(str(release_pref), os.X_OK):
                         runner_for_shadow = release_pref
                     # else: keep discovered; the forced attempt below will surface real failure (e.g. missing bin)
@@ -353,8 +353,8 @@ def post_process_task(task_id: str, trajectories_dir: Optional[Path] = None, use
                     try:
                         cont_r = os.getenv("AGENTFORGE_RUST_RUNNER")
                         if not cont_r or not (os.path.isfile(cont_r) and os.access(cont_r, os.X_OK)):
-                            rel = "/home/agx/agentforge/rust/target/release/agentforge-runner"
-                            cont_r = rel if (os.path.isfile(rel) and os.access(rel, os.X_OK)) else "/home/agx/agentforge/rust/target/debug/agentforge-runner"
+                            rel = "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
+                            cont_r = rel if (os.path.isfile(rel) and os.access(rel, os.X_OK)) else "/home/eveselove/agentforge/rust/target/debug/agentforge-runner"
                         cont_cmd = [cont_r, "--json", "continuous", "--top-n", "2"]
                         if shadow_mode:
                             cont_cmd.append("--shadow")
@@ -629,7 +629,7 @@ def post_process_task(task_id: str, trajectories_dir: Optional[Path] = None, use
             except Exception:
                 pass
             if not runner_cp:
-                runner_cp = os.getenv("AGENTFORGE_RUST_RUNNER") or "/home/agx/agentforge/rust/target/release/agentforge-runner"
+                runner_cp = os.getenv("AGENTFORGE_RUST_RUNNER") or "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
             if os.path.isfile(str(runner_cp)) and os.access(str(runner_cp), os.X_OK):
                 cont_cmd = [str(runner_cp), "--json", "continuous", "--top-n", "2"]
                 if shadow_mode:

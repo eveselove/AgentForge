@@ -6,7 +6,7 @@
 
 Turbo enhancement to `agentforge-runner` binary: production-grade `flywheel-export` / `export-learning` subcommand.
 
-## Deliverables completed (all within /home/agx/agentforge/rust/)
+## Deliverables completed (all within /home/eveselove/agentforge/rust/)
 - New/ vastly improved `flywheel-export` (aliases: `export-learning`, `export-flywheel`)
 - Flags: `--trajectories DIR` (loads *.jsonl), `--prm-dir DIR` (or colocated sidecars), `--results DIR`, `--output FILE`, `--format (pairs | prm-steps | stats | full)`
 - Loads real `.prm.json` sidecars via `TrajectoryDataset::load_flywheel_data` + `enrich_from_prm_sidecars` + `parse_prm_sidecar` (flexible keys, graceful on missing/unreadable)
@@ -31,33 +31,33 @@ cargo build --offline -p agentforge-runner
 cargo build --release --offline -p agentforge-runner
 ```
 
-## Example invocations + real farm output (live /home/agx/agentforge/eval/trajectories data)
+## Example invocations + real farm output (live /home/eveselove/agentforge/eval/trajectories data)
 
 ```bash
-cd /home/agx/agentforge/rust
+cd /home/eveselove/agentforge/rust
 ./target/debug/agentforge-runner --json flywheel-export \
-  --trajectories /home/agx/agentforge/eval/trajectories \
-  --prm-dir /home/agx/agentforge/eval/trajectories \
+  --trajectories /home/eveselove/agentforge/eval/trajectories \
+  --prm-dir /home/eveselove/agentforge/eval/trajectories \
   --output /tmp/flywheel_real_test_full.jsonl \
   --format full
 ```
 
 **Sample JSON output (real data, 2026-05-30 run):**
 ```json
-{"avg_learning_value":0.008333333333333333,"cmd":"flywheel-export","count":96,"format":"full","has_prm":true,"load_summary":{"mode":"flywheel_loader","prm_enriched":16,"results":0,"trajectories":96},"output":"/tmp/flywheel_real_test_full.jsonl","records_loaded":96,"results":null,"trajectories":"/home/agx/agentforge/eval/trajectories"}
+{"avg_learning_value":0.008333333333333333,"cmd":"flywheel-export","count":96,"format":"full","has_prm":true,"load_summary":{"mode":"flywheel_loader","prm_enriched":16,"results":0,"trajectories":96},"output":"/tmp/flywheel_real_test_full.jsonl","records_loaded":96,"results":null,"trajectories":"/home/eveselove/agentforge/eval/trajectories"}
 ```
 (96 records loaded, 16 enriched from real *.prm.json sidecars, learning_value computed, has_prm:true)
 
 ```bash
-./target/debug/agentforge-runner --json flywheel-export --trajectories /home/agx/agentforge/eval/trajectories --format pairs
+./target/debug/agentforge-runner --json flywheel-export --trajectories /home/eveselove/agentforge/eval/trajectories --format pairs
 ```
 (Uses rich pairs v2; 0 pairs in this slice due to low success contrast but full rich fields emitted when matches exist.)
 
 ```bash
-./target/debug/agentforge-runner --json flywheel-export --trajectories /home/agx/agentforge/eval/trajectories --format stats
-./target/debug/agentforge-runner --json flywheel-export --trajectories /home/agx/agentforge/eval/trajectories --format prm-steps
+./target/debug/agentforge-runner --json flywheel-export --trajectories /home/eveselove/agentforge/eval/trajectories --format stats
+./target/debug/agentforge-runner --json flywheel-export --trajectories /home/eveselove/agentforge/eval/trajectories --format prm-steps
 ./target/debug/agentforge-runner export-learning --format stats   # alias works
-./target/debug/agentforge-runner flywheel-export --trajectories /home/agx/agentforge/eval/trajectories --format full   # auto-colocated prm
+./target/debug/agentforge-runner flywheel-export --trajectories /home/eveselove/agentforge/eval/trajectories --format full   # auto-colocated prm
 ```
 
 Human mode:

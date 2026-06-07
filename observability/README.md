@@ -82,7 +82,7 @@ Roundtrippable with `spans_from_json()`.
 ## Running the tests
 
 ```bash
-cd /home/agx
+cd /home/eveselove
 PYTHONPATH=. python -m pytest agentforge/eval/tests/test_observability.py -q
 # or plain unittest
 PYTHONPATH=. python -m agentforge.eval.tests.test_observability

@@ -354,7 +354,7 @@ def cmd_prm(args):
     # Single trajectory scoring
     path = Path(args.trajectory)
     if not path.exists():
-        candidates = list(Path("/home/agx/agentforge/eval/trajectories").glob(f"*{args.trajectory[:8]}*.json*"))
+        candidates = list(Path("/home/eveselove/agentforge/eval/trajectories").glob(f"*{args.trajectory[:8]}*.json*"))
         if candidates:
             path = candidates[0]
         else:

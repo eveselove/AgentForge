@@ -4,7 +4,7 @@
 **Goal:** Enable the entire live AgentForge farm (all workers: grok/jules + dispatcher + API + future Autonomy agent) with the Rust-powered autonomous learning flywheel. One-command activation + continuous operation + monitoring + safe rollback.
 
 **Prerequisites (already satisfied per victory evidence):**
-- Release binary live: `/home/agx/agentforge/rust/target/release/agentforge-runner` (860kB+)
+- Release binary live: `/home/eveselove/agentforge/rust/target/release/agentforge-runner` (860kB+)
 - ENABLE marker + enable_rust_flywheel.py + bridges (post_process, rust_flywheel_step, trajectory_dataset, workers, phase2_3_integration)
 - 236+ rich pending_candidates/ from real runs
 - All crates (learning/planning/safety/observability/runner) tested + integrated
@@ -29,8 +29,8 @@ Add under `[Service]`:
 ```
 Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1
-Environment=AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner
-Environment=PYTHONPATH=/home/agx
+Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
+Environment=PYTHONPATH=/home/eveselove
 ```
 
 Then:
@@ -46,12 +46,12 @@ env | grep AGENTFORGE_RUST  # from inside a running worker if possible
 **Alternative one-liner activation (for .sh workers + immediate effect):**
 
 ```bash
-# From /home/agx/agentforge (run on all nodes / in tmux / bootstrap)
+# From /home/eveselove/agentforge (run on all nodes / in tmux / bootstrap)
 PYTHONPATH=. python -m agentforge.enable_rust_flywheel --force
 
 # Or via the sh wrapper (idempotent)
-bash /home/agx/agentforge/bin/enable_rust_flywheel.sh
-source /home/agx/agentforge/bin/rust_flywheel.env 2>/dev/null || true
+bash /home/eveselove/agentforge/bin/enable_rust_flywheel.sh
+source /home/eveselove/agentforge/bin/rust_flywheel.env 2>/dev/null || true
 ```
 
 This sets the three envs + applies the post_process monkey-patch.
@@ -60,7 +60,7 @@ This sets the three envs + applies the post_process monkey-patch.
 They already contain the guards + source of `bin/rust_flywheel.env` + ENABLE marker checks + direct calls to `bin/rust_flywheel_after_task.sh`. Just ensure the marker file exists:
 
 ```bash
-touch /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
+touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
 # (or export the three AGENTFORGE_RUST_* vars before launch)
 ```
 
@@ -100,14 +100,14 @@ After=network.target
 [Service]
 Type=oneshot
 User=agx
-WorkingDirectory=/home/agx/agentforge
-Environment=PYTHONPATH=/home/agx
+WorkingDirectory=/home/eveselove/agentforge
+Environment=PYTHONPATH=/home/eveselove
 Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1
-Environment=AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner
+Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 ExecStart=/usr/bin/python3 -c "
 import sys, os, subprocess
-sys.path.insert(0, '/home/agx')
+sys.path.insert(0, '/home/eveselove')
 import agentforge.enable_rust_flywheel as e
 e.activate(quiet=True)
 if os.environ.get('AGENTFORGE_RUST_FLYWHEEL') == '1':
@@ -115,14 +115,14 @@ if os.environ.get('AGENTFORGE_RUST_FLYWHEEL') == '1':
         'python3', '-m', 'agentforge.rust_flywheel_step',
         '--real-data', '--use-rust', '--no-env-guard',
         '--limit', '15', '--since-days', '30', '--slice', 'random'
-    ], cwd='/home/agx/agentforge')
-" >> /home/agx/agentforge/logs/flywheel-timer.log 2>&1
+    ], cwd='/home/eveselove/agentforge')
+" >> /home/eveselove/agentforge/logs/flywheel-timer.log 2>&1
 ```
 
 Enable:
 
 ```bash
-sudo cp /home/agx/agentforge/ENABLE_RUST_FLYWHEEL.md /etc/systemd/system/  # optional reference
+sudo cp /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL.md /etc/systemd/system/  # optional reference
 sudo systemctl daemon-reload
 sudo systemctl enable --now agentforge-rust-flywheel.timer
 systemctl list-timers | grep agentforge
@@ -134,14 +134,14 @@ Cron fallback (if no systemd):
 
 ```bash
 # crontab -e (on farm nodes)
-*/15 * * * * PYTHONPATH=/home/agx AGENTFORGE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner /usr/bin/python3 -m agentforge.rust_flywheel_step --real-data --use-rust --limit 8 --since-days 7 >> /home/agx/agentforge/logs/flywheel-cron.log 2>&1
+*/15 * * * * PYTHONPATH=/home/eveselove AGENTFORGE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner /usr/bin/python3 -m agentforge.rust_flywheel_step --real-data --use-rust --limit 8 --since-days 7 >> /home/eveselove/agentforge/logs/flywheel-cron.log 2>&1
 ```
 
 ---
 
 ## 3. Monitoring Additions
 
-**Core commands (run from /home/agx/agentforge, any worker node):**
+**Core commands (run from /home/eveselove/agentforge, any worker node):**
 
 ```bash
 # 1. Pending candidates + rich stats (primary flywheel health)
@@ -154,7 +154,7 @@ python -m agentforge.show_agent_stats
 # Recommended addition (edit show_agent_stats.py or wrapper): surface pending count + last flywheel run + avg learning_value from recent candidates.
 
 # 3. Healthcheck (extend for Rust flywheel)
-bash /home/agx/agentforge/healthcheck.sh
+bash /home/eveselove/agentforge/healthcheck.sh
 # Recommended additions (edit healthcheck.sh):
 # - Check binary exists + executable
 # - env | grep AGENTFORGE_RUST
@@ -165,9 +165,9 @@ bash /home/agx/agentforge/healthcheck.sh
 # Output example: "✅ Rust Flywheel: ENABLED (binary 860kB, 236 candidates, last 20260531_08xx)"
 
 # 4. Direct Rust binary observability
-/home/agx/agentforge/rust/target/release/agentforge-runner --version
-/home/agx/agentforge/rust/target/release/agentforge-runner --json stats --input eval/trajectories
-/home/agx/agentforge/rust/target/release/agentforge-runner flywheel-export --trajectories eval/trajectories --prm-dir eval/trajectories --output /tmp/healthcheck_flywheel.json --format full --json
+/home/eveselove/agentforge/rust/target/release/agentforge-runner --version
+/home/eveselove/agentforge/rust/target/release/agentforge-runner --json stats --input eval/trajectories
+/home/eveselove/agentforge/rust/target/release/agentforge-runner flywheel-export --trajectories eval/trajectories --prm-dir eval/trajectories --output /tmp/healthcheck_flywheel.json --format full --json
 
 # 5. Eval + PRM health (ties into flywheel data)
 python -m agentforge.eval report
@@ -202,7 +202,7 @@ unset AGENTFORGE_RUST_FLYWHEEL AGENTFORGE_USE_RUST AGENTFORGE_RUST_RUNNER
 **Full disable:**
 
 ```bash
-rm -f /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
+rm -f /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
 # Remove source lines from .sh workers if desired
 # Kill any timer: sudo systemctl disable --now agentforge-rust-flywheel.timer
 # (Optional) rm -rf /tmp/agentforge_rust_flywheel/*   # cleanup artifacts only
@@ -220,7 +220,7 @@ All changes are non-destructive. Rust artifacts (rich exports) are just richer J
 
 ## 5. Full Farm Enable Sequence (Copy-Paste Runbook)
 
-1. `cd /home/agx/agentforge`
+1. `cd /home/eveselove/agentforge`
 2. Verify binary: `ls -l rust/target/release/agentforge-runner`
 3. `touch ENABLE_RUST_FLYWHEEL`
 4. `PYTHONPATH=. python -m agentforge.enable_rust_flywheel --force`

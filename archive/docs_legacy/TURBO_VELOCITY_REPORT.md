@@ -78,7 +78,7 @@ bash bin/test_pure_rust_flywheel_step.sh
 
 Direct pure (no Python orchestration):
 ```bash
-RELEASE=/home/agx/agentforge/rust/target/release/agentforge-runner   # 1.18 MB, v0.1.0, LIVE
+RELEASE=/home/eveselove/agentforge/rust/target/release/agentforge-runner   # 1.18 MB, v0.1.0, LIVE
 $RELEASE flywheel-step --real-data --limit 30 --ingest --output-dir /tmp/pure_$(date +%s)
 $RELEASE candidate list --top 5 --sort value   # real prioritizer output on pending_candidates/
 $RELEASE --json candidate promote <id> --copy-to-skills --dry-run

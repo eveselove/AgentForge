@@ -11,7 +11,7 @@ Intended usage:
     from agentforge.safety import SandboxPolicy, FileSystemSandbox, CommandSandbox
     from agentforge.safety.policy_engine import PolicyEngine
 
-    fs = FileSystemSandbox(allowed_roots=["/home/agx/planlytasksko", "/tmp/agentforge"])
+    fs = FileSystemSandbox(allowed_roots=["/home/eveselove/planlytasksko", "/tmp/agentforge"])
     cmd = CommandSandbox(whitelist=["cargo", "python", "git", "pytest"], deny_patterns=[...])
 
     # Then either call directly or register as rules:
@@ -41,7 +41,7 @@ class SandboxPolicy:
 class FileSystemSandbox(SandboxPolicy):
     """Controls file system access. MVP focuses on writes + reads outside project roots."""
 
-    allowed_roots: List[str] = field(default_factory=lambda: ["/home/agx/planlytasksko", "/tmp/agentforge", "/tmp"])
+    allowed_roots: List[str] = field(default_factory=lambda: ["/home/eveselove/planlytasksko", "/tmp/agentforge", "/tmp"])
     denied_paths: List[str] = field(default_factory=lambda: ["/etc", "/boot", "/sys", "/proc", "/root", "/dev"])
     allow_hidden_dotfiles: bool = False   # conservative default
 
@@ -135,7 +135,7 @@ class CommandSandbox(SandboxPolicy):
 
 
 # Convenience: a full "recommended sandbox bundle" for a typical AgentForge Grok worktree
-def create_recommended_sandbox_bundle(project_root: str = "/home/agx/planlytasksko") -> List[SandboxPolicy]:
+def create_recommended_sandbox_bundle(project_root: str = "/home/eveselove/planlytasksko") -> List[SandboxPolicy]:
     fs = FileSystemSandbox(allowed_roots=[project_root, "/tmp/agentforge", "/tmp"])
     net = NetworkSandbox(allow_outbound=True)
     cmd = CommandSandbox()

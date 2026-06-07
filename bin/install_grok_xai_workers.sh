@@ -5,16 +5,16 @@ set -e
 
 echo "=== Установка Grok XAI Workers ==="
 
-if [ ! -f /home/agx/agentforge/.env.xai ]; then
+if [ ! -f /home/eveselove/agentforge/.env.xai ]; then
     echo "Создаю .env.xai из примера..."
-    cp /home/agx/agentforge/.env.xai.example /home/agx/agentforge/.env.xai
-    echo "!!! Отредактируй /home/agx/agentforge/.env.xai и вставь туда свой XAI_API_KEY !!!"
+    cp /home/eveselove/agentforge/.env.xai.example /home/eveselove/agentforge/.env.xai
+    echo "!!! Отредактируй /home/eveselove/agentforge/.env.xai и вставь туда свой XAI_API_KEY !!!"
     exit 1
 fi
 
 echo "Копирую unit-файлы..."
-sudo cp /home/agx/agentforge/systemd/grok-xai-worker.service /etc/systemd/system/
-sudo cp /home/agx/agentforge/systemd/grok-xai-worker@.service /etc/systemd/system/
+sudo cp /home/eveselove/agentforge/systemd/grok-xai-worker.service /etc/systemd/system/
+sudo cp /home/eveselove/agentforge/systemd/grok-xai-worker@.service /etc/systemd/system/
 
 echo "Перезагружаю systemd..."
 sudo systemctl daemon-reload

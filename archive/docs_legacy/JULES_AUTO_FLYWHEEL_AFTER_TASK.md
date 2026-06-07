@@ -13,7 +13,7 @@
 
 Created as a small, robust, production-grade shell hook.
 
-**Full source** (`/home/agx/agentforge/bin/rust_flywheel_after_task.sh`):
+**Full source** (`/home/eveselove/agentforge/bin/rust_flywheel_after_task.sh`):
 
 ```bash
 #!/bin/bash
@@ -36,14 +36,14 @@ Created as a small, robust, production-grade shell hook.
 # - Logs to logs/rust_flywheel_after_*.log
 #
 # Enable permanently:
-#   - touch /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
+#   - touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
 #   - or export AGENTFORGE_RUST_FLYWHEEL=1 in workers + source bin/rust_flywheel.env
 #   - Workers will then call this after real post_process.
 #
 # Usage (manual test):
 #   bash bin/rust_flywheel_after_task.sh c6046a84
 #   # or with a trajectory path:
-#   bash bin/rust_flywheel_after_task.sh /home/agx/agentforge/eval/trajectories/c6046a84_grok.jsonl
+#   bash bin/rust_flywheel_after_task.sh /home/eveselove/agentforge/eval/trajectories/c6046a84_grok.jsonl
 #
 # Safe to call frequently from high-parallel workers.
 # ============================================================
@@ -58,7 +58,7 @@ if [ -z "$TASK_REF" ]; then
   exit 2
 fi
 
-AGENTFORGE_ROOT="/home/agx/agentforge"
+AGENTFORGE_ROOT="/home/eveselove/agentforge"
 ENABLE_MARKER="$AGENTFORGE_ROOT/ENABLE_RUST_FLYWHEEL"
 LOG_DIR="$AGENTFORGE_ROOT/logs"
 STATE_DIR="/tmp/agentforge_rust_flywheel"
@@ -113,12 +113,12 @@ log "AGENTFORGE_RUST_FLYWHEEL=${AGENTFORGE_RUST_FLYWHEEL:-0}"
 # Set canonical env (non-destructive; prefer release for speed)
 export AGENTFORGE_RUST_FLYWHEEL=1
 export AGENTFORGE_USE_RUST=1
-: "${AGENTFORGE_RUST_RUNNER:=/home/agx/agentforge/rust/target/release/agentforge-runner}"
+: "${AGENTFORGE_RUST_RUNNER:=/home/eveselove/agentforge/rust/target/release/agentforge-runner}"
 if [ ! -x "$AGENTFORGE_RUST_RUNNER" ]; then
-  AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/debug/agentforge-runner"
+  AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/debug/agentforge-runner"
 fi
 export AGENTFORGE_RUST_RUNNER
-export PYTHONPATH="${PYTHONPATH:-/home/agx}"
+export PYTHONPATH="${PYTHONPATH:-/home/eveselove}"
 
 # Also source the standard snippet if present (for any extra vars like EVERY_N)
 if [ -f "$AGENTFORGE_ROOT/bin/rust_flywheel.env" ]; then
@@ -158,7 +158,7 @@ exit 0
 ```
 
 **Key robustness features**:
-- Marker-file guard (`/home/agx/agentforge/ENABLE_RUST_FLYWHEEL`) + env fallback.
+- Marker-file guard (`/home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL`) + env fallback.
 - Global 5-minute rate limit + flock-based lock (prevents thundering herd from parallel workers).
 - Timestamp file for fast idempotency check.
 - Prefers release binary; falls back to debug.
@@ -178,9 +178,9 @@ exit 0
 # NEW: Direct robust canonical flywheel hook (rust_flywheel_after_task.sh)
 # Invoked AFTER post_process on real tasks. Guarded by ENABLE_RUST_FLYWHEEL marker file.
 # Provides independent 5min rate-limit + lock + guaranteed drop to pending_candidates via canonical step.
-if [ -f /home/agx/agentforge/ENABLE_RUST_FLYWHEEL ]; then
+if [ -f /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL ]; then
     (
-        bash /home/agx/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID" \
+        bash /home/eveselove/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID" \
             >> "$LOG_DIR/rust_flywheel_after_${TASK_ID}.log" 2>&1 || true
     ) &
 fi
@@ -194,9 +194,9 @@ fi
 # NEW: Direct robust canonical flywheel hook (rust_flywheel_after_task.sh) AFTER real task + post_process inside runner.
 # Guarded strictly by ENABLE_RUST_FLYWHEEL marker (as specified for live auto-execution track).
 # Independent 5min rate-limit/lock, calls canonical --real-data step, drops proposals to pending_candidates/.
-if [ -f /home/agx/agentforge/ENABLE_RUST_FLYWHEEL ]; then
+if [ -f /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL ]; then
     (
-        bash /home/agx/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID" \
+        bash /home/eveselove/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID" \
             >> "$LOG_DIR/rust_flywheel_after_${TASK_ID}.log" 2>&1 || true
     ) &
 fi
@@ -213,10 +213,10 @@ Both patches are non-breaking (marker-gated), fire in background `(&)`, and sit 
 **Test command** (after cleaning rate-limit stamp):
 ```bash
 rm -f /tmp/agentforge_rust_flywheel/.last_after_task_run
-bash /home/agx/agentforge/bin/rust_flywheel_after_task.sh c6046a84
+bash /home/eveselove/agentforge/bin/rust_flywheel_after_task.sh c6046a84
 ```
 
-**Task used**: `c6046a84` (real recent Grok trajectory from `/home/agx/agentforge/eval/trajectories/c6046a84_grok.jsonl` + `.prm.json` sidecars — live farm data).
+**Task used**: `c6046a84` (real recent Grok trajectory from `/home/eveselove/agentforge/eval/trajectories/c6046a84_grok.jsonl` + `.prm.json` sidecars — live farm data).
 
 **Key observed output** (from `logs/rust_flywheel_after_c6046a84.log`):
 
@@ -258,7 +258,7 @@ Artifacts (candidate YAML + full proposal + Rust pairs):
 - Timestamp + flock lock proven effective.
 - Path arg also accepted (tested with `0374c1c2_grok.jsonl`).
 
-**Binary used**: `/home/agx/agentforge/rust/target/release/agentforge-runner` (869kB, fresh).
+**Binary used**: `/home/eveselove/agentforge/rust/target/release/agentforge-runner` (869kB, fresh).
 
 The step successfully exercised:
 - Real farm data load (trajectories + PRM sidecars + results)
@@ -272,24 +272,24 @@ The step successfully exercised:
 1. **Marker file** (primary guard for the new hook — already present):
    ```bash
    # Already exists and contains "1"
-   cat /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
+   cat /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
    # To (re)create:
-   echo 1 > /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
+   echo 1 > /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
    ```
 
 2. **Ensure env propagation** (workers already do this at startup):
    ```bash
    # In grok_worker.sh / jules_worker.sh / runners (already present):
-   source /home/agx/agentforge/bin/rust_flywheel.env 2>/dev/null || true
+   source /home/eveselove/agentforge/bin/rust_flywheel.env 2>/dev/null || true
    # Or run once:
-   bash /home/agx/agentforge/bin/enable_rust_flywheel.sh
+   bash /home/eveselove/agentforge/bin/enable_rust_flywheel.sh
    ```
 
 3. **Binary** (required for full Rust acceleration — already built):
    ```bash
-   ls -l /home/agx/agentforge/rust/target/release/agentforge-runner
+   ls -l /home/eveselove/agentforge/rust/target/release/agentforge-runner
    # Rebuild if needed:
-   cd /home/agx/agentforge/rust && cargo build -p agentforge-runner --release
+   cd /home/eveselove/agentforge/rust && cargo build -p agentforge-runner --release
    ```
 
 4. **Restart / reload workers** (systemd or nohup):
@@ -378,7 +378,7 @@ This completes the "Finish live auto-execution of the Rust flywheel after real t
 ### Rollback (одна команда)
 
 ```bash
-bash /home/agx/agentforge/bin/disable_pure_rust_flywheel.sh
+bash /home/eveselove/agentforge/bin/disable_pure_rust_flywheel.sh
 ```
 
 ### Связанная документация

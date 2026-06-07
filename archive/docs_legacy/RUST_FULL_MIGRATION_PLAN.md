@@ -78,7 +78,7 @@ This plan delivers a **low-risk, phased, fully reversible** path to **100% pure 
 
 **Parallelization:** 60-70% of work (module ports, tests, docs) executable in parallel by our agent system (spawn_subagent / Jules waves) with clear interfaces.
 
-**Timeline (realistic turbo, not heroic):** 5-8 weeks wall time to safe removal (including soak). Phase 4 advanced via final aggressive deprecation sweep + PHASE4_REMOVAL_PLAN.md creation (exhaustive list of marked Python orchestration, 5-tier safe removal order, risks, rollback). Multiple early cutovers for incremental value. See /home/agx/agentforge/PHASE4_REMOVAL_PLAN.md .
+**Timeline (realistic turbo, not heroic):** 5-8 weeks wall time to safe removal (including soak). Phase 4 advanced via final aggressive deprecation sweep + PHASE4_REMOVAL_PLAN.md creation (exhaustive list of marked Python orchestration, 5-tier safe removal order, risks, rollback). Multiple early cutovers for incremental value. See /home/eveselove/agentforge/PHASE4_REMOVAL_PLAN.md .
 
 **🚀 PURE RUST PATHS — HOW TO RUN THEM RIGHT NOW (Pre-Cutover, Production Safe)**
 **CRYSTAL SOURCE:** `HOW_TO_RUN_PURE_RUST_FLYWHEEL_TODAY.md` (created this wave — the single place for all commands, cutover, rollback, verification + live binary status).  
@@ -86,7 +86,7 @@ See also **TURBO_VELOCITY_REPORT.md** + MIGRATION_PROGRESS.md.
 
 Direct (zero Python orchestration):
 ```bash
-RELEASE=/home/agx/agentforge/rust/target/release/agentforge-runner   # (cargo build -p agentforge-runner --release)
+RELEASE=/home/eveselove/agentforge/rust/target/release/agentforge-runner   # (cargo build -p agentforge-runner --release)
 $RELEASE flywheel-step --real-data --limit 30 --ingest --output-dir /tmp/pure_step --json
 $RELEASE candidate list --top 8 --sort value
 $RELEASE candidate promote <2026...id> --copy-to-skills --dry-run   # REAL (full impl in candidates/promote.rs)
@@ -289,8 +289,8 @@ AGENTFORGE_PURE_RUST_FLYWHEEL=1 ./rust/target/release/agentforge-runner flywheel
 
 **One-Command Cutover Point (the big one):**
 ```bash
-bash /home/agx/agentforge/bin/make_pure_rust_flywheel_default.sh --dry-run   # preview
-bash /home/agx/agentforge/bin/make_pure_rust_flywheel_default.sh            # live (after soak approval)
+bash /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh --dry-run   # preview
+bash /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh            # live (after soak approval)
 ```
 
 ---

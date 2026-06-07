@@ -1,7 +1,7 @@
 # AgentForge Dogfooding Playbook v1.0
 
 **Reference Task:** 69e55996 (E1: Create 6-8 new high-quality P4 dogfood tasks)  
-**Closure Document:** [WAVE2_CLOSURE_REPORT.md](file:///home/agx/agentforge/docs/WAVE2_CLOSURE_REPORT.md)  
+**Closure Document:** [WAVE2_CLOSURE_REPORT.md](file:///home/eveselove/agentforge/docs/WAVE2_CLOSURE_REPORT.md)  
 **Date:** 2026-06  
 
 ---
@@ -74,7 +74,7 @@
 
 ### Антипаттерны
 * ❌ **Direct pushes to main**: Прямой пуш кода агентом в главную ветку без PR и рецензии. Решается жестким включением GitHub Branch Protection.
-* ❌ **API OOM (Out of Memory)**: Запуск 20+ параллельных Grok-воркеров, компилирующих тяжелые Rust-крейты на Jetson без лимитов памяти. Решается ограничением `jobs=2` в cargo config и лимитом воркеров до 8-12.
+* ❌ **API OOM (Out of Memory)**: Запуск 20+ параллельных Grok-воркеров, компилирующих тяжелые Rust-крейты на Erbox без лимитов памяти. Решается ограничением `jobs=2` в cargo config и лимитом воркеров до 8-12.
 * ❌ **Pipeline masking**: Маскировка падения тестов из-за неправильной обработки статусов возврата (`$?`) после конвейеров (`| tee`). Всегда использовать `${PIPESTATUS[0]}`.
 
 ---
@@ -87,7 +87,7 @@
 * Создайте от 6 до 8 новых P4 задач в очереди, направленных на анализ качества текущей волны.
 * Экспортируйте траектории выполненных задач в обучающий датасет:
   ```bash
-  python3 eval/export_learning_dataset.py --output /home/agx/agentforge/eval/trajectories/wave2_dataset.jsonl
+  python3 eval/export_learning_dataset.py --output /home/eveselove/agentforge/eval/trajectories/wave2_dataset.jsonl
   ```
 
 ### Шаг 2: Измерение эффекта и запуск Flywheel (E2 / E3)

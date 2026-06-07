@@ -1253,7 +1253,7 @@ async def capture_skill_endpoint(skill: SkillCapture):
     """
     Главная точка входа для self-expansion.
     Агент, написавший новый скрипт/парсер/API-клиент/деплой-тул, вызывает этот эндпоинт
-    (или использует /home/agx/agentforge/skill_capture.py), чтобы сохранить YAML-playbook.
+    (или использует /home/eveselove/agentforge/skill_capture.py), чтобы сохранить YAML-playbook.
     После этого другие агенты с подходящими тегами будут автоматически получать system_prompt.
     """
     data = skill.dict()
@@ -2233,7 +2233,7 @@ async def get_blackboard_feed():
     try:
         db_path = "/data/planlytasksko/data/task_checkpoints.db"
         if not os.path.exists(db_path):
-            db_path = "/home/agx/planlytasksko/data/task_checkpoints.db"
+            db_path = "/home/eveselove/planlytasksko/data/task_checkpoints.db"
             if not os.path.exists(db_path):
                 db_path = os.path.expanduser("~/planlytasksko/data/task_checkpoints.db")
         db = await aiosqlite.connect(db_path)

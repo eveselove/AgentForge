@@ -2,13 +2,13 @@
 # Патч дашборда: реальные номера агентов + рестарт воркера
 set -e
 
-DASHBOARD="/home/agx/agentforge/dashboard.html"
-WORKER="/home/agx/agentforge/grok_worker.sh"
+DASHBOARD="/home/eveselove/agentforge/dashboard.html"
+WORKER="/home/eveselove/agentforge/grok_worker.sh"
 
 echo "=== Патч дашборда: агентские бейджи ==="
 # Заменяем захардкоженные потоки на реальный подсчёт
 python3 << 'PYEOF'
-with open("/home/agx/agentforge/dashboard.html", "r") as f:
+with open("/home/eveselove/agentforge/dashboard.html", "r") as f:
     content = f.read()
 
 old_block = """                // Потоки каждого агента
@@ -27,7 +27,7 @@ new_block = """                // Реальное кол-во задач это
 
 if old_block in content:
     content = content.replace(old_block, new_block)
-    with open("/home/agx/agentforge/dashboard.html", "w") as f:
+    with open("/home/eveselove/agentforge/dashboard.html", "w") as f:
         f.write(content)
     print("✅ Бейджи агентов исправлены — теперь показывают реальное кол-во")
 else:
@@ -46,14 +46,14 @@ else:
             ": agent.toUpperCase() + ` ×${threads}`;",
             ": agent.toUpperCase() + (agentCount > 0 ? ` ×${agentCount}` : '');"
         )
-        with open("/home/agx/agentforge/dashboard.html", "w") as f:
+        with open("/home/eveselove/agentforge/dashboard.html", "w") as f:
             f.write(content)
         print("✅ Бейджи исправлены (regex)")
     else:
         print("⚠️ Паттерн не найден — возможно Grok уже менял dashboard")
         # Покажем что есть
         import subprocess
-        subprocess.run(["grep", "-n", "agentThreads\|threads\|×", "/home/agx/agentforge/dashboard.html"])
+        subprocess.run(["grep", "-n", "agentThreads\|threads\|×", "/home/eveselove/agentforge/dashboard.html"])
 PYEOF
 
 echo ""
@@ -74,7 +74,7 @@ sleep 3
 echo "Воркер:"
 systemctl --user is-active agentforge-worker
 echo ""
-tail -5 /home/agx/agentforge/logs/grok_worker.log
+tail -5 /home/eveselove/agentforge/logs/grok_worker.log
 echo ""
 echo "Grok процессы:"
 ps aux | grep 'grok.*always' | grep -v grep | wc -l

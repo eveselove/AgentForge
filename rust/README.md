@@ -14,7 +14,7 @@ Turbo-ported core of the AgentForge self-improving agent system to Rust for reli
 - `agentforge-observability` — Span model, replay, OTEL-shaped export + PRM binding
 - `agentforge-runner` — high-level glue `run_with_full_stack` (planning + safety + obs + learning capture)
 
-## Build & Test (from /home/agx/agentforge/rust)
+## Build & Test (from /home/eveselove/agentforge/rust)
 
 ```bash
 cargo check --workspace

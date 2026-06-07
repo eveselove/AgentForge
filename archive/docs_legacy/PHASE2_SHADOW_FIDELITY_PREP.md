@@ -44,7 +44,7 @@ python -m agentforge.learning.flywheel_parity.parity_harness --shadow-aggregate 
 python -m agentforge.learning.flywheel_parity.parity_harness shadow --limit 30 --json
 
 # 6. Cron for continuous dual farm soak health (add to crontab)
-# */5 * * * * cd /home/agx/agentforge && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness --shadow-aggregate --json | jq -r '.aggregate | "FARM_FIDELITY avg=\(.avg_composite) streak=\(.recent_pass_streak) trend=\(.trend)"' >> logs/farm_fidelity_health.log
+# */5 * * * * cd /home/eveselove/agentforge && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness --shadow-aggregate --json | jq -r '.aggregate | "FARM_FIDELITY avg=\(.avg_composite) streak=\(.recent_pass_streak) trend=\(.trend)"' >> logs/farm_fidelity_health.log
 
 # 7. Script inspect
 cat /tmp/agentforge_rust_flywheel/shadow_fidelity_latest.json | python -c '

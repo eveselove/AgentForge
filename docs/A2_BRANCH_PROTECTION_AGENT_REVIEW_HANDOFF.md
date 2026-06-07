@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-31  
 **Handoff ID**: 606617a9  
-**Full path**: `/home/agx/.grok/handoffs/606617a9/`  
+**Full path**: `/home/eveselove/.grok/handoffs/606617a9/`  
 **Task**: bc6fa462 [CM-Phase1-A2] — Design the minimal effective set of branch protection rules for main (PHASE1_TASK_BREAKDOWN.md Cluster A)  
 **Commit**: a536a08 (on agent/cm-phase1-a2-bc6fa462 / task/bc6fa462)
 
@@ -26,8 +26,8 @@ The package is portable and self-contained for any Jules / Grok / human reviewer
 ## Independent Review Launch (Mandatory per AGENTS.md + explicit task instruction)
 - Command executed (background):
   ```
-  grok --agent jules -p "$(cat /home/agx/.grok/handoffs/606617a9/REVIEW_INSTRUCTIONS.md)" \
-    --cwd /home/agx/agentforge --always-approve --output-format json
+  grok --agent jules -p "$(cat /home/eveselove/.grok/handoffs/606617a9/REVIEW_INSTRUCTIONS.md)" \
+    --cwd /home/eveselove/agentforge --always-approve --output-format json
   ```
 - Background task ID: 019e7e2d-e5b5-7e30-9654-98c754cdef18 (later killed after timeout)
 - Log: `/tmp/jules-a2-review-606617a9.log`
@@ -37,8 +37,8 @@ The package is portable and self-contained for any Jules / Grok / human reviewer
 
 **Handoff package remains available** for re-launch or manual consumption:
 ```bash
-grok --agent jules -p "$(cat /home/agx/.grok/handoffs/606617a9/REVIEW_INSTRUCTIONS.md)" \
-  --cwd /home/agx/agentforge --always-approve
+grok --agent jules -p "$(cat /home/eveselove/.grok/handoffs/606617a9/REVIEW_INSTRUCTIONS.md)" \
+  --cwd /home/eveselove/agentforge --always-approve
 ```
 
 ## Structured Self-Review + Summary (Interim, Pending Full Jules)
@@ -63,7 +63,7 @@ grok --agent jules -p "$(cat /home/agx/.grok/handoffs/606617a9/REVIEW_INSTRUCTIO
 ## Next (per requirement)
 Only after (a) a clean independent Jules review of the handoff package has been obtained and recorded, **or** (b) human + additional agent acceptance of the interim findings above, is the A2 work considered complete and eligible for PR to main.
 
-**This file + the handoff dir (/home/agx/.grok/handoffs/606617a9/) + commit a536a08 constitute the fixed, auditable record of the mandatory agent-review step for task bc6fa462.**
+**This file + the handoff dir (/home/eveselove/.grok/handoffs/606617a9/) + commit a536a08 constitute the fixed, auditable record of the mandatory agent-review step for task bc6fa462.**
 
 See also the A7 precedent: `docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md` + the canonical decision `docs/BRANCH_PROTECTION_A7_DECISION.md` (Level M2).
 

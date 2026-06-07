@@ -36,9 +36,9 @@
 | # | Проблема | Серьёзность | Рекомендация |
 |---|----------|-------------|--------------|
 | 1 | **Hardcoded fallback repo** в 3 местах: worker (Python), worker (bash), runner. Дублирование дефолта `eveselove/planlytasksko` | Средняя | Вынести дефолтный repo в `config.json` или env-переменную `AGENTFORGE_DEFAULT_REPO`. Использовать одну точку правды |
-| 2 | **Git worktree всегда создаётся от `/home/agx/planlytasksko`** — не учитывает dynamic repo | Высокая | Для multi-repo нужно: (а) клонировать целевой repo если он не `planlytasksko`, или (б) маппинг repo→local_path в конфиге |
+| 2 | **Git worktree всегда создаётся от `/home/eveselove/planlytasksko`** — не учитывает dynamic repo | Высокая | Для multi-repo нужно: (а) клонировать целевой repo если он не `planlytasksko`, или (б) маппинг repo→local_path в конфиге |
 | 3 | **Нет валидации формата repo** — если task data содержит невалидный repo (не `owner/name`), `jules new` упадёт без внятной ошибки | Средняя | Добавить regex-валидацию формата `^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$` перед запуском |
-| 4 | **Нет кеширования клонов** — при повторных задачах к одному repo каждый раз будет создаваться worktree | Низкая | Создать пул клонов в `/home/agx/agentforge/repos/` с lazy-клонированием |
+| 4 | **Нет кеширования клонов** — при повторных задачах к одному repo каждый раз будет создаваться worktree | Низкая | Создать пул клонов в `/home/eveselove/agentforge/repos/` с lazy-клонированием |
 | 5 | **Fallback repo в Python inline-скрипте** — сложно редактировать, нет тестов | Средняя | Вынести фильтрацию задач в отдельный Python-модуль `agentforge.workers.task_filter` |
 | 6 | **Нет поддержки branch/ref из task data** — задача может указать конкретную ветку для PR | Низкая | Добавить поле `target_branch` в task schema и передавать `--branch` в `jules new` |
 
@@ -48,9 +48,9 @@
 // config.json (новое)
 {
   "default_repo": "eveselove/planlytasksko",
-  "repo_cache_dir": "/home/agx/agentforge/repos",
+  "repo_cache_dir": "/home/eveselove/agentforge/repos",
   "repo_map": {
-    "eveselove/planlytasksko": "/home/agx/planlytasksko",
+    "eveselove/planlytasksko": "/home/eveselove/planlytasksko",
     "eveselove/other-project": null
   }
 }
@@ -60,7 +60,7 @@
 # В runner: resolve_repo_path()
 resolve_repo_path() {
     local repo="$1"
-    local config="/home/agx/agentforge/config.json"
+    local config="/home/eveselove/agentforge/config.json"
     local local_path
     local_path=$(python3 -c "
 import json
@@ -71,7 +71,7 @@ print(cfg.get('repo_map',{}).get('$repo',''))
     if [ -n "$local_path" ] && [ -d "$local_path" ]; then
         echo "$local_path"
     else
-        local cache_dir="/home/agx/agentforge/repos/$repo"
+        local cache_dir="/home/eveselove/agentforge/repos/$repo"
         if [ ! -d "$cache_dir" ]; then
             git clone "https://github.com/$repo.git" "$cache_dir"
         fi
@@ -94,7 +94,7 @@ print(cfg.get('repo_map',{}).get('$repo',''))
 
 2. **Post-task flywheel hook** (worker):
    ```bash
-   bash /home/agx/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID"
+   bash /home/eveselove/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID"
    ```
    Запускается асинхронно (`&`) после завершения задачи — не блокирует worker.
 
@@ -108,13 +108,13 @@ print(cfg.get('repo_map',{}).get('$repo',''))
 
 5. **Kill switches** работают корректно:
    - `DISABLE_RUST_FLYWHEEL=1` (env)
-   - `/home/agx/agentforge/.disable_rust_flywheel` (файл)
+   - `/home/eveselove/agentforge/.disable_rust_flywheel` (файл)
 
 ### ⚠️ Проблемы и рекомендации
 
 | # | Проблема | Серьёзность | Рекомендация |
 |---|----------|-------------|--------------|
-| 1 | **Массивное дублирование кода инициализации** — Rust flywheel setup повторяется 3 раза в worker и 2 раза в runner (env snippet + enable script + manual export + pure section) | 🔴 Критическая | Консолидировать в единый `source /home/agx/agentforge/bin/init_rust_flywheel.sh` который вызывается один раз |
+| 1 | **Массивное дублирование кода инициализации** — Rust flywheel setup повторяется 3 раза в worker и 2 раза в runner (env snippet + enable script + manual export + pure section) | 🔴 Критическая | Консолидировать в единый `source /home/eveselove/agentforge/bin/init_rust_flywheel.sh` который вызывается один раз |
 | 2 | **Двойной выбор release/debug бинарника** — в worker бинарник определяется дважды (строки ~30 и ~50), причём логика идентична | Средняя | Убрать дублирование — определять один раз после source сниппета |
 | 3 | **Pure Rust блок после `while true` — недостижимый код** — В worker блок Pure Rust Flywheel Default стоит ПОСЛЕ бесконечного цикла, т.е. никогда не выполнится | 🔴 Критическая | Перенести блок Pure Rust ПЕРЕД основным циклом (после init секции) |
 | 4 | **Pure Rust блок после `exit`/`cleanup` в runner — мёртвый код** — Аналогично: блок после `cleanup_worktree` и `echo` в конце, после trap EXIT | 🔴 Критическая | Перенести блок Pure Rust в начало runner (после source секции) |
@@ -127,10 +127,10 @@ print(cfg.get('repo_map',{}).get('$repo',''))
 
 ```bash
 #!/bin/bash
-# /home/agx/agentforge/bin/init_rust_flywheel.sh
+# /home/eveselove/agentforge/bin/init_rust_flywheel.sh
 # Единый инициализатор Rust flywheel — вызывать один раз в начале каждого worker/runner
 
-AGENTFORGE_DIR="/home/agx/agentforge"
+AGENTFORGE_DIR="/home/eveselove/agentforge"
 
 # 1. Source env snippet
 [ -f "$AGENTFORGE_DIR/bin/rust_flywheel.env" ] && \

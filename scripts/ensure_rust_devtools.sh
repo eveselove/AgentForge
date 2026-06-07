@@ -84,11 +84,11 @@ get_version() {
     local ver=""
     # Пробуем cargo subcommand (cargo binstall / cargo machete / cargo nextest)
     if [[ "$tool" == "binstall" ]]; then
-        ver=$(cargo binstall -V 2>/dev/null || /home/agx/.cargo/bin/cargo-binstall -V 2>/dev/null || echo "")
+        ver=$(cargo binstall -V 2>/dev/null || /home/eveselove/.cargo/bin/cargo-binstall -V 2>/dev/null || echo "")
     elif [[ "$tool" == "machete" ]]; then
-        ver=$(cargo machete -V 2>/dev/null || /home/agx/.cargo/bin/cargo-machete -V 2>/dev/null || echo "")
+        ver=$(cargo machete -V 2>/dev/null || /home/eveselove/.cargo/bin/cargo-machete -V 2>/dev/null || echo "")
     elif [[ "$tool" == "nextest" ]]; then
-        ver=$(cargo nextest --version 2>/dev/null || /home/agx/.cargo/bin/cargo-nextest --version 2>/dev/null || echo "")
+        ver=$(cargo nextest --version 2>/dev/null || /home/eveselove/.cargo/bin/cargo-nextest --version 2>/dev/null || echo "")
     fi
     if [[ -z "$ver" ]]; then
         ver="not-available-or-incompatible"
@@ -150,12 +150,12 @@ else
         # Пробуем binstall (быстро)
         cargo binstall cargo-machete --locked -y 2>&1 | tail -5 || true
 
-        # После binstall обязательно проверяем работоспособность (glibc на Jetson!)
+        # После binstall обязательно проверяем работоспособность (glibc на Erbox!)
         if is_installed "cargo-machete"; then
             machete_ok=1
             echo "✅ cargo-machete установлен через binstall (prebuilt)."
         else
-            echo "⚠️  Бинарь от binstall не работает (скорее всего GLIBC_2.39 vs 2.35 на Jetson) — удаляем и собираем из исходников."
+            echo "⚠️  Бинарь от binstall не работает (скорее всего GLIBC_2.39 vs 2.35 на Erbox) — удаляем и собираем из исходников."
             rm -f "${CARGO_MACHETE}" 2>/dev/null || true
         fi
     fi
@@ -183,7 +183,7 @@ fi
 # Подзадача: [AgentForge: оркестрация и настройка] Установка `cargo-nextest` и обновление `grok_runner.sh`
 # (4dc58362). cargo-nextest — ключевой инструмент для быстрых и надёжных тестов в CI
 # после работы grok (rust-fix). Используем binstall для prebuilt (aarch64), с fallback
-# на cargo install при несовместимости glibc (Jetson / Ubuntu 22.04 glibc 2.35).
+# на cargo install при несовместимости glibc (Erbox / Ubuntu 22.04 glibc 2.35).
 echo ""
 echo "📦 Шаг 3/3: cargo-nextest (быстрый тестовый раннер для grok_runner CI)"
 

@@ -121,7 +121,7 @@ echo "$TASKS" | jq -r '.[] | select(.status == "pending") | select((.preferred_a
 ```bash
 _PURE_J=$(python3 -c '
 import os
-os.environ.setdefault("PYTHONPATH","/home/agx")
+os.environ.setdefault("PYTHONPATH","/home/eveselove")
 try:
     from agentforge.learning.utils import is_pure_rust_flywheel as f
     print(1 if f() else 0)
@@ -133,7 +133,7 @@ except Exception:
 **Замена на bash (без Python):**
 ```bash
 _PURE_J=0
-if [[ -f "/home/agx/agentforge/.pure_rust_flywheel" ]] || \
+if [[ -f "/home/eveselove/agentforge/.pure_rust_flywheel" ]] || \
    [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || \
    [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     _PURE_J=1
@@ -142,7 +142,7 @@ fi
 
 **Проблема 2:** Python post-process hook (строка 598-602):
 ```bash
-PYTHONPATH=/home/agx \
+PYTHONPATH=/home/eveselove \
 python3 -m agentforge.bin.rust_post_process_hook "$TASK_ID" \
     >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true
 ```
@@ -171,7 +171,7 @@ python3 -m agentforge.bin.rust_post_process_hook "$TASK_ID" \
 
 ### Зависимости
 
-- `jq` должен быть установлен на Jetson (`sudo apt install jq` — уже скорее всего есть)
+- `jq` должен быть установлен на Erbox (`sudo apt install jq` — уже скорее всего есть)
 - `agentforge-runner flywheel-step --post-process` должен поддерживать этот флаг (проверить `--help`)
 
 ---

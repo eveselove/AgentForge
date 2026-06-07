@@ -12,7 +12,7 @@
 
 set -e
 
-AGENTFORGE_DIR="/home/agx/agentforge"
+AGENTFORGE_DIR="/home/eveselove/agentforge"
 
 echo "🔧 Установка systemd сервисов AgentForge..."
 
@@ -87,12 +87,12 @@ fi
 
 echo ""
 echo "✅ Готово! AgentForge теперь полностью автономен:"
-echo "   • API запускается при загрузке Jetson"
+echo "   • API запускается при загрузке Erbox"
 echo "   • Grok Worker запускается после API (основной исполнитель)"
 echo "   • Jules Worker запускается (для PR / документации)"
 echo "   • При падении — автоматический перезапуск"
 echo "   • Watchdog каждые 5 минут эскалирует зависшие задачи"
-echo "   • Ноутбук можно закрывать — Jetson работает 24/7"
+echo "   • Ноутбук можно закрывать — Erbox работает 24/7"
 echo ""
 echo "Команды управления:"
 echo "   sudo systemctl status agentforge-api"
@@ -165,7 +165,7 @@ echo ""
 echo "   Recommended systemd Environment for fresh installs (prefers fast release binary):"
 echo "     Environment=AGENTFORGE_RUST_FLYWHEEL=1"
 echo "     Environment=AGENTFORGE_USE_RUST=1"
-echo "     Environment=AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner"
+echo "     Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner"
 echo "     # To opt out entirely for this unit: Environment=DISABLE_RUST_FLYWHEEL=1"
 echo ""
 echo "   Full story + disable instructions + 'What this means for Antigravity tasks' blurb:"
@@ -181,15 +181,15 @@ echo "================================================"
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

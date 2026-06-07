@@ -174,7 +174,7 @@ fn load_dataset(input: Option<&str>) -> Result<TrajectoryDataset, String> {
     let mut ds = TrajectoryDataset::new("runner_cli");
     if let Some(p) = input {
         let path = PathBuf::from(p);
-        let canon = PathBuf::from("/home/agx/agentforge").join(&p);
+        let canon = PathBuf::from("/home/eveselove/agentforge").join(&p);
         let candidates: Vec<PathBuf> = if path.is_absolute() {
             vec![path.clone()]
         } else {
@@ -788,13 +788,13 @@ fn main() {
                 }
             }
             let effective_input = if trajectories.is_none() && prm_dir.is_none() && results.is_none() {
-                input_fallback.or_else(|| Some("/home/agx/agentforge/eval/trajectories".into()))
+                input_fallback.or_else(|| Some("/home/eveselove/agentforge/eval/trajectories".into()))
             } else { input_fallback.clone() };
             if let Some(inp) = &effective_input {
                 if ds.records.is_empty() {
                     let p = PathBuf::from(inp);
                     let cands: Vec<PathBuf> = if p.is_absolute() { vec![p.clone()] } else {
-                        vec![ PathBuf::from("/home/agx/agentforge").join(inp), p.clone(), PathBuf::from("..").join(inp) ]
+                        vec![ PathBuf::from("/home/eveselove/agentforge").join(inp), p.clone(), PathBuf::from("..").join(inp) ]
                     };
                     for cand in cands {
                         if cand.exists() {
@@ -1229,7 +1229,7 @@ fn main() {
                 "suggested_count": suggestions.len(),
                 "suggested": suggestions,
                 "total_pending_scanned": store.list_pending().map(|v| v.len()).unwrap_or(0),
-                "enable_marker_present": std::path::Path::new("/home/agx/agentforge/ENABLE_RUST_FLYWHEEL").exists(),
+                "enable_marker_present": std::path::Path::new("/home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL").exists(),
                 "fidelity_ready": true,
                 "note": "COMPLETE: load + Prioritizer rank (rich lv*lift+recency) + suggest top-N (dry default). Shadow for dual-run fidelity. Direct replacement for run_continuous_flywheel + timer. Health for watchdog/parity. Promote via separate 'candidate promote'. Integrates with after_task hooks, post_process, parity_harness, services.",
                 "phase": "production"

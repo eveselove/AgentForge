@@ -217,17 +217,17 @@
 
 1. **Проверка зависших задач**
    ```bash
-   python /home/agx/agentforge/fix_antigravity_tasks.py --dry-run
+   python /home/eveselove/agentforge/fix_antigravity_tasks.py --dry-run
    ```
 
 2. **Массовый перевод старых задач на Grok** (если dry-run выглядит нормально)
    ```bash
-   python /home/agx/agentforge/fix_antigravity_tasks.py
+   python /home/eveselove/agentforge/fix_antigravity_tasks.py
    ```
 
 3. **Установка Jules Worker как сервиса**
    ```bash
-   sudo cp /home/agx/agentforge/agentforge-jules-worker.service /etc/systemd/system/
+   sudo cp /home/eveselove/agentforge/agentforge-jules-worker.service /etc/systemd/system/
    sudo systemctl daemon-reload
    sudo systemctl enable --now agentforge-jules-worker
    sudo systemctl status agentforge-jules-worker
@@ -235,7 +235,7 @@
 
 4. **Переустановка всех сервисов** (рекомендуется)
    ```bash
-   bash /home/agx/agentforge/install_services.sh
+   bash /home/eveselove/agentforge/install_services.sh
    ```
 
 5. **Тест новой маршрутизации**

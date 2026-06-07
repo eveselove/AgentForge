@@ -11,7 +11,7 @@
 **Track C (Runner CLI production polish)**: Better --help, subcommands (export-pairs, export-prm, improve, full-stack), --json output, ensure vision example runs cleanly, more binary tests.
 
 ## Main thread actions taken in parallel (while agents run)
-- Created `/home/agx/agentforge/rust_flywheel_demo.py` — robust loader for real artifacts + full loop using Rust bridge. Verified: loads real records, calls Rust binary, produces proposal + artifacts on actual farm data.
+- Created `/home/eveselove/agentforge/rust_flywheel_demo.py` — robust loader for real artifacts + full loop using Rust bridge. Verified: loads real records, calls Rust binary, produces proposal + artifacts on actual farm data.
 - Started Outcome unification (learning now re-exports CoreOutcome + OutcomeCore from core).
 - Ensured runner/examples/ has the vision demo.
 - Background `cargo test --workspace --offline` running.

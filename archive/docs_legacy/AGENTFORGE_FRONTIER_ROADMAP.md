@@ -66,7 +66,7 @@ See: `ANTIGRAVITY_DEFAULT.md`, `ENABLE_RUST_FLYWHEEL.md`, `PENDING_CANDIDATES.md
 # ============================================================
 # 🚀🚀🚀🚀 TURBO TO 100% — PURE RUST FLYWHEEL ORCHESTRATION (2026-06) FULL AUTONOMOUS MAX VELOCITY + FINAL DOCS VELOCITY + 100% READINESS AUDIT COMPLETE (one last time) 🚀🚀🚀🚀
 # ONE-COMMAND CUTOVER: bash bin/make_pure_rust_flywheel_default.sh --dry-run   (then without for live)
-# Absolute: /home/agx/agentforge/bin/make_pure_rust_flywheel_default.sh (FULL PRODUCTION — exact antigravity model, hard release binary gate, exhaustive FARM ROLLOUT + ROLLBACK)
+# Absolute: /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh (FULL PRODUCTION — exact antigravity model, hard release binary gate, exhaustive FARM ROLLOUT + ROLLBACK)
 # **CRYSTAL HOW-TO:** HOW_TO_RUN_PURE_RUST_FLYWHEEL_TODAY.md (the one-pager source of truth with all commands, verification, cutover, rollback, live binary status).
 # Pure paths PRODUCTION DEFAULT (post 2026-05-31 cutover + service fix): agentforge-runner (release **1.41 MB** **LIVE VERIFIED** real end-to-end exec on **243 candidates**) flywheel-step / candidate (FULL REAL promote) / continuous. Bridge HARDENED prefers pure (PURE RUST logs). **PARITY 90.9%/100% contract** real. 40+ cargo green. Services patched for sole engine.
 # TURBO_VELOCITY_REPORT.md + **all roadmaps one last time refreshed** in max mode (parallel + main + final audit) + **crisp 100_PERCENT_READINESS_CHECKLIST.md** + **100_PERCENT_VICTORY_ANNOUNCEMENT.md created**. MIGRATION_PROGRESS 97% (Phase1 99% | Phase3 95%). **HOW_TO one-pager + 100% checklist + crosslinks**. **DOCS AND 100% READINESS MAXIMIZED.** 14d soak active post pure default.
@@ -112,12 +112,12 @@ See: `ANTIGRAVITY_DEFAULT.md`, `ENABLE_RUST_FLYWHEEL.md`, `PENDING_CANDIDATES.md
 - Self-improvement loop closed: real task → Rust flywheel (rich export + PRM) → candidate (pending_candidates/) → A/B via LearningEvaluator (sim/real) → promote decision (safe + indexes). 5+ batches + 3 promoted + recorded A/Bs on real farm data.
 
 **Key evidence files (absolute paths):**
-- `/home/agx/agentforge/PENDING_CANDIDATES.md` (full track + A/B execution + 3 promotes)
-- `/home/agx/agentforge/pending_candidates/` (236 dirs with rich Rust manifests + ab_results + meta)
-- `/home/agx/agentforge/rust/target/release/agentforge-runner` (prod binary)
-- `/home/agx/agentforge/ENABLE_RUST_FLYWHEEL.md` + `enable_rust_flywheel.py`
-- `/home/agx/agentforge/JULES_RICH_BINARY_INTEGRATION.md`, `JULES_FLYWHEEL_DEMO.md`, `JULES_FARM_ENABLE.md`, `JULES_AUTO_FLYWHEEL_AFTER_TASK.md`, `JULES_OUTCOME_UNIFICATION.md`, `JULES_LIVE_WORKER_INTEGRATION.md`, `JULES_PRODUCTION_POLISH.md`, `USAGE_RUST_IN_FARM.md`
-- `/home/agx/agentforge/eval/post_process.py`, `rust_flywheel_step.py`, `phase2_3_integration.py`, `learning/pending_candidates.py`, `learning/trajectory_dataset.py`
+- `/home/eveselove/agentforge/PENDING_CANDIDATES.md` (full track + A/B execution + 3 promotes)
+- `/home/eveselove/agentforge/pending_candidates/` (236 dirs with rich Rust manifests + ab_results + meta)
+- `/home/eveselove/agentforge/rust/target/release/agentforge-runner` (prod binary)
+- `/home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL.md` + `enable_rust_flywheel.py`
+- `/home/eveselove/agentforge/JULES_RICH_BINARY_INTEGRATION.md`, `JULES_FLYWHEEL_DEMO.md`, `JULES_FARM_ENABLE.md`, `JULES_AUTO_FLYWHEEL_AFTER_TASK.md`, `JULES_OUTCOME_UNIFICATION.md`, `JULES_LIVE_WORKER_INTEGRATION.md`, `JULES_PRODUCTION_POLISH.md`, `USAGE_RUST_IN_FARM.md`
+- `/home/eveselove/agentforge/eval/post_process.py`, `rust_flywheel_step.py`, `phase2_3_integration.py`, `learning/pending_candidates.py`, `learning/trajectory_dataset.py`
 - `skills/promotion_history.json`, `pending_candidates/promotions.jsonl`, `eval/trajectories/` + `*.prm.json`
 - Rust sources: `rust/crates/agentforge-{learning,planning,safety,observability,long-horizon,runner}/`
 
@@ -463,7 +463,7 @@ python -m unittest agentforge.eval.tests.test_e2e_trajectory_view_prm -v
 
 **Как использовать прямо сейчас:**
 ```bash
-cd /home/agx/agentforge/rust
+cd /home/eveselove/agentforge/rust
 cargo build --workspace
 cargo test --workspace
 cargo run --example phase2_3_vision
@@ -489,7 +489,7 @@ Remaining hybrid items (full LLM judge inside improver, PyO3 training loops) int
 **Verification:** 
 - `python -m agentforge.list_pending_candidates`
 - `AGENTFORGE_RUST_FLYWHEEL=1 python -m agentforge.rust_flywheel_step --real-data --use-rust --limit 10`
-- Release binary: `/home/agx/agentforge/rust/target/release/agentforge-runner flywheel-export --help`
+- Release binary: `/home/eveselove/agentforge/rust/target/release/agentforge-runner flywheel-export --help`
 - 3 promoted + ab_results in pending_candidates/ dirs.
 
 **How to run pure Rust paths today (CRYSTAL CLEAR — THE source):**  

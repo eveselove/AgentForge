@@ -3,7 +3,7 @@
     {
       "id": "antigravity",
       "name": "Antigravity IDE + Worker",
-      "description": "Архитектор, оркестратор, code review, анализ. Полный доступ к инструментам. Автономный воркер на Jetson.",
+      "description": "Архитектор, оркестратор, code review, анализ. Полный доступ к инструментам. Автономный воркер на Erbox.",
       "capabilities": [
         "file_edit",
         "terminal",
@@ -29,7 +29,7 @@
         "orchestration",
         "decomposition"
       ],
-      "location": "jetson_eveselove + windows_pc",
+      "location": "erbox_eveselove + windows_pc",
       "worker": "antigravity_worker.py",
       "status_endpoint": "/tasks/for/antigravity",
       "invoke": "Antigravity IDE chat / autonomous worker"
@@ -55,7 +55,7 @@
         "fixes",
         "multi_file"
       ],
-      "location": "jetson_eveselove",
+      "location": "erbox_eveselove",
       "worker": "grok_worker_remote.sh",
       "invoke": "grok --always-approve -p \"task\"",
       "flags": {
@@ -85,7 +85,7 @@
         "refactoring",
         "async_tasks"
       ],
-      "location": "jetson_eveselove",
+      "location": "erbox_eveselove",
       "invoke": "jules remote new --repo <repo> --session \"task\""
     }
   ]

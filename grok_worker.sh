@@ -15,7 +15,7 @@ export NVM_DIR=$HOME/.nvm
 # === Rust Flywheel auto-integration — SAFE DEFAULT for Antigravity ===
 # Full Rust-powered self-improving flywheel (rich export + proposals) is DEFAULT ON.
 # No env var needed for normal operation. Strong rollback supported.
-# DISABLE_RUST_FLYWHEEL=1  or  /home/agx/agentforge/.disable_rust_flywheel
+# DISABLE_RUST_FLYWHEEL=1  or  /home/eveselove/agentforge/.disable_rust_flywheel
 # All rate limits, safety, release-binary preference, and existing hooks preserved.
 #
 # !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!

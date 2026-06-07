@@ -45,7 +45,7 @@ from pathlib import Path
 from typing import Optional
 
 
-ROOT = Path("/home/agx/agentforge")
+ROOT = Path("/home/eveselove/agentforge")
 DEFAULT_DEBUG = ROOT / "rust/target/debug/agentforge-runner"
 DEFAULT_RELEASE = ROOT / "rust/target/release/agentforge-runner"
 
@@ -96,7 +96,7 @@ def activate(
     if not bin_path.is_file():
         msg = (
             f"[enable_rust_flywheel] WARNING: binary not found at {bin_path}\n"
-            f"  Build with:  cd /home/agx/agentforge/rust && cargo build -p agentforge-runner --release\n"
+            f"  Build with:  cd /home/eveselove/agentforge/rust && cargo build -p agentforge-runner --release\n"
             f"  (or --debug for faster iteration)"
         )
         if not quiet:

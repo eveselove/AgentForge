@@ -6,16 +6,16 @@
 # Запуск Gemini Agent для задачи AgentForge
 export HTTPS_PROXY=socks5://127.0.0.1:12335
 # Gemini 2.5 Pro через REST API (бесплатный тир)
-export PATH=/home/agx/bin:/home/agx/.cargo/bin:/home/agx/.grok/bin:/home/agx/bin:$PATH
+export PATH=/home/eveselove/bin:/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove/bin:$PATH
 
 # Rust Flywheel snippet (for completeness on all paths)
-RUST_FLYWHEEL_SNIPPET="/home/agx/agentforge/bin/rust_flywheel.env"
+RUST_FLYWHEEL_SNIPPET="/home/eveselove/agentforge/bin/rust_flywheel.env"
 [ -f "$RUST_FLYWHEEL_SNIPPET" ] && source "$RUST_FLYWHEEL_SNIPPET" 2>/dev/null || true
 export AGENTFORGE_RUST_FLYWHEEL="${AGENTFORGE_RUST_FLYWHEEL:-0}"
 
 TASK_ID="$1"
 TASK_DESC="$2"
-LOG_DIR="/home/agx/agentforge/logs"
+LOG_DIR="/home/eveselove/agentforge/logs"
 
 echo "[AgentForge] Запуск Gemini Agent для задачи $TASK_ID" | tee -a $LOG_DIR/gemini_$TASK_ID.log
 
@@ -33,15 +33,15 @@ echo "[AgentForge] Gemini завершил задачу $TASK_ID"
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

@@ -140,7 +140,7 @@ All of the following carry loud Phase 3/4 deprecation banners directing to `agen
 Layered defense-in-depth (any single layer suffices for quick recovery):
 
 1. **Instant Killswitch (pre or post any deletion)**: 
-   - `touch /home/agx/agentforge/.disable_pure_rust_flywheel` (or .disable_rust_flywheel, .flywheel_disabled)
+   - `touch /home/eveselove/agentforge/.disable_pure_rust_flywheel` (or .disable_rust_flywheel, .flywheel_disabled)
    - Or `export DISABLE_RUST_FLYWHEEL=1 AGENTFORGE_FLYWHEEL_ENGINE=python`
    - This forces `is_pure_rust_flywheel() == False` + `is_rust_flywheel_disabled() == True` everywhere (central logic in utils.py already Phase 4 hardened to respect all variants with precedence).
 
@@ -248,7 +248,7 @@ All banners now uniform: loud !!! AGGRESSIVE FINAL DEPRECATION SWEEP ... PHASE4_
 
 **Audit Re-Runnable Post-Sweep** (zero unmarked core Python orchestration):
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 find . \( -name "*.py" -o -name "*.sh" \) -not -path "./pending_candidates/*run_ab_*" -not -path "./pending_candidates/*promote*" | xargs grep -l "flywheel" 2>/dev/null | xargs grep -L "PHASE4_REMOVAL_PLAN\|AGGRESSIVE FINAL DEPRECATION SWEEP" 2>/dev/null | cat
 # Expect: only generated + any truly exempt (none in core)
 grep -r "from agentforge.learning.utils import is_pure_rust_flywheel" --include="*.py" . | wc -l
@@ -332,7 +332,7 @@ This map + the tier order + the 4-layer rollback (instant .disable_* dotfile + e
 ## 10. POST-SWEEP AUDIT COMMANDS (Run These to Confirm Crystal-Clear State)
 
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 # 1. Unmarked flywheel refs (should be empty or only generated data)
 find . \( -name "*.py" -o -name "*.sh" -o -name "*.service" -o -name "*.timer" \) \
   -not -path "./pending_candidates/*run*" -not -path "./pending_candidates/*promote*" \
@@ -412,7 +412,7 @@ All of the above now pass clean post this sweep (modulo any transient generated)
   git commit -m "Phase 4 COMPLETE: all Python flywheel orchestration deleted (see PHASE4_REMOVAL_PLAN.md @ pre-phase4-removal tag + this commit)"
 
 ### INSTANT ROLLBACK AT ANY POINT (even mid-tier)
-  1. `/home/agx/agentforge/bin/disable_pure_rust_flywheel.sh`   (or manual: touch .disable_pure_rust_flywheel ; export DISABLE_RUST_FLYWHEEL=1 AGENTFORGE_FLYWHEEL_ENGINE=python)
+  1. `/home/eveselove/agentforge/bin/disable_pure_rust_flywheel.sh`   (or manual: touch .disable_pure_rust_flywheel ; export DISABLE_RUST_FLYWHEEL=1 AGENTFORGE_FLYWHEEL_ENGINE=python)
   2. `systemctl --user restart agentforge-*` or equivalent worker restart.
   3. Verify Python paths active again via logs + `python -m agentforge.rust_flywheel_step --help` (if still in tree) or git checkout of specific files from tag.
   4. Re-tag + post-mortem only after root cause.

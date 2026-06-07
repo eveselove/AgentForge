@@ -445,7 +445,7 @@ Next: poll gh pr checks / view periodically; execute merge on green.
 
 **Date / Context**: 2026-05-31, post user "запускаем" + system background showing prior agent-review attempt on P2 worktree (CLI failed with unrecognized subcommand). P2 branch confirmed ultra-clean scope by user + inspection. ONLY runners. This is the cleanest final; momentum for P1.
 
-**Strict adherence**: Followed /home/agx/agentforge/docs/FINAL_MERGE_CHECKLIST_P1_P2.md **exactly** for P2 only. Never touched P1 branch/worktree (d1-d2-3cdd6813 or others). Scope locked to runners + required logging/docs for merge process.
+**Strict adherence**: Followed /home/eveselove/agentforge/docs/FINAL_MERGE_CHECKLIST_P1_P2.md **exactly** for P2 only. Never touched P1 branch/worktree (d1-d2-3cdd6813 or others). Scope locked to runners + required logging/docs for merge process.
 
 **Actions executed (all logged, high pressure, fast):**
 

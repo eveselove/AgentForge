@@ -9,7 +9,7 @@
 #   - Farm live: workers + dispatch + grok access + low load
 #   - ENABLE_RUST_FLYWHEEL=1 (file or export) + Rust release binary
 #   - Post-process hooks active (auto-ingest real trajectories/PRM)
-#   - cd /home/agx/agentforge
+#   - cd /home/eveselove/agentforge
 #
 # SAFETY: Non-destructive. Real runs dispatch to farm (costs time/$). Monitor.
 # Use n=3 for statistical power; 20min timeout per benchmark arm.
@@ -17,7 +17,7 @@
 # =============================================================================
 
 # 0. ONE-TIME FARM PREP (run in shell)
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 export PYTHONPATH=.
 export ENABLE_RUST_FLYWHEEL=1
 export AGENTFORGE_USE_RUST=1
@@ -67,7 +67,7 @@ from agentforge.learning.evaluator import LearningEvaluator, ABTestConfig
 from pathlib import Path
 e=LearningEvaluator()
 cfg=ABTestConfig(name="real-ab-direct-053411", agent="grok", n_runs_per_arm=3, simulate=False, wait_for_real=True, timeout_minutes=20, use_temp_skill_files=True)
-new_yaml=Path(r"/home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml")
+new_yaml=Path(r"/home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml")
 print(e.ab_test_skill_versions(["example_rust_refactor","lancedb_parser_bottleneck","adaptive_throttle_tuning"], "general-refactor", str(new_yaml), cfg).summary())
 ' 2>&1 | tee logs/real_ab_direct_053411_$(date +%Y%m%d_%H%M%S).log
 

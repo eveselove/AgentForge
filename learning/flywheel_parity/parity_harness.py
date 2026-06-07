@@ -390,8 +390,8 @@ class FlywheelParityHarness:
         # Prefer explicit, then the new built release binary (Jules turbo), then env/PATH
         runner_candidates = [
             os.environ.get("AGENTFORGE_RUST_RUNNER"),
-            "/home/agx/agentforge/rust/target/release/agentforge-runner",
-            "/home/agx/agentforge/rust/target/debug/agentforge-runner",
+            "/home/eveselove/agentforge/rust/target/release/agentforge-runner",
+            "/home/eveselove/agentforge/rust/target/debug/agentforge-runner",
             shutil.which("agentforge-runner"),
             "agentforge-runner",
         ]
@@ -443,7 +443,7 @@ class FlywheelParityHarness:
             if kwargs.get("dry_run"):
                 cmd.append("--dry-run")
             # Use real trajectories if present (per mission: use real pending/trajectories if avail)
-            traj = "/home/agx/agentforge/eval/trajectories"
+            traj = "/home/eveselove/agentforge/eval/trajectories"
             if Path(traj).exists():
                 cmd += ["--trajectories", traj, "--prm-dir", traj]
             print(f"[parity] Running real Rust flywheel-step: {' '.join(cmd)}")
@@ -599,9 +599,9 @@ class FlywheelParityHarness:
         """Run *fresh* agentforge-runner (release) flywheel-step on real eval/trajectories + prm sidecars.
         Used for strong validation + generating today's Rust golden fixtures. Always uses deterministic /tmp/flywheel_parity_fresh (cleaned) for reliable report + fixture capture.
         """
-        runner = "/home/agx/agentforge/rust/target/release/agentforge-runner"
+        runner = "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
         if not Path(runner).exists():
-            runner = "/home/agx/agentforge/rust/target/debug/agentforge-runner"
+            runner = "/home/eveselove/agentforge/rust/target/debug/agentforge-runner"
         out_dir = Path("/tmp/flywheel_parity_fresh")
         if out_dir.exists():
             shutil.rmtree(out_dir, ignore_errors=True)
@@ -615,9 +615,9 @@ class FlywheelParityHarness:
             "--limit",
             str(limit),
             "--trajectories",
-            "/home/agx/agentforge/eval/trajectories",
+            "/home/eveselove/agentforge/eval/trajectories",
             "--prm-dir",
-            "/home/agx/agentforge/eval/trajectories",
+            "/home/eveselove/agentforge/eval/trajectories",
             "--output-dir",
             str(out_dir),
         ]
@@ -1610,9 +1610,9 @@ class FlywheelParityHarness:
         import time as _time
         from datetime import datetime as _dt
 
-        runner = "/home/agx/agentforge/rust/target/release/agentforge-runner"
+        runner = "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
         if not Path(runner).exists():
-            runner = "/home/agx/agentforge/rust/target/debug/agentforge-runner"
+            runner = "/home/eveselove/agentforge/rust/target/debug/agentforge-runner"
         if not Path(runner).exists():
             runner = shutil.which("agentforge-runner") or "agentforge-runner"
 
@@ -1742,7 +1742,7 @@ class FlywheelParityHarness:
                 shutil.copy2(src, new_golden_dir / art)
                 copied.append(art)
         meta = {
-            "source": "fresh release agentforge-runner flywheel-step --real-data --trajectories /home/agx/agentforge/eval/trajectories (prm sidecars enriched)",
+            "source": "fresh release agentforge-runner flywheel-step --real-data --trajectories /home/eveselove/agentforge/eval/trajectories (prm sidecars enriched)",
             "generated": "2026-05-31 via Jules turbo parity harness",
             "records_loaded": m1.get("records_loaded_actual"),
             "high_learning_value": m1.get("high_value_actual"),
@@ -1756,7 +1756,7 @@ class FlywheelParityHarness:
 
         # Also drop a copy of one rich bundle reference if present for completeness (pending_candidates context)
         rich_src = Path(
-            "/home/agx/agentforge/pending_candidates/20260531_054527_general-refactor_81e7d546/rust_rich_flywheel_export.json"
+            "/home/eveselove/agentforge/pending_candidates/20260531_054527_general-refactor_81e7d546/rust_rich_flywheel_export.json"
         )
         if rich_src.exists():
             shutil.copy2(rich_src, new_golden_dir / "rust_rich_flywheel_export.json")
@@ -1765,10 +1765,10 @@ class FlywheelParityHarness:
         lines = [
             "# PHASE 1 FLYWHEEL PARITY REPORT — Rust agentforge-runner vs Python Goldens",
             "",
-            f"**Date:** 2026-05-31  |  **Harness:** learning/flywheel_parity/parity_harness.py (extended strong version)  |  **Binary:** /home/agx/agentforge/rust/target/release/agentforge-runner (and debug)**",
+            f"**Date:** 2026-05-31  |  **Harness:** learning/flywheel_parity/parity_harness.py (extended strong version)  |  **Binary:** /home/eveselove/agentforge/rust/target/release/agentforge-runner (and debug)**",
             "",
             "## 1. Execution",
-            "Harness invoked real `agentforge-runner flywheel-step --skill general-refactor --real-data --limit 30 --trajectories /home/agx/agentforge/eval/trajectories --prm-dir ... --output-dir ...`",
+            "Harness invoked real `agentforge-runner flywheel-step --skill general-refactor --real-data --limit 30 --trajectories /home/eveselove/agentforge/eval/trajectories --prm-dir ... --output-dir ...`",
             "Loaded live farm trajectories (39 *.jsonl) + prm sidecars (~17-58 enriched).",
             "Also exercised load of real pending_candidates rich bundles (rust_rich_flywheel_export.json) for context.",
             "Compared emitted artifacts (proposal.json, candidate_skill.yaml, flywheel_manifest.json) against 2 Python golden fixtures (historical real runs via Python bridge + SkillImprover).",
@@ -1939,7 +1939,7 @@ class FlywheelParityHarness:
         """
         runner = (
             self._find_runner()
-            or "/home/agx/agentforge/rust/target/release/agentforge-runner"
+            or "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
         )
         out_dir = Path(tempfile.mkdtemp(prefix="parity_shadow_step_"))
         env = os.environ.copy()
@@ -1987,8 +1987,8 @@ class FlywheelParityHarness:
         """Locate release/debug agentforge-runner (production path discovery)."""
         cands = [
             os.environ.get("AGENTFORGE_RUST_RUNNER"),
-            "/home/agx/agentforge/rust/target/release/agentforge-runner",
-            "/home/agx/agentforge/rust/target/debug/agentforge-runner",
+            "/home/eveselove/agentforge/rust/target/release/agentforge-runner",
+            "/home/eveselove/agentforge/rust/target/debug/agentforge-runner",
             shutil.which("agentforge-runner"),
         ]
         for c in cands:

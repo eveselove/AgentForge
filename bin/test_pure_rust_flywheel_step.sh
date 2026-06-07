@@ -13,7 +13,7 @@
 # See learning/utils.py for is_pure_rust_flywheel central logic.
 set -u
 
-AGENTFORGE_ROOT="/home/agx/agentforge"
+AGENTFORGE_ROOT="/home/eveselove/agentforge"
 OUT="/tmp/rust_fw_demo"
 mkdir -p "$OUT"
 

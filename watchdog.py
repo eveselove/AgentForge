@@ -24,7 +24,7 @@ import re
 import sys
 
 # Добавляем путь к planlytasksko для импорта task_checkpoints
-for p in ["/data/planlytasksko", "/home/agx/planlytasksko", os.path.expanduser("~/planlytasksko")]:
+for p in ["/data/planlytasksko", "/home/eveselove/planlytasksko", os.path.expanduser("~/planlytasksko")]:
     if os.path.exists(p):
         sys.path.append(p)
         break

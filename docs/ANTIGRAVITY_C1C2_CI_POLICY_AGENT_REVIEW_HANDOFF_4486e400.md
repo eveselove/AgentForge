@@ -28,7 +28,7 @@ One documented emergency `--no-verify` (false-positive secret regex on pre-exist
 (Full findings in `~/.grok/handoffs/4486e400/jules-review-4486e400.md` and the copy below.)
 
 ### Key Issues Flagged (all addressed in follow-up commit 271a3b8 on the same branch)
-- **High (bug)**: Section 3.2 regression — missing the pr-traceability hard gate + agent-review-link warn job bullets present in operational v1.0. → Restored from current /home/agx/agentforge/docs/CI_POLICY.md.
+- **High (bug)**: Section 3.2 regression — missing the pr-traceability hard gate + agent-review-link warn job bullets present in operational v1.0. → Restored from current /home/eveselove/agentforge/docs/CI_POLICY.md.
 - **High (bug)**: Wrong path `eval/learning/flywheel_parity/...` → corrected to `learning/flywheel_parity/...`.
 - **Medium (bug)**: Hardcoded `task a8c59b4e` in DoD example → generic `task <short-id>`.
 - **Medium (bug)**: Broken `release.yml` cross-ref → prefixed `.github/workflows/`.
@@ -68,7 +68,7 @@ Next (after any final self-check with docs/REVIEW_CHECKLIST.md):
 ---
 
 **Artifacts**:
-- Handoff dir: `/home/agx/.grok/handoffs/4486e400/` (contains jules-review-4486e400.md)
+- Handoff dir: `/home/eveselove/.grok/handoffs/4486e400/` (contains jules-review-4486e400.md)
 - This record: `docs/ANTIGRAVITY_C1C2_CI_POLICY_AGENT_REVIEW_HANDOFF_4486e400.md`
 - Branch: `agent/cm-c1-c2-antigravity-ci-policy-a8c59b4e` (worktree `/tmp/agentforge-work/cm-c1-c2-antigravity-ci-policy-a8c59b4e`)
 - Cleanup task: cee7f2d0 (pre-commit regex)

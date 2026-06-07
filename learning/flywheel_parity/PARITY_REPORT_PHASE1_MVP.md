@@ -3,7 +3,7 @@
 **Date:** 2026-05-31  
 **Context:** Jules turbo for parity + validation of the new real emission from pure-Rust `agentforge-runner flywheel-step`.  
 **Harness:** learning/flywheel_parity/parity_harness.py (explored + minimally extended)  
-**Binary used:** /home/agx/agentforge/rust/target/release/agentforge-runner (fresh cargo build --release -p agentforge-runner)
+**Binary used:** /home/eveselove/agentforge/rust/target/release/agentforge-runner (fresh cargo build --release -p agentforge-runner)
 
 ## 1. Exploration
 - `parity_harness.py`: golden fixtures under `fixtures/golden/` (sample_general_refactor_v1 + sample_with_rich_export) originally collected from real `pending_candidates/`.
@@ -13,7 +13,7 @@
 ## 2. Fresh real emission run
 Command (using newly built release binary + real trajectories):
 ```
-cd /home/agx/agentforge && /home/agx/agentforge/rust/target/release/agentforge-runner \
+cd /home/eveselove/agentforge && /home/eveselove/agentforge/rust/target/release/agentforge-runner \
   flywheel-step --real-data --trajectories eval/trajectories --prm-dir eval/trajectories \
   --skill general-refactor --output-dir /tmp/parity_test
 ```

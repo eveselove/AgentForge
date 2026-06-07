@@ -28,8 +28,8 @@ from typing import Any
 CANONICAL_PROVENANCE = 'rust-agentforge-runner'
 
 # Пути для сканирования
-PENDING_CANDIDATES_DIR = '/home/agx/agentforge/pending_candidates'
-LEARNING_DIR = '/home/agx/agentforge/learning'
+PENDING_CANDIDATES_DIR = '/home/eveselove/agentforge/pending_candidates'
+LEARNING_DIR = '/home/eveselove/agentforge/learning'
 FLYWHEEL_HEALTH_PATHS = [
     '/tmp/agentforge_rust_flywheel/flywheel_health.json',
 ]

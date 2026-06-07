@@ -18,30 +18,30 @@
 # PHASE 3 FINAL SWEEP: escalated deprecation banners + stronger is_pure_rust_flywheel() guards
 # (central in learning/utils.py now covers marker + .disable_pure + all envs).
 # Direct: agentforge-runner flywheel-step / continuous
-export PATH=/home/agx/.cargo/bin:/home/agx/.grok/bin:/home/agx/bin:$PATH
+export PATH=/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove/bin:$PATH
 
 # === Rust Flywheel propagation (for dispatcher-launched runners) ===
 # SAFE DEFAULT: full Rust self-improving flywheel is ON for Antigravity tasks.
-# Rollback: DISABLE_RUST_FLYWHEEL=1 or /home/agx/agentforge/.disable_rust_flywheel
-RUST_FLYWHEEL_SNIPPET="/home/agx/agentforge/bin/rust_flywheel.env"
+# Rollback: DISABLE_RUST_FLYWHEEL=1 or /home/eveselove/agentforge/.disable_rust_flywheel
+RUST_FLYWHEEL_SNIPPET="/home/eveselove/agentforge/bin/rust_flywheel.env"
 if [ -f "$RUST_FLYWHEEL_SNIPPET" ]; then
     source "$RUST_FLYWHEEL_SNIPPET" 2>/dev/null || true
 fi
-AGENTFORGE_DIR="/home/agx/agentforge"
+AGENTFORGE_DIR="/home/eveselove/agentforge"
 DISABLE_FILE="$AGENTFORGE_DIR/.disable_rust_flywheel"
 if [[ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]] && [[ ! -f "$DISABLE_FILE" ]]; then
     # Default ON path — prefer release binary everywhere
     export AGENTFORGE_RUST_FLYWHEEL=1
     export AGENTFORGE_USE_RUST=1
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-      _RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+      _RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     else
-      _RUST_RUNNER="/home/agx/agentforge/rust/target/debug/agentforge-runner"
+      _RUST_RUNNER="/home/eveselove/agentforge/rust/target/debug/agentforge-runner"
     fi
     export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_RUST_RUNNER}"
 
     # Source enable snippet (now also respects disable) + helper for extra activation
-    [ -x /home/agx/agentforge/bin/enable_rust_flywheel.sh ] && source /home/agx/agentforge/bin/enable_rust_flywheel.sh 2>/dev/null || true
+    [ -x /home/eveselove/agentforge/bin/enable_rust_flywheel.sh ] && source /home/eveselove/agentforge/bin/enable_rust_flywheel.sh 2>/dev/null || true
 fi
 
 # Final export: default 1 (unless a disable flag/env took effect above or in sourced snippet)
@@ -61,16 +61,16 @@ SKILL="${5:-}"
 
 case $AGENT in
   grok)
-    bash /home/agx/agentforge/agents/grok_runner.sh "$TASK_ID" "$DESC" "/home/agx/planlytasksko" "$PRIORITY" "$SKILL" &
+    bash /home/eveselove/agentforge/agents/grok_runner.sh "$TASK_ID" "$DESC" "/home/eveselove/planlytasksko" "$PRIORITY" "$SKILL" &
     ;;
   jules)
-    bash /home/agx/agentforge/agents/jules_runner.sh "$TASK_ID" "$DESC" &
+    bash /home/eveselove/agentforge/agents/jules_runner.sh "$TASK_ID" "$DESC" &
     ;;
   agy)
-    bash /home/agx/agentforge/agents/agy_runner.sh "$TASK_ID" "$DESC" &
+    bash /home/eveselove/agentforge/agents/agy_runner.sh "$TASK_ID" "$DESC" &
     ;;
   gemini)
-    bash /home/agx/agentforge/agents/gemini_runner.sh "$TASK_ID" "$DESC" &
+    bash /home/eveselove/agentforge/agents/gemini_runner.sh "$TASK_ID" "$DESC" &
     ;;
   antigravity)
     # Вариант A (см. AGENTFORGE_ROUTING_AND_EXECUTION_REFACTOR_PLAN.md)
@@ -101,15 +101,15 @@ echo "[AgentForge] Задача $TASK_ID отправлена агенту $AGEN
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

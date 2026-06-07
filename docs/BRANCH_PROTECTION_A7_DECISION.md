@@ -39,7 +39,7 @@ Traditional "1 approval" models (Level M1) impose an unacceptable velocity tax a
 | **M2**| **Agent-Native (chosen)**   | **0**                 | **Rust + Python only (strict)** | Up-to-date, conv. resolution, force/delete blocks, no-bypass | Low tax — parallel friendly, agents move at full speed | Medium (accepted): relies on process + spot checks for high-impact items | **Strongly Recommended** |
 | M3    | Paranoid / Heavy            | 1–2 + owner           | All + future test gates + more  | Signed commits, merge queue, path rules | Very high tax — artificial serialization       | Lowest (but velocity destroyed)           | Rejected — overkill for this repo |
 
-**Decision**: Level M2. It directly operationalizes the philosophy in [AGENTS.md](/home/agx/agentforge/AGENTS.md): dogfooding, task-driven work, mandatory agent-review before merge, traceability, and maximum safe parallelism via worktrees + short agent branches.
+**Decision**: Level M2. It directly operationalizes the philosophy in [AGENTS.md](/home/eveselove/agentforge/AGENTS.md): dogfooding, task-driven work, mandatory agent-review before merge, traceability, and maximum safe parallelism via worktrees + short agent branches.
 
 ---
 
@@ -123,7 +123,7 @@ Traditional "1 approval" models (Level M1) impose an unacceptable velocity tax a
 - Fulfills A7 from [PHASE1_TASK_BREAKDOWN.md](PHASE1_TASK_BREAKDOWN.md) (original Cluster A item assigned to architectural ownership).
 - Complements [docs/BRANCH_PROTECTION_A2_PROPOSAL.md](BRANCH_PROTECTION_A2_PROPOSAL.md) (bc6fa462) — the "what" to this document's "why this level".
 - A1 research: [docs/A1_BRANCH_PROTECTION_RESEARCH_REPORT.md](A1_BRANCH_PROTECTION_RESEARCH_REPORT.md) (bc931676).
-- Process requirements: [AGENTS.md](/home/agx/agentforge/AGENTS.md) (mandatory agent-review, pre-commit, traceability).
+- Process requirements: [AGENTS.md](/home/eveselove/agentforge/AGENTS.md) (mandatory agent-review, pre-commit, traceability).
 - Branching model: [docs/BRANCHING_STRATEGY.md](BRANCHING_STRATEGY.md).
 - Implementation target: `.github/BRANCH_PROTECTION.md` (short pointer) and the future A3 playbook.
 - CI definition: `.github/workflows/ci.yml` (job names `Rust`, `Python` are the only strict gates).

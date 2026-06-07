@@ -431,7 +431,7 @@ OPTIONS (общие):
 #!/bin/bash
 # grok_worker_v2.sh — pull-based worker с claim и heartbeat
 AGENT="grok"
-RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
 POLL_INTERVAL=15
 MAX_PARALLEL=3
 

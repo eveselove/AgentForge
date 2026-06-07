@@ -16,14 +16,14 @@
 #
 # Почему копирование, а не cargo install:
 #   - mold — это не cargo-крейт, а нативный бинарь (prebuilt для aarch64-linux).
-#   - Скачивание tar.gz + копирование — единственный надёжный способ на Jetson (aarch64, glibc 2.35).
+#   - Скачивание tar.gz + копирование — единственный надёжный способ на Erbox (aarch64, glibc 2.35).
 #
 # Источник mold: https://github.com/rui314/mold (версия 2.31.0, aarch64-linux, 2024)
 #   Предполагается, что архив уже распакован в /tmp/mold-2.31.0-aarch64-linux (предыдущий шаг установки).
 #   Скрипт идемпотентен: при повторных запусках не перезаписывает, если бинарь работоспособен.
 #
 # Использование:
-#   bash /home/agx/agentforge/scripts/ensure_mold.sh
+#   bash /home/eveselove/agentforge/scripts/ensure_mold.sh
 #   # или автоматически из grok_runner.sh / install_services.sh
 #
 # Все комментарии, сообщения и отчёты — строго на русском языке (требование задачи).

@@ -37,14 +37,14 @@ AgentForge поддерживает работу с **несколькими xAI
 
 ```bash
 # Ключ 1 — основной
-cat > /home/agx/agentforge/.env.xai.key1 << 'EOF'
+cat > /home/eveselove/agentforge/.env.xai.key1 << 'EOF'
 XAI_API_KEY="xai-ВАША_ПЕРВАЯ_xAI_КЛЮЧ"
 XAI_MIN_COMPLEXITY=complex
 XAI_FORCE_MULTI_AGENT=0
 EOF
 
 # Ключ 2 — дополнительный
-cat > /home/agx/agentforge/.env.xai.key2 << 'EOF'
+cat > /home/eveselove/agentforge/.env.xai.key2 << 'EOF'
 XAI_API_KEY="xai-ВАША_ВТОРАЯ_xAI_КЛЮЧ"
 XAI_MIN_COMPLEXITY=high
 XAI_FORCE_MULTI_AGENT=0
@@ -64,14 +64,14 @@ EOF
 sudo mkdir -p /etc/systemd/system/grok-xai-worker@1.service.d
 sudo tee /etc/systemd/system/grok-xai-worker@1.service.d/override.conf << 'EOF'
 [Service]
-EnvironmentFile=/home/agx/agentforge/.env.xai.key1
+EnvironmentFile=/home/eveselove/agentforge/.env.xai.key1
 EOF
 
 # Для инстанса @2 (ключ 2)
 sudo mkdir -p /etc/systemd/system/grok-xai-worker@2.service.d
 sudo tee /etc/systemd/system/grok-xai-worker@2.service.d/override.conf << 'EOF'
 [Service]
-EnvironmentFile=/home/agx/agentforge/.env.xai.key2
+EnvironmentFile=/home/eveselove/agentforge/.env.xai.key2
 EOF
 ```
 
@@ -156,7 +156,7 @@ for s, c in sorted(by_status.items()):
 # Быстрый чек расхода xAI ключей за последний час
 # Использование: bash scripts/xai_usage_check.sh
 
-LOG="/home/agx/agentforge/logs/grok_xai_worker.log"
+LOG="/home/eveselove/agentforge/logs/grok_xai_worker.log"
 HOUR_AGO=$(date -d '1 hour ago' '+%H:%M')
 
 echo "=== xAI Usage Report (последний час) ==="
@@ -230,7 +230,7 @@ sudo systemctl stop grok-xai-worker@{1,2}
 
 # Проверка что оба ключа работают
 for i in 1 2; do
-  KEY=$(grep XAI_API_KEY /home/agx/agentforge/.env.xai.key$i | cut -d= -f2 | tr -d '"')
+  KEY=$(grep XAI_API_KEY /home/eveselove/agentforge/.env.xai.key$i | cut -d= -f2 | tr -d '"')
   echo "Key $i: $(echo $KEY | head -c 10)..."
   curl -s https://api.x.ai/v1/models -H "Authorization: Bearer $KEY" | \
     python3 -c "import json,sys; d=json.load(sys.stdin); print('  OK:', len(d.get('data',[])), 'models') if 'data' in d else print('  ERROR:', d.get('error','unknown'))"

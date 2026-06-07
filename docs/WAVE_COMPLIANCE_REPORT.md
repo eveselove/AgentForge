@@ -95,9 +95,9 @@
 
 ### 3.3. Независимый рецензент (Agent-Review Step)
 Процедура рецензирования с вызовом навыка `agent-review` и созданием `docs/*_HANDOFF.md` выполнена для критических инфраструктурных изменений:
-* **А2/A7 Branch Protection**: Документировано в [docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md](file:///home/agx/agentforge/docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md) и [docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md](file:///home/agx/agentforge/docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md).
-* **CI Hardening (Rust Caching)**: Документировано в [docs/CM_c2492e01_AGENT_REVIEW_HANDOFF.md](file:///home/agx/agentforge/docs/CM_c2492e01_AGENT_REVIEW_HANDOFF.md).
-* **Wave 2 X2 Summary**: Документировано в [docs/WAVE2_X2_AGENT_REVIEW_HANDOFF_6bedc344.md](file:///home/agx/agentforge/docs/WAVE2_X2_AGENT_REVIEW_HANDOFF_6bedc344.md).
+* **А2/A7 Branch Protection**: Документировано в [docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md](file:///home/eveselove/agentforge/docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md) и [docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md](file:///home/eveselove/agentforge/docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md).
+* **CI Hardening (Rust Caching)**: Документировано в [docs/CM_c2492e01_AGENT_REVIEW_HANDOFF.md](file:///home/eveselove/agentforge/docs/CM_c2492e01_AGENT_REVIEW_HANDOFF.md).
+* **Wave 2 X2 Summary**: Документировано в [docs/WAVE2_X2_AGENT_REVIEW_HANDOFF_6bedc344.md](file:///home/eveselove/agentforge/docs/WAVE2_X2_AGENT_REVIEW_HANDOFF_6bedc344.md).
 
 Для ряда мелких задач статус помечен как `Partial` или `Missing`, так как они были объединены непосредственно в процессе слияния крупных веток (direct main-thread wins).
 

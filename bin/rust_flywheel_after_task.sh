@@ -18,14 +18,14 @@
 # - Logs to logs/rust_flywheel_after_*.log
 #
 # Enable permanently:
-#   - touch /home/agx/agentforge/ENABLE_RUST_FLYWHEEL
+#   - touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
 #   - or export AGENTFORGE_RUST_FLYWHEEL=1 in workers + source bin/rust_flywheel.env
 #   - Workers will then call this after real post_process.
 #
 # Usage (manual test):
 #   bash bin/rust_flywheel_after_task.sh c6046a84
 #   # or with a trajectory path:
-#   bash bin/rust_flywheel_after_task.sh /home/agx/agentforge/eval/trajectories/c6046a84_grok.jsonl
+#   bash bin/rust_flywheel_after_task.sh /home/eveselove/agentforge/eval/trajectories/c6046a84_grok.jsonl
 #
 # Safe to call frequently from high-parallel workers.
 #
@@ -64,7 +64,7 @@ if [ -z "$TASK_REF" ]; then
   exit 2
 fi
 
-AGENTFORGE_ROOT="/home/agx/agentforge"
+AGENTFORGE_ROOT="/home/eveselove/agentforge"
 ENABLE_MARKER="$AGENTFORGE_ROOT/ENABLE_RUST_FLYWHEEL"
 LOG_DIR="$AGENTFORGE_ROOT/logs"
 STATE_DIR="/tmp/agentforge_rust_flywheel"
@@ -124,12 +124,12 @@ log "AGENTFORGE_RUST_FLYWHEEL=${AGENTFORGE_RUST_FLYWHEEL:-0}"
 # Set canonical env (non-destructive; prefer release for speed)
 export AGENTFORGE_RUST_FLYWHEEL=1
 export AGENTFORGE_USE_RUST=1
-: "${AGENTFORGE_RUST_RUNNER:=/home/agx/agentforge/rust/target/release/agentforge-runner}"
+: "${AGENTFORGE_RUST_RUNNER:=/home/eveselove/agentforge/rust/target/release/agentforge-runner}"
 if [ ! -x "$AGENTFORGE_RUST_RUNNER" ]; then
-  AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/debug/agentforge-runner"
+  AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/debug/agentforge-runner"
 fi
 export AGENTFORGE_RUST_RUNNER
-export PYTHONPATH="${PYTHONPATH:-/home/agx}"
+export PYTHONPATH="${PYTHONPATH:-/home/eveselove}"
 
 # Also source the standard snippet if present (for any extra vars like EVERY_N)
 if [ -f "$AGENTFORGE_ROOT/bin/rust_flywheel.env" ]; then
@@ -144,7 +144,7 @@ export AGENTFORGE_USE_RUST=1
 # DEPRECATION WAVE 2 + is_pure_rust_flywheel guard usage (high-signal, minimal, non-breaking)
 _PURE_RUST_FW=$(python3 -c '
 import os
-os.environ.setdefault("PYTHONPATH", "/home/agx")
+os.environ.setdefault("PYTHONPATH", "/home/eveselove")
 try:
     from agentforge.learning.utils import is_pure_rust_flywheel
     print(1 if is_pure_rust_flywheel() else 0)
@@ -251,7 +251,7 @@ except Exception as e: print("[SOAK-MONITOR] health-parse-err", str(e)[:60])
   # Recent manifests provenance (new candidates carry engine/src from runner/post_process)
   python3 -c '
 import json, glob, os, time
-base="/home/agx/agentforge/pending_candidates"
+base="/home/eveselove/agentforge/pending_candidates"
 mans = sorted(glob.glob(base + "/2026*/*manifest*.json") + glob.glob(base + "/2026*/flywheel_manifest.json"), key=os.path.getmtime, reverse=True)[:5]
 for p in mans:
   try:
@@ -287,15 +287,15 @@ exit 0
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

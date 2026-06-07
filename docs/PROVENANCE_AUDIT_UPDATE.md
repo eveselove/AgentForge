@@ -41,7 +41,7 @@
 - **WARN** если переменная отсутствует
 
 #### 2.6.4 Маркер .pure_rust_flywheel
-- Проверяет наличие `/home/agx/agentforge/.pure_rust_flywheel`
+- Проверяет наличие `/home/eveselove/agentforge/.pure_rust_flywheel`
 - Показывает mtime и содержимое
 - **FAIL** если маркер отсутствует
 
@@ -142,7 +142,7 @@ _PURE_J=$(python3 -c '...' 2>/dev/null || echo 0)
 
 # СТАЛО (чистый bash):
 _PURE_J=0
-if [[ -f /home/agx/agentforge/.pure_rust_flywheel ]] || \
+if [[ -f /home/eveselove/agentforge/.pure_rust_flywheel ]] || \
    [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || \
    [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     _PURE_J=1
@@ -152,7 +152,7 @@ fi
 2. **Post-process hook:**
 ```bash
 # БЫЛО (Python):
-PYTHONPATH=/home/agx python3 -m agentforge.bin.rust_post_process_hook "$TASK_ID"
+PYTHONPATH=/home/eveselove python3 -m agentforge.bin.rust_post_process_hook "$TASK_ID"
 
 # СТАЛО (Rust binary):
 if [ -x "$AGENTFORGE_RUST_RUNNER" ]; then

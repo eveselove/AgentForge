@@ -5,13 +5,13 @@ After=network.target
 [Service]
 Type=simple
 User=agx
-WorkingDirectory=/home/agx/agentforge
-EnvironmentFile=/home/agx/agentforge/.env.xai
-ExecStart=/bin/bash /home/agx/agentforge/grok_xai_worker.sh
+WorkingDirectory=/home/eveselove/agentforge
+EnvironmentFile=/home/eveselove/agentforge/.env.xai
+ExecStart=/bin/bash /home/eveselove/agentforge/grok_xai_worker.sh
 Restart=always
 RestartSec=8
-StandardOutput=append:/home/agx/agentforge/logs/grok_xai_worker@%i.log
-StandardError=append:/home/agx/agentforge/logs/grok_xai_worker@%i.log
+StandardOutput=append:/home/eveselove/agentforge/logs/grok_xai_worker@%i.log
+StandardError=append:/home/eveselove/agentforge/logs/grok_xai_worker@%i.log
 
 MemoryMax=2G
 CPUQuota=80%

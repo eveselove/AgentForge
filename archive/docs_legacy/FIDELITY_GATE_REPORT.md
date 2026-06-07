@@ -5,7 +5,7 @@
 **Context:** Post full cutover via bin/make_pure_rust_flywheel_default.sh (real). .pure_rust_flywheel marker live (10:42). 242-243 pending_candidates. Continuous timer active + ran post-GROUP fix (exit 0). agentforge-runner 1.41MB release default in patched services/hooks/post_process/dispatcher/workers.
 
 ## 1. Task 1: Full Parity Harness Execution (Golden Fixtures + Real Recent Data)
-- Command: `cd /home/agx && PYTHONPATH=. timeout 180s python -m agentforge.learning.flywheel_parity.parity_harness`
+- Command: `cd /home/eveselove && PYTHONPATH=. timeout 180s python -m agentforge.learning.flywheel_parity.parity_harness`
 - Exit code: **0** (full run, including fresh Rust emission, report write, self-parity, unittest 6 tests OK).
 - Harness exercised: run_fresh_rust_emission (release binary, limit=30 on eval/trajectories + prm sidecars, 96 records, 58 prm_enriched); measure_strong_parity on 2 goldens; write_parity_report_phase1 (updated existing report); quick self-parity on real_rust_phase1_emission (100% overlap on re-validate, 1 gap tolerated).
 - Key evidence (updated report): learning/flywheel_parity/PARITY_REPORT_PHASE1.md (lines 1-170)
@@ -18,7 +18,7 @@
 ## 2. Task 2: Multiple Shadow Dual Runs on Real Data + Fidelity Metrics
 - Commands exercised (multiple, exit 0 each):
   - `AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 /.../agentforge-runner --json continuous --top-n 2 --shadow` (exit 0; health JSON written with "fidelity_ready":true, "shadow":true, 242 pending scanned; 2 high-value suggested).
-  - `cd /home/agx && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness shadow --limit 5 --json` (live dual; exit 0; emitted shadow_live_* dirs + fidelity JSON; Rust vs Py on real trajectories).
+  - `cd /home/eveselove && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness shadow --limit 5 --json` (live dual; exit 0; emitted shadow_live_* dirs + fidelity JSON; Rust vs Py on real trajectories).
   - `... --shadow-compare-latest --json` (exit 0; auto-paired latest + prior 20260531_0550* dirs from real runs).
   - `... --shadow-aggregate --json` (exit 0; scanned /tmp).
 - Captured metrics (from /tmp/agentforge_rust_flywheel/shadow_fidelity_latest.json + aggregate.json; composite from live dual on limit=5 general-refactor):
@@ -74,34 +74,34 @@ From harness, after_task, test_pure, runner help, docs (USAGE_RUST_IN_FARM.md, H
 Daily/continuous:
 ```
 # 1. Direct pure (post-cutover default via patches)
-AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 /home/agx/agentforge/rust/target/release/agentforge-runner --json continuous --top-n 2 --shadow
-/home/agx/agentforge/rust/target/release/agentforge-runner --json flywheel-step --real-data --limit 20 --ingest --shadow
+AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 /home/eveselove/agentforge/rust/target/release/agentforge-runner --json continuous --top-n 2 --shadow
+/home/eveselove/agentforge/rust/target/release/agentforge-runner --json flywheel-step --real-data --limit 20 --ingest --shadow
 
 # 2. Fidelity gates (zero-cost or live; cron/watchdog)
-cd /home/agx && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness --shadow-compare-latest --json | jq '.fidelity_pass,.composite_fidelity_score,.fidelity_grade,.divergence_severity,.recent_pass_streak'
-cd /home/agx && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness --shadow-aggregate --json | jq '.aggregate | {avg_composite, median, p95, pass_rate, recent_pass_streak, trend, fidelity_health}'
+cd /home/eveselove && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness --shadow-compare-latest --json | jq '.fidelity_pass,.composite_fidelity_score,.fidelity_grade,.divergence_severity,.recent_pass_streak'
+cd /home/eveselove && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness --shadow-aggregate --json | jq '.aggregate | {avg_composite, median, p95, pass_rate, recent_pass_streak, trend, fidelity_health}'
 
 # 3. Provenance + health audit (manifests + health JSON)
 cat /tmp/agentforge_rust_flywheel/flywheel_health.json | python3 -c 'import sys,json; d=json.load(sys.stdin); print({k:d.get(k) for k in ["engine","source","fidelity_ready","shadow","total_pending_scanned"]})'
-find /home/agx/agentforge/pending_candidates -name "*manifest*.json" -newermt '2026-05-31' -exec sh -c 'echo {}; python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(\"  engine=\",d.get(\"engine\") or d.get(\"source\") or d.get(\"rust_runner_used\"))" {}' \; | head -20
+find /home/eveselove/agentforge/pending_candidates -name "*manifest*.json" -newermt '2026-05-31' -exec sh -c 'echo {}; python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(\"  engine=\",d.get(\"engine\") or d.get(\"source\") or d.get(\"rust_runner_used\"))" {}' \; | head -20
 
 # 4. Full parity (on demand, updates report + fixtures)
-cd /home/agx && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness 2>&1 | tail -30
+cd /home/eveselove && PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness 2>&1 | tail -30
 
 # 5. Candidate ops (real promote stamps source=rust)
- /home/agx/agentforge/rust/target/release/agentforge-runner candidate list --top 5 --sort value --json
- /home/agx/agentforge/rust/target/release/agentforge-runner --json candidate promote <id-from-list> --copy-to-skills --dry-run   # safe first
+ /home/eveselove/agentforge/rust/target/release/agentforge-runner candidate list --top 5 --sort value --json
+ /home/eveselove/agentforge/rust/target/release/agentforge-runner --json candidate promote <id-from-list> --copy-to-skills --dry-run   # safe first
 
 # 6. Monitor live (after hook edit)
-tail -f /home/agx/agentforge/logs/continuous_flywheel.log | grep -E '\[SOAK-MONITOR\]|\[shadow-v5-health\]|ENGINE_PROVENANCE|fidelity_health'
+tail -f /home/eveselove/agentforge/logs/continuous_flywheel.log | grep -E '\[SOAK-MONITOR\]|\[shadow-v5-health\]|ENGINE_PROVENANCE|fidelity_health'
 
 # 7. Service/timer verify (post-GROUP fix)
 systemctl --user status agentforge-flywheel.timer --no-pager -l
 systemctl --user list-timers --all | grep flywheel
-tail -5 /home/agx/agentforge/logs/continuous_flywheel.log
+tail -5 /home/eveselove/agentforge/logs/continuous_flywheel.log
 ```
 
-Rollback (if needed): `export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/agx/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; rm -f /home/agx/agentforge/.pure_rust_flywheel; systemctl --user restart agentforge-{worker,jules-worker} || true`
+Rollback (if needed): `export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; rm -f /home/eveselove/agentforge/.pure_rust_flywheel; systemctl --user restart agentforge-{worker,jules-worker} || true`
 
 Re-arm: `bash bin/make_pure_rust_flywheel_default.sh` (or --force-restart).
 
@@ -120,7 +120,7 @@ Re-arm: `bash bin/make_pure_rust_flywheel_default.sh` (or --force-restart).
 - P2: LLM stub, dry defaults, timer sh indirection.
 
 ## Next Actions for Main Driver (Clear, Prioritized)
-1. `rm -f /home/agx/agentforge/.disable_pure_rust_flywheel` (and any .disable_rust*) + re-verify `cd /home/agx && PYTHONPATH=. python -c 'from agentforge.learning.utils import is_pure_rust_flywheel; print(is_pure_rust_flywheel())'` == True. Re-run make_pure script if needed for consistency.
+1. `rm -f /home/eveselove/agentforge/.disable_pure_rust_flywheel` (and any .disable_rust*) + re-verify `cd /home/eveselove && PYTHONPATH=. python -c 'from agentforge.learning.utils import is_pure_rust_flywheel; print(is_pure_rust_flywheel())'` == True. Re-run make_pure script if needed for consistency.
 2. Run 5+ more shadow duals (vary limit/skill/real pending) + update parity harness tolerances or Rust heuristic for higher composite (>0.80 target). Re-run full harness; aim recent_pass_streak >=3 + fidelity_health=good.
 3. Port/enrich continuous full autonomy (flock/AB/winner) or wire direct `agentforge-runner continuous --no-dry-run` into service/timer (edit agentforge-flywheel.service ExecStart).
 4. Add engine="rust-agentforge-runner" uniformly to all Rust-emitted manifests (in runner/flywheel/candidates); update health + shadow JSONs with spans if available.
@@ -129,7 +129,7 @@ Re-arm: `bash bin/make_pure_rust_flywheel_default.sh` (or --force-restart).
 7. Post-soak (if green): follow PHASE4_REMOVAL_CHECKLIST.md (Tier 1: parity_harness after final run; update all to pure runner only).
 8. If fidelity stuck: relax harness pass_criteria temporarily or add Rust-native fidelity compute in learning crate for pure monitoring.
 
-**Report artifact:** /home/agx/agentforge/FIDELITY_GATE_REPORT.md
+**Report artifact:** /home/eveselove/agentforge/FIDELITY_GATE_REPORT.md
 
 **Overall assessment:** Cutover solid (timer/services/pure binary green, 0 breakage on 243 cands). Fidelity/soak prep 70% (harness+shadow exercised, monitoring live). Ruthless: not 95%+ ready due to P0 gaps above; fix disable + improve shadow scores first. 14d soak viable with above commands + monitoring. Ready for driver to execute next actions.
 

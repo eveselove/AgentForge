@@ -1,9 +1,9 @@
 # PHASE 1 FLYWHEEL PARITY REPORT — Rust agentforge-runner vs Python Goldens
 
-**Date:** 2026-05-31  |  **Harness:** learning/flywheel_parity/parity_harness.py (extended strong version)  |  **Binary:** /home/agx/agentforge/rust/target/release/agentforge-runner (and debug)**
+**Date:** 2026-05-31  |  **Harness:** learning/flywheel_parity/parity_harness.py (extended strong version)  |  **Binary:** /home/eveselove/agentforge/rust/target/release/agentforge-runner (and debug)**
 
 ## 1. Execution
-Harness invoked real `agentforge-runner flywheel-step --skill general-refactor --real-data --limit 30 --trajectories /home/agx/agentforge/eval/trajectories --prm-dir ... --output-dir ...`
+Harness invoked real `agentforge-runner flywheel-step --skill general-refactor --real-data --limit 30 --trajectories /home/eveselove/agentforge/eval/trajectories --prm-dir ... --output-dir ...`
 Loaded live farm trajectories (39 *.jsonl) + prm sidecars (~17-58 enriched).
 Also exercised load of real pending_candidates rich bundles (rust_rich_flywheel_export.json) for context.
 Compared emitted artifacts (proposal.json, candidate_skill.yaml, flywheel_manifest.json) against 2 Python golden fixtures (historical real runs via Python bridge + SkillImprover).

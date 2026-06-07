@@ -35,7 +35,7 @@
 # Exit: 0 on clean audit state; 2 on guard dupe; 3 on provenance validation failure (strict mode).
 #
 set -u
-AGENTFORGE_ROOT="/home/agx/agentforge"
+AGENTFORGE_ROOT="/home/eveselove/agentforge"
 cd "$AGENTFORGE_ROOT" || exit 1
 
 EMIT_COMMANDS=0
@@ -319,7 +319,7 @@ fi
 
 echo ""
 echo "--- 2.6.3 Проверка env-переменных провенанса в рантайме ---"
-ENV_SNIPPET="/home/agx/agentforge/bin/rust_flywheel.env"
+ENV_SNIPPET="/home/eveselove/agentforge/bin/rust_flywheel.env"
 if [ -f "$ENV_SNIPPET" ]; then
     # Проверяем наличие FLYWHEEL_PROVENANCE в env snippet
     if grep -q "FLYWHEEL_PROVENANCE" "$ENV_SNIPPET"; then
@@ -340,7 +340,7 @@ fi
 
 echo ""
 echo "--- 2.6.4 Проверка .pure_rust_flywheel маркера ---"
-PURE_MARKER_CHECK="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER_CHECK="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [ -f "$PURE_MARKER_CHECK" ]; then
     MARKER_CONTENT=$(cat "$PURE_MARKER_CHECK" 2>/dev/null | head -3)
     MARKER_MTIME=$(stat -c%y "$PURE_MARKER_CHECK" 2>/dev/null | cut -d. -f1)
@@ -368,7 +368,7 @@ fi
 
 echo ""
 echo "--- 2.6.6 Audit самого audit-скрипта: Python-зависимости в provenance проверках ---"
-AUDIT_SELF_PY=$(grep -c "python3\|python " /home/agx/agentforge/bin/phase4_pre_removal_audit.sh 2>/dev/null || echo 0)
+AUDIT_SELF_PY=$(grep -c "python3\|python " /home/eveselove/agentforge/bin/phase4_pre_removal_audit.sh 2>/dev/null || echo 0)
 echo "  Python вызовов в audit скрипте: $AUDIT_SELF_PY"
 if [ "$AUDIT_SELF_PY" -gt 0 ]; then
     echo "  РЕКОМЕНДАЦИЯ: заменить Python JSON парсинг на jq для полной независимости от Python"

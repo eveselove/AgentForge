@@ -122,11 +122,11 @@
 
 ## Ключевые файлы
 
-- **Бинарник**: /home/agx/agentforge/rust/target/release/agentforge-runner
+- **Бинарник**: /home/eveselove/agentforge/rust/target/release/agentforge-runner
 - **Health**: /tmp/agentforge_rust_flywheel/flywheel_health.json
 - **Fidelity**: /tmp/agentforge_rust_flywheel/shadow_fidelity_aggregate.json
 - **Watchdog**: /tmp/agentforge_rust_flywheel/watchdog_flywheel_status.json
-- **Soak маркер**: /home/agx/agentforge/.pure_rust_flywheel
+- **Soak маркер**: /home/eveselove/agentforge/.pure_rust_flywheel
 - **Cutover**: in/make_pure_rust_flywheel_default.sh
 - **Rollback**: in/disable_pure_rust_flywheel.sh
 - **Phase 4 аудит**: in/phase4_pre_removal_audit.sh

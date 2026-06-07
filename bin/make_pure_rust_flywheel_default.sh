@@ -48,7 +48,7 @@
 # - eval/post_process.py + phase2_3_integration.py + learning/utils.py (is_pure_rust_flywheel guard)
 # - rust_flywheel_demo.py (end-to-end Phase 3 demo)
 #
-# Usage (from /home/agx/agentforge):
+# Usage (from /home/eveselove/agentforge):
 #   bash bin/make_pure_rust_flywheel_default.sh                 # THE ONE COMMAND for full cutover + verify (binary + low-load first)
 #   bash bin/make_pure_rust_flywheel_default.sh --dry-run       # EXTREMELY INFORMATIVE zero-mutation preflight (ALWAYS FIRST)
 #   bash bin/make_pure_rust_flywheel_default.sh --no-timer      # skip continuous timer (pure engine for step/hooks/runners only)
@@ -66,7 +66,7 @@
 set -u
 # Resilience: explicit error handling only on critical paths (modeled exactly after antigravity script)
 
-AGENTFORGE_ROOT="/home/agx/agentforge"
+AGENTFORGE_ROOT="/home/eveselove/agentforge"
 cd "$AGENTFORGE_ROOT" 2>/dev/null || true
 
 LOG_DIR="$AGENTFORGE_ROOT/logs"
@@ -251,21 +251,21 @@ if [ $DRY_RUN -eq 0 ]; then
     cat > "$ENV_SNIPPET" << 'SNIP_EOF'
 # AgentForge Rust Flywheel env snippet (auto-generated + pure cutover by make_pure_rust_flywheel_default.sh)
 # Source early in grok_worker.sh / jules_worker.sh / dispatcher.sh / runners / services:
-#   source /home/agx/agentforge/bin/rust_flywheel.env 2>/dev/null || true
+#   source /home/eveselove/agentforge/bin/rust_flywheel.env 2>/dev/null || true
 #
 # 2026-06 PURE RUST FLYWHEEL DEFAULT (Phase 3 cutover — PRODUCTION EXCELLENCE): sole engine
 # AGENTFORGE_PURE_RUST_FLYWHEEL + AGENTFORGE_FLYWHEEL_ENGINE=rust
 # All orchestration (flywheel-step / candidate / continuous) now via agentforge-runner exclusively.
-# Legacy Antigravity vars preserved. Rollback: export AGENTFORGE_FLYWHEEL_ENGINE=python ; rm -f /home/agx/agentforge/.pure_rust_flywheel ; touch .disable_pure_rust_flywheel
+# Legacy Antigravity vars preserved. Rollback: export AGENTFORGE_FLYWHEEL_ENGINE=python ; rm -f /home/eveselove/agentforge/.pure_rust_flywheel ; touch .disable_pure_rust_flywheel
 export AGENTFORGE_RUST_FLYWHEEL=1
 export AGENTFORGE_USE_RUST=1
 export AGENTFORGE_PURE_RUST_FLYWHEEL=1
 export AGENTFORGE_FLYWHEEL_ENGINE=rust
 # Prefers release if present (see finder logic)
-if [[ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]]; then
-  _DEF_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+if [[ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]]; then
+  _DEF_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
 else
-  _DEF_RUNNER="/home/agx/agentforge/rust/target/debug/agentforge-runner"
+  _DEF_RUNNER="/home/eveselove/agentforge/rust/target/debug/agentforge-runner"
 fi
 export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_DEF_RUNNER}"
 # Optional: AGENTFORGE_RUST_FLYWHEEL_EVERY_N=5  (rate limit: flywheel every N post-process calls)
@@ -321,16 +321,16 @@ $PURE_SECTION_HEADER
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "\$PURE_MARKER" ]] || [[ "\${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "\${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.
 WORKER_PURE_EOF
@@ -482,11 +482,11 @@ fi
 echo ""
 
 echo ">>> [6] PYTHON CANDIDATE LIST (wrapper, post-cutover provenance):"
-PYTHONPATH=/home/agx python -m agentforge.list_pending_candidates list --limit 3 --sort value 2>/dev/null | cat || echo "  (post first pure step for engine tags)"
+PYTHONPATH=/home/eveselove python -m agentforge.list_pending_candidates list --limit 3 --sort value 2>/dev/null | cat || echo "  (post first pure step for engine tags)"
 echo ""
 
 echo ">>> [7] Python is_pure_rust_flywheel guard + runner path (learning/utils):"
-PYTHONPATH=/home/agx python3 -c '
+PYTHONPATH=/home/eveselove python3 -c '
 import os
 os.environ.setdefault("AGENTFORGE_PURE_RUST_FLYWHEEL", "1")
 os.environ.setdefault("AGENTFORGE_FLYWHEEL_ENGINE", "rust")
@@ -504,11 +504,11 @@ fi
 echo ""
 
 echo ">>> [9] Pending candidates dir sample manifests (look for engine provenance after pure steps):"
-ls -1 /home/agx/agentforge/pending_candidates/ 2>/dev/null | tail -5 || echo "  (none or many)"
+ls -1 /home/eveselove/agentforge/pending_candidates/ 2>/dev/null | tail -5 || echo "  (none or many)"
 echo "  Example recent manifest head (engine field will be rust post-cutover):"
-RECENT_D=$(ls -t /home/agx/agentforge/pending_candidates/ 2>/dev/null | head -1)
+RECENT_D=$(ls -t /home/eveselove/agentforge/pending_candidates/ 2>/dev/null | head -1)
 if [ -n "$RECENT_D" ]; then
-  for mf in $(ls /home/agx/agentforge/pending_candidates/"$RECENT_D"/*manifest*.json /home/agx/agentforge/pending_candidates/"$RECENT_D"/*flywheel*.json 2>/dev/null); do
+  for mf in $(ls /home/eveselove/agentforge/pending_candidates/"$RECENT_D"/*manifest*.json /home/eveselove/agentforge/pending_candidates/"$RECENT_D"/*flywheel*.json 2>/dev/null); do
     if [ -f "$mf" ]; then
       head -c 600 "$mf" 2>/dev/null | cat
       break
@@ -530,16 +530,16 @@ log "=== FARM-WIDE ONE-COMMAND PURE RUST CUTOVER (copy-paste ready) ==="
 cat << 'FARM_BLOCK'
 
 # === 1. MAIN HOST (Autonomy / API / dispatcher / timer host) ===
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 bash bin/make_pure_rust_flywheel_default.sh                 # <-- THE ONE COMMAND (or --dry-run FIRST — mandatory + EXTREMELY INFORMATIVE)
 # Excellent verify (ACTUAL RUNS of continuous + candidate list + demo + binary):
 bash healthcheck.sh | grep -E 'Flywheel|Timer|Rust|pure|engine|✅|agentforge-runner'
 systemctl --user status agentforge-flywheel.timer || true
 python -m agentforge.list_pending_candidates list --limit 3 --sort value
 python rust_flywheel_demo.py --help | cat
-/home/agx/agentforge/rust/target/release/agentforge-runner candidate list --limit 3 2>/dev/null || true
-/home/agx/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run 2>/dev/null | cat || true
-/home/agx/agentforge/rust/target/release/agentforge-runner flywheel-step --help | head -4 || true
+/home/eveselove/agentforge/rust/target/release/agentforge-runner candidate list --limit 3 2>/dev/null || true
+/home/eveselove/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run 2>/dev/null | cat || true
+/home/eveselove/agentforge/rust/target/release/agentforge-runner flywheel-step --help | head -4 || true
 
 # === 2. ALL LOCAL WORKERS (grok/jules on same host) ===
 # Workers now source the updated snippet + have appended pure sections.
@@ -556,11 +556,11 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 # * Prefer PER-HOST rollout first wave (one remote at a time, watch load/dashboard + candidate provenance + engine tags).
 # * Master wrapper (below) ALWAYS does --dry-run per remote (with banners) + short pause + (interactive or --yes).
 # * Only proceed to real after dry output looks clean on that host.
-# * ROLLBACK per remote (instant + stronger): ssh <host> 'export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/agx/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; rm -f /home/agx/agentforge/.pure_rust_flywheel 2>/dev/null || true; systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true'
+# * ROLLBACK per remote (instant + stronger): ssh <host> 'export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; rm -f /home/eveselove/agentforge/.pure_rust_flywheel 2>/dev/null || true; systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true'
 # * Timer primarily on main Autonomy host(s). Workers + hooks on all remotes.
 # * Low-load window recommended. Monitor with: tail -f logs/*.log + dashboard + healthcheck + pure candidate manifests (engine field) + rust_flywheel_demo.py runs.
 # * All commands are idempotent; re-run make_ script to re-arm pure default anywhere.
-# * Jetson uses full user@IP (key auth from history); add more hosts to REMOTES if new Jetsons appear.
+# * Erbox uses full user@IP (key auth from history); add more hosts to REMOTES if new Erboxs appear.
 # * Pre-requisite on EVERY host: release binary built (cargo build -p agentforge-runner --release)
 # * Post cutover verification MUST include: NEW demo script + `candidate list` (both Python wrapper + direct binary) + continuous --dry-run + manifest engine=rust
 #
@@ -570,7 +570,7 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 #   - Actively monitor:
 #       tail -f logs/continuous_flywheel.log logs/grok_worker.log logs/jules_worker.log
 #       python -m agentforge.list_pending_candidates list --limit 10 --sort value
-#       /home/agx/agentforge/rust/target/release/agentforge-runner candidate list --limit 5
+#       /home/eveselove/agentforge/rust/target/release/agentforge-runner candidate list --limit 5
 #       ls -l /tmp/agentforge_rust_flywheel/
 #       cat /tmp/agentforge_rust_flywheel/flywheel_health.json
 #   - CRITICAL: Inspect new pending_candidates/* manifests — every one must carry "engine": "rust-agentforge-runner" (or provenance)
@@ -580,30 +580,30 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 #   - Only when soak is 100% green (pure provenance everywhere, no fallback to Python paths): CUTOVER COMPLETE
 #   - Re-run this make_ script on main at end of soak to re-confirm + regenerate fresh master if fleet changed.
 
-# Known remotes (from grok-work/* layout + agent_cards.json Jetson + history):
-#   agent1..5 ssh-1..8 team-code/perf/rust/services/singbox/ssh + agx@146.120.89.199 (jetson)
+# Known remotes (from grok-work/* layout + agent_cards.json Erbox + history):
+#   agent1..5 ssh-1..8 team-code/perf/rust/services/singbox/ssh + eveselove@146.120.89.199 (erbox)
 # Edit the list in the MASTER below if fleet changes.
 
 # --- ONE CLEAN COMMAND STYLE (manual / per-host, max safety) ---
 # Example for a single remote (repeat pattern; replace HOST):
-#   scp /home/agx/agentforge/bin/make_pure_rust_flywheel_default.sh \
-#       /home/agx/agentforge/bin/rust_flywheel.env \
-#       /home/agx/agentforge/agentforge-flywheel.{service,timer} \
-#       /home/agx/agentforge/.pure_rust_flywheel \
-#       /home/agx/agentforge/healthcheck.sh \
+#   scp /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh \
+#       /home/eveselove/agentforge/bin/rust_flywheel.env \
+#       /home/eveselove/agentforge/agentforge-flywheel.{service,timer} \
+#       /home/eveselove/agentforge/.pure_rust_flywheel \
+#       /home/eveselove/agentforge/healthcheck.sh \
 #       HOST:/tmp/pure-rust-cutover/
 #   ssh HOST '
 #     mkdir -p /tmp/pure-rust-cutover && cd /tmp/pure-rust-cutover
 #     bash make_pure_rust_flywheel_default.sh --dry-run
 #     # ... review output + confirm binary built ...
 #     bash make_pure_rust_flywheel_default.sh --no-timer || bash make_pure_rust_flywheel_default.sh
-#     touch /home/agx/agentforge/.pure_rust_flywheel
-#     systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || (pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null; bash /home/agx/agentforge/grok_worker.sh & bash /home/agx/agentforge/jules_worker.sh &) || true
+#     touch /home/eveselove/agentforge/.pure_rust_flywheel
+#     systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || (pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null; bash /home/eveselove/agentforge/grok_worker.sh & bash /home/eveselove/agentforge/jules_worker.sh &) || true
 #     # POST-VERIFY (healthcheck + timer + binary provenance + candidate engine):
-#     bash /home/agx/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|pure|✅|⚠️|ONLINE" | head -12 || true
+#     bash /home/eveselove/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|pure|✅|⚠️|ONLINE" | head -12 || true
 #     systemctl --user status agentforge-flywheel.timer --no-pager 2>/dev/null | head -6 || true
-#     ls -l /home/agx/agentforge/.pure_rust_flywheel 2>/dev/null || echo "PURE marker present"
-#     /home/agx/agentforge/rust/target/release/agentforge-runner --version 2>/dev/null || true
+#     ls -l /home/eveselove/agentforge/.pure_rust_flywheel 2>/dev/null || echo "PURE marker present"
+#     /home/eveselove/agentforge/rust/target/release/agentforge-runner --version 2>/dev/null || true
 #   '
 
 # --- MASTER ROLLOUT SCRIPT (the trivial one-go farm flipper — copy-paste ready) ---
@@ -615,18 +615,18 @@ cat > /tmp/farm_pure_rust_rollout.sh << 'MASTER_ROLLOUT'
 # (agentforge-runner sole orchestration engine). Generated from bin/make_pure_rust_flywheel_default.sh
 # Turbo + safe: dry first everywhere, per-host control, full verification (binary + engine provenance), easy rollback.
 set -u
-AGENTFORGE="/home/agx/agentforge"
+AGENTFORGE="/home/eveselove/agentforge"
 cd "$AGENTFORGE" || exit 1
 
 AUTO_YES=0
 [ "${1:-}" = "--yes" ] && AUTO_YES=1
 
-# === FULL PRODUCTION FARM LIST (grok-work/* + Jetson from history) ===
+# === FULL PRODUCTION FARM LIST (grok-work/* + Erbox from history) ===
 REMOTES=(
   agent1 agent2 agent3 agent4 agent5
   ssh-1 ssh-2 ssh-3 ssh-4 ssh-5 ssh-6 ssh-7 ssh-8
   team-code team-perf team-rust team-services team-singbox team-ssh
-  agx@146.120.89.199   # jetson (primary Jetson; add others as agx@IP if discovered)
+  eveselove@146.120.89.199   # erbox (primary Erbox; add others as agx@IP if discovered)
 )
 
 # Core payload (make + env + units + pure marker + health + install + triggers + note: binary must be pre-built on remotes)
@@ -651,7 +651,7 @@ echo "Targets: ${#REMOTES[@]} remotes"
 echo "Mode: dry-first ALWAYS (VERY VISIBLE BANNERS); real only after review (${AUTO_YES:+auto} )"
 echo "Payload files: ${#PAYLOAD[@]} (binary must already exist on each remote!)"
 echo "Safety: per-host dry + binary verify + health/timer/provenance + NEW demo + candidate list + 4s throttle"
-echo "Rollback example (any host): export AGENTFORGE_FLYWHEEL_ENGINE=python; rm -f /home/agx/agentforge/.pure_rust_flywheel; touch /home/agx/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-{worker,jules-worker} || true"
+echo "Rollback example (any host): export AGENTFORGE_FLYWHEEL_ENGINE=python; rm -f /home/eveselove/agentforge/.pure_rust_flywheel; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-{worker,jules-worker} || true"
 echo "================================================================"
 
 for host in "${REMOTES[@]}"; do
@@ -667,7 +667,7 @@ for host in "${REMOTES[@]}"; do
     set -u
     mkdir -p /tmp/pure-rust-cutover
     cd /tmp/pure-rust-cutover
-    ls -l /home/agx/agentforge/rust/target/release/agentforge-runner 2>/dev/null || echo "  BINARY MISSING ON REMOTE — build first: cd /home/agx/agentforge/rust && cargo build -p agentforge-runner --release"
+    ls -l /home/eveselove/agentforge/rust/target/release/agentforge-runner 2>/dev/null || echo "  BINARY MISSING ON REMOTE — build first: cd /home/eveselove/agentforge/rust && cargo build -p agentforge-runner --release"
     echo "╔══ DRY ON REMOTE (zero mutations) ══╗"
     bash make_pure_rust_flywheel_default.sh --dry-run 2>&1 | tail -40
     echo "╚══ END DRY ON $host ══╝"
@@ -693,14 +693,14 @@ for host in "${REMOTES[@]}"; do
     cd /tmp/pure-rust-cutover
     echo "╔══ LIVE CUTOVER ON REMOTE ══╗"
     bash make_pure_rust_flywheel_default.sh --no-timer 2>&1 | tail -25 || bash make_pure_rust_flywheel_default.sh 2>&1 | tail -20
-    touch /home/agx/agentforge/.pure_rust_flywheel 2>/dev/null || true
+    touch /home/eveselove/agentforge/.pure_rust_flywheel 2>/dev/null || true
     # Safe worker bounce (user units preferred; fallback direct)
     if systemctl --user is-active --quiet agentforge-worker 2>/dev/null || systemctl --user is-active --quiet agentforge-jules-worker 2>/dev/null; then
       systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true
     else
       pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null || true
-      (nohup bash /home/agx/agentforge/grok_worker.sh > /dev/null 2>&1 &)
-      (nohup bash /home/agx/agentforge/jules_worker.sh > /dev/null 2>&1 &)
+      (nohup bash /home/eveselove/agentforge/grok_worker.sh > /dev/null 2>&1 &)
+      (nohup bash /home/eveselove/agentforge/jules_worker.sh > /dev/null 2>&1 &)
     fi
     echo "  Workers + pure defaults signalled on $host"
   ' 2>&1 | tail -30 || echo "     (ssh real warning on $host — check manually)"
@@ -709,18 +709,18 @@ for host in "${REMOTES[@]}"; do
   echo "  [4/4] POST-PUSH VERIFICATION on $host..."
   ssh -o ConnectTimeout=15 -o BatchMode=yes "$host" '
     echo "=== $host POST-VERIFY (health + timer + binary + pure provenance + demo + candidates + ACTUAL RUNS) ==="
-    bash /home/agx/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|pure|✅|⚠️|Task Queue|ONLINE|OFFLINE|engine|agentforge-runner" | head -18 || true
+    bash /home/eveselove/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|pure|✅|⚠️|Task Queue|ONLINE|OFFLINE|engine|agentforge-runner" | head -18 || true
     echo "--- Timer status ---"
     (systemctl --user status agentforge-flywheel.timer --no-pager -l 2>/dev/null | head -7) || (systemctl --user list-timers --all 2>/dev/null | grep -iE "flywheel|agentforge" | head -3) || echo "  (no user timer or system mode)"
     echo "--- Binary + provenance (flywheel/candidate/continuous) ---"
-    ls -l /home/agx/agentforge/rust/target/release/agentforge-runner 2>/dev/null || echo "  BINARY MISSING"
-    /home/agx/agentforge/rust/target/release/agentforge-runner --version 2>/dev/null || true
-    /home/agx/agentforge/rust/target/release/agentforge-runner candidate list --limit 3 2>/dev/null || true
-    /home/agx/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run 2>/dev/null | cat || true
+    ls -l /home/eveselove/agentforge/rust/target/release/agentforge-runner 2>/dev/null || echo "  BINARY MISSING"
+    /home/eveselove/agentforge/rust/target/release/agentforge-runner --version 2>/dev/null || true
+    /home/eveselove/agentforge/rust/target/release/agentforge-runner candidate list --limit 3 2>/dev/null || true
+    /home/eveselove/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run 2>/dev/null | cat || true
     echo "--- NEW DEMO SCRIPT (actual) ---"
-    python /home/agx/agentforge/rust_flywheel_demo.py --help 2>/dev/null | head -8 || echo "  (demo probe)"
+    python /home/eveselove/agentforge/rust_flywheel_demo.py --help 2>/dev/null | head -8 || echo "  (demo probe)"
     echo "--- Pure marker + env + PYTHON CANDIDATE LIST + manifest sample ---"
-    ls -l /home/agx/agentforge/.pure_rust_flywheel /home/agx/agentforge/.disable_pure_rust_flywheel 2>/dev/null || echo "  PURE marker (or env-driven)"
+    ls -l /home/eveselove/agentforge/.pure_rust_flywheel /home/eveselove/agentforge/.disable_pure_rust_flywheel 2>/dev/null || echo "  PURE marker (or env-driven)"
     python -m agentforge.list_pending_candidates list --limit 3 2>/dev/null | cat || true
     echo "  (Inspect recent pending_candidates/*/*manifest*.json for engine:rust-agentforge-runner)"
     echo "=== $host VERIFY END ==="
@@ -734,20 +734,20 @@ echo ""
 echo "================================================================"
 echo "=== FARM ROLLOUT COMPLETE ==="
 echo "Next steps on MAIN (Pure Rust Flywheel Default now live everywhere):"
-echo "  bash /home/agx/agentforge/healthcheck.sh | grep -E \"Flywheel|Timer|Rust|pure|agentforge-runner\""
+echo "  bash /home/eveselove/agentforge/healthcheck.sh | grep -E \"Flywheel|Timer|Rust|pure|agentforge-runner\""
 echo "  python rust_flywheel_demo.py --help | cat   # NEW Phase 3 demo script"
-echo "  /home/agx/agentforge/rust/target/release/agentforge-runner candidate list --limit 5"
-echo "  /home/agx/agentforge/rust/target/release/agentforge-runner continuous --top-n 2 --dry-run"
-echo "  /home/agx/agentforge/rust/target/release/agentforge-runner flywheel-step --real-data --limit 5 --output-dir /tmp/pure_verify"
+echo "  /home/eveselove/agentforge/rust/target/release/agentforge-runner candidate list --limit 5"
+echo "  /home/eveselove/agentforge/rust/target/release/agentforge-runner continuous --top-n 2 --dry-run"
+echo "  /home/eveselove/agentforge/rust/target/release/agentforge-runner flywheel-step --real-data --limit 5 --output-dir /tmp/pure_verify"
 echo "  python -m agentforge.list_pending_candidates list --limit 5 --sort value"
 echo "  systemctl --user status agentforge-flywheel.timer || true"
 echo "  ls -l /tmp/agentforge_rust_flywheel/ ; cat /tmp/agentforge_rust_flywheel/flywheel_health.json 2>/dev/null | head -c 800"
 echo ""
 echo "Per-host rollback (example):"
-echo "  ssh agent3 'export AGENTFORGE_FLYWHEEL_ENGINE=python; rm -f /home/agx/agentforge/.pure_rust_flywheel; touch /home/agx/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-worker agentforge-jules-worker || true'"
+echo "  ssh agent3 'export AGENTFORGE_FLYWHEEL_ENGINE=python; rm -f /home/eveselove/agentforge/.pure_rust_flywheel; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-worker agentforge-jules-worker || true'"
 echo ""
 echo "Re-arm pure default on any host:"
-echo "  ssh HOST 'bash /home/agx/agentforge/bin/make_pure_rust_flywheel_default.sh'"
+echo "  ssh HOST 'bash /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh'"
 echo "================================================================"
 MASTER_ROLLOUT
 chmod +x /tmp/farm_pure_rust_rollout.sh
@@ -781,7 +781,7 @@ export AGENTFORGE_FLYWHEEL_ENGINE=python
 export AGENTFORGE_PURE_RUST_FLYWHEEL=0
 
 # Stronger (survives restarts + workers + units):
-touch /home/agx/agentforge/.disable_pure_rust_flywheel
+touch /home/eveselove/agentforge/.disable_pure_rust_flywheel
 export DISABLE_RUST_FLYWHEEL=1   # ultimate existing killswitch (honored in every guard + binary paths)
 
 # Then restart workers + timer (user mode preferred):
@@ -793,26 +793,26 @@ systemctl --user restart agentforge-flywheel.timer 2>/dev/null || true
 # =============================================================================
 # 1. Restore every patched file from the .bak.purecutover backups created by this script:
 for f in \
-  /home/agx/agentforge/agentforge-flywheel.service \
-  /home/agx/agentforge/agentforge-flywheel.timer \
-  /home/agx/agentforge/grok_worker.sh \
-  /home/agx/agentforge/jules_worker.sh \
-  /home/agx/agentforge/dispatcher.sh \
-  /home/agx/agentforge/agents/grok_runner.sh \
-  /home/agx/agentforge/agents/jules_runner.sh \
-  /home/agx/agentforge/agents/agy_runner.sh \
-  /home/agx/agentforge/agents/gemini_runner.sh \
-  /home/agx/agentforge/bin/rust_flywheel_after_task.sh \
-  /home/agx/agentforge/bin/run_continuous_flywheel.sh \
-  /home/agx/agentforge/bin/run_continuous_flywheel.py \
-  /home/agx/agentforge/healthcheck.sh \
-  /home/agx/agentforge/bin/rust_flywheel.env \
-  /home/agx/agentforge/install_services.sh \
-  /home/agx/agentforge/agentforge-worker.service \
-  /home/agx/agentforge/agentforge-jules-worker.service \
-  /home/agx/agentforge/agentforge-api.service \
-  /home/agx/agentforge/agentforge-watchdog.service \
-  /home/agx/agentforge/agentforge.service \
+  /home/eveselove/agentforge/agentforge-flywheel.service \
+  /home/eveselove/agentforge/agentforge-flywheel.timer \
+  /home/eveselove/agentforge/grok_worker.sh \
+  /home/eveselove/agentforge/jules_worker.sh \
+  /home/eveselove/agentforge/dispatcher.sh \
+  /home/eveselove/agentforge/agents/grok_runner.sh \
+  /home/eveselove/agentforge/agents/jules_runner.sh \
+  /home/eveselove/agentforge/agents/agy_runner.sh \
+  /home/eveselove/agentforge/agents/gemini_runner.sh \
+  /home/eveselove/agentforge/bin/rust_flywheel_after_task.sh \
+  /home/eveselove/agentforge/bin/run_continuous_flywheel.sh \
+  /home/eveselove/agentforge/bin/run_continuous_flywheel.py \
+  /home/eveselove/agentforge/healthcheck.sh \
+  /home/eveselove/agentforge/bin/rust_flywheel.env \
+  /home/eveselove/agentforge/install_services.sh \
+  /home/eveselove/agentforge/agentforge-worker.service \
+  /home/eveselove/agentforge/agentforge-jules-worker.service \
+  /home/eveselove/agentforge/agentforge-api.service \
+  /home/eveselove/agentforge/agentforge-watchdog.service \
+  /home/eveselove/agentforge/agentforge.service \
 ; do
   if [ -f "${f}.bak.purecutover" ]; then
     cp -f "${f}.bak.purecutover" "$f" && echo "Restored $f from backup"
@@ -823,7 +823,7 @@ done
 systemctl --user daemon-reload 2>/dev/null || sudo systemctl daemon-reload 2>/dev/null || true
 
 # 3. Clean pure markers (keeps base Rust/Antigravity paths if wanted):
-rm -f /home/agx/agentforge/.pure_rust_flywheel /home/agx/agentforge/.disable_pure_rust_flywheel 2>/dev/null || true
+rm -f /home/eveselove/agentforge/.pure_rust_flywheel /home/eveselove/agentforge/.disable_pure_rust_flywheel 2>/dev/null || true
 
 # 4. Force Python engine for any lingering processes:
 pkill -f 'agentforge-runner.*(flywheel|continuous|candidate)' 2>/dev/null || true
@@ -836,8 +836,8 @@ DISABLE_RUST_FLYWHEEL=1 AGENTFORGE_PURE_RUST_FLYWHEEL=0 python -m agentforge.lis
 # bash bin/disable_pure_rust_flywheel.sh
 
 # Re-arm pure default (one command, after binary verified):
-bash /home/agx/agentforge/bin/make_pure_rust_flywheel_default.sh --dry-run
-bash /home/agx/agentforge/bin/make_pure_rust_flywheel_default.sh
+bash /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh --dry-run
+bash /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh
 
 # Evidence that rollback is respected: post_process.py (pure_rust branch), phase2_3_integration.py,
 # learning/utils.py:is_pure_rust_flywheel(), all patched *_worker.sh + hooks + continuous,
@@ -847,7 +847,7 @@ bash /home/agx/agentforge/bin/make_pure_rust_flywheel_default.sh
 # To restore full Antigravity (non-pure) default: bash bin/make_antigravity_default.sh
 
 # Farm-wide rollback one-liner example (from main):
-# for h in agent1 ssh-3 ...; do ssh $h 'export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/agx/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-worker agentforge-jules-worker || true'; done
+# for h in agent1 ssh-3 ...; do ssh $h 'export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-worker agentforge-jules-worker || true'; done
 
 # === POST-ROLLBACK SOAK (symmetric to cutover soak) ===
 # After rollback: 30-60min monitoring to confirm zero pure paths, all candidates via Python/legacy, no engine=rust in new manifests.
@@ -865,7 +865,7 @@ log "CUTOVER SCRIPT NOW PRODUCTION-READY FOR FARM ROLLOUT"
 # Final safe dry verification using the pure binary (reuses all paths)
 if [ $DRY_RUN -eq 0 ]; then
     log "Final safe verification dry-run via pure binary continuous path..."
-    env PYTHONPATH=/home/agx AGENTFORGE_PURE_RUST_FLYWHEEL=1 AGENTFORGE_FLYWHEEL_ENGINE=rust timeout 25s "$RUST_RELEASE_BIN" continuous --top-n 1 --dry-run 2>&1 | tail -12 || true
+    env PYTHONPATH=/home/eveselove AGENTFORGE_PURE_RUST_FLYWHEEL=1 AGENTFORGE_FLYWHEEL_ENGINE=rust timeout 25s "$RUST_RELEASE_BIN" continuous --top-n 1 --dry-run 2>&1 | tail -12 || true
 fi
 
 exit 0

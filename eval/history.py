@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 # Configurable via env for portability, CI, and testing.
-# Default: package-local 'history/' directory (much better than hardcoded /home/agx/...).
+# Default: package-local 'history/' directory (much better than hardcoded /home/eveselove/...).
 _DEFAULT_HISTORY_DIR = Path(__file__).parent / "history"
 HISTORY_DIR = Path(
     os.environ.get("AGENTFORGE_EVAL_HISTORY_DIR", str(_DEFAULT_HISTORY_DIR))

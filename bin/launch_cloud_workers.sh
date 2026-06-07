@@ -14,8 +14,8 @@ set -e
 KEY_ALIAS="${1:-}"
 COUNT="${2:-2}"
 
-ENV_DIR="/home/agx/agentforge"
-LOG_DIR="/home/agx/agentforge/logs"
+ENV_DIR="/home/eveselove/agentforge"
+LOG_DIR="/home/eveselove/agentforge/logs"
 
 mkdir -p "$LOG_DIR"
 

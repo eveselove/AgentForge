@@ -15,7 +15,7 @@
   - 77af07e9 (X1 plan doc sync)
   - f52e7b56 (Review+handoff for current P2 runner branch)
   - 33b7aff5 (Review+handoff for c2492e01-rust-ci branch)
-- 6 pending remain (all medium, preferred_agent=antigravity — Jetson parsing dashboard / АнализТЦ work). Isolated from main CM farm focus.
+- 6 pending remain (all medium, preferred_agent=antigravity — Erbox parsing dashboard / АнализТЦ work). Isolated from main CM farm focus.
 - Current queue is much cleaner: 2 dispatched (D-Day finals running), 4 high CM + 6 antigravity pending, 16 failed (mostly Jules Rust migration + some P4 dogfood + parsing).
 
 **Actions taken in this intervention pass:**
@@ -65,7 +65,7 @@ Status will be updated by agents + manual passes.
 - Next (immediate, this session): gh pr create referencing handoff + note + b477ca99; monitor; merge; branch delete; task updates.
 - Backlog impact: P1 final handoff now unblocked (one less stuck CM item). ~174 handoffs total still applies; this was the critical P1 gate.
 
-**Handoff package for b477ca99**: /home/agx/.grok/handoffs/6cbb2bb1/
+**Handoff package for b477ca99**: /home/eveselove/.grok/handoffs/6cbb2bb1/
 **Branch**: agent/d1-d2-branch-protection-3cdd6813 (tip 5a43568)
 **Ruleset**: 17085567 (live + matched)
 

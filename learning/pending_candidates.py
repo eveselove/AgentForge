@@ -41,7 +41,7 @@ from .utils import is_pure_rust_flywheel
 PENDING_DIR = Path(
     os.environ.get(
         "AGENTFORGE_PENDING_CANDIDATES_DIR",
-        os.environ.get("AGENTFORGE_PENDING_CANDIDATES", "/home/agx/agentforge/pending_candidates"),
+        os.environ.get("AGENTFORGE_PENDING_CANDIDATES", "/home/eveselove/agentforge/pending_candidates"),
     )
 )
 PENDING_DIR.mkdir(parents=True, exist_ok=True)

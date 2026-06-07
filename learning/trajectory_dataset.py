@@ -984,7 +984,7 @@ Optional Rust acceleration for heavy learning operations.
 When the compiled Rust binary is available (built with `cargo build -p agentforge-runner` or --release),
 set the environment variable:
 
-    export AGENTFORGE_RUST_RUNNER=/home/agx/agentforge/rust/target/release/agentforge-runner
+    export AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 
 or let the code auto-discover it (prefers release for production, falls back to debug).
 
@@ -1022,10 +1022,10 @@ def find_rust_runner() -> Optional[Path]:
 
     # Production: prefer release (smaller, faster exec), then debug dev
     candidates = [
-        Path("/home/agx/agentforge/rust/target/release/agentforge-runner"),
+        Path("/home/eveselove/agentforge/rust/target/release/agentforge-runner"),
         Path(__file__).parent.parent / "rust" / "target" / "release" / "agentforge-runner",
         Path.cwd() / "rust" / "target" / "release" / "agentforge-runner",
-        Path("/home/agx/agentforge/rust/target/debug/agentforge-runner"),
+        Path("/home/eveselove/agentforge/rust/target/debug/agentforge-runner"),
         Path(__file__).parent.parent / "rust" / "target" / "debug" / "agentforge-runner",
         Path.cwd() / "rust" / "target" / "debug" / "agentforge-runner",
     ]

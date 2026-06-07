@@ -19,7 +19,7 @@
 3. Generated HANDOFF_ID=429505e0, umask 077, package dir.
 4. Collected full diff (tracked + untracked) + rich context (user query verbatim, task IDs, risk areas, git state).
 5. Wrote portable handoff artifacts (diff, context, metadata, instructions).
-6. Launched independent reviewer: `GROK_AGENT_REVIEW=1 grok --agent jules -p "$(cat REVIEW_INSTRUCTIONS.md)" --cwd /home/agx/agentforge --always-approve --output-format json` (background task 019e7e7a-347d-7932-a178-388c849f4062, tee to reviewer_launch.log).
+6. Launched independent reviewer: `GROK_AGENT_REVIEW=1 grok --agent jules -p "$(cat REVIEW_INSTRUCTIONS.md)" --cwd /home/eveselove/agentforge --always-approve --output-format json` (background task 019e7e7a-347d-7932-a178-388c849f4062, tee to reviewer_launch.log).
 7. This record created for traceability.
 
 **Jules Launch**: Backgrounded. Poll with:
@@ -38,7 +38,7 @@
 **Related**:
 - Prior identical-process handoff: 9007ab7d (task 14c220fc P2 docs)
 - Jules agent def: ~/.grok/agents/jules.md
-- Skill: /home/agx/.grok/skills/agent-review/SKILL.md
+- Skill: /home/eveselove/.grok/skills/agent-review/SKILL.md
 - AGENTS.md section on Mandatory Post-Work Agent-Review
 
 Handoff created and reviewer launched per spec. Result file pending Jules completion.

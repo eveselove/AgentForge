@@ -110,7 +110,7 @@ class ActionApprovalLayer:
 
 
 def create_default_approval_layer(
-    project_root: str = "/home/agx/planlytasksko",
+    project_root: str = "/home/eveselove/planlytasksko",
     enable_human_hook: bool = False,
 ) -> ActionApprovalLayer:
     """Ready-to-use production-grade approval layer for most AgentForge workloads."""

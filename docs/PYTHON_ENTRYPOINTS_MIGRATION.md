@@ -11,7 +11,9 @@
 
 Обнаружено **14 Python-файлов**, которые создают, обновляют или управляют задачами через HTTP API (localhost:8080).
 Из них **5 файлов** — скрипты массового создания задач (create_*.py),
-**5 файлов** — утилиты управления (ix_*, eassign, eset_fakes, pprove_tasks),
+**5 файлов** — утилиты управления (ix_*, 
+eassign, 
+eset_fakes, pprove_tasks),
 **2 файла** — eval-система (только GET-запросы),
 **1 файл** — MCP-сервер (мост для IDE),
 **1 файл** — core API (	ask_queue.py).
@@ -24,7 +26,8 @@
 
 | # | Файл | Метод HTTP | Библиотека | Кол-во задач | Описание | Целевой Rust-путь |
 |---|------|-----------|------------|-------------|----------|-------------------|
-| 1 | create_tasks.py | POST /tasks | equests | 12 | Основные задачи (Auto-Decompose, Code Review, SLA и т.д.) | gentforge-runner task create --from-file tasks.json |
+| 1 | create_tasks.py | POST /tasks | 
+equests | 12 | Основные задачи (Auto-Decompose, Code Review, SLA и т.д.) | gentforge-runner task create --from-file tasks.json |
 | 2 | create_arch_tasks.py | POST /tasks | urllib | 4 | Архитектурные задачи (DAG, делегирование, RepoMap, MCP) | gentforge-runner task create --from-file arch_tasks.json |
 | 3 | create_tasks_v2.py | POST /tasks | urllib | 11 | Продвинутые задачи v2 (PRM, MoA, DSPy, Cost Tracking) | gentforge-runner task create --from-file tasks_v2.json |
 | 4 | create_final_100_tasks.py | POST /tasks | urllib | 5 | Финальные задачи AGI (Actor-Critic, RAG, Watchdog) | gentforge-runner task create --from-file final_tasks.json |
@@ -50,10 +53,14 @@ agentforge-runner task create --from-file tasks.json
 | # | Файл | Операции | Библиотека | Описание | Целевой Rust-путь |
 |---|------|----------|------------|----------|-------------------|
 | 6 | ix_antigravity_tasks.py | GET /tasks, PATCH /tasks/{id} | urllib | Переназначает застрявшие задачи с Antigravity на Grok. Поддерживает --dry-run, --force. Фильтрует по тегам глубокого анализа. | gentforge-runner task reassign --from antigravity --to grok [--dry-run] [--force] |
-| 7 | eassign.py | GET /tasks, PATCH /tasks/{id} | urllib | Упрощённый reassign: переводит pending задачи с нестандартных агентов на grok. | gentforge-runner task reassign --pending-only --to grok |
-| 8 | ix_stuck_tasks.py | PATCH /tasks/{id} | urllib | Обновляет статус конкретных hardcoded задач → eview. | gentforge-runner task update {id} --status review --result ... |
-| 9 | eset_fakes.py | GET /tasks, PATCH /tasks/{id} | urllib | Сбрасывает фейковые задачи (done за 0 секунд) обратно в pending. | gentforge-runner task reset-fakes |
-| 10 | pprove_tasks.py | GET /tasks, PATCH /tasks/{id} | urllib | Массово одобряет задачи в статусе eview → done. | gentforge-runner task approve --all-review |
+| 7 | 
+eassign.py | GET /tasks, PATCH /tasks/{id} | urllib | Упрощённый reassign: переводит pending задачи с нестандартных агентов на grok. | gentforge-runner task reassign --pending-only --to grok |
+| 8 | ix_stuck_tasks.py | PATCH /tasks/{id} | urllib | Обновляет статус конкретных hardcoded задач → 
+eview. | gentforge-runner task update {id} --status review --result ... |
+| 9 | 
+eset_fakes.py | GET /tasks, PATCH /tasks/{id} | urllib | Сбрасывает фейковые задачи (done за 0 секунд) обратно в pending. | gentforge-runner task reset-fakes |
+| 10 | pprove_tasks.py | GET /tasks, PATCH /tasks/{id} | urllib | Массово одобряет задачи в статусе 
+eview → done. | gentforge-runner task approve --all-review |
 
 ---
 
@@ -78,7 +85,8 @@ agentforge-runner task create --from-file tasks.json
 
 **Примечание:** MCP-сервер — это прокси, который пробрасывает вызовы к HTTP API task_queue.
 Если task_queue мигрирует в Rust, mcp_server может остаться как тонкий Python-прокси
-(минимальный размер, нет бизнес-логики) или быть переписан через mcp (Rust MCP SDK).
+(минимальный размер, нет бизнес-логики) или быть переписан через 
+mcp (Rust MCP SDK).
 
 ---
 
@@ -137,7 +145,8 @@ agentforge-runner task reset-fakes
 agentforge-runner stats [--json]
 `
 
-**Зависимость:** Требует HTTP-клиент в Rust (eqwest) для обращений к task_queue.py API.
+**Зависимость:** Требует HTTP-клиент в Rust (
+eqwest) для обращений к task_queue.py API.
 Это минимальный объём работы, и сразу позволит удалить все скрипты Категорий 1-3.
 
 ### Фаза 2: Нативный Rust Task Service
@@ -147,7 +156,8 @@ agentforge-runner stats [--json]
 
 ### Фаза 3: Eval + MCP в Rust
 - Переписать eval GET-запросы на Rust.
-- MCP-сервер: либо оставить как тонкий мост, либо переписать через mcp.
+- MCP-сервер: либо оставить как тонкий мост, либо переписать через 
+mcp.
 
 ---
 
@@ -155,18 +165,18 @@ agentforge-runner stats [--json]
 
 После завершения Фазы 1 (CLI) можно безопасно удалить:
 `
-/home/agx/agentforge/create_tasks.py
-/home/agx/agentforge/create_arch_tasks.py
-/home/agx/agentforge/create_tasks_v2.py
-/home/agx/agentforge/create_final_100_tasks.py
-/home/agx/agentforge/create_teamwork_tasks.py
-/home/agx/agentforge/fix_antigravity_tasks.py
-/home/agx/agentforge/fix_stuck_tasks.py
-/home/agx/agentforge/reassign.py
-/home/agx/agentforge/reset_fakes.py
-/home/agx/agentforge/approve_tasks.py
-/home/agx/agentforge/check_status.py
-/home/agx/agentforge/show_agent_stats.py
+/home/eveselove/agentforge/create_tasks.py
+/home/eveselove/agentforge/create_arch_tasks.py
+/home/eveselove/agentforge/create_tasks_v2.py
+/home/eveselove/agentforge/create_final_100_tasks.py
+/home/eveselove/agentforge/create_teamwork_tasks.py
+/home/eveselove/agentforge/fix_antigravity_tasks.py
+/home/eveselove/agentforge/fix_stuck_tasks.py
+/home/eveselove/agentforge/reassign.py
+/home/eveselove/agentforge/reset_fakes.py
+/home/eveselove/agentforge/approve_tasks.py
+/home/eveselove/agentforge/check_status.py
+/home/eveselove/agentforge/show_agent_stats.py
 `
 
 **Итого: 12 файлов к удалению.**
@@ -177,7 +187,8 @@ agentforge-runner stats [--json]
 
 | Библиотека | Используется в | Можно удалить после |
 |------------|----------------|---------------------|
-| equests | create_tasks.py | Фаза 1 |
+| 
+equests | create_tasks.py | Фаза 1 |
 | urllib.request | Все остальные скрипты | Фаза 1 |
 | FastAPI + uvicorn | 	ask_queue.py | Фаза 2 |
 | iosqlite / sqlite3 | 	ask_queue.py | Фаза 2 |

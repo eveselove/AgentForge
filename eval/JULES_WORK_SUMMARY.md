@@ -6,7 +6,7 @@
 ## What Was Delivered
 
 ### 1. High-Quality Unit Tests (23 tests, all passing)
-Created `/home/agx/agentforge/eval/tests/` with hermetic, well-commented tests:
+Created `/home/eveselove/agentforge/eval/tests/` with hermetic, well-commented tests:
 
 - **test_regression.py** (9 tests)
   - Sufficient/insufficient history
@@ -39,7 +39,7 @@ All tests use `unittest.mock`, never touch real filesystem or external services.
 # From inside agentforge/ directory
 python eval/run_tests.py
 
-# From parent directory (/home/agx or wherever agentforge/ lives as subdir)
+# From parent directory (/home/eveselove or wherever agentforge/ lives as subdir)
 PYTHONPATH=. python -m agentforge.eval.run_tests
 ```
 
@@ -61,7 +61,7 @@ Updated `README.md`:
 - **Made paths configurable** (critical for real testability + portability):
   - `history.py`: `AGENTFORGE_EVAL_HISTORY_DIR` env (default: package-local `history/`)
   - `analyze_trajectories.py`: `AGENTFORGE_EVAL_TRAJECTORIES_DIR`
-  - `trajectory.py`: same env + updated default constructor (no more hardcoded `/home/agx/...`)
+  - `trajectory.py`: same env + updated default constructor (no more hardcoded `/home/eveselove/...`)
 - Fixed latent crash bugs that prevented the package from even importing in clean environments:
   - `schemas.py`: Reordered `EvaluationResult` dataclass fields (non-defaults must precede defaults)
   - `runner.py`: Added missing `Dict`, `Any`, `List` to typing imports

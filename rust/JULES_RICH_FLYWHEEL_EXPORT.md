@@ -8,7 +8,7 @@ Production-grade `flywheel-export` (alias `export-learning`) subcommand in `agen
 agentforge-runner flywheel-export --trajectories DIR --prm-dir DIR (or --input) --output FILE [--format json|jsonl] [--min-prm F]
 ```
 
-- Walks real `trajectories/*.jsonl` + matching `*.prm.json` sidecars (e.g. `/home/agx/agentforge/eval/trajectories`).
+- Walks real `trajectories/*.jsonl` + matching `*.prm.json` sidecars (e.g. `/home/eveselove/agentforge/eval/trajectories`).
 - Also accepts `eval/results` via `--input` or `--results`.
 - Loads exclusively via existing `TrajectoryDataset` logic (`load_flywheel_data`, `load_from_real_input`, `enrich_from_prm_sidecars`, `compute_learning_value` + extensions for separate `--prm-dir` and rich bundle export).
 - Rich structured output always contains:
@@ -26,12 +26,12 @@ agentforge-runner flywheel-export --trajectories DIR --prm-dir DIR (or --input) 
 ## Sample Invocation (on real farm data)
 
 ```bash
-cd /home/agx/agentforge/rust
+cd /home/eveselove/agentforge/rust
 ./target/debug/agentforge-runner --json \
   flywheel-export \
-  --trajectories /home/agx/agentforge/eval/trajectories \
-  --prm-dir /home/agx/agentforge/eval/trajectories \
-  --results /home/agx/agentforge/eval/results \
+  --trajectories /home/eveselove/agentforge/eval/trajectories \
+  --prm-dir /home/eveselove/agentforge/eval/trajectories \
+  --results /home/eveselove/agentforge/eval/results \
   --output /tmp/flywheel_rich_final.json \
   --format json \
   --min-prm 0.55

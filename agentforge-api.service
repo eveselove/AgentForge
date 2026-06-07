@@ -11,14 +11,14 @@ Wants=network-online.target
 Type=simple
 User=agx
 Group=agx
-WorkingDirectory=/home/agx/agentforge
-Environment=PATH=/home/agx/.local/bin:/home/agx/.cargo/bin:/home/agx/.grok/bin:/usr/local/bin:/usr/bin:/bin
-Environment=PROTOC=/home/agx/.local/bin/protoc
+WorkingDirectory=/home/eveselove/agentforge
+Environment=PATH=/home/eveselove/.local/bin:/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PROTOC=/home/eveselove/.local/bin/protoc
 ExecStart=/usr/bin/python3 -m uvicorn task_queue:app --host 0.0.0.0 --port 8080
 Restart=always
 RestartSec=5
-StandardOutput=append:/home/agx/agentforge/logs/server.log
-StandardError=append:/home/agx/agentforge/logs/server.log
+StandardOutput=append:/home/eveselove/agentforge/logs/server.log
+StandardError=append:/home/eveselove/agentforge/logs/server.log
 
 # Автоперезапуск при падении
 StartLimitIntervalSec=300

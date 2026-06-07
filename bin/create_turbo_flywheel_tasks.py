@@ -10,7 +10,7 @@ import uuid
 import datetime
 import json
 
-DB_PATH = "/home/agx/agentforge/tasks.db"
+DB_PATH = "/home/eveselove/agentforge/tasks.db"
 
 TASKS = [
     {

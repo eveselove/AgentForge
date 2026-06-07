@@ -50,7 +50,7 @@ _No declining trends in current window._
 ### 🟢 High-Impact Opportunities
 - No major red flags in recent data. Keep running evaluations to surface opportunities.
 - Consider running a broader set of real benchmarks (especially the ones with least recent data) to get better visibility.
-- 2 learning dataset(s) already exported in `/home/agx/agentforge/eval/learning_datasets` — ready for trajectory-based training (PRM/DPO).
+- 2 learning dataset(s) already exported in `/home/eveselove/agentforge/eval/learning_datasets` — ready for trajectory-based training (PRM/DPO).
 
 ### ⚡ Quick Wins & Hygiene
 - No major red flags in recent data. Keep running evaluations to surface opportunities.

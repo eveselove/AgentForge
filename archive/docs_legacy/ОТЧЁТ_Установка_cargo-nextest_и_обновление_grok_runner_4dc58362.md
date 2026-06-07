@@ -32,10 +32,10 @@
 
 | Файл | Изменения | Назначение |
 |------|-----------|------------|
-| `/home/agx/agentforge/scripts/ensure_rust_devtools.sh` | + ~80 строк: поддержка cargo-nextest в `is_installed`/`get_version`, новый "Шаг 3/3", обновлены все комментарии/итоги | Централизованная, идемпотентная установка nextest (binstall 5-6с для aarch64) |
-| `/home/agx/agentforge/agents/grok_runner.sh` | + вызов ensure в начале (после cargo opt), замена ~25 строк CI-блока на чистую логику nextest + комментарии | Основной runner агентов — теперь nextest всегда готов и используется правильно |
-| `/home/agx/agentforge/skills/rust-fix.yaml` | Обновлён комментарий + ci_checks: `cargo test --all` → `cargo nextest run` | Playbook-путь (через SKILL_CI_CHECKS) тоже ускорен |
-| `/home/agx/agentforge/skills/rust_fix.yaml` | `cargo test` → `cargo nextest run` в шаге `run_tests` | Консистентность для ручного/автоматического применения rust_fix |
+| `/home/eveselove/agentforge/scripts/ensure_rust_devtools.sh` | + ~80 строк: поддержка cargo-nextest в `is_installed`/`get_version`, новый "Шаг 3/3", обновлены все комментарии/итоги | Централизованная, идемпотентная установка nextest (binstall 5-6с для aarch64) |
+| `/home/eveselove/agentforge/agents/grok_runner.sh` | + вызов ensure в начале (после cargo opt), замена ~25 строк CI-блока на чистую логику nextest + комментарии | Основной runner агентов — теперь nextest всегда готов и используется правильно |
+| `/home/eveselove/agentforge/skills/rust-fix.yaml` | Обновлён комментарий + ci_checks: `cargo test --all` → `cargo nextest run` | Playbook-путь (через SKILL_CI_CHECKS) тоже ускорен |
+| `/home/eveselove/agentforge/skills/rust_fix.yaml` | `cargo test` → `cargo nextest run` в шаге `run_tests` | Консистентность для ручного/автоматического применения rust_fix |
 
 (Копии в worktree не трогались — они ephemeral.)
 
@@ -50,7 +50,7 @@ $ cargo binstall cargo-nextest --locked -y
 host: aarch64-unknown-linux-gnu
 ```
 
-- Бинарь: `/home/agx/.cargo/bin/cargo-nextest` (21 МБ, **ARM aarch64**, interpreter `/lib/ld-linux-aarch64.so.1`)
+- Бинарь: `/home/eveselove/.cargo/bin/cargo-nextest` (21 МБ, **ARM aarch64**, interpreter `/lib/ld-linux-aarch64.so.1`)
 - Совместим с glibc 2.35 (Ubuntu 22.04) — в отличие от некоторых prebuilt machete.
 - `cargo nextest --version` и `cargo nextest run --help` работают без ошибок.
 - Время установки через binstall: **< 6 секунд** (prebuilt с GitHub releases nextest).

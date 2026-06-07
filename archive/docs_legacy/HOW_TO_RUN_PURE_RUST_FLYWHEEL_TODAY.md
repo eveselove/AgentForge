@@ -16,7 +16,7 @@
 ## 1. Prerequisites (one-time)
 
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 
 # Build the single binary (release = prod; debug for dev)
 cd rust && cargo build -p agentforge-runner --release
@@ -28,7 +28,7 @@ cd rust && cargo build -p agentforge-runner --release
 ```
 
 Binary location (auto-discovered by bridges + utils):
-- `/home/agx/agentforge/rust/target/release/agentforge-runner` (preferred)
+- `/home/eveselove/agentforge/rust/target/release/agentforge-runner` (preferred)
 - Or debug fallback.
 
 ---
@@ -36,7 +36,7 @@ Binary location (auto-discovered by bridges + utils):
 ## 2. Direct Pure Rust Commands (Fastest — Zero Python)
 
 ```bash
-RELEASE_BIN=/home/agx/agentforge/rust/target/release/agentforge-runner
+RELEASE_BIN=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 
 # === FLYWHEEL-STEP (replaces python -m agentforge.rust_flywheel_step entirely) ===
 # Real farm data → proposal + candidate_skill.yaml + flywheel_manifest.json + ingest to pending_candidates/
@@ -85,7 +85,7 @@ export AGENTFORGE_FLYWHEEL_ENGINE=rust
 export AGENTFORGE_PURE_RUST_FLYWHEEL=1
 
 # Or marker (persistent, picked by all guards)
-touch /home/agx/agentforge/.pure_rust_flywheel
+touch /home/eveselove/agentforge/.pure_rust_flywheel
 
 # Then normal Python entrypoints auto-route (non-breaking):
 AGENTFORGE_PURE_RUST_FLYWHEEL=1 python -m agentforge.rust_flywheel_step --real-data --limit 10
@@ -138,7 +138,7 @@ export AGENTFORGE_PURE_RUST_FLYWHEEL=0
 # Strong (survives restarts) — prefer the one-command script (see 100_PERCENT_VICTORY_ANNOUNCEMENT.md)
 bash bin/disable_pure_rust_flywheel.sh
 # Manual equivalent:
-touch /home/agx/agentforge/.disable_pure_rust_flywheel
+touch /home/eveselove/agentforge/.disable_pure_rust_flywheel
 export DISABLE_RUST_FLYWHEEL=1
 
 # Restart affected
@@ -153,8 +153,8 @@ systemctl --user restart agentforge-worker agentforge-jules-worker agentforge-fl
 
 ```bash
 # Binary
-/home/agx/agentforge/rust/target/release/agentforge-runner candidate list --top 3
-/home/agx/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run --json
+/home/eveselove/agentforge/rust/target/release/agentforge-runner candidate list --top 3
+/home/eveselove/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run --json
 cat /tmp/agentforge_rust_flywheel/flywheel_health.json
 
 # Python side (still works)

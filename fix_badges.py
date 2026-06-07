@@ -5,7 +5,7 @@ See RUST_ONLY_MIGRATION_PLAN.md
 
 #!/usr/bin/env python3
 """Убрать нумерацию агентов — оставить только имя"""
-with open("/home/agx/agentforge/dashboard.html", "r") as f:
+with open("/home/eveselove/agentforge/dashboard.html", "r") as f:
     c = f.read()
 
 # Ищем блок с agentCount и agentName
@@ -35,9 +35,9 @@ else:
     )
     print("✅ Убрана нумерация (regex fallback)")
 
-with open("/home/agx/agentforge/dashboard.html", "w") as f:
+with open("/home/eveselove/agentforge/dashboard.html", "w") as f:
     f.write(c)
 
 # Проверяем
 import subprocess
-subprocess.run(["grep", "-n", "agentName", "/home/agx/agentforge/dashboard.html"])
+subprocess.run(["grep", "-n", "agentName", "/home/eveselove/agentforge/dashboard.html"])

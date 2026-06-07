@@ -21,7 +21,7 @@
 > "доделай до менржа" — completed. Plan is now literally 100% closed.
 
 **Current Reality (as of this plan):**
-- Code lives only at `/home/agx/agentforge/`
+- Code lives only at `/home/eveselove/agentforge/`
 - Local Git repository on `master` with **zero remotes**
 - ~600+ uncommitted changes (very dirty tree)
 - 8 Rust crates in a workspace + large Python + shell + systemd surface
@@ -94,7 +94,7 @@ AgentForge should be developed like a frontier agentic system:
 - [x] All future development of AgentForge itself goes through the internal task queue with `preferred_agent` routing (all active tasks closed via queue)
 - [ ] Use the Rust flywheel on trajectories produced while developing AgentForge
 - [ ] Close the loop: improving the code management system itself feeds the flywheel
-- [x] Проведен обязательный аудит (compliance audit) всех задач закрытия CM/Phase 1-3 на соответствие правилам AGENTS.md (результаты в [docs/WAVE_COMPLIANCE_REPORT.md](file:///home/agx/agentforge/docs/WAVE_COMPLIANCE_REPORT.md))
+- [x] Проведен обязательный аудит (compliance audit) всех задач закрытия CM/Phase 1-3 на соответствие правилам AGENTS.md (результаты в [docs/WAVE_COMPLIANCE_REPORT.md](file:///home/eveselove/agentforge/docs/WAVE_COMPLIANCE_REPORT.md))
 
 ---
 
@@ -169,7 +169,7 @@ Both reviews are now formally closed in the repository history.
 - P1: 92% (mirror SSoT declared in CONTRIBUTING, branch protection script+docs polished, 10+ agents on final items)
 - P2: 82% (hard traceability in pre-commit + CI PR gate + validate script + .gitmessage + 10 agents on review default + pre-commit)
 - P3: 55% (release.yml created, CI traceability job added, 10 agents + direct work on Rust/release/Python parity)
-- P4: 50% (проведен аудит комплаенса задач закрытия Phase 1-3, задача P4-D1 ID: 53b7a1d5 и задача-трекер ID: b7a2b46e успешно выполнены, отчет сформирован в [docs/WAVE_COMPLIANCE_REPORT.md](file:///home/agx/agentforge/docs/WAVE_COMPLIANCE_REPORT.md))
+- P4: 50% (проведен аудит комплаенса задач закрытия Phase 1-3, задача P4-D1 ID: 53b7a1d5 и задача-трекер ID: b7a2b46e успешно выполнены, отчет сформирован в [docs/WAVE_COMPLIANCE_REPORT.md](file:///home/eveselove/agentforge/docs/WAVE_COMPLIANCE_REPORT.md))
 
 **Victory condition**: All three PHASE*_TASK_BREAKDOWN.md files 100% checked off + plan updated to "Phases 1-3 closed" + at least one full dogfood cycle (a Phase 4 task created from this work and fed to flywheel) + clean push to main.
 

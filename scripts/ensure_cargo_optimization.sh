@@ -14,7 +14,7 @@
 #   - Много Rust-компонентов: planly_gateway, planly_core, planly_parser, planly_telegram_proxy
 #   - Задачи агентов часто включают cargo check / cargo build / cargo test
 #   - codegen-units=1 превращает параллельную сборку в последовательную → +300-500% времени
-#   - jobs=12 даёт полную утилизацию 12-ядерного CPU (Jetson/рабочая станция)
+#   - jobs=12 даёт полную утилизацию 12-ядерного CPU (Erbox/рабочая станция)
 #   - "line-tables-only" — минимально достаточные символы для backtrace (файл:строка), без overhead на locals/types
 #     → target/ меньше на десятки-сотни MB, cargo check на 20-40% быстрее в dev
 

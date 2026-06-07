@@ -17,7 +17,7 @@
 
 ## Exact Commands Run
 ```bash
-cd /home/agx/agentforge/rust
+cd /home/eveselove/agentforge/rust
 cargo check --offline -p agentforge-core -p agentforge-learning -p agentforge-runner
 cargo test --offline -p agentforge-core -p agentforge-learning
 ```

@@ -730,16 +730,16 @@ def _maybe_emit_shadow_dual_fidelity(result_py: Optional[Dict[str, Any]], limit:
                 if rp and rp.is_file() and os.access(str(rp), os.X_OK):
                     runner = str(rp)
         except Exception:
-            runner = "/home/agx/agentforge/rust/target/release/agentforge-runner"
+            runner = "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
         if not runner or not _P(runner).exists():
-            runner = "/home/agx/agentforge/rust/target/debug/agentforge-runner"
+            runner = "/home/eveselove/agentforge/rust/target/debug/agentforge-runner"
         if not _P(runner).is_file():
             return None
         ts = _dt.utcnow().strftime("%Y%m%d_%H%M%S_%f")
         rust_out = _P("/tmp/agentforge_rust_flywheel") / f"shadow_phase23_{ts}"
         rust_out.mkdir(parents=True, exist_ok=True)
         cmd = [runner, "flywheel-step", "--real-data", "--limit", str(limit), "--output-dir", str(rust_out), "--ingest", "--shadow", "--json"]
-        _sp.run(cmd, capture_output=True, text=True, timeout=180, cwd="/home/agx/agentforge", env={**os.environ, "AGENTFORGE_RUST_FLYWHEEL_SHADOW": "1"})
+        _sp.run(cmd, capture_output=True, text=True, timeout=180, cwd="/home/eveselove/agentforge", env={**os.environ, "AGENTFORGE_RUST_FLYWHEEL_SHADOW": "1"})
         py_dir = result_py.get("artifacts_dir")
         h = FlywheelParityHarness()
         fid = h.run_shadow_fidelity_from_dirs(rust_out, _P(py_dir) if py_dir else rust_out)

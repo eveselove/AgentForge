@@ -6,7 +6,7 @@
 **Author**: Grok (implementing A4)  
 **Reviewer**: Independent Jules (via agent-review skill handoff + jules subagent launch; review recorded in package)  
 
-**Full path to handoff**: `/home/agx/.grok/handoffs/8806e0a2/`  
+**Full path to handoff**: `/home/eveselove/.grok/handoffs/8806e0a2/`  
 - `diff.patch` (143 lines)  
 - `context.md`  
 - `metadata.json`  

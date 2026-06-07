@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-31 / 2026-06  
 **Handoff ID**: 6bedc344  
-**Full path**: `/home/agx/.grok/handoffs/6bedc344/`  
+**Full path**: `/home/eveselove/.grok/handoffs/6bedc344/`  
 **Task**: X2 (docs/REMAINING_CLOSURE_TASKS_2026-06.md) — One-page "Wave 2 Closure Report" (short) after main items of the final targeted push land. Explicit user requirement + AGENTS.md P2 gate.
 
 ## What Was Done
@@ -19,12 +19,12 @@
 ## Independent Review Launch (Mandatory Gate)
 - **Command executed** (via grok CLI, separate context per skill):
   ```
-  grok --agent jules -p "$(cat /home/agx/.grok/handoffs/6bedc344/REVIEW_INSTRUCTIONS.md)" \
-    --cwd /home/agx/agentforge --always-approve --output-format json
+  grok --agent jules -p "$(cat /home/eveselove/.grok/handoffs/6bedc344/REVIEW_INSTRUCTIONS.md)" \
+    --cwd /home/eveselove/agentforge --always-approve --output-format json
   ```
 - Background launch PID: captured in orchestrator session (task 019e7e7c-59ab-7bd2-a7bb-411c183d5226)
 - Log: `/tmp/jules-review-wave2-x2-6bedc344.log`
-- Expected reviewer output: `/home/agx/.grok/handoffs/6bedc344/jules-review-6bedc344.md` (structured ## Summary + ## Issues + ## Recommendations)
+- Expected reviewer output: `/home/eveselove/.grok/handoffs/6bedc344/jules-review-6bedc344.md` (structured ## Summary + ## Issues + ## Recommendations)
 - **Direct consumption path** (if CLI launch has transient routing/tool issues, as seen in prior handoffs e.g. 7c763a72): any Jules or second Grok instance can be pointed at the handoff dir and produce the review file using the instructions.
 
 ## Next (per AGENTS.md + explicit user requirement + P2)

@@ -33,7 +33,7 @@ We are replacing the legacy SQLite-based task storage (`tasks.db` + `aiosqlite`)
 
 ### Data
 - `tasks.db` (SQLite) is the source of truth for the running system.
-- LanceDB is used in `data/lancedb/` (or `/home/agx/lance_data`) for trajectories and memory.
+- LanceDB is used in `data/lancedb/` (or `/home/eveselove/lance_data`) for trajectories and memory.
 
 ## 3. Target Architecture
 

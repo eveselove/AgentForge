@@ -37,7 +37,7 @@ Rollback layers remain (5+): script, markers, env, git .bak.purecutover, direct 
 
 ## Exact One-Command Rollback
 
-From /home/agx/agentforge:
+From /home/eveselove/agentforge:
 
 ```bash
 bash bin/disable_pure_rust_flywheel.sh                 # THE ONE COMMAND (full restore + verify)
@@ -89,7 +89,7 @@ Evidence collection: append to logs/14d_soak_*.md ; cross-ref in 100_PERCENT_REA
 
 ## Evidence Links (Live Post-Cutover)
 
-- **Binary:** `/home/agx/agentforge/rust/target/release/agentforge-runner` (1.41 MB, stat + --version + subcommand --help)
+- **Binary:** `/home/eveselove/agentforge/rust/target/release/agentforge-runner` (1.41 MB, stat + --version + subcommand --help)
 - **Cutover execution + service fix:** `logs/make_pure_rust_flywheel_default.log` (2026-05-31T10:42 patches to 6 services + timer + 10+ sh files + env + marker)
 - **Continuous success:** `logs/continuous_flywheel.log` (recent entries show Rust runner path, health snapshot writes, rc=0, lock handling); `/tmp/agentforge_rust_flywheel/flywheel_health.json` (latest)
 - **Manifests with engine=rust provenance:** `ls pending_candidates/ | tail -5 ; cat pending_candidates/<ts>*/flywheel_manifest.json | grep -E 'engine|source|agentforge-runner'`

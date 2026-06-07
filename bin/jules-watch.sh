@@ -101,7 +101,7 @@ check_sessions() {
     log "Checking Jules sessions..."
 
     local output
-    output=$(/home/agx/.nvm/versions/node/v20.20.1/bin/jules remote list --session 2>/dev/null || true)
+    output=$(/home/eveselove/.nvm/versions/node/v20.20.1/bin/jules remote list --session 2>/dev/null || true)
 
     # Robust parsing for Jules text output
     # Lines look like:
@@ -146,8 +146,8 @@ check_sessions() {
             if [[ "$AUTO_APPLY" == "all" ]] || [[ "$AUTO_APPLY" == "safe" && " ${SAFE_REPOS[*]} " =~ " ${repo} " ]]; then
                 log "⚡ AUTO-APPLY enabled for $session_id (mode=$AUTO_APPLY)"
                 (
-                    cd /home/agx/planlytasksko 2>/dev/null || cd /home/agx/agentforge 2>/dev/null || true
-                    /home/agx/.nvm/versions/node/v20.20.1/bin/jules remote pull --session "$session_id" --apply 2>&1 | tee -a "$LOG_FILE"
+                    cd /home/eveselove/planlytasksko 2>/dev/null || cd /home/eveselove/agentforge 2>/dev/null || true
+                    /home/eveselove/.nvm/versions/node/v20.20.1/bin/jules remote pull --session "$session_id" --apply 2>&1 | tee -a "$LOG_FILE"
                 ) || true
             fi
         fi

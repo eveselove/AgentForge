@@ -25,7 +25,7 @@ Non-breaking. All new paths are additive + guarded.
 **Production rollout script (recommended, 2026-05-31 Autonomy Timer Rolled Out):**
 
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 
 # Full one-command (handles cp with traceable headers, daemon-reload, enable --now, verify, farm notes)
 # Safe default: user mode. Use --system for /etc installs matching install_services.sh.
@@ -37,7 +37,7 @@ bash bin/enable_continuous_flywheel.sh --dry-run
 
 **Manual / legacy path (still works, now wrapped by the script above):**
 ```bash
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 
 # 1. Ensure flywheel already live (workers + post_process already wired)
 touch ENABLE_RUST_FLYWHEEL
@@ -77,7 +77,7 @@ See `bin/cron_continuous_flywheel.example` (copy lines into `crontab -e`).
 
 Example (20min + flock):
 ```
-*/20 * * * * cd /home/agx/agentforge && flock -n /tmp/agentforge_rust_flywheel/.continuous_flywheel.lock -c 'ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 /home/agx/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2' >> logs/cron_flywheel.log 2>&1
+*/20 * * * * cd /home/eveselove/agentforge && flock -n /tmp/agentforge_rust_flywheel/.continuous_flywheel.lock -c 'ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 /home/eveselove/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2' >> logs/cron_flywheel.log 2>&1
 ```
 
 ## What the Continuous Step Does (per tick)

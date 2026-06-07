@@ -8,10 +8,10 @@
 # Install: crontab -e
 # Then add (adjust path):
 #
-# */20 * * * * cd /home/agx/agentforge && ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 /home/agx/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2 >> /home/agx/agentforge/logs/cron_flywheel.log 2>&1
+# */20 * * * * cd /home/eveselove/agentforge && ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 /home/eveselove/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2 >> /home/eveselove/agentforge/logs/cron_flywheel.log 2>&1
 #
 # With flock (if available on PATH):
-# */20 * * * * cd /home/agx/agentforge && flock -n /tmp/agentforge_rust_flywheel/.continuous_flywheel.lock -c 'ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 /home/agx/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2' >> /home/agx/agentforge/logs/cron_flywheel.log 2>&1
+# */20 * * * * cd /home/eveselove/agentforge && flock -n /tmp/agentforge_rust_flywheel/.continuous_flywheel.lock -c 'ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 /home/eveselove/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2' >> /home/eveselove/agentforge/logs/cron_flywheel.log 2>&1
 #
 # Recommended: keep --dry-run first for a day, then flip to --no-dry-run after verifying logs.
 # This reuses exactly the same guards/hooks as the live farm workers.

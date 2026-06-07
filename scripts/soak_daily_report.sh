@@ -12,7 +12,7 @@
 set -euo pipefail
 
 # === Конфигурация ===
-AGENTFORGE_DIR="/home/agx/agentforge"
+AGENTFORGE_DIR="/home/eveselove/agentforge"
 HEALTH_JSON="/tmp/agentforge_rust_flywheel/flywheel_health.json"
 LOGS_DIR="${AGENTFORGE_DIR}/logs"
 SOAK_REPORTS_DIR="${LOGS_DIR}/soak_reports"

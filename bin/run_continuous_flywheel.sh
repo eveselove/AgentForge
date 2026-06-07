@@ -4,7 +4,7 @@
 # for the continuous autonomy closer.
 #
 # Preferred for systemd .timer / cron:
-#   /home/agx/agentforge/bin/run_continuous_flywheel.sh --no-dry-run
+#   /home/eveselove/agentforge/bin/run_continuous_flywheel.sh --no-dry-run
 #
 # Guarantees:
 # - Sources all existing ENABLE / rust_flywheel.env / enable_*.sh (full reuse)
@@ -15,7 +15,7 @@
 # - Default: safe dry-run (pass --no-dry-run for real promote-and-ab)
 #
 # Enable in timer:
-#   ExecStart=/home/agx/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2
+#   ExecStart=/home/eveselove/agentforge/bin/run_continuous_flywheel.sh --no-dry-run --top-n 2
 #
 # !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
 # !!! bin/run_continuous_flywheel.sh + .py : Python continuous orchestration DEPRECATED — Phase 4 target !!!
@@ -41,7 +41,7 @@
 set -u
 # No -e: we want full resilience
 
-AGENTFORGE_ROOT="/home/agx/agentforge"
+AGENTFORGE_ROOT="/home/eveselove/agentforge"
 cd "$AGENTFORGE_ROOT" 2>/dev/null || true
 
 # === Full reuse of existing ENABLE hooks (identical to workers) ===
@@ -65,7 +65,7 @@ fi
 
 export AGENTFORGE_RUST_FLYWHEEL="${AGENTFORGE_RUST_FLYWHEEL:-1}"
 export AGENTFORGE_USE_RUST="${AGENTFORGE_USE_RUST:-1}"
-export PYTHONPATH="${PYTHONPATH:-/home/agx}:/home/agx/agentforge"
+export PYTHONPATH="${PYTHONPATH:-/home/eveselove}:/home/eveselove/agentforge"
 
 LOG_DIR="$AGENTFORGE_ROOT/logs"
 mkdir -p "$LOG_DIR" 2>/dev/null || true
@@ -96,14 +96,14 @@ log "Runner: ${AGENTFORGE_RUST_RUNNER:-unknown}"
 # Non-pure: legacy Python (kept for rollback compat only).
 _PURE_CONT=$(python3 -c '
 import os
-os.environ.setdefault("PYTHONPATH", "/home/agx")
+os.environ.setdefault("PYTHONPATH", "/home/eveselove")
 try:
     from agentforge.learning.utils import is_pure_rust_flywheel
     print(1 if is_pure_rust_flywheel() else 0)
 except Exception:
     p = os.environ.get("AGENTFORGE_PURE_RUST_FLYWHEEL", "0")
     e = os.environ.get("AGENTFORGE_FLYWHEEL_ENGINE", "")
-    print(1 if (p == "1" or e == "rust" or os.path.exists("/home/agx/agentforge/.pure_rust_flywheel")) else 0)
+    print(1 if (p == "1" or e == "rust" or os.path.exists("/home/eveselove/agentforge/.pure_rust_flywheel")) else 0)
 ' 2>/dev/null || echo 0)
 
 if [ "$_PURE_CONT" = "1" ] && [ -x "${AGENTFORGE_RUST_RUNNER:-}" ]; then
@@ -150,15 +150,15 @@ exit "$rc"
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/agx/agentforge/.pure_rust_flywheel"
+PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/agx/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/agx/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/agx/agentforge/bin/rust_flywheel.env" ] && source "/home/agx/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

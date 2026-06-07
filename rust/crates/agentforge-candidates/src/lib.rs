@@ -96,7 +96,7 @@ impl CandidateStore {
             std::env::var("AGENTFORGE_PENDING_CANDIDATES_DIR")
                 .or_else(|_| std::env::var("AGENTFORGE_PENDING_CANDIDATES"))
                 .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("/home/agx/agentforge/pending_candidates"))
+                .unwrap_or_else(|_| PathBuf::from("/home/eveselove/agentforge/pending_candidates"))
         });
         // In real: mkdir
         let _ = std::fs::create_dir_all(&root);

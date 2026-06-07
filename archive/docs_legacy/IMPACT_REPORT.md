@@ -28,9 +28,9 @@ All 3 from same rich flywheel batch (hash 81e7d546), generated ~2026-05-31 05:34
 
 | Candidate Dir (timestamp) | rich_record_count | rich_success_rate | rich_high_value_count | high_learning_value_records | rich_avg_learning_value | promoted_to (yaml) |
 |---------------------------|-------------------|-------------------|-------------------------|-----------------------------|-------------------------|--------------------|
-| 20260531_053411_general-refactor_81e7d546 | 99 | 0.0202 | 2 | 17 | 0.0 | /home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml |
-| 20260531_053412_general-refactor_81e7d546 | 99 | 0.0202 | 2 | 17 | 0.0 | /home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053853.yaml (history also shows prior .053644 assignment) |
-| 20260531_053416_general-refactor_81e7d546 | 99 | 0.0202 | 2 | 28 | 0.0 | /home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml |
+| 20260531_053411_general-refactor_81e7d546 | 99 | 0.0202 | 2 | 17 | 0.0 | /home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml |
+| 20260531_053412_general-refactor_81e7d546 | 99 | 0.0202 | 2 | 17 | 0.0 | /home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053853.yaml (history also shows prior .053644 assignment) |
+| 20260531_053416_general-refactor_81e7d546 | 99 | 0.0202 | 2 | 28 | 0.0 | /home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml |
 
 **Common rich attrs (all):** `rich_flywheel_export_used: true`, `rich_source: "rust-agentforge-runner/flywheel-export"`, `rich_export_version: "rich_flywheel_v1"`, `estimated_impact: "medium"`, `generated_by: "rust_flywheel_step + agentforge-runner (rich flywheel-export preferred)"`, `reviewed: true`.
 
@@ -40,9 +40,9 @@ All used ABTestConfig with n_runs_per_arm=1, simulate=True, 3 benchmarks (exampl
 
 | Candidate (ab dir) | test_id | ab_simulated | winner | confidence | baseline success_rate / avg_dur | treatment success_rate / avg_dur | deltas (success_rate, avg_prm, avg_duration, avg_cost, recovery_rate) | ab_results_path | promoted_yaml ref |
 |--------------------|---------|--------------|--------|------------|----------------------------------|-----------------------------------|-----------------------------------------------------------------------|-----------------|-------------------|
-| 20260531_053411_general-refactor_81e7d546 | ab-929e243e00 | true | tie | low | 0.3333 / 1.6s | 0.3333 / 1.4s | {0.0, 0, -0.2, 0.0, 0.0} | /home/agx/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/ab_results.json | ...053644.yaml |
-| 20260531_053412_general-refactor_81e7d546 | ab-6f03d33c4a | true | tie | low | 0.3333 / 1.4s | 0.3333 / 1.4s | {0.0, 0, 0.0, 0.0, 0.0} | /home/agx/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/ab_results.json | ...053853.yaml |
-| 20260531_053416_general-refactor_81e7d546 | ab-34fd5246b4 | true | tie | low | 0.3333 / 1.4s | 0.3333 / 1.4s | {0.0, 0, 0.0, 0.0, 0.0} | /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/ab_results.json | ...053640.yaml |
+| 20260531_053411_general-refactor_81e7d546 | ab-929e243e00 | true | tie | low | 0.3333 / 1.6s | 0.3333 / 1.4s | {0.0, 0, -0.2, 0.0, 0.0} | /home/eveselove/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/ab_results.json | ...053644.yaml |
+| 20260531_053412_general-refactor_81e7d546 | ab-6f03d33c4a | true | tie | low | 0.3333 / 1.4s | 0.3333 / 1.4s | {0.0, 0, 0.0, 0.0, 0.0} | /home/eveselove/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/ab_results.json | ...053853.yaml |
+| 20260531_053416_general-refactor_81e7d546 | ab-34fd5246b4 | true | tie | low | 0.3333 / 1.4s | 0.3333 / 1.4s | {0.0, 0, 0.0, 0.0, 0.0} | /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/ab_results.json | ...053640.yaml |
 
 **Notes from ab_results (all):** "Simulated A/B via run_ab_after_promote.py execution (pure sim mode, no real dispatch). All arms identical in sim." "Ran 3 benchmarks × 1 per arm". PRM scores null in sim (no sidecar). Config also persisted in ab_test_config.json per dir. Updated candidate_meta.json with `ab_executed`, `ab_executed_at`, `ab_simulated`, `ab_winner`, `ab_confidence`, `ab_deltas`, `ab_test_id`, `ab_results_path`.
 
@@ -73,7 +73,7 @@ All used ABTestConfig with n_runs_per_arm=1, simulate=True, 3 benchmarks (exampl
 - **Promotion indexes:**
   - skills/promotion_history.json : 4 entries (3 unique candidates; 053412 appears twice due to timing of promote steps)
   - pending_candidates/promotions.jsonl : 4 entries (same)
-- **Promoted skill yamls (in /home/agx/agentforge/skills/):** 3 files (all 641B, identical to their source candidate_skill.yaml):
+- **Promoted skill yamls (in /home/eveselove/agentforge/skills/):** 3 files (all 641B, identical to their source candidate_skill.yaml):
   - general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml
   - general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml
   - general-refactor-flywheel-202605310534.promoted.20260531_053853.yaml
@@ -146,7 +146,7 @@ All projections strictly data-driven from the 142+ rich files read. Sim-vs-real 
 **No new files — run these (or paste into a one-off /tmp/analyze_real_lift.py).** Updates metas (recorder already does), appends to IMPACT/PENDING, informs promotion decision.
 
 ```sh
-cd /home/agx/agentforge
+cd /home/eveselove/agentforge
 # 1. Inspect landed real ab_results (the promoted 3 + any newer)
 python3 -c '
 import json, glob, os
@@ -194,44 +194,44 @@ This template is self-contained, reproducible, and directly extends the existing
 ## Evidence Links (Absolute Paths — All Verified Existing Artifacts)
 
 **The 3 promoted + A/B candidates (full artifacts):**
-- /home/agx/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/ (ab_results.json, candidate_meta.json, rust_rich_flywheel_export.json, run_ab_after_promote.py, suggested_ab_command.txt, candidate_skill.yaml, proposal.json, ...)
-- /home/agx/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/ (identical structure)
-- /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/ (identical structure; used for most examples)
+- /home/eveselove/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/ (ab_results.json, candidate_meta.json, rust_rich_flywheel_export.json, run_ab_after_promote.py, suggested_ab_command.txt, candidate_skill.yaml, proposal.json, ...)
+- /home/eveselove/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/ (identical structure)
+- /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/ (identical structure; used for most examples)
 
 **ab_results (full ABResult + runs + deltas):**
-- /home/agx/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/ab_results.json
-- /home/agx/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/ab_results.json
-- /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/ab_results.json
+- /home/eveselove/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/ab_results.json
+- /home/eveselove/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/ab_results.json
+- /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/ab_results.json
 
 **Updated metas (with ab_* + rich_*):**
-- /home/agx/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/candidate_meta.json
-- /home/agx/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/candidate_meta.json
-- /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/candidate_meta.json
+- /home/eveselove/agentforge/pending_candidates/20260531_053411_general-refactor_81e7d546/candidate_meta.json
+- /home/eveselove/agentforge/pending_candidates/20260531_053412_general-refactor_81e7d546/candidate_meta.json
+- /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/candidate_meta.json
 
 **Promotion history & indexes:**
-- /home/agx/agentforge/skills/promotion_history.json
-- /home/agx/agentforge/pending_candidates/promotions.jsonl
+- /home/eveselove/agentforge/skills/promotion_history.json
+- /home/eveselove/agentforge/pending_candidates/promotions.jsonl
 
 **Promoted yamls (skills/):**
-- /home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml
-- /home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml
-- /home/agx/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053853.yaml
+- /home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml
+- /home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053644.yaml
+- /home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053853.yaml
 
 **Rich exports (source of 99-record 2% success + learning_values):**
-- /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/rust_rich_flywheel_export.json (and 128+ others in *_general-refactor_81e7d546/ dirs)
+- /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/rust_rich_flywheel_export.json (and 128+ others in *_general-refactor_81e7d546/ dirs)
 
 **PENDING_CANDIDATES.md (prior A/B launch section + this IMPACT append):**
-- /home/agx/agentforge/PENDING_CANDIDATES.md
+- /home/eveselove/agentforge/PENDING_CANDIDATES.md
 
 **Other supporting (reproducible generators):**
-- /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_after_promote.py
-- /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/suggested_ab_command.txt
-- /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/proposal.json (rationale + new prompt)
-- /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/candidate_skill.yaml (source of promoted)
-- /home/agx/agentforge/learning/evaluator.py (LearningEvaluator.ab_test_skill_versions + ABTestConfig + recorder)
-- /home/agx/agentforge/AGENTFORGE_FRONTIER_ROADMAP.md (openable; see achievements note below)
+- /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_after_promote.py
+- /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/suggested_ab_command.txt
+- /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/proposal.json (rationale + new prompt)
+- /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/candidate_skill.yaml (source of promoted)
+- /home/eveselove/agentforge/learning/evaluator.py (LearningEvaluator.ab_test_skill_versions + ABTestConfig + recorder)
+- /home/eveselove/agentforge/AGENTFORGE_FRONTIER_ROADMAP.md (openable; see achievements note below)
 
-**Verification commands (reproducible, run from /home/agx/agentforge):**
+**Verification commands (reproducible, run from /home/eveselove/agentforge):**
 ```sh
 # Count totals
 find pending_candidates -mindepth 1 -maxdepth 1 -type d | wc -l
@@ -263,7 +263,7 @@ cat skills/promotion_history.json
 cat pending_candidates/promotions.jsonl
 
 # Reproduce sim A/B (from suggested)
-python /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_after_promote.py  # (already sim, idempotent record)
+python /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_after_promote.py  # (already sim, idempotent record)
 
 # Rich export sample (learning values)
 python3 -c '
@@ -286,7 +286,7 @@ print("high >0 in export:", sum(1 for v in lvs if v>0))
    # In pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_after_promote.py
    #   - ABTestConfig(..., simulate=False, wait_for_real=True, n_runs_per_arm=2, timeout_minutes=15)
    # Ensure: ENABLE_RUST_FLYWHEEL, farm workers live, grok access, eval dispatch ready.
-   python /home/agx/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_after_promote.py
+   python /home/eveselove/agentforge/pending_candidates/20260531_053416_general-refactor_81e7d546/run_ab_after_promote.py
    ```
    (Or the one-liner from suggested_ab_command.txt with simulate=False.)
 
@@ -305,7 +305,7 @@ print("high >0 in export:", sum(1 for v in lvs if v>0))
 
 ## Key Achievements for Roadmap Closer Agent
 
-(AGENTFORGE_FRONTIER_ROADMAP.md is openable at /home/agx/agentforge/AGENTFORGE_FRONTIER_ROADMAP.md — add under Phase 0/1 or "Current closed-loop status" / JULES_TURBO_WAVE_2.)
+(AGENTFORGE_FRONTIER_ROADMAP.md is openable at /home/eveselove/agentforge/AGENTFORGE_FRONTIER_ROADMAP.md — add under Phase 0/1 or "Current closed-loop status" / JULES_TURBO_WAVE_2.)
 
 **Achievements delivered this track (evidence-first, turbo, 2026-05-31):**
 - Rust rich flywheel export + 142+ candidates from real farm trajectories (success 2–8%, 2879 high learning_value records total) fully wired into pending_candidates + candidate_meta.
@@ -324,10 +324,10 @@ Update roadmap status: "Phase 0 Evaluation + Flywheel Loop: 100% demo'd with rea
 **Track complete. Evidence in IMPACT_REPORT.md + PENDING update.** All from existing artifacts (no new unrequested files beyond this report + PENDING append). High quality, turbo, reproducible.
 
 **Files touched by this track:**
-- /home/agx/agentforge/IMPACT_REPORT.md (newly created with full dashboard)
-- /home/agx/agentforge/PENDING_CANDIDATES.md (appended concise IMPACT section — see below)
+- /home/eveselove/agentforge/IMPACT_REPORT.md (newly created with full dashboard)
+- /home/eveselove/agentforge/PENDING_CANDIDATES.md (appended concise IMPACT section — see below)
 
-**Reproducible entrypoint (from workspace root /home/agx/agentforge):**
+**Reproducible entrypoint (from workspace root /home/eveselove/agentforge):**
 ```sh
 cat IMPACT_REPORT.md | head -100
 tail -50 PENDING_CANDIDATES.md

@@ -9,8 +9,8 @@
     "include_trajectories": true
   },
   "source_dirs": {
-    "results": "/home/agx/agentforge/eval/results",
-    "trajectories": "/home/agx/agentforge/eval/trajectories"
+    "results": "/home/eveselove/agentforge/eval/results",
+    "trajectories": "/home/eveselove/agentforge/eval/trajectories"
   },
-  "output": "/home/agx/agentforge/eval/learning_datasets/learning_dataset_20260531_043007.jsonl"
+  "output": "/home/eveselove/agentforge/eval/learning_datasets/learning_dataset_20260531_043007.jsonl"
 }
