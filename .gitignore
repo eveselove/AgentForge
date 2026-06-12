@@ -7,6 +7,11 @@ build/
 .eggs/
 *.egg
 
+# Rust
+gateway/target/
+.eggs/
+*.egg
+
 # Data (databases are local state, not committed)
 data/*.db
 data/*.db-wal
