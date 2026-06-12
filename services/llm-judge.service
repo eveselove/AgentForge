@@ -1,0 +1,16 @@
+[Unit]
+Description=Qwen3-30B-A3B MoE LLM Judge (vLLM + TurboQuant, port 8400)
+After=network.target
+
+[Service]
+Type=simple
+User=agx
+# Try vLLM + TurboQuant first, falls back to llama.cpp
+ExecStart=/usr/bin/python3 /home/agx/planlytasksko/scripts/llm_judge_vllm.py
+Restart=always
+RestartSec=15
+Environment=CUDA_VISIBLE_DEVICES=0
+Environment=VLLM_ATTENTION_BACKEND=CUSTOM
+
+[Install]
+WantedBy=multi-user.target

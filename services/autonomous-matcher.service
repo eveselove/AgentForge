@@ -1,0 +1,15 @@
+[Unit]
+Description=Autonomous Product Matching Engine (port 8500)
+After=network.target planly-gateway.service reranker.service llm-judge.service
+Wants=reranker.service llm-judge.service
+
+[Service]
+Type=simple
+User=agx
+WorkingDirectory=/home/agx/planlytasksko
+ExecStart=/usr/bin/python3 /home/agx/planlytasksko/scripts/autonomous_matcher.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
