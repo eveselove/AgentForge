@@ -1,0 +1,110 @@
+{
+  "version": "1.0",
+  "description": "AgentForge Deployment Rules — какой хост что делает",
+
+  "hosts": {
+    "erbox": {
+      "role": "development",
+      "hostname": "erbox",
+      "user": "eveselove",
+      "description": "Основная рабочая машина. ВСЯ разработка и подготовка здесь.",
+      "responsibilities": [
+        "Разработка всего кода (Python, Rust, JS)",
+        "Сборка Rust-бинарников (gateway, парсеры)",
+        "Запуск self-тестов",
+        "Git operations (commit, push)",
+        "Подготовка пакетов для деплоя на другие хосты",
+        "AgentForge Gateway (localhost:8080)",
+        "Grok API интеграция"
+      ],
+      "deploy_targets": ["gmktec", "jetson"],
+      "paths": {
+        "agentforge": "/home/eveselove/agentforge",
+        "planlytasksko": "/home/eveselove/planlytasksko",
+        "data": "/home/eveselove/agentforge/data"
+      }
+    },
+
+    "gmktec": {
+      "role": "production-x86",
+      "description": "x86 продакшн. Только деплой готовых артефактов с erbox.",
+      "responsibilities": [
+        "Запуск скомпилированных бинарников",
+        "Продакшн-сервисы (gateway, workers)",
+        "НЕ собирать — только принимать готовое с erbox"
+      ],
+      "receives_from": "erbox",
+      "deploy_method": "push",
+      "what_to_push": [
+        "Rust release бинарники (gateway, парсеры)",
+        "Python-модули (core/)",
+        "Конфиги и systemd-юниты",
+        "SQLite миграции"
+      ]
+    },
+
+    "jetson": {
+      "role": "gpu-compute",
+      "description": "NVIDIA Jetson — GPU-задачи. CUDA-ядра собираем ЗДЕСЬ (ARM + CUDA). Обычное ПО готовим на erbox и пушим.",
+      "responsibilities": [
+        "Сборка CUDA-ядер (nvcc, aarch64)",
+        "GPU-инференс (TensorRT, ONNX, sglang, vLLM)",
+        "Эмбеддинги (candle / GPU)",
+        "VLM (Vision Language Models)"
+      ],
+      "receives_from": "erbox",
+      "builds_locally": [
+        "CUDA ядра (.cu → .so)",
+        "TensorRT планы",
+        "GPU-специфичные модули (aarch64 + CUDA)"
+      ],
+      "receives_prebuilt": [
+        "Python-модули (core/, scripts/)",
+        "Конфиги",
+        "Обычное ПО без GPU-зависимостей"
+      ],
+      "deploy_method": "push"
+    }
+  },
+
+  "rules": [
+    {
+      "id": "R1",
+      "rule": "ВСЯ разработка на erbox",
+      "detail": "Код пишем, тестируем и коммитим ТОЛЬКО на erbox. GMKTec и Jetson — целевые машины."
+    },
+    {
+      "id": "R2",
+      "rule": "На GMKTec только пушим",
+      "detail": "GMKTec получает готовые артефакты с erbox. Никакой сборки на GMKTec."
+    },
+    {
+      "id": "R3",
+      "rule": "CUDA ядра собираем на Jetson",
+      "detail": "Всё что требует nvcc/CUDA/aarch64 — собираем непосредственно на Jetson. Исходники готовим на erbox, пушим на Jetson, собираем там."
+    },
+    {
+      "id": "R4",
+      "rule": "Обычное ПО для Jetson готовим на erbox",
+      "detail": "Python-модули, конфиги, скрипты — готовим на erbox, пушим на Jetson. Только GPU/CUDA код компилируется локально на Jetson."
+    },
+    {
+      "id": "R5",
+      "rule": "Git — единая точка истины на erbox",
+      "detail": "Git push/pull только с erbox. GMKTec и Jetson получают код через rsync/scp/deploy скрипты, НЕ через git pull."
+    }
+  ],
+
+  "deploy_commands": {
+    "to_gmktec": {
+      "binary": "rsync -avz --progress gateway/target/release/agentforge-gateway gmktec:/opt/agentforge/bin/",
+      "python": "rsync -avz --progress core/ scripts/ config/ gmktec:/opt/agentforge/",
+      "configs": "rsync -avz --progress services/ gmktec:/etc/systemd/system/"
+    },
+    "to_jetson": {
+      "python": "rsync -avz --progress core/ scripts/ config/ jetson:/home/agx/agentforge/",
+      "cuda_sources": "rsync -avz --progress gpu/ jetson:/home/agx/agentforge/gpu/",
+      "note": "После пуша CUDA-исходников: ssh jetson 'cd /home/agx/agentforge/gpu && make'"
+    }
+  }
+}

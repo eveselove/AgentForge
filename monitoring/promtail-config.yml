@@ -1,0 +1,68 @@
+# =============================================================================
+# Promtail Config — Сборщик логов для Planly
+# Собирает логи из: Docker контейнеров + системные логи
+# Отправляет в Loki
+# =============================================================================
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /positions/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # === Docker контейнеры ===
+  - job_name: docker
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker
+          __path__: /var/lib/docker/containers/*/*-json.log
+
+    pipeline_stages:
+      - docker: {}
+      
+      # Добавляем имя контейнера как лейбл
+      - regex:
+          source: filename
+          expression: '/var/lib/docker/containers/(?P<container_id>[^/]+)/.*'
+      
+      # Фильтруем шум
+      - match:
+          selector: '{job="docker"}'
+          stages:
+            - drop:
+                expression: '.*healthcheck.*'
+                drop_counter_reason: healthcheck_noise
+
+  # === Системные логи ===
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: system
+          host: gmktec
+          __path__: /var/log/syslog
+
+  # === Логи приложения Planly (если пишутся в файл) ===
+  - job_name: planly_app
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: planly
+          component: gateway
+          __path__: /var/log/planly_gateway*.log
+
+      - targets:
+          - localhost
+        labels:
+          job: planly
+          component: backup
+          __path__: /var/log/planly_backup*.log

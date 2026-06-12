@@ -1,0 +1,8 @@
+[Unit]
+Description=Drift Monitor one-shot
+After=network.target
+
+[Service]
+Type=oneshot
+User=agx
+ExecStart=/usr/bin/python3 /home/agx/planlytasksko/scripts/drift_monitor.py 24

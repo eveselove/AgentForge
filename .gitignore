@@ -1,132 +1,43 @@
-# AgentForge - Strong .gitignore (created during Code Management Professionalization 2026-05-31)
-
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
+dist/
+build/
+.eggs/
 *.egg
 
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-
 # Rust
-rust/target/
-rust/**/target/
-**/*.rs.bk
-Cargo.lock  # only if you want to ignore it (usually you don't for applications)
+gateway/target/
+.eggs/
+*.egg
 
-# Logs (very noisy in this project)
+# Data (databases are local state, not committed)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# Logs
 logs/
 *.log
-logs/**/*
+nohup.out
 
-# Temporary and backup files from cutovers/migrations
-*.bak
-*.bak.*
-*.pure-rollback-*
-*.purecutover
-*.purecutover.*
-
-# Local markers and state
-.pure_rust_flywheel
-.enable_pure_rust_flywheel
-.disable_rust_flywheel
-.disable_pure_rust_flywheel
-.disable_flywheel
-.flywheel_disabled
-ENABLE_RUST_FLYWHEEL
-
-# Task system local state
-tasks.db
-tasks_debug.json
-pending_candidates/
-
-# Large generated / runtime data
-/tmp/agentforge/
-/tmp/agentforge_rust_flywheel/
-
-# IDE and editor
-.idea/
+# IDE
 .vscode/
+.idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Secrets and local config (never commit)
-*.env
-.env.local
-secrets/
-*.pem
-*.key
+# Env
+.env
+.venv/
+venv/
+env/
 
-# Large binaries and test artifacts (keep only what's needed)
-rust/target/debug/
-rust/target/release/deps/
-*.rlib
-*.rmeta
-
-# Evaluation / learning large data (can be regenerated)
-eval/results/
-eval/trajectories/*_large*
-learning/datasets/
-
-# Misc
-*.sqlite
-*.sqlite3
-*.db-journal
-
-# Agent team runtime (extreme parallel execution)
-.agent-team/
-.agent-team/**
-~/.agent-team/
-
-# Grok work directories (parallel agent worktrees / sessions)
-grok-work/agent*/
-grok-work/team-*/
-grok-work/ssh-*/
-
-# Additional noisy runtime
-*.pyc
-**/__pycache__/**
-mcp_server.py.bak*
-memory_helper.py.bak*
-reassign.py.bak*
-
-# Large eval / learning artifacts that bloat history
-eval/trajectories/*.jsonl
-eval/results/
-learning/flywheel_parity/fixtures/large/
-
-# Service and script backup noise (already partially covered)
-*.service.bak*
-*.sh.bak*
-*.timer.bak*
-
-# Секреты API (КРИТИЧНО — никогда не коммитить)
-.env.xai
-.env.xai.*
-!.env.xai.example
-node_modules/
+# Temp
+/tmp/
+scratch/

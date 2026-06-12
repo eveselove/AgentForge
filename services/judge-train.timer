@@ -1,0 +1,9 @@
+[Unit]
+Description=Nightly LLM Judge Self-Improving Training
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
