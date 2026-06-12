@@ -1,0 +1,25 @@
+[package]
+name = "agentforge-gateway"
+version = "0.1.0"
+edition = "2021"
+description = "AgentForge Gateway — Agent Orchestration API Server"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
+rusqlite = { version = "0.33", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.0", features = ["v4"] }
+dotenv = "0.15"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"
