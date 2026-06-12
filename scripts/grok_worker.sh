@@ -45,7 +45,7 @@ set -euo pipefail
 
 # ====================== CONFIG ======================
 REPO_DIR="${REPO_DIR:-/home/eveselove/agentforge}"
-CHECKPOINT_PY="${REPO_DIR}/scripts/task_checkpoints.py"
+CHECKPOINT_PY="${REPO_DIR}/core/task_checkpoints.py"
 LOG_FILE="${LOG_FILE:-/tmp/grok_worker.log}"
 POLL_INTERVAL="${POLL_INTERVAL:-45}"          # seconds between CI status polls
 MAX_WAIT_MIN="${MAX_WAIT_MIN:-25}"            # total minutes to wait for CI before giving up
@@ -91,7 +91,7 @@ checkpoint() {
     if [[ -f "$CHECKPOINT_PY" ]]; then
         python3 -c "
 import sys
-sys.path.insert(0, '${REPO_DIR}/scripts')
+sys.path.insert(0, '${REPO_DIR}/core')
 from task_checkpoints import save_checkpoint, init_db
 init_db()
 import json
@@ -630,7 +630,7 @@ print("failure" if has_failure else "success")
             # Checkpoint roundtrip via the worker path
             python3 -c "
 import sys
-sys.path.insert(0, '${REPO_DIR}/scripts')
+sys.path.insert(0, '${REPO_DIR}/core')
 from task_checkpoints import init_db, save_checkpoint, get_last_checkpoint, clear_task
 init_db()
 tid = 'grok-worker-selftest-$$'
