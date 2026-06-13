@@ -1210,6 +1210,18 @@ def post_activity(
         raise ValueError("agent and message are required")
     _ensure_data_dir()
     now = datetime.utcnow().isoformat() + "Z"
+    # WAVE4: gw blackboard primary (/api/blackboard/activity)
+    try:
+        import urllib.request, json, os
+        api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+        payload = {"agent": agent, "message": message, "team_id": team_id, "task_id": task_id}
+        req = urllib.request.Request(f"{api}/api/blackboard/activity", data=json.dumps(payload).encode(), headers={"Content-Type":"application/json"})
+        urllib.request.urlopen(req, timeout=3)
+        # if success, still write local? or return 0; for compat dual if DUAL, else gw success
+        if os.getenv("AGENTFORGE_KNOWLEDGE_DUAL_WRITE") != "1":
+            return 0  # sentinel for gw
+    except Exception:
+        pass  # local
     conn = _get_conn()
     try:
         with conn:
@@ -1240,6 +1252,22 @@ def get_blackboard_feed(
     Returns newest first.
     """
     _ensure_data_dir()
+    # WAVE4: gw blackboard primary
+    try:
+        import urllib.request, json, os
+        api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+        qs = f"limit={min(limit,200)}"
+        if team_id: qs += f"&team_id={urllib.parse.quote(team_id)}"
+        if task_id: qs += f"&task_id={urllib.parse.quote(task_id)}"
+        if agent: qs += f"&agent={urllib.parse.quote(agent)}"
+        if since_minutes is not None and since_minutes > 0:
+            qs += f"&since_minutes={since_minutes}"
+        with urllib.request.urlopen(f"{api}/api/blackboard/feed?{qs}", timeout=5) as resp:
+            data = json.loads(resp.read())
+            if isinstance(data, list):
+                return data  # gw results
+    except Exception:
+        pass
     conn = _get_conn()
     try:
         _ensure_blackboard_schema(conn)

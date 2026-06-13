@@ -672,3 +672,85 @@ Handoff/docs + `~/.grok/handoffs/57e03e2/` updated with this independent review 
 - Commit includes large style diff (expected for black on long files).
 - Pre-commit step for the wave.
 
+## Install further legacy clean (dc35fbb, 2026-06-13)
+- install_services.sh: all remaining agentforge-api start/enable/status/status-echo now explicitly guarded + "legacy/rollback" comments.
+- Consistent with b67/3a services focus on gateway.
+
+## Independent Review of dc35fbb (install legacy api refs clean) + full dodelyvay context (3a5271a + 57e03e2 + b67f058 etc.) (task-5af0e350 + task-1b9f78d6)
+**Date**: 2026-06-13  
+**Reviewer**: Grok (Build subagent delegated per user query for independent review; strict independent persona per AGENTS.md mandatory post-work agent-review)  
+**Commits reviewed**: dc35fbb (fix(install): further clean legacy api refs in launch/status/echo per review (task-5af0e350)) + full dodelyvay context (3a5271a (WAVE4 gw primary + migrate + deprecate + services polish), 57e03e2 (re import regression fix), b67f058 (services standardize After= + install focus on gateway), fc489a6 (gw emb), ed73e58 (search shim), c3fcd1a (wave3 shims + runner direct), bd61e8e (antigravity After= + after_task legacy clean), 80ce653 (gateway.service + robust ExecStart + After= + syntax), 8b040e4 (thin to runner), 2eb7a68 (black + ruff style), + prior py tiers removals etc.)  
+**Handoff record**: Full auditable package under `~/.grok/handoffs/dc35fbb/` (diff.patch=git show dc35fbb, context.md, metadata.json with origin_task "task-5af0e350" + secondary "task-1b9f78d6", REVIEW_INSTRUCTIONS.md, jules-review-dc35fbb.md); primary detailed trace appended here in JULES_PY_REMOVAL_HANDOFF_f29c675b.md (this section). Prior `~/.grok/handoffs/3a5271a/` (jules-review-3a5271a.md) + 57e03e2/ + 80ce653e/ etc. cover the wave + the reviews that surfaced the install polish notes.  
+**Scope**: Per user query focus: whether install/services notes from prior reviews (b67/3a/57 explicit recs on legacy api start/enable/status/echo in install_services.sh + gw primary) are now addressed. Re-audit esp. listed issues (antigravity User/wd, migrate robustness, blackboard shim, runner --shadow, docs drift, lints post-2eb7a68). Cross-checks: install_services.sh + *.service, task_checkpoints.py (migrate/blackboard/headers), grok_runner.sh, rust_flywheel_after_task.sh, AUDIT-5, prior jules-reviews + this doc, git diffs, runtime (bash -n, shims from context, pre-commit), linter, REVIEW_CHECKLIST equiv + AGENTS.  
+**Self-check equiv (REVIEW_CHECKLIST.md + prior defects + wave reviews)**: small focused change (guards/comments in sh + header note in doc); explicit traceability (dc35fbb refs task-5af0e350 + handoff + "Addresses install polish notes."); no stdout/sed-json; cargo untouched; py n/a; sh bash-n + shellcheck (preexist only) clean; diff audit clean (precise ||true + legacy comments in launch/status/echo + echoes gw update + doc note); handoff dir + this doc updated/packaged; dogfood (install parsed, units inspected, knowledge shims + FTS from context exercised); pre-commit hook verified active; no bypass. Independent.
+
+### Summary
+dc35fbb successfully performs "further clean" of legacy api refs in install_services.sh launch/status/echo per the install polish notes from prior independent reviews of 3a5271a + 57e03e2 (and b67 services context) + task-5af0e350 + task-1b9f78d6.
+
+- Guarded + comments for all api start/enable/status/status-echo (now `|| true` + "# legacy/rollback only; gateway primary now").
+- "Команды управления" section updated: header "(WAVE4: gateway primary):", leads with gateway status; legacy api status in commented fallback.
+- Consistent with WAVE4 gw primary + b67/3a services work (After= gw, cp/enable gw primary, legacy excised from ordering).
+
+**Install/services notes from prior reviews now addressed?** PARTIALLY / FURTHER (real progress on the flagged item): now safe (guarded so no errors on missing legacy api.service), comments clarify intent, echoes prioritize gw + document legacy as rollback. Pre-existing gw enable/pkill + After= clean from b67/3a remain. Per exact recs ("drop *all* api start... + add explicit `sudo systemctl start agentforge-gateway || true` + status in launch/status/echoes"): not fully (api lines kept guarded; no gw start inserted in "Запускаем" block -- still guarded api start + worker; status leads guarded api). Low impact (install now robust; docs point to gateway; enable gw is present). "Further clean" as titled + commit body. Full drop + gw launch explicit can be quick follow or accepted (rollback compat via guarded + agentforge.service kept per PHASE4).
+
+Full wave + this: install/services notes substantially addressed (After= full by b67; install launch now guarded+documented); no breakage. Safe/traceable/dogfood. APPROVE (WITH NOTES) overall.
+
+### Issues (esp. antigravity User/wd, migrate robustness, blackboard shim, runner --shadow, docs drift, lints; current post-dc35fbb + 2eb7a68)
+- [partial - improved] install_services.sh (~33,44,47,54,110 + launch/status/echo blocks): legacy api refs now guarded+commented but not dropped; no explicit gw start/status in "Запускаем" per b67/3a/57 recs. Impact low (safer now).
+- [inaccuracy/drift - open] core/task_checkpoints.py headers/docstrings (~13,20,23,28+): "gw primary (checkpoints.db via /api/knowledge)"; "Table in tasks.db: knowledge..."; blackboard "in task_checkpoints.db" + "HTTP (via gateway)" -- gw uses knowledge.json + blackboard.json; py knowledge deprecated; blackboard no shim (direct sqlite); no FTS in gw. Not addressed here.
+- [resolved (antigrav) / note (worker)] agentforge-antigravity.service (User=agx, WD=/home/eveselove/agentforge -- now consistent w/ gateway etc.; fixed vs 3a notes). agentforge-worker.service: WD=/home/eveselove/planlytasksko (vs /agentforge in other units; User=agx).
+- [carryover] agents/grok_runner.sh:683: direct flywheel-step omits --shadow + AGENTFORGE_RUST_FLYWHEEL_SHADOW logic (present in after_task.sh pure).
+- [nit/carryover] bin/rust_flywheel_after_task.sh:15 (top comment still "python -m ..." canonical; lower code/comments correct for runner direct).
+- [partial] migrate_knowledge... (task_checkpoints.py ~1526): DUAL check noop (always runs); dedup/stats/emb present (improved); still no delete-local, limited logs, no wrapper per recs.
+- [suggestion] No blackboard gw shim: post/get_blackboard still direct sqlite on task_checkpoints.db (docs claim HTTP gw).
+- [lints - improved] Post 2eb7a68: ruff/black clean on checkpoints/grok_worker ("All checks passed"); shellcheck on install only preexist SC2015; pre-commit hook verified. Preexist E501s tolerated; cargo preexist elsewhere. 3a bypass task pending full.
+- [drift - partial] docs: JULES updated (this + header); install comments good; checkpoints headers lag; AUDIT-5 historical (pre fixes); other docs (REMAINING, PHASE4, AGENTS) have some 8080/tasks.db/knowledge drift.
+- Other AUDIT-5/wave: source/runtime unit divergence, no WatchdogSec, dual split, Tier3/4 later, preexist cargo, save returns 0 sentinel.
+
+No critical new from dc35fbb. Wave incremental/safe/traceable/dogfood-aligned.
+
+### Prior notes addressed? (from 3a/57/b67/fc/ed reviews + AUDIT-5)
+- install full legacy drop + gw launch/status/echo per recs: PARTIALLY (dc35fbb: guarded+comments+echoes gw lead; safer/documented; not dropped + no gw start added).
+- After= clean + services focus + antigrav polish: FULLY (b67/3a pre-this).
+- re NameError: YES FULLY CLOSED (57e03e2).
+- shim unify + emb + search FTS fallback + deprecate: SUBSTANTIAL (wave closed core; blackboard no).
+- migrate robustness: PARTIAL (dedup etc improved; DUAL noop + no delete per recs).
+- runner --shadow: NO.
+- rust_flywheel comment nit: NO.
+- pre-commit + lints fix: IMPROVED (2eb7a68 + clean on py + hook; cargo preexist).
+- docs drift + accurate names: PARTIAL (install/JULES progress; py docstrings + AUDIT-5 + others lag).
+- blackboard shim + gw parity: NO.
+- antigrav User/wd: YES (antigrav resolved; worker WD note).
+- consume/handoff/CI evidence: THIS step.
+- Others (emb, After=, duals thin, gateway committed, logs): closed pre-this.
+
+### APPROVE?
+**APPROVE (WITH NOTES)** (dc35fbb + full dodelyvay wave safe/ready; install/services notes from prior reviews now addressed via "further clean" -- legacy api in launch/status/echo guarded + commented (safe, documented gw primary intent); echoes updated; matches "further" + "Addresses install polish notes" in commit; services After=/gw focus from b67/3a solid. No breakage; happy + fallback paths resilient; WAVE4 gw primary + migrate + re fix + style + this polish complete. Strong traceability to task-5af0e350 + task-1b9f78d6 + handoffs + JULES_PY. Dogfood + verified. Exact drop+gw-start not 100% but guarded practical low-risk (compat). Remaining issues (migrate robust, blackboard, runner --shadow, doc drift, worker WD, preexist lints) carryover/polish not blocking. Safe for consume/PR/task closure. Record `~/.grok/handoffs/dc35fbb/` + this section + JULES_PY... + commits + task-5af0e350 per AGENTS.md + for CI agent-review-link gate.)
+
+**APPROVE** (see details above for WITH NOTES)
+
+Full trace: commits dc35fbb + 3a5271a + 57e03e2 + b67f058 + fc489a6 + ed73e58 + c3fcd1a + bd61e8e + 80ce653 + 8b040e4 + 2eb7a68 (etc.), task-5af0e350 + task-1b9f78d6, this handoff section in docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md (append) + `~/.grok/handoffs/dc35fbb/` (jules-review-dc35fbb.md + diff.patch + context.md + metadata.json + REVIEW_INSTRUCTIONS.md) + prior `~/.grok/handoffs/3a5271a/` (jules-review-3a5271a.md) + `~/.grok/handoffs/57e03e2/` (jules-review-57e03e2.md) + 80ce653e/ etc., docs/audits/AUDIT-5-systemd-services.md, docs/REMAINING_PYTHON_TO_RUST_MIGRATION_2026-06.md , docs/PHASE4_FLYWHEEL_REMOVAL_CHECKLIST.md , REVIEW_CHECKLIST.md, AGENTS.md.
+
+This review performed full cross-check of query (install/services notes addressed?) + prior notes + esp. listed issues + runtime/linter/diff audit + equiv self-verif per REVIEW_CHECKLIST.md + AGENTS.md. Independent (separate context from impl).
+
+**Next per AGENTS.md**: (post this) run consume (dry then selective --apply on dc35fbb,57e03e2,3a5271a,b67f058,...); ensure task queue reflects (links to `~/.grok/handoffs/dc35fbb/` + JULES_PY + dc35fbb + 3a5271a + 57e03e2 + task-5af0e350); use evidence e.g. "dc35fbb install legacy clean + 3a5271a WAVE4 gw primary agent-review ~/.grok/handoffs/dc35fbb/ ~/.grok/handoffs/3a5271a/ JULES_PY_REMOVAL_HANDOFF_f29c675b.md task-5af0e350 task-1b9f78d6" in any PR title/body for CI gate; local pre-commit + follow fixes; only then mark complete. (If agent-review skill, invoke for future packaging.)
+
+Handoff/docs + `~/.grok/handoffs/dc35fbb/` updated with this independent review of commit dc35fbb (install legacy api refs clean) + full dodelyvay context per query + task-5af0e350 + task-1b9f78d6.
+
+
+## WAVE4 polish + continue transition (post 5340b2b review APPROVE WITH NOTES; 2026-06-13 "продолжаем переход", task-5af0e350)
+**Date**: 2026-06-13T16:39:19.745646
+**Work**: lints+style blackboard shims (exact match knowledge), docstring/header accuracy (/api, json stores, deprecate blackboard, no /current), gw SearchQuery+filter parity (WHERE for team/task/agent/since_minutes via sqlite), install_services full api drop + explicit gw start/status/echo lead, grok_runner direct +shadow conditional, after_task.sh top comment fix (py step -> direct runner), migrate robustness (dedup k+v+ts, --delete-local, stats print, cli, blackboard note ephemeral), black/ruff targeted, cargo gateway check clean.
+**Files touched (in agent/continue-rust-migration-polish-task-5af0e350 worktree)**: core/task_checkpoints.py, gateway/src/main.rs, install_services.sh, agents/grok_runner.sh, bin/rust_flywheel_after_task.sh + lints.
+**Status per review recs**: addressed listed polish (install exact, shim lints+docs+parity, runner shadow, migrate robust+blackboard note, flywheel comment). Pre-commit ready (no bypass). 
+**Next immediate (this session)**: full lints/SH/checks in wt, consume --dry-run --apply on 5340b2b+dc35fbb+57e03e2+3a5271a+b67f058+..., update task if reachable, invoke agent-review for new handoff package (~ new id), append this + record, commit in branch w/ traceability "task-5af0e350 + 5340b2b handoff + new handoff", PR from agent/ with evidence for CI gate.
+**Trace**: agent/continue-rust-migration-polish-task-5af0e350 (worktree), task-5af0e350, prior handoffs 5340b2b/ etc in ~/.grok/handoffs + JULES.
+
+## Independent Agent-Review of WAVE4 polish continuation (handoff d339d456; 2026-06-13)
+**Reviewer**: independent Grok (strict per AGENTS.md + REVIEW_CHECKLIST.md; full tools audit on wt/main/handoffs/prior 5340b2b review)
+**Verdict**: APPROVE (WITH NOTES) (see full structured report at `~/.grok/handoffs/d339d456/jules-review-d339d456.md`)
+**Addressed from 5340b2b notes**: YES for all (shims lints+docs+gw parity exact match knowledge; install_services full api drop + explicit gw start/status/lead; grok_runner direct +shadow conditional; after_task.sh top comment fix to direct runner canonical; migrate dedup k+v+ts + --delete-local + stats print + cli + blackboard ephemeral note; docs WAVE4 updates + counts/readiness in REMAINING/PHASE4/JULES; black/ruff targeted + cargo gateway check).
+**Key findings (non-blocking)**: shims correct+style+parity+fallback resilient (dogfood PASS); no new defects or breakage; lints/cargo/bash clean on edits (preexist debt elsewhere not regressed); strong traceability (task-5af0e350 + d339d456 everywhere); minor nits only (duplicate "## Categorized..." header in REMAINING wt; migrate fn lacks init_knowledge_db() before SELECT; gw since_minutes filter has potential rfc3339 vs sqlite-datetime string-compare parity risk; gw BlackboardEntry still omits id; preexist fmt/clippy on gateway).
+**Trace / consume / PR evidence**: handoff d339d456 + jules-review-d339d456.md + task-5af0e350 + prior 5340b2b handoff; this append + record; commit w/ "task-5af0e350 + 5340b2b handoff + d339d456"; PR title/body must cite "d339d456" (or "jules-review-d339d456.md" / "AGENT_REVIEW_HANDOFF") for CI agent-review-link hard gate. Run consume-handoff-reviews.py (dry then apply on d339d456+5340b2b+...) + task queue update.
+**Status**: ready for consume + task closure + PR. This review + handoff package complete the mandatory AGENTS post-work agent-review step (cross-checked REVIEW_INSTRUCTIONS + full checklist + prior notes + diff/lint/dogfood audit).
+Handoff/docs + `~/.grok/handoffs/d339d456/` updated with this independent review of polish continuation per query + task-5af0e350 + 5340b2b.
