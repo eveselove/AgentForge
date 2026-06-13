@@ -57,17 +57,6 @@ This document contains the highest-leverage remaining work, broken into small pa
 
 ---
 
-## Cluster E: Phase 4 Dogfooding Acceleration
-
-**Owner priority:** Mixed (Grok creates, Antigravity reviews strategy)
-
-- E1. Create 6-8 new high-quality P4 dogfood tasks from the current closure wave (examples: "Audit last 30 commits for traceability compliance", "Measure effect of new REVIEW_CHECKLIST on PR quality", "Feed closure wave trajectories into Rust flywheel").
-- E2. Update `AGENTFORGE_CODE_MANAGEMENT_PLAN.md` Phase 4 section and overall status to reflect real dogfooding activity.
-- E3. Ensure at least 3 commits in the next 48h reference newly created P4 tasks.
-
-**Target artifacts:** Visible increase in P4 activity and real trajectories entering the flywheel from self-improvement work.
-
----
 
 ## Cross-cutting
 

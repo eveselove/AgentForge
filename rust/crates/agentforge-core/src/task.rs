@@ -29,6 +29,8 @@ pub struct Task {
     pub assigned_to: Option<String>, // кто реально взял задачу в работу
     pub status: TaskStatus,
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub requires_agent_review: bool,
     pub created_at: String,
     pub updated_at: String,
     pub started_at: Option<String>,
@@ -56,6 +58,7 @@ impl Task {
             assigned_to: None,
             status: TaskStatus::Pending,
             tags: vec![],
+            requires_agent_review: false,
             created_at: now.clone(),
             updated_at: now,
             started_at: None,
@@ -77,6 +80,11 @@ impl Task {
 
     pub fn with_tags(mut self, tags: Vec<String>) -> Self {
         self.tags = tags;
+        self
+    }
+
+    pub fn with_requires_agent_review(mut self, requires: bool) -> Self {
+        self.requires_agent_review = requires;
         self
     }
 }
