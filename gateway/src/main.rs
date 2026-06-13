@@ -147,6 +147,8 @@ struct Knowledge {
     key: String,
     value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    embedding_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     created_at: Option<String>,
 }
 
@@ -158,6 +160,8 @@ struct SaveKnowledge {
     agent: Option<String>,
     #[serde(default)]
     task_id: Option<String>,
+    #[serde(default)]
+    embedding_hash: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1267,7 +1271,7 @@ async fn search_knowledge(
         let pat = format!("%{}%", qq.replace("'", "''")); // простая экранизация для LIKE
         (
             format!(
-                "SELECT id, agent, task_id, key, value, created_at FROM knowledge WHERE key LIKE ?1 OR value LIKE ?1 ORDER BY created_at DESC LIMIT {}",
+                "SELECT id, agent, task_id, key, value, embedding_hash, created_at FROM knowledge WHERE key LIKE ?1 OR value LIKE ?1 ORDER BY created_at DESC LIMIT {}",
                 limit
             ),
             vec![pat],
@@ -1275,7 +1279,7 @@ async fn search_knowledge(
     } else {
         (
             format!(
-                "SELECT id, agent, task_id, key, value, created_at FROM knowledge ORDER BY created_at DESC LIMIT {}",
+                "SELECT id, agent, task_id, key, value, embedding_hash, created_at FROM knowledge ORDER BY created_at DESC LIMIT {}",
                 limit
             ),
             vec![],
@@ -1297,7 +1301,8 @@ async fn search_knowledge(
                         task_id: row.get(2)?,
                         key: row.get(3)?,
                         value: row.get(4)?,
-                        created_at: row.get(5)?,
+                        embedding_hash: row.get(5)?,
+                        created_at: row.get(6)?,
                     })
                 })
                 .unwrap()
@@ -1311,7 +1316,8 @@ async fn search_knowledge(
                         task_id: row.get(2)?,
                         key: row.get(3)?,
                         value: row.get(4)?,
-                        created_at: row.get(5)?,
+                        embedding_hash: row.get(5)?,
+                        created_at: row.get(6)?,
                     })
                 })
                 .unwrap()
@@ -1335,8 +1341,8 @@ async fn save_knowledge_handler(
     // db.execute_batch(...) удалён для уменьшения overhead на каждый save.
 
     db.execute(
-        "INSERT INTO knowledge (agent, task_id, key, value, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![payload.agent, payload.task_id, payload.key, payload.value, now],
+        "INSERT INTO knowledge (agent, task_id, key, value, embedding_hash, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![payload.agent, payload.task_id, payload.key, payload.value, payload.embedding_hash, now],
     ).unwrap();
 
     info!("🧠 Knowledge saved: {}", payload.key);
