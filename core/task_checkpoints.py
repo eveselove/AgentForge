@@ -423,6 +423,18 @@ def save_knowledge(
     _ensure_data_dir()
     now = datetime.utcnow().isoformat() + "Z"
 
+    # WAVE3 SHIM: prefer gateway /api/knowledge (Rust primary); fallback local for compat.
+    try:
+        import urllib.request, json, os
+        api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+        payload = {"key": key, "value": value, "agent": agent or "", "task_id": task_id or ""}
+        if embedding_hash:
+            payload["embedding_hash"] = embedding_hash
+        req = urllib.request.Request(f"{api}/api/knowledge", data=json.dumps(payload).encode(), headers={"Content-Type":"application/json"})
+        urllib.request.urlopen(req, timeout=3)
+    except Exception:
+        pass  # local fallback below
+
     conn = _get_knowledge_conn()
     try:
         with conn:

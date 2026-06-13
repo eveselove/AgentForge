@@ -674,13 +674,15 @@ if [ -n "$TRAJ_FILE" ] && [ -f "$TRAJ_FILE" ]; then
             2>&1 | tail -8 >> "$TRAJECTORY_DIR/postprocess_${TASK_ID}.log" 2>/dev/null || true ) &
         echo "[AgentForge Trajectory] Post-process hook dispatched for $TASK_ID (PRM + artifacts)" | tee -a "$LOG_DIR/grok_$TASK_ID.log"
 
-        # Rust flywheel hook (Phase 1 default). 
-        # NOTE (RUST_FULL_MIGRATION_PLAN.md): python rust_post_process_hook + rust_flywheel_step are
-        # transitional. The canonical path is now agentforge-runner flywheel-step (pure Rust emission live).
-        # When AGENTFORGE_FLYWHEEL_ENGINE=rust the Python orchestration is deprecated/no-op.
+        # Rust flywheel hook (wave3 direct).
+        # Canonical: direct agentforge-runner flywheel-step (pure emission).
         if [ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]; then
-            ( AGENTFORGE_USE_RUST=1 python /home/eveselove/agentforge/DELETED (Tier2) - direct runner "$TASK_ID" \
-              >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true ) &
+            (
+                RUNNER="${AGENTFORGE_RUST_RUNNER:-/home/eveselove/agentforge/rust/target/release/agentforge-runner}"
+                if [ -x "$RUNNER" ]; then
+                    "$RUNNER" --json flywheel-step --real-data --ingest --limit 20 >> "$LOG_DIR/rust_flywheel_step_${TASK_ID}.log" 2>&1 || true
+                fi
+            ) &
         fi
     fi
 else
