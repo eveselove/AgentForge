@@ -117,6 +117,7 @@ except Exception:
 # Simulated / real step implementations (worker core)
 # ============================================================
 
+
 def do_dispatch(task_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     print(f"[{task_id}] 📋 DISPATCH: registering Grok task '{data.get('title')}'")
     time.sleep(0.15)
@@ -125,7 +126,9 @@ def do_dispatch(task_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-def do_git_clone(task_id: str, data: Dict[str, Any], workdir_root: str) -> Dict[str, Any]:
+def do_git_clone(
+    task_id: str, data: Dict[str, Any], workdir_root: str
+) -> Dict[str, Any]:
     repo = data.get("repo")
     if not repo:
         raise ValueError("repo URL required for git_clone")
@@ -176,7 +179,14 @@ def do_grok_start(task_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         ["git", "-C", clone, "add", "GROK_EDIT.md"],
     )
     subprocess.check_call(
-        ["git", "-C", clone, "commit", "-m", f"grok: apply requested changes for {task_id} [session {session_id}]"],
+        [
+            "git",
+            "-C",
+            clone,
+            "commit",
+            "-m",
+            f"grok: apply requested changes for {task_id} [session {session_id}]",
+        ],
     )
     data["grok_edits"] = data.get("grok_edits", 0) + 1
     time.sleep(0.4)
@@ -191,7 +201,9 @@ def do_grok_done(task_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def do_ci_start(task_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
-    print(f"[{task_id}] 🧪 CI_START: running verification on branch {data.get('branch')}")
+    print(
+        f"[{task_id}] 🧪 CI_START: running verification on branch {data.get('branch')}"
+    )
     run_id = f"ci-{int(time.time())}"
     data["ci_run_id"] = run_id
     data["ci_started_at"] = datetime.utcnow().isoformat() + "Z"
@@ -220,7 +232,10 @@ def do_ci_done(
         data["ci_status"] = "failed"
         data["ci_error"] = "forced failure for safety test"
     else:
-        cmd = ci_command or "python3 -c \"print('CI checks passed (default lightweight)'); exit(0)\""
+        cmd = (
+            ci_command
+            or "python3 -c \"print('CI checks passed (default lightweight)'); exit(0)\""
+        )
         print(f"[{task_id}]    $ {cmd}")
         try:
             result = subprocess.run(
@@ -256,9 +271,13 @@ def do_ci_done(
             reason=data.get("ci_error", "CI failed"),
         )
         data["rollback"] = rb
-        print(f"[{task_id}]    rollback result: {rb.get('status')} {rb.get('revert_commit', '')}")
+        print(
+            f"[{task_id}]    rollback result: {rb.get('status')} {rb.get('revert_commit', '')}"
+        )
         if rb.get("status") == "reverted":
-            print(f"[{task_id}]    ✓ Revert commit {rb['revert_commit']} created on {rb['branch']}")
+            print(
+                f"[{task_id}]    ✓ Revert commit {rb['revert_commit']} created on {rb['branch']}"
+            )
             print("    Main branch is protected — bad changes have been reverted.")
 
     data["ci_completed_at"] = datetime.utcnow().isoformat() + "Z"
@@ -308,7 +327,9 @@ def run_pipeline(
 
     state = resume_or_start(task_id, initial_data)
     print(f"\n=== Grok Worker Task {task_id} ===")
-    print(f"  resume={state['is_resume']}, last={state['last_step']}, next={state['next_step']}")
+    print(
+        f"  resume={state['is_resume']}, last={state['last_step']}, next={state['next_step']}"
+    )
 
     current = state["data"]
     last = state["last_step"]
@@ -327,38 +348,69 @@ def run_pipeline(
             episodic_ctx = get_episodic_rag_context(title, desc, k=4)
             if episodic_ctx:
                 current["episodic_rag_context"] = episodic_ctx
-                current["episodic_hits"] = retrieve_past_errors_and_resolutions(f"{title}\n{desc}", k=3) if retrieve_past_errors_and_resolutions else []
-                print(f"[{task_id}] 🧠🗄️ Episodic RAG (LanceDB): {len(current.get('episodic_hits',[]))} similar past tasks/errors retrieved (injected before prompt)")
+                current["episodic_hits"] = (
+                    retrieve_past_errors_and_resolutions(f"{title}\n{desc}", k=3)
+                    if retrieve_past_errors_and_resolutions
+                    else []
+                )
+                print(
+                    f"[{task_id}] 🧠🗄️ Episodic RAG (LanceDB): {len(current.get('episodic_hits',[]))} similar past tasks/errors retrieved (injected before prompt)"
+                )
                 # Show a one-line preview of first error lesson if present
                 if current.get("episodic_hits"):
                     first = current["episodic_hits"][0]
-                    print(f"    First lesson: {('FAILED ' if not first.get('success') else '')}{first.get('error_type','')[:40]} → {str(first.get('resolution',''))[:60]}")
+                    print(
+                        f"    First lesson: {('FAILED ' if not first.get('success') else '')}{first.get('error_type','')[:40]} → {str(first.get('resolution',''))[:60]}"
+                    )
             else:
-                print(f"[{task_id}] 🧠🗄️ Episodic RAG: no sufficiently similar past episodes in task_outcomes")
+                print(
+                    f"[{task_id}] 🧠🗄️ Episodic RAG: no sufficiently similar past episodes in task_outcomes"
+                )
         except Exception as _e:
             print(f"[{task_id}] WARN: episodic LanceDB RAG failed: {_e}")
 
     # === SHARED MEMORY: before starting work, retrieve similar past knowledge for context ===
     if search_knowledge:
         try:
-            q = " ".join(filter(None, [
-                current.get("title") or initial_data.get("title", ""),
-                current.get("description") or initial_data.get("description", ""),
-                task_id
-            ])).strip() or task_id
+            q = (
+                " ".join(
+                    filter(
+                        None,
+                        [
+                            current.get("title") or initial_data.get("title", ""),
+                            current.get("description")
+                            or initial_data.get("description", ""),
+                            task_id,
+                        ],
+                    )
+                ).strip()
+                or task_id
+            )
             mem_hits = search_knowledge(q, limit=3)
             if mem_hits:
                 current["shared_memory_hits"] = mem_hits
-                print(f"[{task_id}] 🧠 Shared memory context: {len(mem_hits)} similar facts retrieved")
+                print(
+                    f"[{task_id}] 🧠 Shared memory context: {len(mem_hits)} similar facts retrieved"
+                )
                 for h in mem_hits[:2]:
                     print(f"    - {h.get('key')}: {str(h.get('value',''))[:80]}...")
             else:
-                print(f"[{task_id}] 🧠 Shared memory: no prior facts matched (q={q[:40]})")
+                print(
+                    f"[{task_id}] 🧠 Shared memory: no prior facts matched (q={q[:40]})"
+                )
         except Exception as _e:
             print(f"[{task_id}] WARN: shared memory search failed: {_e}")
 
     # Determine remaining steps
-    all_steps = ["dispatch", "git_clone", "grok_start", "grok_done", "ci_start", "ci_done", "review"]
+    all_steps = [
+        "dispatch",
+        "git_clone",
+        "grok_start",
+        "grok_done",
+        "ci_start",
+        "ci_done",
+        "review",
+    ]
     if last is None:
         steps_to_run = all_steps[:]
     else:
@@ -412,7 +464,9 @@ def run_pipeline(
                 agent=current.get("assigned_agent") or "grok-worker",
                 task_id=task_id,
             )
-            print(f"[{task_id}] 💾 Saved summary to shared knowledge (id={kid}) via gw/checkpoints.db (WAVE4 primary; py tasks.db deprecated)")
+            print(
+                f"[{task_id}] 💾 Saved summary to shared knowledge (id={kid}) via gw/checkpoints.db (WAVE4 primary; py tasks.db deprecated)"
+            )
         except Exception as _e:
             print(f"[{task_id}] WARN: failed to save knowledge summary: {_e}")
 
@@ -424,18 +478,27 @@ def run_pipeline(
 # Gateway integration for true multi-repo from task records
 # ============================================================
 
+
 def _http_get_json(url: str, timeout: int = 15) -> Dict[str, Any]:
-    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "grok-worker/1.0"})
+    req = urllib.request.Request(
+        url, headers={"Accept": "application/json", "User-Agent": "grok-worker/1.0"}
+    )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8", errors="replace"))
 
 
-def _http_post_json(url: str, payload: Dict[str, Any], timeout: int = 15) -> Dict[str, Any]:
+def _http_post_json(
+    url: str, payload: Dict[str, Any], timeout: int = 15
+) -> Dict[str, Any]:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=data,
-        headers={"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "grok-worker/1.0"},
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "grok-worker/1.0",
+        },
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -465,7 +528,13 @@ def fetch_task_from_gateway(base_url: str, task_id: str) -> Optional[Dict[str, A
         return None
 
 
-def submit_completion_to_gateway(base_url: str, task_id: str, diff: Optional[str] = None, summary: Optional[str] = None, status: str = "ai_done") -> bool:
+def submit_completion_to_gateway(
+    base_url: str,
+    task_id: str,
+    diff: Optional[str] = None,
+    summary: Optional[str] = None,
+    status: str = "ai_done",
+) -> bool:
     """Report completion + diff back to gateway (triggers A2A review if configured on task)."""
     try:
         base = base_url.rstrip("/")
@@ -474,7 +543,7 @@ def submit_completion_to_gateway(base_url: str, task_id: str, diff: Optional[str
             payload["diff"] = diff
         if summary:
             payload["summary"] = summary
-        res = _http_post_json(f"{base}/api/tasks/{task_id}/submit-completion", payload)
+        _http_post_json(f"{base}/api/tasks/{task_id}/submit-completion", payload)
         print(f"[{task_id}] ✅ Submitted completion to gateway (status={status})")
         return True
     except Exception as e:
@@ -489,8 +558,18 @@ def compute_diff_for_submit(clone_path: str) -> str:
     try:
         # Prefer diff vs origin/main
         out = subprocess.run(
-            ["git", "-C", clone_path, "diff", "--no-color", "--unified=0", "origin/main...HEAD"],
-            capture_output=True, text=True, timeout=30
+            [
+                "git",
+                "-C",
+                clone_path,
+                "diff",
+                "--no-color",
+                "--unified=0",
+                "origin/main...HEAD",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         d = out.stdout.strip()
         if d:
@@ -498,7 +577,9 @@ def compute_diff_for_submit(clone_path: str) -> str:
         # fallback
         out2 = subprocess.run(
             ["git", "-C", clone_path, "diff", "--no-color", "--cached", "--unified=0"],
-            capture_output=True, text=True, timeout=20
+            capture_output=True,
+            text=True,
+            timeout=20,
         )
         return (out2.stdout or "(no diff captured)").strip()[:8000]
     except Exception as e:
@@ -506,16 +587,59 @@ def compute_diff_for_submit(clone_path: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="grok_worker — Grok task runner with Git auto-rollback safety (multi-repo via task.repo)")
-    parser.add_argument("--task", "-t", help="Unique task id (for standalone or gateway mode)")
-    parser.add_argument("--gateway-task", "--from-gateway", dest="gateway_task", help="Task ID to fetch live from gateway (pulls repo/title/etc automatically for true multi-repo)")
-    parser.add_argument("--gateway", default=os.environ.get("PLANLY_GATEWAY", "http://127.0.0.1:9090"), help="Gateway base URL (default http://127.0.0.1:9090)")
-    parser.add_argument("--repo", default="/home/eveselove/agentforge", help="Target repo (overridden by gateway task if present)")
-    parser.add_argument("--title", default="Grok autonomous change", help="Task title (overridden by gateway)")
-    parser.add_argument("--workdir", default="/tmp/planly_work", help="Root for isolated clones (never host repo)")
-    parser.add_argument("--ci-command", help="Shell command to run as CI inside clone (default: lightweight pass)")
-    parser.add_argument("--force-ci-fail", action="store_true", help="Force CI failure path + demonstrate auto-rollback")
-    parser.add_argument("--crash-after", choices=["dispatch", "git_clone", "grok_start", "grok_done", "ci_start", "ci_done", "review"])
+    parser = argparse.ArgumentParser(
+        description="grok_worker — Grok task runner with Git auto-rollback safety (multi-repo via task.repo)"
+    )
+    parser.add_argument(
+        "--task", "-t", help="Unique task id (for standalone or gateway mode)"
+    )
+    parser.add_argument(
+        "--gateway-task",
+        "--from-gateway",
+        dest="gateway_task",
+        help="Task ID to fetch live from gateway (pulls repo/title/etc automatically for true multi-repo)",
+    )
+    parser.add_argument(
+        "--gateway",
+        default=os.environ.get("PLANLY_GATEWAY", "http://127.0.0.1:9090"),
+        help="Gateway base URL (default http://127.0.0.1:9090)",
+    )
+    parser.add_argument(
+        "--repo",
+        default="/home/eveselove/agentforge",
+        help="Target repo (overridden by gateway task if present)",
+    )
+    parser.add_argument(
+        "--title",
+        default="Grok autonomous change",
+        help="Task title (overridden by gateway)",
+    )
+    parser.add_argument(
+        "--workdir",
+        default="/tmp/planly_work",
+        help="Root for isolated clones (never host repo)",
+    )
+    parser.add_argument(
+        "--ci-command",
+        help="Shell command to run as CI inside clone (default: lightweight pass)",
+    )
+    parser.add_argument(
+        "--force-ci-fail",
+        action="store_true",
+        help="Force CI failure path + demonstrate auto-rollback",
+    )
+    parser.add_argument(
+        "--crash-after",
+        choices=[
+            "dispatch",
+            "git_clone",
+            "grok_start",
+            "grok_done",
+            "ci_start",
+            "ci_done",
+            "review",
+        ],
+    )
     parser.add_argument("--list-recoverable", action="store_true")
     args = parser.parse_args()
 
@@ -551,13 +675,19 @@ def main() -> int:
             if t.get("priority"):
                 initial["priority"] = t["priority"]
             initial["gateway_source"] = True
-            print(f"[{task_id}] 📥 Pulled from gateway: repo={initial.get('repo')!r} title={initial.get('title')!r}")
+            print(
+                f"[{task_id}] 📥 Pulled from gateway: repo={initial.get('repo')!r} title={initial.get('title')!r}"
+            )
         else:
-            print(f"[{task_id}] Using CLI --repo/--title (gateway pull returned no match)")
+            print(
+                f"[{task_id}] Using CLI --repo/--title (gateway pull returned no match)"
+            )
 
     # Guard: require a real repo for git_clone step
     if not initial.get("repo"):
-        print(f"[{task_id}] ERROR: no repo provided (use --repo or --gateway-task pointing at task with repo field)")
+        print(
+            f"[{task_id}] ERROR: no repo provided (use --repo or --gateway-task pointing at task with repo field)"
+        )
         return 2
 
     final = run_pipeline(
@@ -580,11 +710,17 @@ def main() -> int:
                     clone_path = last_cp["data"].get("clone_path", "") or ""
             except Exception:
                 pass
-        diff = compute_diff_for_submit(clone_path) if clone_path else "(pipeline completed; see checkpoints + worktree for details)"
+        diff = (
+            compute_diff_for_submit(clone_path)
+            if clone_path
+            else "(pipeline completed; see checkpoints + worktree for details)"
+        )
         summary = f"Completed via grok_worker (gateway pull) on {initial.get('repo')}. Steps: dispatch→git_clone→...→review."
         if pulled:
             summary += " (repo taken from gateway task; A2A review will trigger if a2a_reviewer set on task)"
-        submit_completion_to_gateway(gateway_base, task_id, diff=diff, summary=summary, status="ai_done")
+        submit_completion_to_gateway(
+            gateway_base, task_id, diff=diff, summary=summary, status="ai_done"
+        )
 
         # Also persist the gateway-provided summary into shared knowledge (gw/checkpoints.db primary, WAVE4)
         if save_knowledge:
