@@ -466,6 +466,19 @@ def search_knowledge(
     Returns list of rows with score when FTS used.
     """
     q = (q or "").strip()
+    # WAVE3 SHIM: try gateway search first (Rust)
+    try:
+        import urllib.request, urllib.parse, json, os
+        api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+        qs = f"q={urllib.parse.quote(q)}&limit={limit}"
+        if agent: qs += f"&agent={urllib.parse.quote(agent)}"
+        if task_id: qs += f"&task_id={urllib.parse.quote(task_id)}"
+        with urllib.request.urlopen(f"{api}/api/knowledge/search?{qs}", timeout=5) as resp:
+            data = json.loads(resp.read())
+            if isinstance(data, list) and data:
+                return data  # return gateway results if any
+    except Exception:
+        pass
     conn = _get_knowledge_conn()
     try:
         init_knowledge_db()  # ensure knowledge tables in tasks.db
