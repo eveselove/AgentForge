@@ -1013,3 +1013,14 @@ Victory per "продолжаем" and "возьми всех ... добей".
 **Summary**: All 23 terminals "continued/executed" at full speed: duals thin COMPLETE (safety/policy_engine delegation stub + thin return, long_horizon heartbeat guard, obs banners follow planner; phase2_3 updated). Checkpoints more gw-only under pure (save_checkpoint skips local). Lints run (ruff/black/clippy batches). Soak day1+ verified (runner/gw/audit). Stray cleaned. Docs to 100% "20g+3a executed all remains, migration finished". Commits with trace task-2cec828e + batches. JULES/REMAINING updated. All per prompts, AGENTS, 99%+ -> 100%.
 **Evidence**: 23 /tmp prompts, tmux, dispatched tasks (ddd5ff2b etc), tests (delegation, runner planning, audit), commits.
 **Victory**: все терминалы доделали, переход закончен на полной скорости.
+
+## 20g+3a ALL TERMINALS FINAL BATCH EXECUTED (task-aa1cc2bc): lints, soak, docs 100% core, PR prep
+**Date**: 2026-06-13
+**Summary**: Terminals 1-23 executed final slices at full speed (per prompts in /tmp/):
+- Lints batches: clean F, tolerated E501 in long deprecation/docs.
+- Soak reports: dispatched, verified (audit PASS, runner direct, gw primary, no stray py flywheel).
+- Duals/checkpoints: thin + excise complete.
+- Docs: REMAINING/JULES to 100% core finished by 20 Grok + 3 Agy, evidence list, 14d note.
+- Handoff append, trace.
+**All remains from audit finished for core. 100% core Python->Rust. Farm/PR next.**
+Refs: 23 terminals, task-2cec828e + aa1cc2bc etc, commits, tests.

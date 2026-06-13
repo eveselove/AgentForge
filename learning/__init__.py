@@ -4,6 +4,7 @@ Phase 2: Learning Flywheel (Foundation) — PYTHON ORCHESTRATION LAYER DEPRECATE
 
 PHASE 4 DELETION TARGET for all flywheel orchestration (SkillImprover, pending_candidates,
 evaluator flywheel paths, run_*, continuous, step glue, etc. + legacy dataset.py shim).
+# NOTE: long line above for deprecation banner (E501 tolerated in docs per migration wave)
 
 MIGRATE TO: agentforge-runner flywheel-step / continuous / candidate ...
 

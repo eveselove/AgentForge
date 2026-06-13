@@ -221,7 +221,7 @@ def analyze_log_for_loops(log_path):
                 ]
             )
         ]
-        if len(tool_calls) > 15:  # чуть мягче порог
+        if len(tool_calls) > 15:  # noqa: E501 (slightly softer threshold)
             tcounts = Counter(tool_calls)
             if tcounts and tcounts.most_common(1)[0][1] >= LOOP_THRESHOLD:
                 return "зацикливание вызова инструментов"

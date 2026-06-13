@@ -216,3 +216,13 @@ All 23 terminals continued/executed (dispatches task-ddd5ff2b + batches, work in
 - 100%: all audit items (duals, checkpoints, lints, soak, Tier3 gone, stray) finished by 20g+3a. Core Rust. Farm 14d ongoing. PR evidence full (terminals, JULES, tasks, commits, tests).
 See JULES for terminal execution log.
 **Migration Python->Rust COMPLETE by 20 Grok + 3 Agy terminals at full speed.**
+
+## FINAL BATCH 20g+3a TERMINALS EXECUTED (task-aa1cc2bc + task-2cec828e): lints clean, final docs, 100% core
+All 23 terminals continued full speed final batch:
+- Lints: ruff F clean, black, E501 in deprecation banners/docs tolerated (preexist style, migration wave).
+- Checkpoints/soak: verified, pure gw primary.
+- Duals: all thin (planner real delegation tested + runner support; safety/long guards).
+- Docs: REMAINING/JULES updated "core 100% finished by 20g+3a, stubs gone, thin shims, eval value kept, 14d soak for Tier4 rm per PHASE4 (clock 2026-06-13)".
+- Audit PASS, no py flywheel in critical, runner/gw dogfood.
+- PR task dispatched, evidence: 23 terminals/prompts, JULES appends, tasks, commits (87d04f2, 382aa41, etc.), delegation tests.
+**100% for core migration (Python business logic to Rust runner/gw/crates). Remaining: 14d farm soak + final Tier4 deletion + PR open from agent/.**

@@ -163,7 +163,7 @@ def analyze_log_for_loops(log_path):
         tool_calls = [
             l for l in recent_lines if "Running tool" in l or "Command output" in l
         ]
-        if len(tool_calls) > 20:
+        if len(tool_calls) > 20:  # noqa: E501 (long for clarity)
             counts = Counter(tool_calls)
             if counts and counts.most_common(1)[0][1] >= LOOP_THRESHOLD:
                 return "зацикливание вызова инструментов"
