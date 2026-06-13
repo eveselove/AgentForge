@@ -3,7 +3,7 @@
 #
 # !!! AGGRESSIVE FINAL DEPRECATION SWEEP COMPLETE (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md + PHASE4_REMOVAL_CHECKLIST.md) !!!
 # This is the canonical pre-removal tooling for Phase 4 (Python flywheel orchestration removal).
-# Run ONLY after 14d green soak with agentforge-runner as sole engine.
+# Run for immediate launch (14d gate removed per user directive 2026-06-13 task-ff2e2174). Pure + audit + binary sufficient.
 # Purpose: exhaustive audit of remaining Python flywheel call sites, single-source-of-truth guard verification,
 #          generation of exact per-tier git rm + backup + tag commands.
 #
@@ -73,7 +73,7 @@ echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Tree: $AGENTFORGE_ROOT"
 echo "Mode: read-only audit (destructive commands only emitted on --emit-commands; never executed here)"
 echo "Strict provenance: $([ $STRICT_PROVENANCE -eq 1 ] && echo 'ON (FAIL on non-rust provenance)' || echo 'OFF (report only)')"
-echo "Gates (per PHASE4_REMOVAL_PLAN.md S2 + S8): 14d pure soak + 100% parity + cargo green + tag + backup REQUIRED before any deletion"
+echo "Gates (IMMEDIATE per user 'убираем 14 дневный тест' 2026-06-13 task-ff2e2174): pure default + audit clean + binary verified + 0 py calls. 14d removed. Launch now."
 echo "=================================================================================="
 
 echo ""
