@@ -150,3 +150,13 @@ Ready for re-review / consume / PR if desired.
 Refs: task-5af0e350 (and 41c89609), previous commits.
 Handoff updated. Ready for review/consume.
 
+## Gateway service + install + After= hardening (доделывай final, per reviewer)
+- Created committed agentforge-gateway.service (Rust Axum API on 9090, with notes for legacy 8080).
+- Updated install_services.sh to cp/enable gateway (legacy api fallback).
+- Batch fixed After=/Requires= in worker/flywheel/watchdog/antigravity to prefer gateway.service.
+- flywheel.service ExecStart made robust with $AGENTFORGE_RUST_RUNNER fallback + sh -c.
+- after_task.sh syntax fixed (removed mangled Python-in-comment causing bash -n fail).
+- Remaining comments/refs cleaned where safe (audit, sh still have legacy for rollback).
+Refs: task-5af0e350, prior waves, reviewer blockers addressed (services, syntax, missing committed gateway.service).
+Handoff updated. Services now match "direct runner" + proper gateway surface.
+

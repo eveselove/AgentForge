@@ -1,0 +1,23 @@
+# === GATEWAY (Rust task API server - PHASE 4 replacement for old Python uvicorn task_queue) ===
+# Built from gateway/ (axum + agentforge-core LanceTaskStore etc.).
+# Runs the full CRUD, dispatch, review, WS, knowledge/blackboard on :9090.
+# Non-blocking for migration; legacy 8080/api may coexist briefly for rollback.
+# See gateway/src/main.rs, AUDIT-5-systemd-services.md, install_services.sh.
+
+[Unit]
+Description=AgentForge Gateway (Rust task queue / API - 9090)
+After=network.target
+
+[Service]
+Type=simple
+User=agx
+WorkingDirectory=/home/eveselove/agentforge
+ExecStart=/home/eveselove/agentforge/gateway/target/release/agentforge-gateway
+Restart=always
+RestartSec=5
+Environment=HOME=/home/eveselove
+StandardOutput=append:/home/eveselove/agentforge/logs/gateway.log
+StandardError=append:/home/eveselove/agentforge/logs/gateway.log
+
+[Install]
+WantedBy=multi-user.target

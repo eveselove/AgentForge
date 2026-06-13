@@ -16,7 +16,7 @@
 [Unit]
 Description=AgentForge Continuous Rust Flywheel Autonomy Closer (meta-loop on top of after-task hooks)
 Documentation=https://github.com/agentforge (see CONTINUOUS_FLYWHEEL.md, ANTIGRAVITY_DEFAULT.md)
-After=agentforge-api.service agentforge-worker.service
+After=agentforge-gateway.service agentforge-api.service agentforge-worker.service
 # 2026-06: Rust Flywheel now DEFAULT for Antigravity. This timer drives the continuous promote-and-ab closer
 # on top of the automatic per-task flywheel firehose. Disable via DISABLE_RUST_FLYWHEEL=1 in the env block below.
 #
@@ -40,9 +40,9 @@ Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1
 Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 Environment=PYTHONPATH=/home/eveselove
-# PHASE 4: Direct Rust runner (complete surface, Python wrapper stubbed/DEPRECATED).
-# Non-breaking: if runner missing, falls back in practice via scripts, but prefer direct.
-ExecStart=/home/eveselove/agentforge/rust/target/release/agentforge-runner --json continuous --top-n 2
+# PHASE 4: Direct Rust runner (complete surface). Use env (set in unit) with release fallback.
+# Non-breaking for debug builds or custom paths.
+ExecStart=/bin/sh -c 'exec "${AGENTFORGE_RUST_RUNNER:-/home/eveselove/agentforge/rust/target/release/agentforge-runner}" --json continuous --top-n 2'
 StandardOutput=append:/home/eveselove/agentforge/logs/continuous_flywheel.log
 StandardError=append:/home/eveselove/agentforge/logs/continuous_flywheel.log
 # Reliability

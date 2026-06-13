@@ -19,17 +19,21 @@ echo "🔧 Установка systemd сервисов AgentForge..."
 # Останавливаем старые процессы
 pkill -f grok_worker.sh 2>/dev/null || true
 pkill -f "uvicorn task_queue" 2>/dev/null || true
+pkill -f "agentforge-gateway" 2>/dev/null || true
 sleep 2
 
 # Копируем юниты
-sudo cp "$AGENTFORGE_DIR/agentforge-api.service" /etc/systemd/system/
+sudo cp "$AGENTFORGE_DIR/agentforge-gateway.service" /etc/systemd/system/ || true
+# legacy
+sudo cp "$AGENTFORGE_DIR/agentforge-api.service" /etc/systemd/system/ 2>/dev/null || true
 sudo cp "$AGENTFORGE_DIR/agentforge-worker.service" /etc/systemd/system/
 
 # Перезагружаем systemd
 sudo systemctl daemon-reload
 
 # Активируем автозапуск при загрузке
-sudo systemctl enable agentforge-api
+sudo systemctl enable agentforge-gateway || true
+sudo systemctl enable agentforge-api 2>/dev/null || true
 sudo systemctl enable agentforge-worker
 
 # Запускаем
