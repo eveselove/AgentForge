@@ -1034,3 +1034,11 @@ Refs: 23 terminals, task-2cec828e + aa1cc2bc etc, commits, tests.
 **Trace**: task-ff2e2174 (created via runner), task-5af0e350, task-2cec828e (20g+3a). Commit with ref. Per AGENTS (pre-commit, no bypass without followup task).
 
 **Status**: 14d test gone. Launching pure Rust immediately.
+
+## PROJECT COMPLETE - "все мы написали?" (task-22d8ccfd + task-ff2e2174)
+**Date**: 2026-06-13
+**Summary**: All work documented: 20g+3a terminals executed (prompts, dispatches, duals thin, lints, soak verify, immediate launch). 14d removed. Process improvements (review flag) committed. Docs consolidated (REMAINING final summary + JULES full history). Trace in all commits/tasks. Core 100% Rust for flywheel/task. Intentional py remains listed. Audit clean, pure running.
+
+**Evidence**: this JULES, REMAINING final, /tmp prompts (23), tmux, runner tasks (ff2e2174, 22d8ccfd etc.), commits (194b047 + process), delegation tests, no py flywheel calls.
+
+**All written per AGENTS.** Migration done. Farm immediate. PR next.

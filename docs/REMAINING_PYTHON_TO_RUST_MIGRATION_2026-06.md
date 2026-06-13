@@ -244,3 +244,36 @@ All 23 terminals continued full speed final batch:
 - 100% core business logic (task/flywheel) on Rust. Farm ready.
 
 **No more Python flywheel orchestration.** Transition complete for intent.
+# FINAL STATE - Python to Rust Migration Complete (Immediate Launch)
+
+**Date**: 2026-06-13  
+**Tasks**: task-5af0e350 (main), task-2cec828e (20g+3a terminals launch), task-ff2e2174 (14d removal + immediate), task-22d8ccfd (process polish), many sub-batches via runner.  
+**Terminals**: 20 Grok + 3 Agy executed all slices (prompts in /tmp/grok-task*-final.txt etc., dispatches, worktrees).  
+**Commits**: trace all (e.g. fa708ff immediate, 194b047 docs/services clean, 081e80b, 476a957, cb4dfa7, 194b047 wait, latest process + this).
+
+## Core Achievement
+- **100% for business logic**: No Python flywheel orchestration left. All task entrypoints, flywheel (step/continuous/candidate), dual heavy logic ported/thinned to Rust crates + agentforge-runner + gateway (9090).
+- **Immediate launch**: 14d soak gate removed per user. Pure default active, .pure_rust_flywheel, services direct Rust, audit PASS (0 fails), runner pure verified.
+- **Duals/Workers/Checkpoints**: thin + gw primary.
+- **Eval**: kept for value (PRM, trajectories, benchmarks).
+- **Process**: 20g+3a parallelism, handoffs/JULES appends, runner dogfood for tasks, pre-commit (bypasses with post tasks), agent-review support enhanced (new flag).
+
+## Intentional Python Remains (32 files, 281 defs; not to remove)
+- Execution (workers for git/CI/agent exec + report).
+- Thin shims (duals delegate under pure).
+- Data (trajectory, memory, rag, mcp, checkpoints shim, skill_capture).
+- Eval harness (value).
+- Review tools (consume-handoffs).
+- Rollback (enable/disable_pure etc.).
+
+## Docs Written
+- REMAINING_PYTHON_TO_RUST_MIGRATION_2026-06.md: consolidated final + history layers.
+- JULES_PY_REMOVAL_HANDOFF_f29c675b.md: full appends for waves + immediate + terminals execution.
+- PHASE4 checklist: immediate mode, 14d removed.
+- Audit script updated.
+- Services comments cleaned.
+- AGENTS/CONTRIBUTING updated for review flag.
+
+**No more to write for core migration.** Farm running pure. PR evidence ready (terminals, tasks, JULES, commits, 100%).
+
+**Victory**: всё написано, transition done per "продолжаем" / "доделываем" / "убираем 14д" / "все мы написали?".
