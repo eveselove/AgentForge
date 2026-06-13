@@ -3,6 +3,7 @@
 > **Создан:** 2026-05-31 | **Задача AgentForge:** 15c6e6ad
 > **Условие активации:** 14+ дней pure Rust soak (AGENTFORGE_PURE_RUST_FLYWHEEL=1) без единого вызова Python flywheel в prod-логах.
 > **Документы-компаньоны:** PHASE4_REMOVAL_PLAN.md, PHASE4_REMOVAL_CHECKLIST.md, PHASE4_READY_FOR_SOAK.md, learning/utils.py
+> **WAVE4 polish (2026-06-13, task-5af0e350):** gw blackboard/knowledge primary + filters + migrate robust + delete-local; install_services legacy api full drop + gw explicit; runner --shadow + comment; lints. See REMAINING_ + JULES handoff. Still pre Tier3/4 rm.
 
 ---
 
@@ -51,7 +52,7 @@ cargo test --offline --workspace -- --quiet
 
 | # | Файл | Строк | Назначение | Зависимости | Условие удаления | Действие |
 |---|------|-------|-----------|------------|-----------------|----------|
-| 2.1 | [ ] `DELETED (Tier2) - direct runner` | 270 | Шим для вызова Rust post-process из Python worker | `eval.post_process`, `phase2_3_integration` | Заменён прямым вызовом `agentforge-runner` в workers | `git rm -f DELETED (Tier2) - direct runner` |
+| 2.1 | [ ] `DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)` | 270 | Шим для вызова Rust post-process из Python worker | `eval.post_process`, `phase2_3_integration` | Заменён прямым вызовом `agentforge-runner` в workers | `git rm -f DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)` |
 | 2.2 | [ ] `eval/post_process.py` (строки 148-397) | 656 total | Flywheel trigger блоки + run_*_flywheel* функции | `learning.skill_improver`, `learning.pending_candidates`, `learning.utils` | **ХИРУРГИЧЕСКИ:** удалить только flywheel-блоки, оставить planning/safety/PRM/trajectory ядро нетронутым | Хирургическая правка (НЕ git rm!) |
 | 2.3 | [ ] `eval/runner.py` (flywheel refs) | 347 total | Ссылки на flywheel в runner | `learning.utils` | **ХИРУРГИЧЕСКИ:** убрать flywheel-триггеры, оставить benchmark/eval ядро | Хирургическая правка |
 | 2.4 | [ ] `eval/analyze_trajectories.py` (flywheel refs) | 379 total | Анализ траекторий с flywheel-ссылками | `learning.utils` | **ХИРУРГИЧЕСКИ:** убрать flywheel-метрики, оставить core eval | Хирургическая правка |

@@ -18,7 +18,7 @@ complete removal in Phase 4:
   - learning/skill_improver.py (SkillImprover + propose_*)
   - learning/evaluator.py (flywheel-driven A/B paths)
   - eval/post_process.py (flywheel trigger glue)
-  - DELETED (Tier2) - direct runner (flywheel trigger)
+  - DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) (flywheel trigger)
   - list_pending_candidates.py
   - eval/runner.py (orchestration entrypoints)
   - rust_flywheel_demo.py

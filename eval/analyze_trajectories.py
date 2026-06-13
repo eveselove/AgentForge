@@ -6,11 +6,11 @@ This tool analyzes the structured .jsonl logs produced by the runners.
 It is a key component for moving from "we run tasks" to "we understand and improve our agents".
 
 !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
-This file is CORE EVAL (prm/trajectory analysis) — EXEMPT from Phase 4 Python FLYWHEEL_REMOVED_TIER2 (use runner) orchestration removal.
-Only FLYWHEEL_REMOVED_TIER2 (use runner) glue (e.g. in post_process.py, runner.py orchestration entrypoints) is deprecated.
-Trajectory analysis for pure eval paths remains fully supported + independent of FLYWHEEL_REMOVED_TIER2 (use runner) proposal/candidate/continuous.
+This file is CORE EVAL (prm/trajectory analysis) — EXEMPT from Phase 4 Python DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) orchestration removal.
+Only DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) glue (e.g. in post_process.py, runner.py orchestration entrypoints) is deprecated.
+Trajectory analysis for pure eval paths remains fully supported + independent of DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) proposal/candidate/continuous.
 Guard logic + banners apply only to orchestration (see learning/utils.py + PHASE4_* docs for full targets list).
-Non-orchestration eval/ is out of Phase 4 FLYWHEEL_REMOVED_TIER2 (use runner) scope (see PLAN exemptions).
+Non-orchestration eval/ is out of Phase 4 DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) scope (see PLAN exemptions).
 
 Usage:
     python -m agentforge.eval.analyze_trajectories

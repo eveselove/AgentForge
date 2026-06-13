@@ -12,9 +12,10 @@
 # - Sets canonical env (prefers release binary).
 # - Rate-limited: at most once per 5 minutes (global, via timestamp + flock lock).
 # - Idempotent + safe: never blocks, never fails the caller, graceful degrade.
-# - Invokes the *canonical* step: python -m agentforge.rust_flywheel_step --real-data --use-rust
-#   (this loads real trajectories/.prm, runs Rust bridge, produces proposal,
-#    writes artifacts, and *auto-drops* to pending_candidates/ via ingest).
+# - Under pure (default): invokes agentforge-runner --json flywheel-step --real-data --ingest directly (no py).
+#   (produces trajectories/artifacts/ingest to candidates; also ticks continuous for autonomy).
+#   Optional: --shadow when AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 for dual fidelity.
+# - Legacy ( ! pure ): still falls back (deprecated).
 # - Logs to logs/rust_flywheel_after_*.log
 #
 # Enable permanently:

@@ -1,26 +1,33 @@
 # Remaining Python Functions → Rust Migration Audit
 
-> Date: 2026-06-13
-> Context: Core task API (task_queue.py ~94k LOC functions) **already ported** to gateway/src/main.rs (Rust Axum). Python task_queue.py deleted (only .bak remains). Gateway running in prod.
-> Goal: Eliminate all remaining Python business logic by porting or deleting (per PYTHON_ENTRYPOINTS_MIGRATION + PHASE4_FLYWHEEL_REMOVAL_CHECKLIST).
+> Date: 2026-06-13 (WAVE4 polish update)
+> Context: Core task API (task_queue.py ~94k LOC functions) **already ported** to gateway/src/main.rs (Rust Axum). Python task_queue.py deleted (only .bak remains). Gateway (9090) primary + running.
+> WAVE4: knowledge + blackboard shims complete (gw primary /api/* first + fallback; migrate fn + deprecate); services install gw-focused (api legacy fully dropped from launch); flywheel direct runner (shadow supported); entrypoints mostly excised.
+> Goal: Eliminate all remaining Python business logic by porting or deleting (per PYTHON_ENTRYPOINTS_MIGRATION + PHASE4_FLYWHEEL_REMOVAL_CHECKLIST). Tier3/4 after 14d soak/audit.
 
-## Summary Stats (from `grep ^\s*def` on *.py)
-- ~580 function definitions total (incl. methods, tests, nested).
-- ~70+ .py files with code.
-- After excluding tests/eval/tests, __pycache__, archive, demos: ~40 active logic files.
-- Major already-ported: all of old task_queue CRUD + MoA-ish, dispatch, review, metrics, WS (now in gateway).
+## Summary Stats (from `grep ^\s*def` on *.py; 2026-06-13 wave)
+- 46 active-ish .py files with def/class (excl tests/archive/bak; down from ~70+ pre-waves).
+- 419 defs (down from ~580+).
+- Major ported/deleted: task entrypoints (runner task live CLI), flywheel orchestration (Tier1/2/3 stubs + direct runner), checkpoints/knowledge/blackboard (gw primary + shims).
+- Workers thinned to delegates + execution; eval mostly data harness (keep value); duals (planning/safety/long/obs) thin wrappers.
+- Gateway + runner dogfood primary. 
+
+## WAVE4 (knowledge/blackboard gw + services + runner polish) complete in this continuation
+- core/task_checkpoints.py: gw /api/knowledge + /api/blackboard/* primary shims (consistent), migrate improved (dedup+delete_local+stats), headers/docs accurate (knowledge.json/blackboard.json, /api/, no bogus /current).
+- gateway: blackboard feed now respects filters (extended SearchQuery + WHERE/sqlite datetime parity).
+- install_services.sh: api cp/enable/start/status/echo fully excised; explicit gateway start/status/lead + updated texts.
+- agents/grok_runner.sh + bin/rust_flywheel_after_task.sh: --shadow in direct paths + comment/header updated (direct runner as canonical).
+- lints: black/ruff clean on shims/migrate; cargo gateway check green (preexist dead_code only).
+- Handoffs: 5340b2b + prior reviewed/approved; new polish will have follow-up agent-review handoff.
+- Readiness: core task/flywheel/gw ~90-95%; overall ~82%+ (workers/eval/infra/duals remaining ~18%; eval/data value kept; Tier3/4 py pending soak per PHASE4).
 
 ## Categorized Remaining Python Logic (non-trivial functions)
 
-### 1. Task Entrypoint Scripts (P0 - replace with `agentforge-runner task` live CLI; ~dozens of small fns)
-Files: create_tasks.py, create_tasks_v2.py, create_arch_tasks.py, create_final_100_tasks.py, create_teamwork_tasks.py, core/agentforge_create_task.py, bin/create_turbo_flywheel_tasks.py, bin/add_turbo_wave2.py, create_teamwork_tasks.py etc.
+## Categorized Remaining Python Logic (non-trivial functions)
 
-Key functions:
-- post_create_task(base_url, payload, dry_run)
-- main() (hardcoded task lists + loop of POSTs)
-- create_tasks() in bin/
-
-Status: Prototype local task store in runner exists; **needs live HTTP mode** to gateway (9090).
+### 1. Task Entrypoint Scripts (P0 - DONE via `agentforge-runner task` live CLI + gw /api/tasks)
+( Most listed files deleted in prior waves; runner live_create/list/update/dispatch + --from-file etc cover create/reassign/approve/stats.)
+Status: **complete** (direct to 9090 gw; provenance rust-agentforge-runner). Legacy scripts gone or stubs. See runner main.rs + bin/phase4_audit.
 
 ### 2. Management / Fix Scripts (P1)
 Files: fix_antigravity_tasks.py, reassign.py, fix_stuck_tasks.py, reset_fakes.py, approve_tasks.py, check_status.py, show_agent_stats.py, fix_badges.py

@@ -675,12 +675,17 @@ if [ -n "$TRAJ_FILE" ] && [ -f "$TRAJ_FILE" ]; then
         echo "[AgentForge Trajectory] Post-process hook dispatched for $TASK_ID (PRM + artifacts)" | tee -a "$LOG_DIR/grok_$TASK_ID.log"
 
         # Rust flywheel hook (wave3 direct).
-        # Canonical: direct agentforge-runner flywheel-step (pure emission).
+        # Canonical: direct agentforge-runner flywheel-step (pure emission + ingest).
+        # WAVE4: also supports --shadow when AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 (for parity/fidelity in after-task style).
         if [ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]; then
             (
                 RUNNER="${AGENTFORGE_RUST_RUNNER:-/home/eveselove/agentforge/rust/target/release/agentforge-runner}"
                 if [ -x "$RUNNER" ]; then
-                    "$RUNNER" --json flywheel-step --real-data --ingest --limit 20 >> "$LOG_DIR/rust_flywheel_step_${TASK_ID}.log" 2>&1 || true
+                    if [ "${AGENTFORGE_RUST_FLYWHEEL_SHADOW:-0}" = "1" ] || [ "${AGENTFORGE_RUST_FLYWHEEL_SHADOW:-}" = "true" ]; then
+                        "$RUNNER" --json flywheel-step --real-data --ingest --limit 20 --shadow >> "$LOG_DIR/rust_flywheel_step_${TASK_ID}.log" 2>&1 || true
+                    else
+                        "$RUNNER" --json flywheel-step --real-data --ingest --limit 20 >> "$LOG_DIR/rust_flywheel_step_${TASK_ID}.log" 2>&1 || true
+                    fi
                 fi
             ) &
         fi

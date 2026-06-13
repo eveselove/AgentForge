@@ -4,8 +4,8 @@ After=network.target agentforge-gateway.service
 Wants=agentforge-gateway.service
 
 [Service]
-User=eveselove
-WorkingDirectory=/home/eveselove/planlytasksko
+User=agx
+WorkingDirectory=/home/eveselove/agentforge
 # PHASE 4: Flywheel via Rust runner (env). Worker itself remains for Antigravity execution.
 Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1

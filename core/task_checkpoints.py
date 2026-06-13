@@ -28,9 +28,11 @@ Table schema (as specified):
 + Team Operational Memory (Blackboard): оперативная память команды (memory,blackboard,communication)
   Live shared board for *active* agents. Agents publish current actions in real time
   (e.g. 'Я меняю структуру БД') so other agents see what teammates are doing *now*.
-  Tables: blackboard_activity in task_checkpoints.db (agent, team_id, task_id, message, created_at)
-  HTTP (via gateway): POST /blackboard/activity , GET /blackboard/feed , GET /blackboard/current
-  Use post_activity() / get_current_actions() from agent code or task_queue.
+  WAVE4: gw primary via /api/blackboard/* (stores to blackboard.json in gw); local task_checkpoints.db fallback on fail or DUAL.
+  Blackboard py table in task_checkpoints.db DEPRECATED for new writes (use shims + migrate when available; gw json canonical).
+  HTTP (via gateway 9090): POST /api/blackboard/activity , GET /api/blackboard/feed?limit=...&team_id=... (filters client-side or server)
+  Use post_activity() / get_blackboard_feed() / get_current_actions() from agent code.
+  Note: no /blackboard/current in gw (ephemeral; get_current_actions does client dedup from feed).
 
 Steps (in order):
   dispatch -> git_clone -> grok_start -> grok_done -> ci_start -> ci_done -> review -> done
@@ -1198,13 +1200,16 @@ def post_activity(
     """
     Publish current action/status to the shared team blackboard (operational memory).
     Call this periodically or on major step changes from active agent loops.
-    Other agents read via get_blackboard_feed() or get_current_actions() (or HTTP /blackboard/*).
+    Other agents read via get_blackboard_feed() or get_current_actions() (or HTTP /api/blackboard/* via gateway).
+
+    WAVE4: gw /api/blackboard/activity primary (blackboard.json); returns 0 sentinel on gw success (no dual unless KNOWLEDGE_DUAL_WRITE=1).
+    Local sqlite in task_checkpoints.db only on gw fail or dual.
 
     Example:
         post_activity("grok-worker-3", "Я меняю структуру БД: добавляю колонку blackboard_scope", team_id="team-42")
         post_activity("grok-worker-4", "Пишу тесты для A2A messaging", task_id="t-991")
 
-    Returns row id. Tags: memory,blackboard,communication
+    Returns row id (local) or 0 (gw sentinel). Tags: memory,blackboard,communication
     """
     if not agent or not message:
         raise ValueError("agent and message are required")
@@ -1212,12 +1217,25 @@ def post_activity(
     now = datetime.utcnow().isoformat() + "Z"
     # WAVE4: gw blackboard primary (/api/blackboard/activity)
     try:
-        import urllib.request, json, os
+        import urllib.request
+        import json
+        import os
+
         api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
-        payload = {"agent": agent, "message": message, "team_id": team_id, "task_id": task_id}
-        req = urllib.request.Request(f"{api}/api/blackboard/activity", data=json.dumps(payload).encode(), headers={"Content-Type":"application/json"})
+        payload = {
+            "agent": agent,
+            "message": message,
+            "team_id": team_id,
+            "task_id": task_id,
+        }
+        req = urllib.request.Request(
+            f"{api}/api/blackboard/activity",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+        )
         urllib.request.urlopen(req, timeout=3)
         # if success, still write local? or return 0; for compat dual if DUAL, else gw success
+        # (uses KNOWLEDGE_DUAL_WRITE for now; blackboard may get dedicated later)
         if os.getenv("AGENTFORGE_KNOWLEDGE_DUAL_WRITE") != "1":
             return 0  # sentinel for gw
     except Exception:
@@ -1250,19 +1268,32 @@ def get_blackboard_feed(
     Recent activity log from the team blackboard. Primary way for agents to observe
     what others are doing "right now". Supports team/task scoping + recency filter.
     Returns newest first.
+
+    WAVE4: gw /api/blackboard/feed primary (blackboard.json, limit N newest); qs filters passed but
+    gw may ignore server-side (client-side in get_current_actions dedup, or local fallback does filter).
+    Local task_checkpoints.db fallback (with sqlite filters).
     """
     _ensure_data_dir()
     # WAVE4: gw blackboard primary
     try:
-        import urllib.request, json, os
+        import urllib.request
+        import urllib.parse
+        import json
+        import os
+
         api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
         qs = f"limit={min(limit,200)}"
-        if team_id: qs += f"&team_id={urllib.parse.quote(team_id)}"
-        if task_id: qs += f"&task_id={urllib.parse.quote(task_id)}"
-        if agent: qs += f"&agent={urllib.parse.quote(agent)}"
+        if team_id:
+            qs += f"&team_id={urllib.parse.quote(team_id)}"
+        if task_id:
+            qs += f"&task_id={urllib.parse.quote(task_id)}"
+        if agent:
+            qs += f"&agent={urllib.parse.quote(agent)}"
         if since_minutes is not None and since_minutes > 0:
             qs += f"&since_minutes={since_minutes}"
-        with urllib.request.urlopen(f"{api}/api/blackboard/feed?{qs}", timeout=5) as resp:
+        with urllib.request.urlopen(
+            f"{api}/api/blackboard/feed?{qs}", timeout=5
+        ) as resp:
             data = json.loads(resp.read())
             if isinstance(data, list):
                 return data  # gw results
@@ -1552,29 +1583,28 @@ if __name__ == "__main__":
 
 
 def migrate_knowledge_from_tasks_db_to_gateway(
-    dry_run: bool = True, limit: int = 1000
+    dry_run: bool = True, limit: int = 1000, delete_local: bool = False
 ) -> dict:
-    """WAVE4: one-time migrate knowledge from deprecated py tasks.db table to gw (checkpoints.db /api/knowledge).
-    Safe, idempotent-ish (by key+value). Call with dry_run=False to execute.
-    Returns {'would': N, 'migrated': M, 'errors': E, 'skipped': S} or similar.
+    """WAVE4: one-time migrate knowledge from deprecated py tasks.db table to gw (/api/knowledge, gw sqlite + json?).
+    Safe, idempotent (dedup by key+value+ts). Call with dry_run=False to execute.
+    delete_local=True (after success) will DELETE from local py table (for full cutover; use with backup).
+    Returns {'would': N, 'migrated': M, 'errors': E, 'skipped': S, 'deleted': D}.
+    Blackboard: ephemeral (live activity), no migrate implemented (use shims/post_activity going forward; gw /api/blackboard/activity for any one-off).
     """
     import os
 
-    stats = {"would": 0, "migrated": 0, "errors": 0, "skipped": 0}
-    if os.getenv("AGENTFORGE_KNOWLEDGE_DUAL_WRITE") != "1":
-        # only during transition
-        pass
-    conn = _get_knowledge_conn()  # tasks.db
+    stats = {"would": 0, "migrated": 0, "errors": 0, "skipped": 0, "deleted": 0}
+    conn = _get_knowledge_conn()  # tasks.db (deprecated source)
     try:
         cur = conn.execute(
             "SELECT key, value, agent, task_id, embedding_hash, created_at FROM knowledge ORDER BY created_at LIMIT ?",
             (limit,),
         )
         rows = cur.fetchall()
-        seen = set()  # simple dedup by key
+        seen = set()  # dedup by key+value+ts for robustness
         for r in rows:
             key, value, agent, tid, emb, ts = r
-            dedup = (key, value)
+            dedup = (key, value, ts or "")
             if dedup in seen:
                 stats["skipped"] += 1
                 continue
@@ -1596,14 +1626,46 @@ def migrate_knowledge_from_tasks_db_to_gateway(
                     headers={"Content-Type": "application/json"},
                 )
                 resp = urllib.request.urlopen(req, timeout=5)
-                if resp.status == 200 or resp.status == 201:
+                ok = resp.status == 200 or resp.status == 201
+                if ok:
                     stats["migrated"] += 1
+                    if delete_local:
+                        try:
+                            conn.execute(
+                                "DELETE FROM knowledge WHERE key=? AND value=? AND (created_at=? OR created_at IS NULL)",
+                                (key, value, ts),
+                            )
+                            stats["deleted"] += 1
+                        except Exception:
+                            pass
                 else:
                     stats["errors"] += 1
             except Exception as e:
                 stats["errors"] += 1
                 if os.getenv("AGENTFORGE_DEBUG"):
                     print(f"[migrate] err for {key}: {e}")
+        print(
+            f"[migrate_knowledge] done dry={dry_run} del_local={delete_local} stats={stats}"
+        )
         return stats
     finally:
         conn.close()
+
+
+if __name__ == "__main__":
+    import sys
+
+    dry = "--execute" not in sys.argv
+    dl = "--delete-local" in sys.argv
+    lim = 1000
+    for a in sys.argv:
+        if a.startswith("--limit="):
+            try:
+                lim = int(a.split("=", 1)[1])
+            except Exception:
+                pass
+    print(
+        migrate_knowledge_from_tasks_db_to_gateway(
+            dry_run=dry, limit=lim, delete_local=dl
+        )
+    )

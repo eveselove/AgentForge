@@ -184,7 +184,7 @@ cat learning/flywheel_parity/PARITY_REPORT_PHASE1.md | head -30
 - `PARITY_REPORT_PHASE1.md` + `learning/flywheel_parity/parity_harness.py` — 90.9% + 100% contract proof.
 - `USAGE_RUST_IN_FARM.md`, `ENABLE_RUST_FLYWHEEL.md`, `CONTINUOUS_FLYWHEEL.md`, `FARM_ROLLOUT_CHECKLIST.md`.
 - `learning/utils.py` — single source of truth for `is_pure_rust_flywheel()`.
-- `eval/post_process.py` + `DELETED (Tier2) - direct runner` — hardened pure-preferring bridges.
+- `eval/post_process.py` + `DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)` — hardened pure-preferring bridges.
 
 ---
 
