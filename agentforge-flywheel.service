@@ -2,16 +2,11 @@
 # Injected by bin/make_pure_rust_flywheel_default.sh
 # agentforge-runner sole engine (flywheel-step/candidate/continuous). Non-breaking additive.
 # Rollback: edit unit or set Environment=AGENTFORGE_FLYWHEEL_ENGINE=python + touch .disable_pure_rust_flywheel
-# !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
-# !!! PHASE 4 DELETION TARGET INFRA: agentforge-flywheel.service + .timer !!!
-# CURRENT: ExecStart points to bin/run_continuous_flywheel.sh (Python orchestration wrapper — DEPRECATED).
-# POST PHASE 4: Repoint to `agentforge-runner continuous --top-n 2 --json [--shadow]` (or thin .sh wrapper).
-# This unit is patched by bin/make_pure_rust_flywheel_default.sh during cutover.
-# Python continuous (flock/prioritize/promote/AB) removed after soak + direct binary proven on farm timer.
-# Guard everywhere: is_pure_rust_flywheel() from learning/utils.py (Phase 4 hardened, dotfile+env killswitches).
-# Risks: timer breakage on workers if unpatched before delete. Rollback: disable_pure script + git checkout pre-tag.
-# See PLAN sections on safe order (Tier 4 infra last-ish), current invocation map, rollback layers.
-# Banners added to all sh/services in final sweep. Never delete data (pending_candidates populated by Rust now).
+# IMMEDIATE PURE RUST (14d gate removed 2026-06-13 per user directive task-ff2e2174).
+# agentforge-runner sole engine (continuous --top-n 2 --json [--shadow]).
+# Guard: is_pure_rust_flywheel() from learning/utils.py.
+# Rollback: edit unit or touch .disable_pure_rust_flywheel + restart.
+# No Python orchestration left in hot path.
 #
 [Unit]
 Description=AgentForge Continuous Rust Flywheel Autonomy Closer (meta-loop on top of after-task hooks)

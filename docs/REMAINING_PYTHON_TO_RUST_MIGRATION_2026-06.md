@@ -226,3 +226,21 @@ All 23 terminals continued full speed final batch:
 - Audit PASS, no py flywheel in critical, runner/gw dogfood.
 - PR task dispatched, evidence: 23 terminals/prompts, JULES appends, tasks, commits (87d04f2, 382aa41, etc.), delegation tests.
 **100% for core migration (Python business logic to Rust runner/gw/crates). Remaining: 14d farm soak + final Tier4 deletion + PR open from agent/.**
+
+## FINAL STATE POST IMMEDIATE LAUNCH (task-ff2e2174, 2026-06-13)
+- 14d soak gate **removed**, pure Rust launched immediately.
+- Tier3 stubs deleted, services direct to runner/gw (flywheel.service cleaned of DEPRECATED py refs).
+- Duals thin complete (delegation in planner/safety/long).
+- Checkpoints gw primary (local minimized under pure).
+- Audit PASS (immediate mode), runner pure works, marker present.
+- Python remains **intentional** (not to port): 
+  - Execution layer (antigravity_worker.py, builder_worker.py, grok_worker.sh, watchdog.py, agentforge_watchdog.py) - "dumb" executors for git/CI/agent runs + report to gw.
+  - Dual shims (planner.py, policy_engine.py, long_horizon/task_manager.py, observability/*, phase2_3_integration.py) - thin, delegate under pure.
+  - Data/value (trajectory_dataset.py, memory_helper.py, rag_indexer.py, mcp_server.py, skill_capture.py, task_checkpoints.py gw shim).
+  - Eval harness (kept for benchmark/PRM/trajectories value).
+  - bin/consume-handoff-reviews.py (review automation).
+- Rollback tools kept (disable_pure etc).
+- Lints: F clean, black clean, E501 in docs tolerated.
+- 100% core business logic (task/flywheel) on Rust. Farm ready.
+
+**No more Python flywheel orchestration.** Transition complete for intent.
