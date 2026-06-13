@@ -16,7 +16,7 @@
 [Unit]
 Description=AgentForge Continuous Rust Flywheel Autonomy Closer (meta-loop on top of after-task hooks)
 Documentation=https://github.com/agentforge (see CONTINUOUS_FLYWHEEL.md, ANTIGRAVITY_DEFAULT.md)
-After=agentforge-gateway.service agentforge-api.service agentforge-worker.service
+After=network.target agentforge-gateway.service
 # 2026-06: Rust Flywheel now DEFAULT for Antigravity. This timer drives the continuous promote-and-ab closer
 # on top of the automatic per-task flywheel firehose. Disable via DISABLE_RUST_FLYWHEEL=1 in the env block below.
 #

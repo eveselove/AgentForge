@@ -4,7 +4,7 @@
 # Rollback: edit unit or set Environment=AGENTFORGE_FLYWHEEL_ENGINE=python + touch .disable_pure_rust_flywheel
 [Unit]
 Description=AgentForge Watchdog Daemon
-After=agentforge-gateway.service network.target agentforge-api.service
+After=network.target agentforge-gateway.service
 
 [Service]
 Type=simple

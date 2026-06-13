@@ -1,6 +1,6 @@
 [Unit]
 Description=AgentForge Antigravity Worker — автономный AI-агент
-After=network.target agentforge-gateway.service agentforge.service
+After=network.target agentforge-gateway.service
 Wants=agentforge-gateway.service agentforge.service
 
 [Service]

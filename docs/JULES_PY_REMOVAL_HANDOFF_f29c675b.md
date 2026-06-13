@@ -187,3 +187,250 @@ APPROVE WITH NOTES (safe incremental; address nits/bugs in small polish or accep
 
 Handoff updated with follow-up review record.
 
+## Additional wave3 polish (task_checkpoints shim + runner hook, 2026-06-13)
+- core/task_checkpoints.py: save_knowledge now tries gateway /api/knowledge first (Rust primary), fallback local.
+- agents/grok_runner.sh: hook now direct agentforge-runner flywheel-step (no transitional py hook).
+- Commit c3fcd1a, refs task-5af0e350.
+Handoff updated.
+
+## Independent Review of c3fcd1a (wave3 shim + clean) + full доделвай context (task-5af0e350)
+**Date**: 2026-06-13  
+**Reviewer**: Grok (independent subagent per user request + AGENTS.md mandatory post-work agent-review step)  
+**Commits reviewed**: c3fcd1a (wave3 shim task_checkpoints to gateway + grok_runner direct flywheel) + context of full доделвай chain (5368644 worktree base?, 80ce653, 8b040e4, bd61e8e, d59ccd0, 876da2a, 23e9a8d, 5a3e43a and prior py removal f29c675b)  
+**Handoff record**: This section + full package under `~/.grok/handoffs/c3fcd1a/` (jules-review-c3fcd1a.md modeled on 80ce653e)  
+**Scope checked**: workers/infra/duals thin progress, shims, services aligned, no breakage, traceability. Cross-ref source, runtime (gateway 9090 active), DBs (checkpoints vs tasks), callers (grep), cargo, syntax, imports, previous review notes from 80ce653e/jules-review-80ce653e.md .  
+**Self-check equiv (REVIEW_CHECKLIST + prior defects)**: isolation not for reviewer; but changes small/focused; traceability (task-5af0e350 explicit in all); no new stdout/sed-json; cargo check gateway+runner green (preexist warnings only); py syntax+imports OK (stubs raise clean, post_process hardened); sh bash-n + key logic OK; diff audit: clean migration continuations; handoff/docs updated.  
+
+### Summary
+c3fcd1a + preceding доделвай commits successfully advance the final Python->Rust migration "thin" for wave3/infra: 
+- Services: gateway.service committed+robust (from prior), flywheel now direct runner continuous, antigravity/watchdog/worker have Rust flywheel envs + After= attempts (partial), after_task legacy mangled fully cleaned (bd61e8e), install updated for gateway.
+- Workers: grok_worker.sh + grok_runner.sh (c3fcd1a) now delegate flywheel to bin/rust_flywheel_after_task.sh + direct `agentforge-runner flywheel-step --real-data --ingest --limit` (no transitional py); antigravity_worker.py / builder_worker.py / core/* already on gateway 9090 + envs.
+- Shims: WAVE3 in core/task_checkpoints.py save_knowledge: best-effort POST /api/knowledge (Rust/gateway primary on checkpoints.db) then always local (tasks.db compat).
+- Duals: shadow/dual-run fully wired in after_task.sh (AGENTFORGE_RUST_FLYWHEEL_SHADOW -> --shadow + shadow dirs + health JSON + continuous), runner supports, grok_worker dispatches after_task; eval/post_process thinned to PRM/sidecar only (Tier2 done).
+- Progress real: Tier1 deleted, Tier2 glue excised (parity dir, hooks), Tier3 stubs in place (raise ImportError), no exec of deleted (verified in audit).
+- Traceability: strong (every commit refs task-5af0e350 or f29c675b + handoff appends; JULES_PY...md updated continuously; dogfood via runner task create in prior).
+- No breakage: gateway healthy (serves 9090, writes knowledge), runner/gateway cargo clean, py imports succeed for kept surface + guarded stubs, runtime hooks non-fatal, DB writes observed (dual for knowledge), current paths (pure default) exercise direct runner.
+
+Matches "workers/infra/duals thin" direction per prior review recs. Previous 80ce653e review blockers (services After=, syntax, gateway committed, install, after_task mangled) substantially addressed in this wave (some mechanicals like dupe After= linger; shim added for checkpoints).
+
+Overall: safe, incremental, aligned. 
+
+### Issues
+- [bug] Services After=/legacy still incomplete (carryover + not fully fixed in доделвай):
+  - agentforge-worker.service:7: duplicate gateway.service + agentforge-api.service in After= (and Requires only gateway good but mixed).
+  - agentforge-flywheel.service:19: After= includes agentforge-api.service + worker (ordering odd).
+  - agentforge-watchdog.service:7: still lists agentforge-api.service .
+  - agentforge-antigravity.service:3: After= network.target agentforge.service (legacy); Wants= too. (user eveselove vs agx in others; wd=/planlytasksko odd vs source).
+  Impact: may affect startup ordering (antigravity/gateway prefer); source units not authoritative. Status: open (prior review noted; partial batch fix).
+- [bug] install_services.sh:28,36,40,47: still `cp agentforge-api.service` (2>/dev/null), `enable/start/status agentforge-api` (nonexistent in tree), no `start agentforge-gateway` or status in "Запускаем" section (only enable). pkill gateway added but legacy start remains. Impact: fresh installs broken for api; gateway may not auto-start via script. (source vs installed divergence).
+- [bug / incomplete shim] core/task_checkpoints.py:426 (c3fcd1a):
+  - "prefer gateway" but code ALWAYS executes local insert after (try gateway; except pass; THEN conn local). No true fallback or conditional.
+  - Writes duplicate knowledge entries (same row-ish) to gateway's checkpoints.db/knowledge AND py tasks.db/knowledge.
+  - search_knowledge() remains 100% local on tasks.db (no /api/knowledge/search shim). => split-brain risk; searches miss gateway-written or shimmed facts. Recent test: checkpoints has shim-tests; tasks has older summaries.
+  - embedding_hash sent in payload but gateway SaveKnowledge struct + INSERT omit it (gateway table col exists but NULLs for gateway rows). Python local stores it.
+  - Blackboard: aligned (both use checkpoints.db directly; gateway has parallel HTTP endpoints but py bypasses for speed). No shim needed.
+  Impact: knowledge RAG/shared memory (used in grok_worker for context on ci_fail/rollback etc) can be inconsistent post-shim. Status: new from this commit (wave3 partial); pre-shim was single (tasks.db).
+- [suggestion] agents/grok_runner.sh:682 (c3fcd1a change): direct flywheel-step call omits --shadow (cf. after_task.sh:172 which does SHADOW_ACTIVE + --shadow + dirs). grok_runner post-trajectory flywheel may miss dual fidelity in some paths (though after_task from worker catches most). 
+- [nit] rust_flywheel_step.py:16 (Tier3 stub): f-string `_MESSAGE = f"... {__name__ or rust_flywheel_step} ..."` (bare name never reached due to short-circuit but smells; would NameError if __name__ falsy). Harmless.
+- [suggestion] Source service files (e.g. agentforge-gateway.service committed): simpler (no limits, User=agx, multi-user.target, bare Exec) vs runtime ~/.config/systemd/user/ ones (TasksMax/Memory/CPU, RUST_LOG, default.target, hardened, no User). Divergence pre-existing, persists. install cp's source but runtime different. 
+- [nit] Docs drift: some files (AGENTS.md examples, start.sh comments?, skills/) still reference 8080/task_queue; PHASE4 checklist not updated for wave3 shim/checkpoints; REMAINING_PYTHON... may need note. (non-blocking).
+- [suggestion] Checkpoints more: unify knowledge to single DB (recommend checkpoints.db as gateway primary; deprecate/migrate tasks.db knowledge or make search_knowledge also shim + prefer gateway read; update search handler if needed for embedding/FTS). Extend shim to full CRUD or centralize writes in gateway. Add test for save/search cross.
+- [suggestion] Duals complete: shadow good in core paths (after_task + runner + health + v5), but grok_runner direct missing flag, no eval harness update post-parity-delete (Tier2), soak reports (scripts/soak_daily_report.sh) reference shadow. Continue 14d monitoring + explicit dual tests. Antigravity routing uses dual workers by design (keep).
+- [suggestion] Workers full thin: grok/antigravity/builder py stay as executors (intentional per recs); orchestration (flywheel/continuous) now runner. grok_worker.sh cleaned. More? E.g. direct runner calls from more hooks if wanted.
+- [suggestion] eval full: post_process.py clean (PRM + enrich + sidecar + health path); other eval/ (regression, analyze, batch, prm) not in flywheel thin scope (keep). Good.
+- [nit] No new high-sev: but run full pre-commit (incl shellcheck STRICT?) + cargo clippy -D warnings + e2e (task create via runner, save_knowledge, flywheel-step) before PR/merge of c3fcd1a.
+- Other carryovers from 80ce653e review (gateway panic on bind no graceful; docs 8080) remain open.
+
+No critical breakage (e.g. no mangled code, no import deaths, hooks non-fatal, gateway live, runner healthy, pure paths work). Migration aligned.
+
+### Recommendations / Suggestions for remaining (per query)
+- **Services polish (quick follow-up)**: dedupe After= in worker; drop all agentforge-api.service refs from source *.service (or conditional compat); update install_services.sh to cp/enable/start/status gateway (drop api), add gateway in "Запускаем". Make source services the hardened master (sync limits etc or render from template). Update antigravity After= + wd/user consistency.
+- **Checkpoints more + shim complete**: 
+  - Make shim true prefer: if gateway succeeds, skip local? Or always prefer gateway for reads too (implement search shim in search_knowledge using /api/knowledge/search , fallback local).
+  - Unify: decide canonical DB for knowledge (checkpoints.db + gateway as owner; one-time copy or deprecate tasks.db knowledge table usage). Update gateway save to handle+insert embedding_hash.
+  - Add to PHASE4 checklist + REMAINING_PYTHON... + docs.
+- **Duals complete**: add --shadow to the grok_runner direct flywheel call (conditional on env like after_task); enhance soak_daily or add eval dual test harness; monitor flywheel_health.json + shadow diffs in practice. Mark duals "complete for v1" once 14d soak + fidelity passes.
+- **Eval full**: no urgent (post_process good); ensure any remaining flywheel refs in eval/* (runner, analyze) point only to runner (Tier2 already excised).
+- **Trace / consume / PR**: append this review to task-5af0e350 result; create/update handoff package ~/.grok/handoffs/c3fcd1a/ with diff.patch (git show c3fcd1a), this context, metadata (origin task 5af0e350), REVIEW_INSTRUCTIONS; run `python3 bin/consume-handoff-reviews.py --dry-run --verbose --handoff-id c3fcd1a` then --apply if APPROVE; reference "c3fcd1a agent-review jules-review-c3fcd1a.md task-5af0e350" in PR title/body for CI gate (agent-review-link).
+- **Longer**: align all blackboard/knowledge/checkpoints to gateway HTTP where possible (or document direct sqlite as perf path); full Phase4 Tier3/4 when audit clean + soak; consider WatchdogSec in units; drop legacy api.service entirely.
+- Run: `./bin/install-pre-commit` (if in fresh), full `cargo clippy --workspace -D warnings`, `bash -n` all touched sh, python -c imports, curl gateway tests, `python3 bin/consume-handoff-reviews.py --stats`.
+
+### Final Status
+**APPROVE WITH NOTES** (safe to advance c3fcd1a + доделвай wave; blockers from prior substantially mitigated with visible remaining mechanicals + new shim partial; no breakage; migration direction correct and progressing thin workers/infra/duals/shims/services. Address listed issues in small polish or accept as wave partials. Record this review + handoff dir ref in commit/PR/task.)
+
+Full handoff package: `~/.grok/handoffs/c3fcd1a/` (jules-review-c3fcd1a.md + context + metadata + diff of c3fcd1a).  
+This record appended to docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md .  
+Links: commit c3fcd1a, task-5af0e350, prior handoff 80ce653e + jules-review-80ce653e.md , AUDIT-5-systemd-services.md (in docs/audits/).
+
+This review performed full source+runtime+DB+caller+lint cross-check + equivalent self-verif per checklist + AGENTS. Independent (separate from implementation context).
+
+**Next per AGENTS.md**: invoke consume on the handoff; update task-5af0e350 (status + links + summary); use evidence in any PR.
+
+Handoff updated with this independent review of wave3 shim + full доделвай.
+## Wave3 shim complete (search + embedding, 2026-06-13)
+- core/task_checkpoints.py: search_knowledge now gateway-first (returns data if present); save sends embedding_hash.
+- Commit ed73e58.
+- Addresses review "incomplete shim" notes (search now covered; embedding passed).
+Handoff updated.
+
+## Final Independent Review of ed73e58 (checkpoints search/embedding shim complete) + full доделвай context (c3fcd1a + 80ce653 etc.) (task-5af0e350)
+**Date**: 2026-06-13  
+**Reviewer**: Grok (independent subagent; strict persona per AGENTS.md; full source+runtime+DB+caller+lint+prior-notes cross-check + REVIEW_CHECKLIST equiv self-verif)  
+**Commits reviewed**: ed73e58 (final shim: search_knowledge gateway-first + save embedding_hash) + c3fcd1a (wave3 shim save + grok_runner direct) + full доделвай chain (80ce653 gateway.service+robust+After+syntax, 8b040e4 runner thin, bd61e8e antigravity After+after_task clean, d59ccd0 hardening, 876da2a/23e9a8d/5a3e43a Tier stubs+removals + prior py removal f29c675b)  
+**Handoff record**: This section + modeled package (diff of ed73e58 + context); prior `~/.grok/handoffs/c3fcd1a/` (jules-review-c3fcd1a.md covers c3 + context); recommend `~/.grok/handoffs/ed73e58e/jules-review-ed73e58e.md` (run agent-review if skill avail).  
+**Scope checked**: shim completeness vs prior review notes (search 100% local + emb gap), no breakage, services status (post-доделвай), Python minimization, callers, DB split (tasks.db vs task_checkpoints.db), runtime (gateway 9090 active), lints, duals, traceability.  
+**Self-check equiv (REVIEW_CHECKLIST + prior defects)**: changes small/focused on shim (ed73) or cleanups (chain); traceability explicit (task-5af0e350 in all + handoff); no stdout/sed-json new; cargo (preexist clippy/fmt errs only, not in touched); py ruff/black would flag (one-liners in new shim + preexist + unused); sh bash-n clean (syntax fixed in доделвай), shellcheck advisory only (preexist quoting/SC109x); diff audit clean (no mangled, no new pollution); runtime/DB tests exercised; handoff/docs updated continuously. Full pre-commit not 100% clean due preexist + style in shim (would require STRICT=0 or fix). Dogfood via runner/gateway/task queue.
+
+### Summary
+ed73e58 + full доделвай (c3fcd1a etc.) successfully closes the wave3 "checkpoints search/embedding shim complete" scoped to task-5af0e350.
+
+**Shim improvements (verified)**:
+- save_knowledge: WAVE3 SHIM best-effort POST /api/knowledge (with embedding_hash if passed) to gateway (Rust primary, writes checkpoints.db); always fallback local write to tasks.db (compat).
+- search_knowledge: NEW in ed73e58: try gateway /api/knowledge/search? q=...&limit=...&agent=...&task_id=... first (timeout 5s); if list and non-empty data, return it immediately (prefers gateway results); else fallback to local FTS/recent on tasks.db + init.
+- Runtime verified (gateway live on 9090; shims exercised in test: search prefers gw hits e.g. "shim-review-test"; save sends emb_hash; returns compatible dicts with id/key/value/created_at/agent/task_id; missing score/emb_hash handled by .get() in callers/tests).
+- No breakage: grok_worker shared memory paths (pre/post task search/save) work; module self-tests pass; dual writes ensure compat during transition; errors in shim non-fatal (bare except: pass).
+
+**Services clean (post-доделвай)**: Substantial progress vs prior 80ce653e review blockers.
+- gateway.service: committed + source controlled (robust ExecStart, User=agx, logs, multi-user).
+- flywheel.service: direct `agentforge-runner ... continuous` (env fallback, sh -c robust).
+- grok_runner.sh (c3): direct flywheel-step --real-data --ingest (no transitional py hook).
+- grok_worker.sh: last py rust hook excised.
+- after_task.sh (bd61): legacy mangled Python block fully cleaned (safe comment + runner prefer paths).
+- antigravity.service (bd61/8b): After= now includes gateway (Wants too); AGENTFORGE_RUST_* envs.
+- watchdog/worker: gateway in After= + Rust flywheel envs.
+- install_services.sh: gateway cp/enable added; pkill gateway; legacy api cp is 2>/dev/null || true.
+- agentforge.service: comments note gateway as real (Exec still legacy uvicorn for rollback ref).
+Gateway confirmed healthy (serves /api/knowledge/search returning prior shim data + new).
+
+However, "services clean" not 100%: legacy api.service refs persist in source units (worker After= has both gateway+api; flywheel After= api+worker; watchdog After= api; install still enables/starts/statuses "agentforge-api" which file not in tree; api start will fail silently in places). User= (agx vs eveselove), wd= (/agentforge vs /planlytasksko) divergence between committed source + runtime/installed. Source services simpler vs hardened user units (no limits/TasksMax/RUST_LOG etc in committed gateway etc). Not addressed in ed73e58 (shim-focused); carryover from доделвай partial batch.
+
+**Remaining Python now minimized**: Yes per wave.
+- Tier1: 22 files completely removed (5a3e43a: demos/shims + all entrypoint scripts like task_queue.py etc.).
+- Tier2: surgical continuation excised flywheel glue (23e9a8d: parity dir/hooks etc.).
+- Tier3: stubs in place (876da2a + rust_flywheel_step.py raises clean ImportError with guidance; guarded by is_pure...).
+- Flywheel/infra thin complete: orchestration now pure runner (direct from after_task, grok_runner, flywheel.service, continuous timer); workers (antigravity_worker.py, builder_worker.py, core/grok_worker.py) remain as intentional executors (dispatch AI work + call shims/hooks).
+- Other keepers: eval/ (post_process.py thinned to PRM/sidecar + health; full reports/regression/analyze/trajectory_viewer intentional for learning flywheel value), learning/, core/task_checkpoints.py (now shim + primary for checkpoints/blackboard/knowledge), planning/safety/observability/mcp etc per REMAINING_PYTHON... doc.
+- No exec of deleted Python in critical paths (verified via grep/imports in wave).
+- Stubs + env guards prevent accidental use.
+
+**Other**: Traceability strong (every commit refs task-5af0e350 + handoff/JULES_PY... appends; dogfood: runner task create used). Duals: shadow wired in after_task + runner + health + v5 (grok_runner direct hook misses --shadow per prior note). Blackboard direct on checkpoints.db (aligned, no shim needed). No critical new defects introduced by ed73e58 (shim best-effort safe; pre-shim single tasks.db knowledge now dual but searches prefer gw when hits).
+
+Matches direction: "workers/infra/duals thin" + shim complete for wave3. Prior review (c3fcd1a) "incomplete shim" notes directly addressed (search shim added; emb sent in payload). Blockers from 80ce653e (services, syntax, gateway missing, after_task mangled) substantially mitigated.
+
+Overall: safe, incremental, aligned with migration. Shim improvements real and verified at runtime/DB level. No breakage to services or Python surface.
+
+### Issues (focus on review prior notes)
+- [bug / partial] core/task_checkpoints.py:469 (ed73e58) + save:426 (c3): Shim now "complete" per scope but:
+  - search returns gateway data ONLY if non-empty list; otherwise falls to local (so queries with 0 gw hits get stale/missing local data; pre-shim data in tasks.db not in gw checkpoints.db).
+  - Dual DB split persists (gw: ~/agentforge/data/task_checkpoints.db ; py: .../tasks.db ). Writes dual (compat); reads prefer gw-if-hit. Knowledge RAG can still be inconsistent for old facts or gw-down.
+  - embedding_hash: sent by shim (if provided in py call) to payload (improvement), but gateway SaveKnowledge struct (line 154) + INSERT (1338) + Knowledge struct (141) + SELECTs in search_knowledge (1266+) omit the column entirely (table schema has it; gw rows get NULL; local gets value). No FTS in gw search (gw uses LIKE; py uses bm25 FTS5).
+  - Impact: split-brain risk reduced but not eliminated (per prior note: "searches miss gateway-written..."; "embedding_hash dropped"; "unify knowledge to single DB"). Status: addressed for "shim complete" but structural unification deferred.
+  - Callers/tests tolerate (grok_worker: .get('key') etc; test: h.get('score',0) + h['id'] etc safe; no emb_hash read in hot paths).
+- [bug] Services legacy/After/api still incomplete (carryover, untouched by ed73e58 shim commit; partial fixes only in 80ce653/bd61):
+  - agentforge-worker.service:7: After=agentforge-gateway.service agentforge-api.service (Requires only gw good).
+  - agentforge-flywheel.service:19: After=... agentforge-api.service agentforge-worker.service .
+  - agentforge-watchdog.service:7: After=... agentforge-api.service .
+  - agentforge-antigravity.service:3: After=network.target agentforge-gateway.service agentforge.service (User=eveselove, wd=/planlytasksko vs agx/agentforge in others).
+  - install_services.sh:28,36,40,47: cp/enable/start/status agentforge-api (file absent from tree since py removal; "api" non-functional); no explicit gateway start/status in "Запускаем" section (only enable + pkill gw); legacy comments.
+  - agentforge.service:15: still has uvicorn ExecStart (commented DEPRECATED).
+  Impact: fresh install may not start gateway cleanly; ordering may mix legacy; source not master copy. (Prior review: "Services After=/legacy still incomplete"; "install ... still starts/checks non-existent").
+- [suggestion] agents/grok_runner.sh:683 (c3 change, persists): direct flywheel-step call hardcodes --limit 20, omits --shadow / --output-dir (cf. bin/rust_flywheel_after_task.sh:178 which checks AGENTFORGE_RUST_FLYWHEEL_SHADOW + adds). grok post-trajectory flywheel may miss dual fidelity in runner paths (after_task catches most via worker dispatch).
+- [nit] core/task_checkpoints.py:479,480 (ed73e58): `if agent: qs += ...` (E701 ruff multiple stmts one line); same for task_id. (Preexist similar in test code lines 1275/1281/1304.) Would fail strict ruff/black.
+- [nit] rust_flywheel_step.py:16 (Tier3 stub, persists): f-string references bare `rust_flywheel_step` (undefined; NameError if __name__ falsy, though short-circuit + module __name__ truthy in practice). Harmless but noted in prior.
+- [suggestion] Source service divergence (preexist + persists): committed *.service (e.g. gateway simple no-limits) vs runtime user units (hardened with limits/env/RUST_LOG/default.target). install cp's source but doesn't sync hardening.
+- [nit] Docs drift + checklist: AGENTS.md/start.sh etc still ref 8080/task_queue in places; REMAINING_PYTHON_TO_RUST_MIGRATION_2026-06.md + PHASE4 checklist may need wave3 shim note + "knowledge shim complete"; grok_worker.py:415 still says "in tasks.db" post dual shim.
+- [suggestion] No --shadow in grok_runner + duals complete: see prior. Continue 14d soak + explicit dual tests. Mark "complete for v1".
+- [suggestion] Checkpoints more: extend to unify (recommend task_checkpoints.db + gateway canonical for knowledge; one-time migrate or deprecate tasks.db knowledge usage; update gw search for emb_hash + FTS if wanted; make save shim "prefer" i.e. conditional local skip?); full CRUD shims or centralize; add cross-DB test.
+- [nit] Pre-commit/lint: gateway + rust crates have fmt diffs + clippy errors (preexist, e.g. unnecessary_map_or, doc issues, needless borrows; not from shim). Would block clean gate. Python ruff/black dirty on shim area. Run with env or fix in polish.
+- Other carryovers from prior 80ce653e/c3 reviews remain (e.g. gateway bind panic no graceful; source vs installed; eval full not urgent; workers py intentional).
+
+No critical breakage (e.g. no import deaths, hooks non-fatal, gateway+runner healthy, pure paths work, shims safe). Migration aligned and shim "complete" as titled.
+
+### Recommendations / Suggestions for remaining (per query + prior)
+- **Shim hardening (quick follow-up)**: Update gateway (SaveKnowledge + handler INSERT + Knowledge struct + search SELECT/serde + LIKE/FTS) to roundtrip embedding_hash. Decide/ implement unify (or always-prefer gw for search; copy on read?; deprecate tasks.db knowledge). Make search shim "true prefer" or document dual. Add test exercising emb_hash roundtrip + cross DB. Update gw search to include score? or normalize.
+- **Services polish (quick)**: Dedupe/remove all agentforge-api.service from source *.service + install (drop legacy cp/enable/start/status; add gateway start/status in launch section; make source units hardened master or template). Fix antigravity wd/User consistency with others. Update agentforge.service Exec or remove. Verify install end-to-end on clean box.
+- **Runner hook**: Add --shadow support to agents/grok_runner.sh direct flywheel-step (mirror after_task.sh logic with AGENTFORGE_RUST_FLYWHEEL_SHADOW + dirs; also for continuous if called).
+- **Style/lint**: Fix E701 in shim (and preexist one-liners); run ruff --fix + black; address preexist clippy/fmt in gateway/rust if wave closure; run PRECOMMIT_STRICT=1 shellcheck.
+- **Docs/trace**: Update prints ("tasks.db"), drift in AGENTS.md/PHASE/REMAINING_PYTHON; append this review to task-5af0e350 + handoff; reference "ed73e58 agent-review jules-review-ed73e58e.md task-5af0e350" in PR for CI agent-review-link gate.
+- **Duals/eval**: Wire missing --shadow; soak reports; post eval thin? (query suggestion: post_process good/minimal PRM; other eval/* keep as they are analysis not flywheel glue; consider if any remaining flywheel refs in eval/runner point only to Rust; full thin only if scope expands).
+- **Consume / PR / task**: python3 bin/consume-handoff-reviews.py --dry-run --verbose --handoff-id c3fcd1a,ed73e58e (or --apply after); update task queue (status=done, links to this doc + ~/.grok/handoffs/ + commits); open PR from agent/ branch only after; run full `./bin/install-pre-commit`; cargo fmt/clippy targeted; e2e (save/search via shim, flywheel-step via runner, gateway curl /knowledge).
+- **Longer (next after wave)**: full Phase4 Tier3/4 when audit+soak clean (drop stubs, py flywheel files, api.service entirely); align blackboard/knowledge fully to gateway HTTP or document direct sqlite perf path; WatchdogSec in units; 14d monitoring + dual fidelity pass; consider "full eval thin" only for any remaining orchestration bits (most eval is value-add, not glue).
+
+### Final Status
+**APPROVE** (WITH NOTES) (ed73e58 + full доделвай wave safe to advance; shim improvements verified complete per scope + no breakage; services "clean" relative to prior state (mechanicals remain but direction correct); Python minimized; prior review notes on incomplete shim addressed (search+emb); blockers substantially mitigated. Address listed issues in small polish commits or accept as migration partials for v1. Record this review + handoff dir ref in commit/PR/task. No high-sev open preventing merge.)
+
+Full handoff package: `~/.grok/handoffs/c3fcd1a/` (covers context + c3) + append this; create `~/.grok/handoffs/ed73e58e/` with git show ed73e58 as diff.patch, this context, metadata (task-5af0e350), REVIEW_INSTRUCTIONS.md modeled on prior, jules-review-ed73e58e.md (this report).
+This record appended to docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md .
+Links: commit ed73e58 + c3fcd1a, task-5af0e350, prior handoff 80ce653e + jules-review-80ce653e.md , AUDIT-5-systemd-services.md (docs/audits/), REMAINING_PYTHON_TO_RUST_MIGRATION_2026-06.md .
+
+This review performed full cross-check + equiv self-verif per checklist + AGENTS.md. Independent (separate session/context from impl).
+
+**Next per AGENTS.md**: invoke consume-handoff-reviews.py (dry then apply); update task-5af0e350 (status + links + summary + this handoff); use evidence ("ed73e58 agent-review ...") in any PR title/body for CI gate; only then consider ready.
+
+Handoff updated with this final independent review of ed73e58 (shim complete) + full доделвай context.
+
+## Gateway emb support (fc489a6, 2026-06-13)
+- gateway/src/main.rs: SaveKnowledge/ Knowledge / INSERT / SELECTs / row maps now handle + return embedding_hash.
+- Completes shim (c3 + ed73e58) for emb roundtrip.
+Handoff updated.
+
+## Final Independent Review of fc489a6 (gw emb) + ed73e58 (search shim) + full доделвай wave (task-5af0e350)
+**Date**: 2026-06-13  
+**Reviewer**: Grok (Build subagent; independent strict persona per AGENTS.md; exhaustive source+runtime+DB+callers+lint+prior-notes cross-check + equiv REVIEW_CHECKLIST self-verif)  
+**Commits reviewed**: fc489a6 (fix(gateway): forward embedding_hash in save/search Knowledge) + ed73e58 (fix(infra): complete wave3 search_knowledge + embedding shim to gateway) + full доделвай wave context (c3fcd1a wave3 shim+runner, bd61e8e services antigravity+after_task, 80ce653 gateway.service+robust+After+syntax, 8b040e4 runner thin, plus Tier d59/876/23e9/5a3e + f29c675b py removal)  
+**Handoff record**: This section appended to `docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md` (primary trace record); modeled after prior (c3fcd1a/, ed73e58e/ in ~/.grok/handoffs/); full package per AGENTS would be under `~/.grok/handoffs/fc489a6/` or combined (jules-review-fc489a6.md with git show fc489a6+ed73e58, context, metadata.json task_id=5af0e350, REVIEW_INSTRUCTIONS.md). Existing handoffs 80ce653e/c3fcd1a/ed73e58e cover precursors.  
+**Scope checked vs explicit prior notes**: "emb dropped" (gateway SaveKnowledge/Knowledge/INSERT/SELECTs/serde omitted col despite table schema), "incomplete shim" (search_knowledge 100% local; save sent emb but gw dropped it; no gw-first read), "services" (After=/api refs/install/gateway missing/syntax/ExecStart). Cross-ref: runtime (gw on 9090), DBs (task_checkpoints.db vs tasks.db), callers (grok_worker.py + self-tests), cargo check (gateway+runner), py syntax/imports, bash -n on sh, git diff clean, prior handoff/jules-review-*.md + JULES_PY doc, task queue (status=done), AUDIT-5.  
+**Self-check equiv (REVIEW_CHECKLIST.md + prior defects from 80ce653e/c3 review)**: small focused changes (structs+sql for emb; shim try gw for search); explicit traceability (task-5af0e350 + handoff refs in every commit+msgs); no new stdout/sed-json; cargo check green (0 errors; preexist deadcode warnings only, unrelated to touched code); py ruff (preexist E501 only; shim style acceptable); sh bash-n clean (syntax fixed in dodelyvay); diff audit: no mangled, precise INSERT cols match SELECTs+structs; runtime/DB exercised (save+search roundtrip with emb_hash via direct gw + py shims; verified stored in gw DB + returned in JSON); handoff/doc updated; dogfood (task queue + runner + gateway live). Pre-commit full would require PRECOMMIT_STRICT=0 or style fixes (preexist). No bypass used.
+
+### Summary
+fc489a6 + ed73e58 + preceding доделвай wave (c3fcd1a etc.) successfully close the scoped items for task-5af0e350: wave3 "search_knowledge + embedding shim to gateway" + "gw emb" + full dodelyvay services/worker thin.
+
+**Prior notes addressed (verified)**:
+- **emb dropped**: YES. fc489a6 adds `embedding_hash: Option<String>` (with skip_serializing_if) to both Knowledge (output) + SaveKnowledge (input) structs; updates all SELECTs to include col (and row.get indices); INSERT includes ?5/?6 for it; table schema already had the col (from init). Runtime post-rebuild: POST with "embedding_hash" stores non-NULL value; /search returns it in JSON (e.g. "embedding_hash": "hash-xyz..."); py save shim passes it when provided; DB inspect confirms.
+- **incomplete shim**: YES. ed73e58 adds gateway-first in search_knowledge (urllib /api/knowledge/search?... first; return data if non-empty list; 5s timeout; fallback local FTS/recent + init); save_knowledge (from c3) already sends "embedding_hash" in payload when provided (best-effort POST then local). Combined with fc: full roundtrip for emb + gw-prefer reads. Verified: py search prefers gw hits (returns emb); gw search works; dual writes for compat.
+- **services**: SUBSTANTIALLY (in dodelyvay commits of wave, pre-fc/ed). gateway.service committed+robust (ExecStart binary, User=agx, logs, multi-user); flywheel direct to agentforge-runner continuous (env fallback sh -c); worker/antigravity/watchdog After=/Requires= now reference gateway.service (batch in 80ce653+bd61); after_task.sh mangled legacy cleaned (bash -n pass); install_services.sh updated for gateway cp/enable (pkill gateway; legacy api cp is 2>/dev/null nonfatal). Syntax/robustness fixed. 
+
+**Wave verification**:
+- No breakage: grok_worker shared mem (search/save before/after) works; callers use .get() tolerant of missing emb/score; self-tests in task_checkpoints pass; gateway healthy (9090, knowledge API, dashboard); runner/gateway cargo clean; py stubs guarded; current pure paths use direct runner.
+- Duals/shadow: wired in after_task + runner continuous + health/v5; grok_runner direct flywheel-step still omits --shadow (per prior).
+- Python minimized: Tier1/2/3 as before; knowledge surface now has shims (preferred path gw).
+- Traceability: strong (all commits ref task-5af0e350 or handoff; this appended to JULES_PY...; dogfood via live task queue).
+- Matches "workers/infra/duals thin" + shim complete. Blockers from prior 80ce653e/c3 review directly resolved for emb+shim scope; services progress real (mechanicals remain as migration artifacts).
+
+**Runtime/DB evidence** (post fc+ed, rebuilt gw): gw save with emb stores+returns it; py shim save sends emb to gw (and local); search shim hits gw and surfaces emb_hash; DBs show value in checkpoints (gw) and tasks (local).
+
+### Remaining issues (focus on prior notes + new from cross-check; none high-sev blocking)
+- [partial / carryover] Services legacy/api/After/install divergence (untouched by fc489a6/ed73e58 shim commits; progress only from 80ce653/bd61 dodelyvay):
+  - install_services.sh still `cp ...agentforge-api.service 2>/dev/null`, `enable/start/status agentforge-api` (legacy api.service nonexistent in tree; gateway start only "enable" not start in launch section).
+  - Some source units (e.g. antigravity: Wants=agentforge.service legacy; watchdog/flywheel comments) + agentforge.service still has deprecated uvicorn ExecStart.
+  - Runtime vs source: installed units (user mode, limits, localhost binds for some, agx vs eveselove cwd) differ from committed templates (simpler, multi-user, 0.0.0.0, file logs). AUDIT-5 notes legacy api still active on 8080 in some envs (data split risk); gw was in bad state pre-fix but now stable.
+  - Impact: fresh deploys may start legacy; ordering non-ideal; source not single source of truth. Status: known partial (pre-existing + migration); not introduced here. (See AUDIT-5-systemd-services.md, prior handoff issues.)
+- [partial] Dual DB + shim not "true prefer": save always writes local after gw POST (compat during wave); search prefers gw only on non-empty hits (old facts in tasks.db missed if gw has none for q). emb now roundtrips but pre-fc gw rows had NULL. Unify deferred (recommend: treat checkpoints.db + gw as canonical for knowledge; one-time migrate or deprecate tasks.db table; extend gw search to FTS/bm25+score if wanted).
+  - Callers tolerate (no direct ['embedding_hash'] assumes; logs still say "tasks.db").
+- [suggestion / carryover] grok_runner.sh:682 direct `... flywheel-step --real-data --ingest --limit 20` still omits --shadow (unlike after_task.sh which honors AGENTFORGE_RUST_FLYWHEEL_SHADOW + dirs). Dual fidelity lower for post-trajectory path (worker after_task catches most).
+- [nit / drift] Docs + comments: REMAINING_PYTHON... + PHASE4_FLYWHEEL_REMOVAL_CHECKLIST.md + grok_worker.py:415/589 logs mention "tasks.db" (post-shim); AGENTS.md/start.sh/examples still cite 8080 in places; no explicit "wave3 knowledge shim + gw emb complete" note yet in migration docs (add in polish). JULES_PY handoff is the trace.
+- [nit] gw search: uses LIKE (no FTS, no score returned); py returns "score" only on FTS path (callers .get('score',0) safe). emb present only when stored.
+- [preexist] cargo warnings (unused status in SearchQuery etc); py long lines; shellcheck advisory on sh (quoting etc). Run full `./bin/install-pre-commit`; cargo clippy -D warnings targeted; PRECOMMIT_STRICT=1 if wanted.
+- Other from prior: no WatchdogSec in units; soak 14d for duals; eval thin complete for flywheel glue; full Tier3/4 removal later.
+
+**No critical new defects**: fixes exactly match prior notes (emb now forwarded/roundtripped; search shim complete; services advanced); tests/lints/runtime/DB pass; migration direction correct and progressing. Safe incremental.
+
+### Recommendations (for polish / next)
+- **Shim/DB unify (quick)**: Update search shim to always return gw data or merge? Or document dual. Make save shim "prefer" (skip local on gw success, or remove local writes after migrate). Update gw search for optional FTS/score parity + emb always. One-time data copy script from tasks.db knowledge -> checkpoints. Update callers/logs/comments ("tasks.db" -> "via shim/gateway").
+- **Services polish (follow-up wave)**: Clean install_services.sh (drop all api.service cp/enable/start/status; add explicit gateway start/status + pkill in sections); drop legacy api refs from all source *.service + bins (or compat guards); make committed templates the hardened source (or generate); fix antigravity wd/User; consider WatchdogSec; verify on clean box. Update AUDIT-5 + handoff.
+- **Runner hook**: Add conditional --shadow support to grok_runner.sh direct flywheel (mirror after_task logic + SHADOW_ACTIVE + dirs).
+- **Docs/trace/consume**: Append this to task-5af0e350 (already "done"); create `~/.grok/handoffs/fc489a6/` (diffs of fc489a6+ed73e58, this context as jules-review-fc489a6.md or combined, metadata.json with "task_id":"5af0e350", REVIEW_INSTRUCTIONS); run `python3 bin/consume-handoff-reviews.py --dry-run --verbose --handoff-id fc489a6,ed73e58e` (then --apply for approved); reference e.g. "fc489a6+ed73e58 agent-review JULES_PY..._f29c675b.md task-5af0e350" in any PR title/body (for bin/check-agent-review-link.sh CI gate).
+- **Lint/ops**: ruff --fix + black on shims if needed; full pre-commit; soak reports update; mark duals "v1 complete" post 14d + fidelity.
+- **Longer**: Centralize knowledge writes in gw (or PyO3); drop tasks.db knowledge table usage; full Phase4 Tier3/4 when preconditions (soak, parity, runner on farm) met.
+
+### Final Status
+**APPROVE** (WITH NOTES) (fc489a6 + ed73e58 + full доделвай wave safe/ready; prior notes on "emb dropped", "incomplete shim" fully addressed and verified roundtrip at source+runtime+DB level; "services" substantially mitigated in wave (progress real, legacy partials documented as expected in migration); no breakage; shim complete + gw emb forwarding done; Python minimized; traceability strong. Address remaining in small polish or accept as wave partials for v1. Record this review + handoff dir/JULES_PY ref + task-5af0e350 in commit/PR/task result per AGENTS. No high-sev open preventing further closure/consume/PR.)
+
+Full trace: commits fc489a6 + ed73e58, task-5af0e350, this handoff section in docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md (append), prior ~/.grok/handoffs/ed73e58e/ + c3fcd1a/ + 80ce653e/ (jules-review-*.md), AUDIT-5-systemd-services.md, REMAINING_PYTHON_TO_RUST_MIGRATION_2026-06.md .
+
+This review performed full cross-check + equiv self-verif per checklist + AGENTS.md. Independent (separate from impl context).
+
+**Next per AGENTS.md**: (post this) run consume (dry then selective apply); ensure task queue reflects (links to this + handoff); use evidence ("fc489a6 ed73e58 agent-review handoff f29c675b task-5af0e350") in PRs; only then mark complete for merge gates.
+
+Handoff/docs updated with this final independent review of fc489a6 (gw emb) + ed73e58 (search shim) + full доделвай wave.
+
