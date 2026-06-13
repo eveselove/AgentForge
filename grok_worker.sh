@@ -19,8 +19,8 @@ export NVM_DIR=$HOME/.nvm
 # All rate limits, safety, release-binary preference, and existing hooks preserved.
 #
 # !!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
-# PHASE 3/4 FINAL: Python flywheel orchestration (post hooks, continuous, step) heavily marked for deletion.
-# All flywheel trigger paths now prefer agentforge-runner binary under pure_rust guard.
+# PHASE 4 COMPLETE: Python flywheel orchestration DELETED/stubbed. All triggers use agentforge-runner directly.
+# See rust_flywheel_after_task.sh + post_process (PRM only) + runner continuous.
 # See PHASE4_REMOVAL_PLAN.md for safe removal order (Tier 3), risks, full rollback (instant via env+dotfile).
 # PHASE 3 FINAL DEPRECATION SWEEP: Python flywheel orchestration heavily marked.
 # Strong central is_pure_rust_flywheel() (marker+disables). Prefer agentforge-runner flywheel-step.
@@ -323,24 +323,14 @@ print(model)
 
             log "✅ $TASK_ID: $RESULT"
 
-            # === Rust Flywheel post-task hook (real completion) — DEFAULT ON ===
-            # Non-blocking. Delegates to post_process + canonical rate-limited rust_flywheel_step.
-            # Safe: skips if no binary or rate limit not hit. Respects disable file/env.
+            # === Rust Flywheel post-task (PHASE 4 COMPLETE) ===
+            # post_process.py now only does PRM/trajectory sidecar (no flywheel glue).
+            # Canonical flywheel: rust_flywheel_after_task.sh (which prefers direct agentforge-runner flywheel-step + continuous).
+            # Non-blocking, respects DISABLE_RUST_FLYWHEEL / .disable_rust_flywheel.
             _RUST_DISABLED_GROK=0
             if [[ "${DISABLE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ -f $HOME/agentforge/.disable_rust_flywheel ]]; then
                 _RUST_DISABLED_GROK=1
             fi
-            if [[ "${AGENTFORGE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_USE_RUST:-0}" = "1" ]] || [[ $_RUST_DISABLED_GROK -eq 0 ]]; then
-                (
-                    PYTHONPATH=$HOME \
-                    python3 -m agentforge.bin.rust_post_process_hook "$TASK_ID" \
-                        >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true
-                ) &
-            fi
-
-            # Direct robust canonical flywheel hook (rust_flywheel_after_task.sh)
-            # Invoked AFTER post_process on real tasks. Now fires by DEFAULT (unless disabled).
-            # Provides independent 5min rate-limit + lock + drop to pending_candidates.
             if [[ $_RUST_DISABLED_GROK -eq 0 ]]; then
                 (
                     bash $HOME/agentforge/bin/rust_flywheel_after_task.sh "$TASK_ID" \

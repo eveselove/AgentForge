@@ -6,6 +6,10 @@ Wants=agentforge.service
 [Service]
 User=eveselove
 WorkingDirectory=/home/eveselove/planlytasksko
+# PHASE 4: Flywheel via Rust runner (env). Worker itself remains for Antigravity execution.
+Environment=AGENTFORGE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_USE_RUST=1
+Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 ExecStart=/usr/bin/python3 /home/eveselove/agentforge/antigravity_worker.py
 Restart=always
 RestartSec=10

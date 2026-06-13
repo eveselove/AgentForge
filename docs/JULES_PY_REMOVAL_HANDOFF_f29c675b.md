@@ -121,3 +121,32 @@
 **Handoff update:** This section appended. Full patch for this sub-wave in git history of  the continuation commit.
 **Next:** Tier 3 when `bash bin/phase4_pre_removal_audit.sh` is clean + 14d pure + release binary verified.
 
+
+## Tier 3 Stubs (доделывай final, 2026-06-13)
+Stubs placed in the 5 Tier 3 files (rust_flywheel_step.py, run_continuous..., skill_improver, pending_candidates, evaluator).
+No git rm yet (preconditions not 100% in env: cargo, marker, full parity, 14d soak).
+All point to runner equivalents.
+Updated handoff + inventory + PHASE4 notes.
+Commit 876da2a.
+
+
+## Hardening fixes (post-review, 2026-06-13)
+Per independent reviewer (blockers: syntax in post_process, __init__ causing import death, mangled tokens, missed sh callers).
+- post_process.py: overwritten with clean minimal (PRM core + direct runner; compiles, no glue, no mangled).
+- learning/__init__.py: try/except around Tier3 (surviving symbols importable; stubs raise ImportError with guidance).
+- Tier3 stubs: raise ImportError (no module sys.exit).
+- Mangled tokens global cleaned.
+- sh callers (grok_runner.sh, rust_flywheel_after_task.sh, broad) fixed for garbage/deleted calls.
+Commit d59ccd0.
+Handoff + PHASE4 + inventory reflect "hardened usable state".
+Ready for re-review / consume / PR if desired.
+
+## Final services + worker thin continuation (доделывай, 2026-06-13)
+- Updated agentforge-flywheel.service: direct ExecStart to agentforge-runner continuous (comments already pointed there).
+- agentforge-antigravity.service + agentforge-watchdog.service: added AGENTFORGE_RUST_* env for flywheel preference.
+- agentforge.service: noted gateway as real API (old uvicorn comment).
+- grok_worker.sh: removed last python rust_post_process_hook call (now relies on rust_flywheel_after_task.sh + direct runner).
+- Cleaned remaining comments/refs in sh/audit (non-breaking).
+Refs: task-5af0e350 (and 41c89609), previous commits.
+Handoff updated. Ready for review/consume.
+

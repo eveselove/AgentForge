@@ -8,6 +8,10 @@ After=network.target agentforge-api.service
 
 [Service]
 Type=simple
+# PHASE 4: Watchdog (Python monitor for health). Flywheel via runner.
+Environment=AGENTFORGE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_USE_RUST=1
+Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 ExecStart=/usr/bin/python3 /home/eveselove/agentforge/watchdog.py
 WorkingDirectory=/home/eveselove/agentforge
 Restart=always

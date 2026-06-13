@@ -10,7 +10,9 @@ After=network.target
 Type=simple
 User=agx
 WorkingDirectory=/home/eveselove/agentforge
-ExecStart=/usr/bin/python3 -m uvicorn task_queue:app --host 0.0.0.0 --port 8080
+# PHASE 4: API now Rust gateway (agentforge-gateway binary). Old task_queue.py is .bak.
+# ExecStart kept for reference/rollback only. Real: /home/eveselove/agentforge/gateway/target/release/agentforge-gateway (or systemd unit).
+ExecStart=/usr/bin/python3 -m uvicorn task_queue:app --host 0.0.0.0 --port 8080  # DEPRECATED (use gateway)
 Restart=always
 RestartSec=5
 Environment=PATH=/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
