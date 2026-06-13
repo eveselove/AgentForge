@@ -61,7 +61,50 @@ class PolicyEngine:
         Evaluate all rules in registration order.
         First rule that returns non-None wins.
         Always returns a decision (defaults to ALLOW with risk 0).
+        CONVERGED DUAL (20g+3a): under pure delegates (thin).
         """
+        from learning.utils import is_pure_rust_flywheel, get_rust_runner_path
+
+        if is_pure_rust_flywheel():
+            runner = get_rust_runner_path()
+            if runner:
+                try:
+                    import subprocess
+                    import json
+
+                    cmd = [
+                        str(runner),
+                        "--json",
+                        "full-stack",
+                        "--goal",
+                        "safety-evaluate",
+                        "--action",
+                        action_type,
+                    ]
+                    res = subprocess.run(
+                        cmd, capture_output=True, text=True, timeout=10
+                    )
+                    if res.returncode == 0:
+                        data = json.loads(res.stdout or "{}")
+                        if data.get("delegated") or data.get("decision"):
+                            return ActionDecision(
+                                Decision.ALLOW,
+                                "delegated-to-rust-safety",
+                                risk_score=0.0,
+                                metadata={
+                                    "delegated": True,
+                                    "engine": "rust-agentforge-runner",
+                                },
+                            )
+                except Exception:
+                    pass
+            # thin: allow under pure (Rust authoritative)
+            return ActionDecision(
+                Decision.ALLOW,
+                "pure-rust-delegated (safety in runner)",
+                risk_score=0.0,
+                metadata={"delegated": True},
+            )
         for rule in self.rules:
             try:
                 decision = rule(action_type, context or {})

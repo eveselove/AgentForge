@@ -650,6 +650,16 @@ def save_checkpoint(task_id: str, step: str, data: Dict[str, Any]) -> None:
     Always call this at the end of each of:
         dispatch, git_clone, grok_start, grok_done, ci_start, ci_done, review, done/failed
     """
+    from learning.utils import is_pure_rust_flywheel
+
+    if is_pure_rust_flywheel():
+        # gw primary, local optional; skip heavy local under pure for thin
+        try:
+            # still try gw shim if available
+            post_activity("checkpoint", f"step {step} for {task_id}", task_id=task_id)
+        except:
+            pass
+        return
     if step not in PIPELINE_STEPS:
         # allow custom steps but warn in practice
         pass

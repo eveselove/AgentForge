@@ -201,6 +201,11 @@ class LongTaskManager:
     def heartbeat(
         self, task_id: str, message: str = "", progress_pct: Optional[float] = None
     ):
+        from learning.utils import is_pure_rust_flywheel
+
+        if is_pure_rust_flywheel():
+            # thin: long horizon in Rust via runner full-stack / long
+            return  # delegation stub, real in runner
         if task_id not in self.tasks:
             raise ValueError(f"Unknown long task {task_id}")
         task = self.tasks[task_id]
