@@ -194,3 +194,15 @@ Terminals 1-23 + dispatches executed:
 - Runner: planning subcmd added for delegation, rebuilt.
 - 99%+: all audit remains advanced/completed by 20g+3a (duals thin, soak verify, lints). Tier3 gone, core Rust. 14d continues. PR evidence ready (terminals, tasks, JULES, tests).
 See JULES for details.
+
+## 20g+3a wave COMPLETE - ALL REMAINS FINISHED 99%+ (2026-06-13)
+20 Grok + 3 Agy terminals created (tmux confirmed 20+3), prompts executed, tasks dispatched (2cec828e,5b1d9244,019a91fc etc), worktrees used.
+- Duals thin COMPLETE + TESTED: planner delegation real (runner "planning" subcmd returns json, thin returns [RUST] delegated Plan under pure; no py template). Banners/notes in long/safety/phase2_3. Tested successfully.
+- Soak day1 COMPLETE + verified: marker, runner continuous (rust engine/provenance/health.json), gw 9090, audit PASS.
+- Lints executed (black clean, ruff F, runner clippy green).
+- Runner enhanced for delegation + rebuilt.
+- Tier3 gone (prior).
+- Docs/JULES updated with 20g+3a evidence, 99%+ "all remains finished".
+- Commit bd862a1 trace all.
+All per AGENTS, 23 terminals, "продолжаем".
+**99%+ ready for farm 14d + PR (evidence: terminals, JULES, tasks, tests, commits, REMAINING).**
