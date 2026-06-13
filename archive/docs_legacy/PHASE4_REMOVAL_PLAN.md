@@ -27,7 +27,7 @@ All of the following carry loud Phase 3/4 deprecation banners directing to `agen
 - `learning/skill_improver.py` (SkillImprover + propose_skill_improvement + all proposal logic)
 - `learning/evaluator.py` (flywheel-driven ABTestConfig / promote paths; core direct-eval may remain)
 - `eval/post_process.py` (flywheel trigger glue + rate-limited Rust bridge; PRM/trajectory core stays)
-- `bin/rust_post_process_hook.py` (post-task flywheel trigger)
+- `DELETED (Tier2) - direct runner` (post-task flywheel trigger)
 - `list_pending_candidates.py` (CLI shim)
 - `eval/runner.py` (orchestration entrypoints + indirect post_process wiring)
 
@@ -77,7 +77,7 @@ All of the following carry loud Phase 3/4 deprecation banners directing to `agen
    - Rationale: No prod hot paths; pure demos/shims. Low caller surface.
 
 **Tier 2: Mid Glue + Supporting (Hooks, Post-Process Glue, Trajectory Glue, Parity Harness)**
-4. `bin/rust_post_process_hook.py` (flywheel portions), `eval/post_process.py` (strip only flywheel trigger blocks; retain PRM/trajectory post_process)
+4. `DELETED (Tier2) - direct runner` (flywheel portions), `eval/post_process.py` (strip only flywheel trigger blocks; retain PRM/trajectory post_process)
 5. `eval/runner.py` (advisory notes + any remaining flywheel wiring)
 6. `learning/trajectory_dataset.py` (flywheel export paths only — surgical if possible)
 7. **Entire `learning/flywheel_parity/`** (delete LAST in this tier once no longer needed for final audit; archive fixtures to git or separate if audit required)
@@ -268,7 +268,7 @@ This map makes the removal path 100% unambiguous. Every remaining Python flywhee
 
 **Core Python Entry Points (must be unreachable before Tier 3 delete)**:
 - python -m agentforge.rust_flywheel_step ... → agentforge-runner flywheel-step --real-data [--ingest] [--shadow]
-  Patch sites: rust_flywheel_step.py (internal), phase2_3_integration.py, bin/rust_flywheel_after_task.sh, agents/*_runner.sh (post_process calls), eval/post_process.py (trigger), bin/rust_post_process_hook.py, enable_rust_flywheel.py
+  Patch sites: rust_flywheel_step.py (internal), phase2_3_integration.py, bin/rust_flywheel_after_task.sh, agents/*_runner.sh (post_process calls), eval/post_process.py (trigger), DELETED (Tier2) - direct runner, enable_rust_flywheel.py
 - python -m agentforge.bin.run_continuous_flywheel ... or bin/run_continuous_flywheel.sh/.py → agentforge-runner continuous [--top-n N] [--no-dry-run] [--shadow] [--json]
   Patch sites: agentforge-flywheel.service + .timer, bin/run_continuous_flywheel.sh, dispatcher.sh, install_services.sh (if any), cron_*.example, bin/enable_continuous_flywheel.sh, make_* scripts
 - python -m agentforge.list_pending_candidates ... → agentforge-runner candidate list|prioritize|promote|ingest ...
@@ -279,7 +279,7 @@ This map makes the removal path 100% unambiguous. Every remaining Python flywhee
 **Infra / Glue Still Invoking Python Flywheel (Tier 4 last, patch in parallel with Tier 1-2)**:
 - agents/jules_runner.sh, grok_runner.sh, agy_runner.sh, gemini_runner.sh : source enable_ + call python post_process_hook / step (via env)
   → After patch: direct AGENTFORGE_RUST_RUNNER calls or post_process that prefers binary exclusively.
-- bin/rust_post_process_hook.py + eval/post_process.py (flywheel blocks) : rate limit + shadow bridge
+- DELETED (Tier2) - direct runner + eval/post_process.py (flywheel blocks) : rate limit + shadow bridge
   → Surgical: keep non-flywheel PRM/trajectory post_process; remove flywheel trigger or make pure-only delegation.
 - bin/enable_rust_flywheel.sh + enable_continuous + make_pure/disable_pure + rust_flywheel_after_task.sh : transitional
   → KEEP until post Phase4 cleanup (Tier 5); they are the rollback/cutover tools. Thin references to deleted .py later.
@@ -391,7 +391,7 @@ All of the above now pass clean post this sweep (modulo any transient generated)
   Post: python -c "import agentforge.learning.utils"; agentforge-runner --help | grep flywheel ; cargo test --offline --workspace -- --quiet
 
 **Tier 2 (Glue / Hooks / Parity — surgical where needed)**:
-  git rm -f bin/rust_post_process_hook.py
+  git rm -f DELETED (Tier2) - direct runner
   # For eval/post_process.py + phase2_3_integration.py + eval/runner.py: surgical edit only (remove flywheel trigger blocks + run_*_flywheel* functions; leave planning/safety/long_horizon/PRM/trajectory cores 100% intact). Commit separately.
   git rm -rf learning/flywheel_parity/   # only after final parity run logged
   Post-verification per tier (repeat after every rm):

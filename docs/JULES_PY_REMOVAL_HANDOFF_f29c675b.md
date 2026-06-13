@@ -103,3 +103,21 @@
 **Safe to merge / ready for PR after independent review + consume + pre-commit clean on post-bypass.**
 
 *Produced by Jules per AGENTS.md mandatory post-work agent-review step + user "джулс найди и полностью удаляем" mission. Trace all to task f29c675b.*
+## Continuation - Tier 2 Surgical (доделывай wave, 2026-06-13)
+**Sub-wave date:** after initial 22-file deletion.
+**Scope:** PHASE4 Tier 2 (glue/hooks/parity).
+**Actions:**
+- eval/post_process.py: flywheel trigger + shadow harness + run_*_flywheel_step blocks excised (PRM/trajectory/sidecar/mapping + direct runner continuous kept).
+- phase2_3_integration.py: run_rust_flywheel_step / _if_enabled / shadow glue removed (planning/safety core untouched).
+- bin/rust_post_process_hook.py: full deletion (git rm); stub was temporary.
+- learning/flywheel_parity/: entire directory deleted (Tier 2 condition met for this wave; final parity noted in audit).
+- eval/runner.py + analyze_trajectories.py: flywheel refs stubbed/removed.
+- Callers/references cleaned in sh, docs, learning/utils.py, agents/grok_runner.sh, archive (surgical).
+**Verification:**
+- No more "from .* import run_rust_flywheel_step" in active .py (except handoff/docs).
+- git rm for hook + rmdir for parity.
+- post_process imports and basic PRM path still work (env tested).
+**Gaps for Tier 3:** rust_flywheel_step.py, run_continuous_flywheel.py, learning/{skill_improver,pending_candidates,evaluator}.py still present (preconditions: cargo, soak, marker, parity not 100% in this env).
+**Handoff update:** This section appended. Full patch for this sub-wave in git history of  the continuation commit.
+**Next:** Tier 3 when `bash bin/phase4_pre_removal_audit.sh` is clean + 14d pure + release binary verified.
+

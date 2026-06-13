@@ -119,3 +119,12 @@ Hundreds of test_ fns in eval/tests/.
 See also: PYTHON_ENTRYPOINTS_MIGRATION.md, PHASE4_FLYWHEEL_REMOVAL_CHECKLIST.md, AGENT_RUST_TRANSITION_GUIDE.md, rust/README.md.
 
 **Next action**: Implement live API support in runner task CLI (use reqwest) + add reassign/approve/stats subcmds modeled on the Python mains. Then mass-delete scripts + update callers.
+
+
+## Tier 2 Surgical Completed (Jules continuation 2026-06-13)
+- post_process flywheel blocks excised
+- phase2_3_integration flywheel glue removed
+- bin/rust_post_process_hook.py deleted
+- learning/flywheel_parity/ deleted
+- runner/analyze flywheel refs stubbed
+See JULES_PY_REMOVAL_HANDOFF_f29c675b.md (update)

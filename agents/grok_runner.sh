@@ -679,7 +679,7 @@ if [ -n "$TRAJ_FILE" ] && [ -f "$TRAJ_FILE" ]; then
         # transitional. The canonical path is now agentforge-runner flywheel-step (pure Rust emission live).
         # When AGENTFORGE_FLYWHEEL_ENGINE=rust the Python orchestration is deprecated/no-op.
         if [ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]; then
-            ( AGENTFORGE_USE_RUST=1 python /home/eveselove/agentforge/bin/rust_post_process_hook.py "$TASK_ID" \
+            ( AGENTFORGE_USE_RUST=1 python /home/eveselove/agentforge/DELETED (Tier2) - direct runner "$TASK_ID" \
               >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true ) &
         fi
     fi

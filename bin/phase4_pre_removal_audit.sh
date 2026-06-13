@@ -459,7 +459,7 @@ fi
 echo ""
 echo "=== 6. TIER INVENTORY ==="
 echo "TIER 1: rust_flywheel_demo.py, enable_rust_flywheel.py, list_pending_candidates.py, show_agent_stats.py, examples/*.py, learning/dataset.py, learning/trainer_interface.py"
-echo "TIER 2: bin/rust_post_process_hook.py, eval/post_process.py (SURGICAL), eval/runner.py, learning/trajectory_dataset.py, learning/flywheel_parity/"
+echo "TIER 2: DELETED (Tier2) - direct runner, eval/post_process.py (SURGICAL), eval/runner.py, learning/trajectory_dataset.py, learning/flywheel_parity/"
 echo "TIER 3: rust_flywheel_step.py, bin/run_continuous_flywheel.py, learning/skill_improver.py, learning/pending_candidates.py, learning/evaluator.py, phase2_3_integration.py (SURGICAL)"
 echo "TIER 4: learning/__init__.py (thin), sh/service patches, __pycache__ cleanup"
 echo "KEEP: rollback tools, rust_flywheel.env, *.bak.*, pending_candidates/, eval/ non-glue, planning/, safety/, Rust workspace, docs/*.md"
@@ -473,7 +473,7 @@ if [ $EMIT_COMMANDS -eq 1 ]; then
     echo "cargo test --offline --workspace -- --quiet"
     echo ""
     echo ">>> TIER 1: git rm -f rust_flywheel_demo.py enable_rust_flywheel.py list_pending_candidates.py show_agent_stats.py examples/phase2_3_*.py learning/dataset.py learning/trainer_interface.py"
-    echo ">>> TIER 2: git rm -f bin/rust_post_process_hook.py; git rm -rf learning/flywheel_parity/"
+    echo ">>> TIER 2: git rm -f DELETED (Tier2) - direct runner; git rm -rf learning/flywheel_parity/"
     echo ">>> TIER 3: git rm -f rust_flywheel_step.py bin/run_continuous_flywheel.py learning/skill_improver.py learning/pending_candidates.py learning/evaluator.py"
     echo ">>> TIER 4: thin learning/__init__.py + patch sh/service + rm __pycache__"
 else

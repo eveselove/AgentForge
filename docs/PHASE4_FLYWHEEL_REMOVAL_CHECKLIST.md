@@ -51,12 +51,12 @@ cargo test --offline --workspace -- --quiet
 
 | # | Файл | Строк | Назначение | Зависимости | Условие удаления | Действие |
 |---|------|-------|-----------|------------|-----------------|----------|
-| 2.1 | [ ] `bin/rust_post_process_hook.py` | 270 | Шим для вызова Rust post-process из Python worker | `eval.post_process`, `phase2_3_integration` | Заменён прямым вызовом `agentforge-runner` в workers | `git rm -f bin/rust_post_process_hook.py` |
+| 2.1 | [ ] `DELETED (Tier2) - direct runner` | 270 | Шим для вызова Rust post-process из Python worker | `eval.post_process`, `phase2_3_integration` | Заменён прямым вызовом `agentforge-runner` в workers | `git rm -f DELETED (Tier2) - direct runner` |
 | 2.2 | [ ] `eval/post_process.py` (строки 148-397) | 656 total | Flywheel trigger блоки + run_*_flywheel* функции | `learning.skill_improver`, `learning.pending_candidates`, `learning.utils` | **ХИРУРГИЧЕСКИ:** удалить только flywheel-блоки, оставить planning/safety/PRM/trajectory ядро нетронутым | Хирургическая правка (НЕ git rm!) |
 | 2.3 | [ ] `eval/runner.py` (flywheel refs) | 347 total | Ссылки на flywheel в runner | `learning.utils` | **ХИРУРГИЧЕСКИ:** убрать flywheel-триггеры, оставить benchmark/eval ядро | Хирургическая правка |
 | 2.4 | [ ] `eval/analyze_trajectories.py` (flywheel refs) | 379 total | Анализ траекторий с flywheel-ссылками | `learning.utils` | **ХИРУРГИЧЕСКИ:** убрать flywheel-метрики, оставить core eval | Хирургическая правка |
 | 2.5 | [ ] `phase2_3_integration.py` (строки 614-767) | 769 total | Flywheel glue: run_flywheel*, shadow bridge, parity hooks | `rust_flywheel_demo`, `rust_flywheel_step`, `learning.flywheel_parity` | **ХИРУРГИЧЕСКИ:** удалить flywheel-функции (run_rust_flywheel, run_flywheel_parity, shadow glue), оставить planning/safety ядро | Хирургическая правка (НЕ git rm!) |
-| 2.6 | [ ] `learning/flywheel_parity/` (весь каталог) | 1876 total | Parity harness: Python vs Rust сравнение | Внутренние: `learning.utils`, внешние: `agentforge-runner` | Удалить ТОЛЬКО после финального прогона parity + его логирования | `git rm -rf learning/flywheel_parity/` |
+| 2.6 | [ ] `learning/flywheel_parity/ (DELETED Tier 2)` (весь каталог) | 1876 total | Parity harness: Python vs Rust сравнение | Внутренние: `learning.utils`, внешние: `agentforge-runner` | Удалить ТОЛЬКО после финального прогона parity + его логирования | `git rm -rf learning/flywheel_parity/ (DELETED Tier 2)` |
 
 **Верификация после Тир 2:**
 ```bash
@@ -260,7 +260,7 @@ bin/run_continuous_flywheel.py
 phase2_3_integration.py
   ├── rust_flywheel_demo.py (load_real_farm_data, run_rust_powered_export)
   ├── rust_flywheel_step.py (main as flywheel_main)
-  ├── learning/flywheel_parity/parity_harness.py (FlywheelParityHarness)
+  ├── learning/flywheel_parity/ (DELETED Tier 2)parity_harness.py (FlywheelParityHarness)
   └── learning/utils.py (is_pure_rust_flywheel, is_rust_flywheel_disabled)
 
 learning/evaluator.py

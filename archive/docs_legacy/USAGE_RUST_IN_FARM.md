@@ -40,7 +40,7 @@ Result dict now contains paths to generated candidate skill YAML + proposal JSON
 
 - `learning/trajectory_dataset.py` — heavy methods (`load_from_eval_results`, `export_preference_pairs`, ...) auto-delegate to Rust + graceful py fallback
 - `eval/post_process.py` — calls the flywheel step + Rust export when env set; proposal/candidate attached to every result
-- `bin/rust_post_process_hook.py` — small production shim for easy drop-in from `agents/grok_runner.sh`, `grok_worker.sh`, etc.
+- `DELETED (Tier2) - direct runner` — small production shim for easy drop-in from `agents/grok_runner.sh`, `grok_worker.sh`, etc.
 - `phase2_3_integration.py` — `run_rust_flywheel_step(...)` is the production entrypoint
 - `rust_flywheel_step.py` — full Track-B demonstrator
 

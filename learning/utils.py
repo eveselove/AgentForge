@@ -18,7 +18,7 @@ complete removal in Phase 4:
   - learning/skill_improver.py (SkillImprover + propose_*)
   - learning/evaluator.py (flywheel-driven A/B paths)
   - eval/post_process.py (flywheel trigger glue)
-  - bin/rust_post_process_hook.py (flywheel trigger)
+  - DELETED (Tier2) - direct runner (flywheel trigger)
   - list_pending_candidates.py
   - eval/runner.py (orchestration entrypoints)
   - rust_flywheel_demo.py
@@ -26,7 +26,7 @@ complete removal in Phase 4:
   - watchdog.py (flywheel bits)
   - learning/trajectory_dataset.py (flywheel export glue)
   - learning/dataset.py (legacy TrajectoryDataset shim for flywheel-era consumers)
-  - learning/flywheel_parity/*
+  - learning/flywheel_parity/ (DELETED Tier 2)*
   - show_agent_stats.py (flywheel stats)
   - learning/trainer_interface.py
   - examples/phase2_3_unified_power_demo.py

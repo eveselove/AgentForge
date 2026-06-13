@@ -6,7 +6,7 @@
 # ✅✅✅✅ CUTOVER SCRIPT + BRIDGE + PROMOTE REAL + CONTINUOUS + PARITY 90.9% + VELOCITY MAX + FINAL 100% READINESS AUDIT + DOCS VELOCITY MAX DELIVERED (2026-06)
 # bin/make_pure_rust_flywheel_default.sh — FULL PRODUCTION VERSION (exact antigravity clone, 52kB, dry-run + live, hard binary gate, full FARM/ROLLBACK)
 #   * Direct pure paths PRODUCTION-USABLE TODAY: agentforge-runner flywheel-step (real artifacts + --ingest) / candidate list|promote (FULLY REAL impl) / continuous (skeleton + health JSON)
-#   * Bridge HARDENED: eval/post_process.py + bin/rust_post_process_hook.py ALWAYS PREFER pure binary first under AGENTFORGE_FLYWHEEL_ENGINE=rust / PURE_RUST / is_pure_rust_flywheel() with "[post_process] Using PURE RUST..." logs. Python explicit fallback only.
+#   * Bridge HARDENED: eval/post_process.py + DELETED (Tier2) - direct runner ALWAYS PREFER pure binary first under AGENTFORGE_FLYWHEEL_ENGINE=rust / PURE_RUST / is_pure_rust_flywheel() with "[post_process] Using PURE RUST..." logs. Python explicit fallback only.
 #   * Promote: FULLY REAL (not stub) via Rust `candidate promote <id> --copy-to-skills` — safe timestamped skills/ copy, appends promotion_history.jsonl (engine="rust-agentforge-runner"), updates candidate_meta + .promoted/.reviewed markers. Parity with Python promote-and-ab.
 #   * Continuous: real autonomy step skeleton + prioritizer + /tmp/agentforge_rust_flywheel/flywheel_health.json (direct future replacement for run_continuous_flywheel.py)
 #   * PARITY_REPORT_PHASE1.md DELIVERED (real harness + direct release binary): 96 recs/58 prm on eval/trajectories, 90.9% proposal key overlap, lv deltas fully documented (0-vs-20/28/10), core contract 100% + self-parity 100%, full raw JSON + goldens. "Phase 1 emission usable, gaps acceptable for shadow Phase 2".
@@ -49,7 +49,7 @@ The Rust-powered self-improving flywheel is **already default-on** for Antigravi
 This plan delivers a **low-risk, phased, fully reversible** path to **100% pure Rust orchestration** using the existing production `agentforge-runner` binary as the single source of truth. It leverages our proven multi-agent parallel execution system (Jules-style subagents) for speed.
 
 **Key Numbers from Deprecation Scanner (full grep + import/call-site audit):**
-- Core orchestration files: 15 Python modules (primary: `rust_flywheel_step.py:559`, `learning/pending_candidates.py:766`, `learning/skill_improver.py` (core), `learning/evaluator.py:457`, `bin/run_continuous_flywheel.py:433`, `phase2_3_integration.py:615`, `list_pending_candidates.py:159`, `eval/post_process.py` (flywheel trigger section), `enable_rust_flywheel.py:146`, `learning/trajectory_dataset.py:1273` (bridge + export glue), plus hooks in watchdog/show_agent_stats/bin/rust_post_process_hook.py + generated per-candidate `run_ab_*.py`).
+- Core orchestration files: 15 Python modules (primary: `rust_flywheel_step.py:559`, `learning/pending_candidates.py:766`, `learning/skill_improver.py` (core), `learning/evaluator.py:457`, `bin/run_continuous_flywheel.py:433`, `phase2_3_integration.py:615`, `list_pending_candidates.py:159`, `eval/post_process.py` (flywheel trigger section), `enable_rust_flywheel.py:146`, `learning/trajectory_dataset.py:1273` (bridge + export glue), plus hooks in watchdog/show_agent_stats/DELETED (Tier2) - direct runner + generated per-candidate `run_ab_*.py`).
 - ~5.5k LOC dedicated glue + proposal + candidate mgmt + continuous logic (not counting shared eval/ or learning data models).
 - Call sites: post_process (default guard), phase2_3_integration, dispatcher.sh + all *_worker.sh, services (flywheel.timer), make_antigravity_default.sh, list_pending CLI, continuous runner, many JULES_*.md examples.
 - Artifact contract: Every canonical step emits `candidate_skill.yaml`, `proposal.json`, `rust_rich_flywheel_export.json`, `flywheel_manifest.json`, `candidate_meta.json` (with rich_learning stats) into timestamped dirs under `pending_candidates/`.
@@ -96,7 +96,7 @@ $RELEASE flywheel-export --trajectories eval/trajectories --prm-dir eval/traject
 
 Guarded bridges (current default paths prefer pure when enabled):
 - `AGENTFORGE_FLYWHEEL_ENGINE=rust AGENTFORGE_PURE_RUST_FLYWHEEL=1 python -m agentforge.rust_flywheel_step ...`
-- Post-process / after-task / workers: hardened to call binary first under `is_pure_rust_flywheel()` (see eval/post_process.py + bin/rust_post_process_hook.py).
+- Post-process / after-task / workers: hardened to call binary first under `is_pure_rust_flywheel()` (see eval/post_process.py + DELETED (Tier2) - direct runner).
 - Cutover: `bash bin/make_pure_rust_flywheel_default.sh --dry-run`
 - Killswitch (instant): `AGENTFORGE_FLYWHEEL_ENGINE=python` or DISABLE_RUST_FLYWHEEL=1 or `.disable_pure_rust_flywheel`
 

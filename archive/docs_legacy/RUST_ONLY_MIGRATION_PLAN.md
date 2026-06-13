@@ -24,7 +24,7 @@
 | Task Queue + API          | `task_queue.py`, `mcp_server.py` | Central task distribution for all agents | agentforge-core + new task service | P0 |
 | Task Creation             | `create_*.py` (multiple)        | How work enters the system            | CLI in runner or new tool  | P0 |
 | Continuous Flywheel Runner| `bin/run_continuous_flywheel.py` | 24/7 autonomy entrypoint              | Direct use of runner binary| P0 |
-| Post-process Hook         | `bin/rust_post_process_hook.py`  | Bridge after real agent work          | Move logic into Rust       | P1 |
+| Post-process Hook         | `DELETED (Tier2) - direct runner`  | Bridge after real agent work          | Move logic into Rust       | P1 |
 | Phase 2/3 Integration     | `phase2_3_integration.py`        | Heavy bridge for flywheel             | Already partially in Rust  | P1 |
 
 ### Tier 2 — High Value (Learning & Evaluation)

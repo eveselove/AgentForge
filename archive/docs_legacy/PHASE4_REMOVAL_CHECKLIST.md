@@ -101,9 +101,9 @@ Python paths execute ONLY for !is_pure_rust_flywheel() (non-breaking during fina
 11. `phase2_3_integration.py`
     - Role: Glue wiring run_rust_flywheel_step + flywheel orchestration to long_horizon/safety (flywheel parts only).
     - Risk: Medium (planning + safety + long_horizon modules are INDEPENDENT and must stay).
-    - Safe removal: Surgical — delete only flywheel functions/imports (run_rust_flywheel_step*, etc). Leave Phase2/3 core intact. High caution.
+    - Safe removal: Surgical — delete only flywheel functions/# run_rust_flywheel_step import removed Tier2
 
-12. `bin/rust_post_process_hook.py`
+12. `DELETED (Tier2) - direct runner`
     - Role: Post-task hook that triggers flywheel step (Python path + binary bridge).
     - Risk: Medium (dropped into workers).
     - Safe removal: After all workers use direct Rust post-process or binary call only.

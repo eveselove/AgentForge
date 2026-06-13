@@ -1,2 +1,0 @@
-{"task_id": "mini1", "outcome": "Success", "prm_overall": 0.85, "learning_value_score": 0.7, "error_message": null, "agent": "grok", "benchmark_id": "test", "duration_seconds": 5.0, "steps_taken": 3, "tool_calls": 1}
-{"task_id": "mini2", "outcome": "Failure", "prm_overall": 0.3, "learning_value_score": 0.9, "error_message": "timeout", "agent": "grok", "benchmark_id": "test", "duration_seconds": 12.0, "steps_taken": 8, "tool_calls": 4}
