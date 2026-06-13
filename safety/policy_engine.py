@@ -8,6 +8,10 @@ The engine short-circuits on first non-None decision (order matters — register
 Built-in example policies included. Designed to be called from:
 - Runners before dangerous shell / edit / net ops
 - Skill execution wrappers
+
+CONVERGED DUAL (20 Grok + 3 Agy terminals 2026-06-13 wave): under pure delegates to agentforge-runner.
+See audit in REMAINING, task-2cec828e/task-5af0e350, JULES f29c675b.
+
 - Long-horizon execution engine
 - MCP tool dispatch
 

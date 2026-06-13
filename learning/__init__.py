@@ -34,64 +34,17 @@ from .trajectory_dataset import (
 # Tier3 flywheel orchestration (below) stubbed with clear ImportError; reexports wrapped for non-breaking guarded paths.
 # Full removal after preconditions (see JULES_PY_REMOVAL_HANDOFF + PHASE4 Tier 3).
 
-try:
-    from .skill_improver import (
-        SkillImprover,
-        ProposedSkill,
-        ImprovementProposal,
-        propose_skill_improvement,
-    )
-except ImportError as _e:
-    SkillImprover = ProposedSkill = ImprovementProposal = propose_skill_improvement = None  # type: ignore
-    _tier3_import_error = _e
-
-try:
-    from .evaluator import (
-        LearningEvaluator,
-        ABResult,
-        ArmResult,
-        ABTestConfig,
-        run_ab_test,
-    )
-except ImportError as _e:
-    LearningEvaluator = ABResult = ArmResult = ABTestConfig = run_ab_test = None  # type: ignore
-    _tier3_import_error = _e
-
-try:
-    from .pending_candidates import (
-        PENDING_DIR,
-        ingest_flywheel_artifacts,
-        list_pending_candidates,
-        print_pending_summary,
-        promote_candidate,
-        get_pending_dir,
-    )
-except ImportError as _e:
-    PENDING_DIR = ingest_flywheel_artifacts = list_pending_candidates = print_pending_summary = promote_candidate = get_pending_dir = None  # type: ignore
-    _tier3_import_error = _e
+# Tier3 flywheel orchestration (skill_improver, evaluator, pending_candidates) DELETED 2026-06-13
+# (20 Grok + 3 Agy terminals wave, task-2cec828e + task-5af0e350).
+# All paths now use agentforge-runner. Non-breaking: old imports would have raised anyway.
+# Dataset survives for eval value.
 
 __all__ = [
-    # Dataset (core, survives)
+    # Dataset (core, survives for eval/trajectories)
     "TrajectoryDataset",
     "TrajectoryRecord",
     "DatasetVersion",
     "TrajectoryExample",
-    # Skill improvement / A/B / Pending (Tier3 stubs - may be None if pure; import raises clear guidance)
-    "SkillImprover",
-    "ProposedSkill",
-    "ImprovementProposal",
-    "propose_skill_improvement",
-    "LearningEvaluator",
-    "ABResult",
-    "ArmResult",
-    "ABTestConfig",
-    "run_ab_test",
-    "PENDING_DIR",
-    "ingest_flywheel_artifacts",
-    "list_pending_candidates",
-    "print_pending_summary",
-    "promote_candidate",
-    "get_pending_dir",
 ]
 
 

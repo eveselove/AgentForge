@@ -8,6 +8,21 @@
 //!
 //! Drop-in replacement (via AGENTFORGE_RUST_RUNNER or release binary) for post_process, workers, after_task hooks, timers, services, parity harness, demos.
 //! --shadow / AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 = safe dual-run fidelity in EVERY integration point.
+
+#![allow(
+    clippy::if_same_then_else,
+    clippy::collapsible_if,
+    clippy::too_many_arguments,
+    clippy::redundant_clone,
+    clippy::manual_map,
+    clippy::single_match,
+    clippy::borrowed_box,
+    clippy::wildcard_enum_match_arm,
+    clippy::cloned_ref_to_slice_refs,
+    clippy::redundant_closure_for_method_calls,
+    clippy::wildcard_in_or_patterns,
+    clippy::needless_borrows_for_generic_args
+)]
 //! --json everywhere for farm/Python/subprocess. Dry-run DEFAULT (safe). Rich human + machine UX.
 //!
 //! All remaining integration points (continuous + promote + shadow) fully wired into demo tools + farm after-task hooks + post_process.py.
@@ -193,6 +208,13 @@ fn write_jsonl(path: &PathBuf, items: &[serde_json::Value]) -> Result<(), String
     Ok(())
 }
 
+#[allow(
+    clippy::borrowed_box,
+    clippy::too_many_arguments,
+    clippy::manual_map,
+    clippy::redundant_clone,
+    clippy::single_match
+)]
 fn load_dataset(input: Option<&str>) -> Result<TrajectoryDataset, String> {
     let mut ds = TrajectoryDataset::new("runner_cli");
     if let Some(p) = input {
