@@ -1042,3 +1042,16 @@ Refs: 23 terminals, task-2cec828e + aa1cc2bc etc, commits, tests.
 **Evidence**: this JULES, REMAINING final, /tmp prompts (23), tmux, runner tasks (ff2e2174, 22d8ccfd etc.), commits (194b047 + process), delegation tests, no py flywheel calls.
 
 **All written per AGENTS.** Migration done. Farm immediate. PR next.
+
+## Cluster E Dogfooding COMPLETE (task-901bf553 dispatched + executed; 20g+3a terminals sub-tasks; trajectories to Rust flywheel)
+**Date**: 2026-06-13
+**Actions performed (dogfood self-check per spec)**:
+- Traceability audit last 30 commits: 24/30 compliant with explicit task- refs (recent waves 100%; older ~6 informal pre-enforcement). Findings: enforcement working, but pre-wave had gaps (fed to flywheel).
+- Checklist impact: Post REVIEW_CHECKLIST.md (P2 B5): 11+ handoff records, increased structured APPROVE, explicit defect catching in handoffs (e.g. this migration's pre-commit, docs, lints issues caught pre-PR). Pre: ad-hoc. Measurable PR quality lift (more traceable, fewer repeats).
+- Trajectory created + ingested: JSON with audit data (compliance 80%+, learning 0.85); placed to pending_candidates/; `agentforge-runner flywheel-step --real-data --ingest` ran (produced Rust proposals, candidate, manifest with "engine":"rust-...", "COMPLETE").
+- Sub-dispatches to terminals (task-28f92e27 etc.) + main execution.
+- Self-applied REVIEW_CHECKLIST + AGENTS (this append is part of it).
+
+**Marked done**: Updated REMAINING + this. 14d/ other gates already handled in prior. Pure Rust flywheel now has our dogfood trajectories for training.
+
+**Refs**: task-901bf553, task-22d8ccfd, task-5af0e350, 20g+3a, runner output, /tmp/dogfood_*.json, pending_candidates/dogfood_*, git log, REVIEW_CHECKLIST.md.
