@@ -1,12 +1,12 @@
 {
-  "api_base": "http://localhost:8080",
+  "api_base": "http://localhost:9090",
   "poll_interval": 15,
-  "max_parallel": 1000,
+  "max_parallel": 10,
   "task_timeout": 900,
   "project_dir": "/home/eveselove/planlytasksko",
   "log_dir": "/home/eveselove/agentforge/logs",
   "grok_bin": "/home/eveselove/.grok/bin/grok",
-  "default_model": "grok-build",
+  "default_model": "grok-3",
   "fallback_model": "grok-3",
   "agent_id": "antigravity"
 }

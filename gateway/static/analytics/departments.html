@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Продажи по отделам | Аналитика</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --bg: #f3f4f6; --surface: #ffffff; --border: #e5e7eb;
+            --text: #1f2937; --text-muted: #6b7280;
+            --primary: #6366f1; --primary-light: #e0e7ff;
+            --green: #10b981; --gray: #9ca3af;
+            --radius: 12px; --glow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 24px; }
+        .container { max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; height: calc(100vh - 48px); }
+        .header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; flex-shrink: 0; }
+        .header-title h1 { font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .header-title p { color: var(--text-muted); margin-top: 6px; font-size: 14px; }
+        .nav-links { display: flex; gap: 12px; align-items: center; }
+        .nav-links a { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.2s; padding: 8px 16px; border-radius: 8px; }
+        .nav-links a:hover { color: var(--text); background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .nav-links a.active { color: var(--primary); background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        .filters-bar {
+            display: flex; gap: 12px; align-items: center; flex-wrap: wrap; flex-shrink: 0;
+            background: var(--surface); padding: 16px 20px; border-radius: var(--radius);
+            box-shadow: var(--glow); border: 1px solid var(--border);
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 4px; }
+        .filter-group label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; }
+        .filter-group select {
+            padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 14px; font-family: inherit; background: var(--bg);
+            outline: none; transition: border-color 0.2s, box-shadow 0.2s; min-width: 180px;
+        }
+        .filter-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); background: white; }
+        .filter-actions { display: flex; gap: 8px; align-self: flex-end; margin-left: auto; }
+        .btn-filter, .btn-reset { 
+            padding: 9px 16px; border-radius: 8px; font-size: 13px; font-family: inherit; font-weight: 500; cursor: pointer; transition: all 0.2s; 
+        }
+        .btn-filter { background: var(--primary); border: 1px solid var(--primary); color: white; box-shadow: 0 2px 4px rgba(99,102,241,0.2); }
+        .btn-filter:hover { background: #4f46e5; border-color: #4f46e5; transform: translateY(-1px); }
+        .btn-reset { background: white; border: 1px solid var(--border); color: var(--text-muted); }
+        .btn-reset:hover { border-color: #fca5a5; color: #ef4444; background: #fef2f2; }
+
+        .card { 
+            background: var(--surface); border-radius: var(--radius); box-shadow: var(--glow); 
+            border: 1px solid var(--border); flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative;
+        }
+        #chart { flex: 1; width: 100%; height: 100%; padding: 20px; }
+        
+        .loading { 
+            position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            background: rgba(255,255,255,0.8); backdrop-filter: blur(4px); z-index: 10; border-radius: var(--radius);
+        }
+        .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        @media (max-width: 768px) { body { padding: 12px; } .container { height: auto; min-height: 100vh; } .card { min-height: 500px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-title">
+                <h1>Доля продавцов по отделам</h1>
+                <p>Выручка с привязкой конкретного сотрудника (Seller ID) и без (возвраты полностью исключены)</p>
+            </div>
+            <div class="nav-links">
+                <a href="/analytics/index.html">Уровень сервиса</a>
+                <a href="/analytics/revenue.html">Бонусные карты</a>
+                <a href="/analytics/departments.html" class="active">Продажи по отделам</a>
+                <a href="/monitoring/index.html">Мониторинг</a>
+                <a href="/merchandising/index.html">Мерчандайзинг</a>
+                <a href="/parsing/index.html">Парсинг</a>
+                <a href="/">← Приложение</a>
+            </div>
+        </div>
+
+        <div class="filters-bar">
+            <div class="filter-group">
+                <label>Филиал</label>
+                <select id="filterFilial"><option value="">Все филиалы</option></select>
+            </div>
+            <div class="filter-actions">
+                <button class="btn-filter" onclick="loadData()">Применить</button>
+                <button class="btn-reset" onclick="resetFilters()">Сброс</button>
+            </div>
+        </div>
+
+        <div class="card" style="min-height: 900px; max-height: 900px; flex: none; margin-bottom: 24px;" id="mainChartCard">
+            <div id="loading" class="loading"><div class="spinner"></div><span style="color:var(--text-muted);font-weight:500;">Загрузка данных...</span></div>
+            <div id="chart"></div>
+        </div>
+
+        <div id="deptChartsGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding-bottom: 24px;">
+        </div>
+
+        <div class="card" style="flex: none; margin-bottom: 24px; padding: 20px;">
+            <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #374151;">
+                Топ продавцов — выручка в разрезе отделов
+            </h2>
+            <div id="sellersSection" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            </div>
+        </div>
+
+        <!-- Service Attachment Rate Section -->
+        <div class="card" style="flex: none; margin-bottom: 24px; padding: 20px;">
+            <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 4px; color: #374151;">
+                🔧 Продажа услуг установки и сборки
+            </h2>
+            <p style="font-size: 13px; color: #6b7280; margin-bottom: 16px;">
+                Доля чеков с услугой от чеков с товарами категории. Двери: Установка межком./металл. (SKU 66710/66765). Кухни: Сборка (SKU 883629).
+            </p>
+            <div id="serviceRateSection">
+                <div style="color:#9ca3af;font-size:14px;">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+        let filtersPopulated = false;
+
+        function initChart() {
+            chart = echarts.init(document.getElementById('chart'));
+            window.addEventListener('resize', () => chart.resize());
+        }
+
+        async function loadData() {
+            document.getElementById('loading').style.display = 'flex';
+            
+            const params = new URLSearchParams();
+            const filial = document.getElementById('filterFilial').value;
+            if (filial) params.set('filial', filial);
+
+            try {
+                const res = await fetch('/api/analytics/departments_seller_share?' + params.toString());
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                
+                if (!filtersPopulated && data.filters?.filials) {
+                    const sel = document.getElementById('filterFilial');
+                    const val = sel.value;
+                    sel.innerHTML = '<option value="">Все филиалы</option>';
+                    for (const f of data.filters.filials) {
+                        const opt = document.createElement('option');
+                        opt.value = opt.textContent = f;
+                        sel.appendChild(opt);
+                    }
+                    if (val) sel.value = val;
+                    filtersPopulated = true;
+                }
+                
+                renderChart(data.rows);
+
+                const qs = params.toString();
+                const resByStore = await fetch('/api/analytics/departments_seller_share_by_store' + (qs ? '?' + qs : ''));
+                if (resByStore.ok) {
+                    const dataByStore = await resByStore.json();
+                    renderDeptCharts(dataByStore.rows);
+                }
+
+                const resSellers = await fetch('/api/analytics/sellers_by_department' + (qs ? '?' + qs : ''));
+                if (resSellers.ok) {
+                    const dataSellers = await resSellers.json();
+                    renderSellers(dataSellers.rows);
+                }
+
+            } catch(e) {
+                console.error(e);
+                alert('Ошибка загрузки данных: ' + e.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+
+            // Service rate — independent fetch
+            (async function() {
+                try {
+                    var svcQs = new URLSearchParams();
+                    var svcFilial = document.getElementById('filterFilial').value;
+                    if (svcFilial) svcQs.set('filial', svcFilial);
+                    svcQs.set('_ts', Date.now()); // cache-bust
+                    var svcUrl = '/api/analytics/seller_service_rate?' + svcQs.toString();
+                    console.log('[serviceRate] fetching:', svcUrl);
+                    var svcRes = await fetch(svcUrl);
+                    console.log('[serviceRate] response:', svcRes.status, svcRes.url);
+                    if (svcRes.ok) {
+                        var svcData = await svcRes.json();
+                        renderServiceRate(svcData.rows);
+                    } else {
+                        document.getElementById('serviceRateSection').innerHTML =
+                            '<div style="color:#ef4444">Ошибка ' + svcRes.status + ': ' + svcRes.url + '</div>';
+                    }
+                } catch(err) {
+                    console.error('serviceRate error:', err);
+                    document.getElementById('serviceRateSection').innerHTML =
+                        '<div style="color:#ef4444">JS Ошибка: ' + err.message + '</div>';
+                }
+            })();
+        }
+
+
+        // Category mapping for radar chart
+        var RADAR_CATS = [
+            {key: 'santeh', label: 'Сантехника', match: ['сантехник']},
+            {key: 'plitka', label: 'Плитка', match: ['плитк']},
+            {key: 'napol', label: 'Напольные', match: ['напольн', 'покрытия напольн']},
+            {key: 'dveri', label: 'Двери', match: ['двери', 'дверн']},
+            {key: 'mebel', label: 'Мебель', match: ['мебель', 'мебел']},
+            {key: 'stroy', label: 'Стройматериалы', match: ['стройматериал', 'лесопило', 'металлопрокат']},
+            {key: 'proch', label: 'Прочее', match: []}
+        ];
+
+        function mapDeptToCategory(deptName) {
+            var low = deptName.toLowerCase();
+            // Сантехника инженерная, Крепеж -> Прочее
+            if (low.indexOf('инженерн') >= 0) return 'proch';
+            if (low.indexOf('крепеж') >= 0 || low.indexOf('метиз') >= 0) return 'proch';
+            for (var i = 0; i < RADAR_CATS.length - 1; i++) {
+                for (var j = 0; j < RADAR_CATS[i].match.length; j++) {
+                    if (low.indexOf(RADAR_CATS[i].match[j]) >= 0) return RADAR_CATS[i].key;
+                }
+            }
+            return 'proch';
+        }
+
+        function renderSellers(rows) {
+            console.log('renderSellers called, rows:', rows.length);
+            var section = document.getElementById('sellersSection');
+            if (!section) return;
+            section.innerHTML = '';
+
+            var filtered = rows.filter(function(r) {
+                if (!r.department || !r.store) return false;
+                if (r.department.toLowerCase().indexOf('прочи') >= 0) return false;
+                if (r.store.indexOf('Москва') >= 0 || r.store.indexOf('Подольск') >= 0) return false;
+                return true;
+            });
+
+            // Group by seller, aggregate into categories
+            // Normalize code: strip trailing letters (38906Н → 38906)
+            function normalizeCode(code) {
+                return code.replace(/[a-zA-Zа-яА-ЯёЁ]+$/g, '');
+            }
+            var bySeller = {};
+            for (var i = 0; i < filtered.length; i++) {
+                var r = filtered[i];
+                var baseCode = normalizeCode(r.seller_code);
+                var key = baseCode + '|' + r.store;
+                if (!bySeller[key]) {
+                    bySeller[key] = {code: baseCode, name: r.seller_name || '', store: r.store, cats: {}, total: 0};
+                    for (var c = 0; c < RADAR_CATS.length; c++) bySeller[key].cats[RADAR_CATS[c].key] = 0;
+                }
+                if (!bySeller[key].name && r.seller_name) bySeller[key].name = r.seller_name;
+                var cat = mapDeptToCategory(r.department);
+                bySeller[key].cats[cat] += r.revenue;
+                bySeller[key].total += r.revenue;
+            }
+
+            var allSellers = Object.values(bySeller).sort(function(a, b) { return b.total - a.total; });
+            var fmt = new Intl.NumberFormat('ru-RU');
+
+            // Group by store
+            var byStore = {};
+            for (var i = 0; i < allSellers.length; i++) {
+                var st = allSellers[i].store;
+                if (!byStore[st]) byStore[st] = [];
+                byStore[st].push(allSellers[i]);
+            }
+
+            // Sort stores by total revenue
+            var storeNames = Object.keys(byStore).sort(function(a, b) {
+                var ta = 0, tb = 0;
+                for (var i = 0; i < byStore[a].length; i++) ta += byStore[a][i].total;
+                for (var i = 0; i < byStore[b].length; i++) tb += byStore[b][i].total;
+                return tb - ta;
+            });
+
+            var indicators = RADAR_CATS.map(function(cat) {
+                return {name: cat.label, max: 100};
+            });
+
+            for (var si = 0; si < storeNames.length; si++) {
+                var storeName = storeNames[si];
+                var storeSellers = byStore[storeName];
+
+                // Store header - spans full width
+                var storeHeader = document.createElement('div');
+                storeHeader.style.cssText = 'grid-column:1/-1;padding:16px 0 8px;border-bottom:2px solid #6366f1;margin-bottom:4px;';
+                var storeTotal = 0;
+                for (var i = 0; i < storeSellers.length; i++) storeTotal += storeSellers[i].total;
+                storeHeader.innerHTML = '<span style="font-size:18px;font-weight:800;color:#1f2937;">🏪 ' + storeName + '</span>' +
+                    '<span style="font-size:14px;color:#6b7280;margin-left:12px;">' + storeSellers.length + ' продавцов · <b>' + fmt.format(Math.round(storeTotal)) + ' ₽</b></span>';
+                section.appendChild(storeHeader);
+
+                for (var s = 0; s < storeSellers.length; s++) {
+                    var seller = storeSellers[s];
+                    var displayName = seller.name || ('Продавец ' + seller.code);
+
+                    // Sellers under 500k — compact list row, no chart
+                    if (seller.total < 500000) {
+                        var row = document.createElement('div');
+                        row.style.cssText = 'background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;';
+                        row.innerHTML = '<span style="font-size:13px;color:#6b7280;">#' + (s+1) + ' <b style="color:#1f2937;">' + displayName + '</b> · Код ' + seller.code + '</span>' +
+                            '<span style="font-weight:700;font-size:13px;color:#1f2937;">' + fmt.format(Math.round(seller.total)) + ' ₽</span>';
+                        section.appendChild(row);
+                        continue;
+                    }
+
+                    var card = document.createElement('div');
+                    card.style.cssText = 'background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:16px;';
+                    card.setAttribute('data-seller-code', seller.code);
+
+                    var header = document.createElement('div');
+                    header.style.marginBottom = '4px';
+                    header.innerHTML = '<div style="font-weight:700;font-size:14px;color:#1f2937;">#' + (s+1) + ' ' + displayName + '</div>' +
+                        '<div style="font-size:11px;color:#6b7280;">Код ' + seller.code + ' · <b>' + fmt.format(Math.round(seller.total)) + ' ₽</b></div>';
+                    card.appendChild(header);
+
+                    var chartDiv = document.createElement('div');
+                    chartDiv.style.cssText = 'width:100%;height:300px;';
+                    card.appendChild(chartDiv);
+                    section.appendChild(card);
+
+                    try {
+                        var ch = echarts.init(chartDiv);
+                        window.addEventListener('resize', (function(c) { return function() { c.resize(); }; })(ch));
+
+                        var sellerTotal = seller.total || 1;
+                        // Largest remainder method so values sum to exactly 100
+                        var rawPcts = RADAR_CATS.map(function(cat) { return seller.cats[cat.key] / sellerTotal * 100; });
+                        var floored = rawPcts.map(function(v) { return Math.floor(v); });
+                        var remainder = 100 - floored.reduce(function(a, b) { return a + b; }, 0);
+                        var remainders = rawPcts.map(function(v, i) { return {i: i, r: v - floored[i]}; });
+                        remainders.sort(function(a, b) { return b.r - a.r; });
+                        for (var ri = 0; ri < remainder; ri++) floored[remainders[ri].i]++;
+                        var values = floored;
+
+                        ch.setOption({
+                            tooltip: {
+                                trigger: 'item',
+                                formatter: (function(sel, f) { return function(p) {
+                                    var lines = '';
+                                    for (var i = 0; i < RADAR_CATS.length; i++) {
+                                        lines += RADAR_CATS[i].label + ': ' + p.value[i] + '% (' + f.format(Math.round(sel.cats[RADAR_CATS[i].key])) + ' ₽)<br/>';
+                                    }
+                                    return '<b>' + p.name + '</b><br/>' + lines;
+                                }; })(seller, fmt)
+                            },
+                            radar: {
+                                indicator: indicators,
+                                shape: 'polygon',
+                                splitNumber: 4,
+                                axisName: { color: '#374151', fontSize: 13, fontWeight: 600 },
+                                splitLine: { lineStyle: { color: '#e5e7eb' } },
+                                splitArea: { areaStyle: { color: ['rgba(99,102,241,0.02)', 'rgba(99,102,241,0.05)'] } }
+                            },
+                            series: [{
+                                type: 'radar',
+                                data: [{
+                                    value: values,
+                                    name: displayName,
+                                    areaStyle: { color: 'rgba(99,102,241,0.25)' },
+                                    lineStyle: { color: '#6366f1', width: 2 },
+                                    itemStyle: { color: '#6366f1' },
+                                    symbol: 'circle',
+                                    symbolSize: 5
+                                }]
+                            }]
+                        });
+                    } catch(e) {
+                        console.error('Radar error:', e);
+                    }
+                }
+            }
+            console.log('renderSellers done:', allSellers.length);
+
+            // Auto AI-profiling via Qwen (fast)
+            var bigSellers = allSellers.filter(function(s) { return s.total >= 500000; }).slice(0, 15);
+            if (bigSellers.length > 0) {
+                var sellersData = bigSellers.map(function(s) {
+                    var t = s.total || 1;
+                    var catArr = RADAR_CATS.map(function(cat) { return {n: cat.label, p: Math.round(s.cats[cat.key] / t * 100)}; })
+                        .sort(function(a,b) { return b.p - a.p; }).slice(0, 3);
+                    return s.code + ':' + catArr.map(function(c) { return c.n + ' ' + c.p + '%'; }).join(',');
+                });
+                var prompt = 'Продавцы магазина стройматериалов и их % продаж по топ-3 категориям:\n' +
+                    JSON.stringify(sellersData) + '\n\n' +
+                    'Дай каждому короткий профиль (1-3 слова). ПРАВИЛА СТРОГО:\n' +
+                    '1. Если в топ-2 входят "Сантехника" и "Плитка" — пиши "Ванная комната".\n' +
+                    '2. Если в топ-2 входят "Двери" и "Напольные" (или Плитка) — пиши "Отделочник".\n' +
+                    '3. Если лидер меньше 50% и доли распределены — пиши "Универсал".\n' +
+                    '4. В остальных случаях называй по главной категории (Дверник, Сантехник, Плиточник, Мебельщик и тд).\n' +
+                    'ОТВЕТ ТОЛЬКО JSON: [{"code":"12345","profile":"Отделочник"},...]';
+                console.log('🧠 AI profiling', bigSellers.length, 'sellers via qwen2.5...');
+                fetch('/api/ai/ollama', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({prompt: prompt, model: 'qwen2.5:7b-instruct-q4_K_M'})
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    console.log('🧠 AI response:', data.response);
+                    try {
+                        var text = data.response || '';
+                        var jsonMatch = text.match(/\[[\s\S]*\]/);
+                        if (jsonMatch) {
+                            var profiles = JSON.parse(jsonMatch[0]);
+                            profiles.forEach(function(p) {
+                                var cards = document.querySelectorAll('[data-seller-code="' + p.code + '"]');
+                                cards.forEach(function(card) {
+                                    var badge = document.createElement('div');
+                                    badge.style.cssText = 'display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;margin-top:6px;';
+                                    badge.textContent = '🧠 ' + p.profile;
+                                    card.querySelector('div').appendChild(badge);
+                                });
+                            });
+                            console.log('🧠 Profiles applied:', profiles.length);
+                        } else {
+                            console.warn('🧠 No JSON array in response');
+                        }
+                    } catch(e) { console.error('AI parse error:', e); }
+                })
+                .catch(function(e) { console.warn('AI profiling unavailable:', e); });
+            }
+        }
+
+
+        function renderServiceRate(rows) {
+            var section = document.getElementById('serviceRateSection');
+            if (!section) return;
+
+            function normCode(c) { return c.replace(/[a-zA-Zа-яА-ЯёЁ]+$/g, ''); }
+
+            // Aggregate by normalized seller + store
+            var map = {};
+            for (var i = 0; i < rows.length; i++) {
+                var r = rows[i];
+                var key = normCode(r.seller_code) + '|' + r.store;
+                if (!map[key]) {
+                    map[key] = { code: normCode(r.seller_code), name: r.seller_name, store: r.store,
+                        total_rev: 0,
+                        di_docs: 0, di_svc: 0,   // межком
+                        de_docs: 0, de_svc: 0,   // входные
+                        kit_docs: 0, kit_svc: 0  // кухни
+                    };
+                }
+                map[key].total_rev += r.total_rev || 0;
+                map[key].di_docs   += r.door_inter_docs || 0;
+                map[key].di_svc    += r.door_inter_svc  || 0;
+                map[key].de_docs   += r.door_entry_docs || 0;
+                map[key].de_svc    += r.door_entry_svc  || 0;
+                map[key].kit_docs  += r.kitchen_docs    || 0;
+                map[key].kit_svc   += r.kitchen_service_docs || 0;
+            }
+
+            var sellers = Object.values(map)
+                .filter(function(s) { return s.di_docs > 0 || s.de_docs > 0 || s.kit_docs > 0; })
+                .sort(function(a, b) { return (b.di_svc + b.de_svc + b.kit_svc) - (a.di_svc + a.de_svc + a.kit_svc); });
+
+            var fmt = new Intl.NumberFormat('ru-RU');
+
+            // Group by store
+            var byStore = {};
+            sellers.forEach(function(s) {
+                if (!byStore[s.store]) byStore[s.store] = [];
+                byStore[s.store].push(s);
+            });
+            var storeNames = Object.keys(byStore).sort(function(a, b) {
+                var ra = byStore[a].reduce(function(acc, s) { return acc + s.total_rev; }, 0);
+                var rb = byStore[b].reduce(function(acc, s) { return acc + s.total_rev; }, 0);
+                return rb - ra;
+            });
+
+            function rateCell(docs, svc) {
+                if (docs === 0) return '<td style="padding:8px 6px;color:#d1d5db;text-align:center;">—</td>';
+                var rate = Math.round(svc / docs * 100);
+                var color = rate >= 30 ? '#10b981' : rate >= 10 ? '#f59e0b' : '#ef4444';
+                return '<td style="padding:8px 6px;text-align:center;">' +
+                    '<span style="font-weight:700;color:' + color + ';">' + rate + '%</span>' +
+                    ' <span style="color:#9ca3af;font-size:12px;">(' + svc + '/' + docs + ')</span>' +
+                    '</td>';
+            }
+
+            var html = '';
+            storeNames.forEach(function(store) {
+                var items = byStore[store];
+                // Totals for this store
+                var tDi = 0, tDiS = 0, tDe = 0, tDeS = 0, tKit = 0, tKitS = 0, tRev = 0;
+                items.forEach(function(s) {
+                    tDi += s.di_docs; tDiS += s.di_svc;
+                    tDe += s.de_docs; tDeS += s.de_svc;
+                    tKit += s.kit_docs; tKitS += s.kit_svc;
+                    tRev += s.total_rev;
+                });
+
+                html += '<div style="margin-bottom:28px;">';
+                html += '<h3 style="font-size:14px;font-weight:700;color:#6366f1;margin-bottom:8px;padding:4px 0;border-bottom:2px solid #e5e7eb;">' +
+                    '📍 ' + store +
+                    ' <span style="font-weight:400;color:#6b7280;font-size:12px;margin-left:12px;">' +
+                    'Уст. межком.: ' + tDiS + '/' + tDi +
+                    '  ·  Уст. входных: ' + tDeS + '/' + tDe +
+                    '  ·  Сборка кухонь: ' + tKitS + '/' + tKit +
+                    '</span></h3>';
+                html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+                html += '<thead><tr style="background:#f9fafb;">' +
+                    '<th style="text-align:left;padding:8px 6px;color:#374151;font-weight:600;">#</th>' +
+                    '<th style="text-align:left;padding:8px 6px;color:#374151;font-weight:600;">Продавец</th>' +
+                    '<th style="text-align:right;padding:8px 6px;color:#374151;font-weight:600;">Выручка</th>' +
+                    '<th style="text-align:center;padding:8px 6px;color:#374151;font-weight:600;">Услуг</th>' +
+                    '<th style="text-align:center;padding:8px 6px;color:#374151;font-weight:600;">Чеков</th>' +
+                    '<th style="text-align:center;padding:8px 6px;color:#374151;font-weight:600;">Общий %</th>' +
+                    '<th style="padding:8px 6px;color:#374151;font-weight:600;min-width:130px;">Уст. межком. дв.</th>' +
+                    '<th style="padding:8px 6px;color:#374151;font-weight:600;min-width:130px;">Уст. входных дв.</th>' +
+                    '<th style="padding:8px 6px;color:#374151;font-weight:600;min-width:130px;">Сборка кухонь</th>' +
+                    '</tr></thead><tbody>';
+
+                items.forEach(function(s, idx) {
+                    var bg = idx % 2 === 0 ? '#fff' : '#f9fafb';
+                    html += '<tr style="background:' + bg + ';border-bottom:1px solid #f3f4f6;">' +
+                        '<td style="padding:8px 6px;color:#9ca3af;">' + (idx + 1) + '</td>' +
+                        '<td style="padding:8px 6px;"><b>' + s.code + '</b><br><span style="color:#6b7280;font-size:12px;">' + (s.name || '') + '</span></td>' +
+                        '<td style="padding:8px 6px;text-align:right;font-weight:600;">' + fmt.format(Math.round(s.total_rev)) + ' ₽</td>' +
+                        (function() {
+                            var tSvc = s.di_svc + s.de_svc + s.kit_svc;
+                            var tAll = s.di_docs + s.de_docs + s.kit_docs;
+                            var tPct = tAll > 0 ? Math.round(tSvc / tAll * 100) : 0;
+                            var pColor = tPct >= 30 ? '#10b981' : tPct >= 10 ? '#f59e0b' : '#ef4444';
+                            return '<td style="padding:8px 6px;text-align:center;font-weight:700;color:#6366f1;">' + tSvc + '</td>' +
+                                '<td style="padding:8px 6px;text-align:center;color:#6b7280;">' + tAll + '</td>' +
+                                '<td style="padding:8px 6px;text-align:center;font-weight:700;color:' + pColor + ';">' + tPct + '%</td>';
+                        })() +
+                        rateCell(s.di_docs, s.di_svc) +
+                        rateCell(s.de_docs, s.de_svc) +
+                        rateCell(s.kit_docs, s.kit_svc) +
+                        '</tr>';
+                });
+
+                // Summary footer row
+                html += '<tr style="background:#eef2ff;border-top:2px solid #c7d2fe;font-weight:700;">' +
+                    '<td colspan="2" style="padding:8px 6px;color:#4338ca;">Итого ' + store + '</td>' +
+                    '<td style="padding:8px 6px;text-align:right;color:#4338ca;">' + fmt.format(Math.round(tRev)) + ' ₽</td>' +
+                    (function() {
+                        var gSvc = tDiS + tDeS + tKitS;
+                        var gAll = tDi + tDe + tKit;
+                        var gPct = gAll > 0 ? Math.round(gSvc / gAll * 100) : 0;
+                        return '<td style="padding:8px 6px;text-align:center;color:#4338ca;">' + gSvc + '</td>' +
+                            '<td style="padding:8px 6px;text-align:center;color:#4338ca;">' + gAll + '</td>' +
+                            '<td style="padding:8px 6px;text-align:center;color:#4338ca;">' + gPct + '%</td>';
+                    })() +
+                    rateCell(tDi, tDiS) +
+                    rateCell(tDe, tDeS) +
+                    rateCell(tKit, tKitS) +
+                    '</tr>';
+
+                html += '</tbody></table></div>';
+            });
+
+            section.innerHTML = html || '<div style="color:#9ca3af;">Нет данных по услугам</div>';
+        }
+
+
+
+        function renderDeptCharts(rows) {
+            const grid = document.getElementById('deptChartsGrid');
+
+            grid.innerHTML = '';
+            
+            // Group by department
+            const byDept = {};
+            for (const r of rows) {
+                if (!byDept[r.department]) byDept[r.department] = { stores: [], totalWith: 0, totalWithout: 0 };
+                byDept[r.department].stores.push(r);
+                byDept[r.department].totalWith += r.with_seller;
+                byDept[r.department].totalWithout += r.without_seller;
+            }
+            
+            // Sort depts by total revenue to match the top chart
+            const depts = Object.entries(byDept).sort((a, b) => {
+                const totalA = a[1].totalWith + a[1].totalWithout;
+                const totalB = b[1].totalWith + b[1].totalWithout;
+                return totalB - totalA;
+            });
+            
+            for (const [deptName, deptData] of depts) {
+                const total = deptData.totalWith + deptData.totalWithout;
+                if (total === 0) continue;
+                
+                const avgShare = (deptData.totalWith / total) * 100;
+                
+                // Create card
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.height = '360px'; // fit inside nicely
+                card.style.padding = '16px';
+                
+                const title = document.createElement('h3');
+                title.style.fontSize = '14px';
+                title.style.marginBottom = '12px';
+                title.style.color = '#374151';
+                title.innerText = deptName;
+                
+                const chartDiv = document.createElement('div');
+                chartDiv.style.flex = '1';
+                chartDiv.style.width = '100%';
+                chartDiv.style.minHeight = '300px';
+                
+                card.appendChild(title);
+                card.appendChild(chartDiv);
+                grid.appendChild(card);
+                
+                // Draw echarts
+                const c = echarts.init(chartDiv);
+                window.addEventListener('resize', () => c.resize());
+                
+                // Sort stores by volume
+                deptData.stores.sort((a, b) => (b.with_seller + b.without_seller) - (a.with_seller + a.without_seller));
+                
+                const storeNames = deptData.stores.map(s => s.store);
+                const withData = deptData.stores.map(s => s.with_seller);
+                const withoutData = deptData.stores.map(s => s.without_seller);
+                
+                const shareData = deptData.stores.map(s => {
+                    const t = s.with_seller + s.without_seller;
+                    return t > 0 ? (s.with_seller / t) * 100 : 0;
+                });
+                
+                const option = {
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'shadow' },
+                        formatter: function(params) {
+                            const barWith = params.find(p => p.seriesName === 'С продавцом')?.value || 0;
+                            const barWithout = params.find(p => p.seriesName === 'Без продавца')?.value || 0;
+                            const t = barWith + barWithout;
+                            const pct = t > 0 ? ((barWith / t) * 100).toFixed(1) : 0;
+                            const fmtObj = new Intl.NumberFormat('ru-RU');
+                            
+                            return `
+                                <div style="font-weight:600;margin-bottom:4px;">${params[0].name}</div>
+                                С продавцом: <b>${fmtObj.format(Math.round(barWith))} ₽</b><br/>
+                                Без продавца: <b>${fmtObj.format(Math.round(barWithout))} ₽</b><br/>
+                                Доля: <b style="color:#10b981">${pct}%</b>
+                            `;
+                        }
+                    },
+                    grid: { left: '4%', right: '4%', top: '6%', bottom: '20%', containLabel: true },
+                    xAxis: {
+                        type: 'category',
+                        data: storeNames,
+                        axisLabel: { color: '#6b7280', fontSize: 10, rotate: 30, overflow: 'truncate', width: 90 }
+                    },
+                    yAxis: [
+                        {
+                            type: 'value',
+                            axisLabel: { formatter: v => (v / 1000000).toFixed(1) + 'M', color: '#6b7280', fontSize: 10 },
+                            splitLine: { lineStyle: { type: 'dashed', color: '#f3f4f6' } }
+                        },
+                        {
+                            type: 'value',
+                            min: 0,
+                            max: 100,
+                            axisLabel: { formatter: '{value}%', color: '#f59e0b', fontSize: 10 },
+                            splitLine: { show: false }
+                        }
+                    ],
+                    color: ['#10b981'],
+                    series: [
+                        {
+                            name: 'С продавцом',
+                            type: 'bar',
+                            data: withData,
+                            itemStyle: { borderRadius: [4, 4, 0, 0] }
+                        },
+                        {
+                            name: 'Доля в магазине',
+                            type: 'line',
+                            yAxisIndex: 1,
+                            data: shareData,
+                            symbol: 'circle',
+                            symbolSize: 6,
+                            lineStyle: { width: 2, color: '#6366f1' },
+                            itemStyle: { color: '#6366f1' },
+                            label: {
+                                show: true,
+                                position: 'top',
+                                formatter: p => p.value.toFixed(0) + '%',
+                                color: '#6366f1',
+                                fontSize: 10,
+                                fontWeight: 'bold'
+                            },
+                            markLine: {
+                                data: [
+                                    { yAxis: avgShare, name: 'Ср. по сети' }
+                                ],
+                                symbol: 'none',
+                                lineStyle: { color: '#f59e0b', type: 'dashed', width: 2 },
+                                label: { formatter: 'Ср: {c}%', position: 'insideStartTop', color: '#d97706', fontSize: 10 }
+                            }
+                        }
+                    ]
+                };
+                c.setOption(option);
+            }
+        }
+
+        function renderChart(rows) {
+            // rows is sorted by total revenue DESC from API
+            // Reverse to plot larger bars at the top in Echarts (yAxis default order keeps array order bottom-to-top)
+            // Wait, standard Echarts 'category' yAxis shows index 0 at bottom. So we reverse it.
+            const data = [...rows].reverse();
+            
+            const fmt = new Intl.NumberFormat('ru-RU');
+            
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    formatter: function(params) {
+                        const dept = params[0].name;
+                        const pWith = params.find(p => p.seriesName === 'С продавцом')?.value || 0;
+                        const pWithout = params.find(p => p.seriesName === 'Без продавца')?.value || 0;
+                        const total = pWith + pWithout;
+                        const pct = total > 0 ? ((pWith / total) * 100).toFixed(1) : 0;
+                        
+                        return `
+                            <div style="font-weight:600;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #eee;">${dept}</div>
+                            <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:4px;">
+                                <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:6px;"></span>С продавцом:</span>
+                                <b>${fmt.format(Math.round(pWith))} ₽</b>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:8px;">
+                                <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d1d5db;margin-right:6px;"></span>Без продавца:</span>
+                                <b>${fmt.format(Math.round(pWithout))} ₽</b>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;gap:24px;padding-top:4px;border-top:1px dashed #eee;">
+                                <span style="color:#6b7280;">Доля Seller:</span>
+                                <b style="color:#6366f1;">${pct}%</b>
+                            </div>
+                        `;
+                    }
+                },
+                legend: {
+                    data: ['С продавцом', 'Без продавца'],
+                    bottom: 0,
+                    icon: 'circle',
+                    itemGap: 24,
+                    textStyle: { color: '#4b5563', fontWeight: 500 }
+                },
+                grid: {
+                    left: '2%', right: '4%', top: '2%', bottom: '40px', containLabel: true
+                },
+                xAxis: {
+                    type: 'value',
+                    axisLabel: { formatter: v => (v / 1000000).toFixed(1) + 'M ₽', color: '#6b7280' },
+                    splitLine: { lineStyle: { color: '#f3f4f6', type: 'dashed' } },
+                    name: 'Выручка',
+                    nameTextStyle: { color: '#6b7280', align: 'right' }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: data.map(r => r.department),
+                    axisLabel: { 
+                        color: '#374151', 
+                        fontWeight: 500,
+                        width: 160,
+                        overflow: 'truncate'
+                    },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
+                },
+                color: ['#10b981', '#d1d5db'],
+                series: [
+                    {
+                        name: 'С продавцом',
+                        type: 'bar',
+                        stack: 'total',
+                        barWidth: '60%',
+                        data: data.map(r => r.with_seller),
+                        itemStyle: { borderRadius: [0, 0, 0, 0] },
+                        label: {
+                            show: true,
+                            position: 'inside',
+                            formatter: function (params) {
+                                const i = params.dataIndex;
+                                const pWith = data[i].with_seller;
+                                const pWithout = data[i].without_seller;
+                                const total = pWith + pWithout;
+                                if (total === 0) return '';
+                                const pct = (pWith / total) * 100;
+                                if (pct < 5) return ''; // Скрываем, если столбец слишком узкий
+                                return pct.toFixed(0) + '%';
+                            },
+                            color: '#ffffff',
+                            fontWeight: 'bold',
+                            fontSize: 12
+                        }
+                    },
+                    {
+                        name: 'Без продавца',
+                        type: 'bar',
+                        stack: 'total',
+                        data: data.map(r => r.without_seller),
+                        itemStyle: { borderRadius: [0, 6, 6, 0] }
+                    }
+                ]
+            };
+
+            // Fix border radius for single-colored stacked bars
+            option.series[0].data.forEach((val, idx) => {
+                if (data[idx].without_seller === 0) {
+                    if (!option.series[0].itemStyle) option.series[0].itemStyle = {};
+                    // We can't do this easily array-wise in simple echarts configs without objects,
+                    // So we use Echarts defaults: Let Echarts handle it or skip complex radius
+                }
+            });
+
+            chart.setOption(option);
+        }
+
+        function resetFilters() {
+            document.getElementById('filterFilial').value = '';
+            loadData();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            loadData();
+        });
+    </script>
+</body>
+</html>

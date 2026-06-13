@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Шпион | Аналитика</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="echarts.min.js"></script>
+<script>
+window.onerror = function(msg, url, line, col, err) {
+  var d = document.createElement('div');
+  d.style.cssText = 'color:white;background:red;padding:20px;font-size:16px;position:fixed;top:0;left:0;z-index:999999;width:100%;';
+  d.innerHTML = '<b>JS ERROR:</b> ' + msg + '<br>Line: ' + line + '<br><pre>' + (err ? err.stack : '') + '</pre>';
+  document.body.appendChild(d);
+};
+window.addEventListener("unhandledrejection", function(e) {
+  var d = document.createElement('div');
+  d.style.cssText = 'color:white;background:red;padding:20px;font-size:16px;position:fixed;top:0;left:0;z-index:999999;width:100%;';
+  d.innerHTML = '<b>PROMISE ERROR:</b> ' + (e.reason ? e.reason.message || e.reason : 'Unknown') + '<br><pre>' + (e.reason && e.reason.stack ? e.reason.stack : '') + '</pre>';
+  document.body.appendChild(d);
+});
+</script>
+<style>
+:root{--bg:#f3f4f6;--surface:#fff;--border:#e5e7eb;--text:#1f2937;--muted:#6b7280;--primary:#f97316;--green:#059669;--blue:#2563eb;--purple:#7c3aed;--r:12px;--shadow:0 4px 6px -1px rgb(0 0 0/0.1)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+.ctr{max-width:1600px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.hdr h1{font-size:22px;font-weight:700;background:linear-gradient(135deg,#f97316,#ea580c);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hdr p{color:var(--muted);font-size:12px;margin-top:2px}
+.nav{display:flex;gap:8px;flex-wrap:wrap}
+.nav a{color:var(--muted);text-decoration:none;font-size:13px;padding:6px 14px;border-radius:8px;transition:.2s}
+.nav a:hover{color:var(--text);background:#fff}
+.nav a.on{color:var(--primary);background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.fbar{display:flex;gap:12px;flex-wrap:wrap;background:var(--surface);padding:14px 18px;border-radius:var(--r);box-shadow:var(--shadow);border:1px solid var(--border);align-items:flex-end;position:sticky;top:0;z-index:30}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:600}
+.fg select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);min-width:160px;outline:none}
+.fg select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(249,115,22,.12)}
+.active-filter{display:inline-flex;align-items:center;gap:6px;background:#fff7ed;border:1px solid #fed7aa;color:#ea580c;font-size:12px;font-weight:600;padding:5px 12px;border-radius:16px;cursor:pointer}
+.active-filter:hover{background:#ffedd5}
+.msel{position:relative}.msel-btn{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);min-width:160px;cursor:pointer;text-align:left;font-family:inherit;color:var(--text)}
+.msel-drop{position:absolute;top:100%;left:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);z-index:50;min-width:220px;padding:6px 0;display:none;max-height:300px;overflow-y:auto}
+.msel-drop.open{display:block}
+.msel-drop label{display:flex;align-items:center;gap:8px;padding:6px 14px;font-size:13px;cursor:pointer;transition:.15s}
+.msel-drop label:hover{background:#f9fafb}
+.msel-drop input{accent-color:var(--primary)}
+
+.krow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.kc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;position:relative;overflow:hidden;transition:.2s}
+.kc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r) var(--r) 0 0}
+.kc:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.kc .lb{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.kc .vl{font-size:26px;font-weight:700;margin-top:4px}
+.kc .sb{font-size:11px;color:var(--muted);margin-top:3px}
+.kc.o::before{background:linear-gradient(90deg,#fb923c,#f97316)}.kc.o .vl{color:#ea580c}
+.kc.g::before{background:linear-gradient(90deg,#34d399,#10b981)}.kc.g .vl{color:#059669}
+.kc.b::before{background:linear-gradient(90deg,#60a5fa,#3b82f6)}.kc.b .vl{color:#2563eb}
+.kc.p::before{background:linear-gradient(90deg,#a78bfa,#8b5cf6)}.kc.p .vl{color:#7c3aed}
+
+.card{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden}
+.ct{padding:14px 18px 0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+.ct span{color:var(--muted);font-weight:400;font-size:11px}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.cbox{width:100%;padding:10px}
+
+/* Products table */
+.ptbl{width:100%;border-collapse:collapse;font-size:13px}
+.ptbl th{text-align:left;padding:8px 12px;color:var(--muted);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);background:#f9fafb;cursor:pointer;user-select:none;white-space:nowrap}
+.ptbl th:hover{color:var(--primary)}
+.ptbl th.sorted{color:var(--primary)}
+.ptbl td{padding:8px 12px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+.ptbl tr:hover td{background:#fffbeb}
+.ptbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.ptbl th.num{text-align:right}
+.prod-row{display:flex;align-items:center;gap:10px}
+.prod-img{width:44px;height:44px;border-radius:6px;object-fit:cover;background:#f3f4f6;border:1px solid var(--border);flex-shrink:0}
+.prod-info .pname{font-weight:600;font-size:13px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--text);transition:.15s}
+.prod-info .pname:hover{color:var(--primary)}
+.prod-info .pmeta{font-size:11px;color:var(--muted);margin-top:1px}
+.prod-info .pmeta b{color:var(--text);font-weight:500}
+.sku-link{color:var(--blue);cursor:pointer;font-size:12px;text-decoration:underline}
+.sku-link:hover{color:var(--primary)}
+/* Tree table styles */
+.tr-dept td{background:#f1f5f9;font-weight:700;font-size:13px;color:#1e293b;cursor:pointer}
+.tr-dept:hover td{background:#e2e8f0!important}
+.tr-sd td{background:#f8fafc;font-weight:600;font-size:12px;color:#334155;padding-left:28px;cursor:pointer}
+.tr-sd:hover td{background:#f1f5f9!important}
+.tr-cat td{background:#fff;font-weight:600;font-size:12px;color:#475569;padding-left:44px;cursor:pointer}
+.tr-cat:hover td{background:#fffbeb!important}
+.tr-sku td{padding-left:58px}
+.tree-toggle{display:inline-block;width:16px;font-size:10px;color:#94a3b8;margin-right:4px;transition:.15s}
+.tr-dept .tree-toggle,.tr-sd .tree-toggle,.tr-cat .tree-toggle{cursor:pointer}
+.pagination{display:flex;justify-content:center;gap:4px;padding:12px}
+.pagination button{padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:12px;font-family:inherit}
+.pagination button:hover:not(:disabled){border-color:var(--primary);color:var(--primary)}
+.pagination button:disabled{opacity:.4}
+.pagination button.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+.view-tabs{display:flex;gap:4px;padding:0 18px 10px}
+.view-tabs button{padding:5px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:12px;font-family:inherit;font-weight:500;color:var(--muted);transition:.15s}
+.view-tabs button:hover{border-color:var(--primary);color:var(--primary)}
+.view-tabs button.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:none;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:16px;max-width:560px;width:95%;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h2{font-size:18px;margin-bottom:12px}
+.modal .close{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)}
+.modal .close:hover{color:var(--text)}
+.modal img{width:100%;max-height:300px;object-fit:contain;border-radius:8px;margin:12px 0}
+.char-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;margin-top:12px}
+.char-grid .ck{color:var(--muted);font-size:12px}.char-grid .cv{font-weight:500}
+
+@media(max-width:900px){.cgrid{grid-template-columns:1fr}.krow{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<style>
+/* Auth overlay */
+.auth-overlay{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity .4s}
+.auth-overlay.hide{opacity:0;pointer-events:none}
+.auth-card{background:rgba(30,41,59,.85);backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(148,163,184,.2);border-radius:24px;padding:48px 40px 40px;width:100%;max-width:380px;box-shadow:0 24px 80px rgba(0,0,0,.4)}
+.auth-card h2{text-align:center;font-size:24px;font-weight:700;background:linear-gradient(135deg,#f97316,#fb923c,#fbbf24);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.auth-card .sub{text-align:center;color:#94a3b8;font-size:13px;margin-bottom:24px}
+.auth-field{margin-bottom:16px}
+.auth-field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;font-weight:600;margin-bottom:6px}
+.auth-field input{width:100%;padding:12px 16px;background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.2);border-radius:12px;font-size:15px;font-family:inherit;color:#e2e8f0;outline:none;transition:.2s}
+.auth-field input:focus{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.15)}
+.auth-btn{width:100%;padding:13px;border:none;border-radius:12px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;transition:.3s}
+.auth-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(249,115,22,.3)}
+.auth-err{text-align:center;color:#ef4444;font-size:13px;margin-top:12px;min-height:20px}
+
+#levelDrop.show{display:block!important}
+</style>
+
+<!-- Auth overlay (shown until valid login) -->
+<body>
+<div class="auth-overlay" id="authOverlay">
+<div class="auth-card">
+ <h2>🕵️ Шпион</h2>
+ <div class="sub">Введите данные для входа</div>
+ <form id="authForm" onsubmit="return checkAuth(event)">
+  <div class="auth-field"><label>Логин</label><input type="text" id="authUser" autocomplete="username" autofocus required></div>
+  <div class="auth-field"><label>Пароль</label><input type="password" id="authPass" autocomplete="current-password" required></div>
+  <button class="auth-btn" type="submit">Войти</button>
+  <div class="auth-err" id="authErr"></div>
+ </form>
+</div>
+</div>
+
+<div class="ctr">
+<div class="hdr">
+ <div><h1>🕵️ Шпион</h1></div>
+ <div class="nav" id="mainNav">
+  <a href="/analytics/index.html" class="nav-full">Уровень сервиса</a>
+  <a href="/analytics/revenue.html" class="nav-full">Бонусные карты</a>
+  <a href="/analytics/departments.html" class="nav-full">По отделам</a>
+  <a href="/analytics/spy.html" class="on">🕵️ Шпион</a>
+  <a href="/monitoring/index.html" class="nav-full">Мониторинг</a>
+  <a href="/parsing/index.html" class="nav-full">Парсинг</a>
+  <a href="/" class="nav-full">← Назад</a>
+  <a href="#" id="logoutBtn" style="display:none;color:#ef4444" onclick="doLogout();return false">Выйти</a>
+ </div>
+</div>
+
+<script>
+// ─── Client-side auth (SHA-256, no plaintext passwords in source) ───
+// Accounts: { username: sha256(password) }
+var AUTH_ACCOUNTS = {
+  'ko': '1c8477c9d21a83128b105c92fe79a1dc4c1dfaf2dd729b25d557c1321484222c' // restricted
+};
+var RESTRICTED_USERS = ['ko'];
+
+async function sha256(msg) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+}
+
+function isAuthenticated() {
+  var s = localStorage.getItem('spy_session');
+  if (!s) return null;
+  try { var d = JSON.parse(s); if (d.user && d.token) return d; } catch(e) {}
+  return null;
+}
+
+function applyRestrictions(user) {
+  if (RESTRICTED_USERS.indexOf(user) >= 0) {
+    document.querySelectorAll('.nav-full').forEach(function(el){ el.style.display='none' });
+    document.getElementById('logoutBtn').style.display='';
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem('spy_session');
+  location.reload();
+}
+
+async function checkAuth(e) {
+  e.preventDefault();
+  var u = document.getElementById('authUser').value.trim();
+  var p = document.getElementById('authPass').value;
+  var h = await sha256(p);
+  if (AUTH_ACCOUNTS[u] && AUTH_ACCOUNTS[u] === h) {
+    localStorage.setItem('spy_session', JSON.stringify({user: u, token: h.slice(0,16)}));
+    document.getElementById('authOverlay').classList.add('hide');
+    applyRestrictions(u);
+    return false;
+  }
+  document.getElementById('authErr').textContent = 'Неверный логин или пароль';
+  return false;
+}
+
+// On page load: check if already authenticated
+(function(){
+  var sess = isAuthenticated();
+  if (sess && AUTH_ACCOUNTS[sess.user]) {
+    document.getElementById('authOverlay').classList.add('hide');
+    applyRestrictions(sess.user);
+  }
+  // Also try server-side auth (for local Rust gateway)
+  try {
+    fetch('/api/auth/session').then(function(r){return r.json()}).then(function(s){
+      if (s.authenticated && s.restricted) {
+        document.querySelectorAll('.nav-full').forEach(function(el){ el.style.display='none' });
+        document.getElementById('logoutBtn').style.display='';
+        document.getElementById('authOverlay').classList.add('hide');
+      }
+    }).catch(function(){});
+  } catch(e){}
+})();
+</script>
+<div class="fbar" id="fbar">
+ <div class="fg"><label>Период с</label><select id="fFrom"><option value="">—</option></select></div>
+ <div class="fg"><label>по</label><select id="fTo"><option value="">—</option></select></div>
+ <div class="fg"><label>Сеть</label><select id="fStore" onchange="switchStore()"></select></div>
+ <div class="fg"><label>Филиалы</label><div class="msel" id="cityMsel"><button class="msel-btn" onclick="document.getElementById('cityDrop').classList.toggle('open')">Все филиалы</button><div class="msel-drop" id="cityDrop"></div></div></div>
+ <div class="fg"><label>Отдел</label><div class="msel" id="deptMsel"><button class="msel-btn" onclick="document.getElementById('deptDrop').classList.toggle('open')">Все отделы</button><div class="msel-drop" id="deptDrop"></div></div></div>
+ <div class="fg"><label>Подотдел</label><div class="msel" id="sdMsel"><button class="msel-btn" onclick="document.getElementById('sdDrop').classList.toggle('open')">Все подотделы</button><div class="msel-drop" id="sdDrop"></div></div></div>
+ <div class="fg"><label>Категория</label><div class="msel" id="catMsel"><button class="msel-btn" onclick="document.getElementById('catDrop').classList.toggle('open')">Все категории</button><div class="msel-drop" id="catDrop"></div></div></div>
+ <div class="fg"><label>Бренд</label><div class="msel" id="brandMsel"><button class="msel-btn" onclick="document.getElementById('brandDrop').classList.toggle('open')">Все бренды</button><div class="msel-drop" id="brandDrop"></div></div></div>
+ <div id="activeFilters"></div>
+ <div class="fg" style="margin-left:auto"><button onclick="resetFilters()" style="padding:7px 14px;border:1px solid #ef4444;border-radius:8px;background:#fef2f2;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Сбросить</button></div>
+</div>
+<div class="krow" id="kpiRow"></div>
+<div class="card"><div class="ct">Выручка по дням <span>изменение остатков</span></div><div id="chHour" class="cbox" style="height:220px"></div></div>
+<div class="cgrid">
+ <div class="card"><div class="ct">Выручка по отделам <span>клик = фильтр</span></div><div id="chDept" class="cbox" style="height:480px"></div></div>
+ <div class="card"><div class="ct">Выручка по филиалам <span>₽</span></div><div id="chCity" class="cbox" style="height:480px"></div></div>
+</div>
+<div class="card"><div class="ct">Остатки по отделам <span>₽, текущий запас × розн. цена</span></div><div id="chStock" class="cbox" style="height:380px"></div></div>
+<div class="card" style="padding:0">
+ <div class="ct" style="padding:14px 18px 10px">Детализация продаж <span id="prodCount"></span></div>
+ <div class="view-tabs" id="viewTabs" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+  <div class="msel-wrap" style="position:relative;display:inline-block">
+   <button id="levelBtn" onclick="document.getElementById('levelDrop').classList.toggle('show')" style="padding:6px 14px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#334155;white-space:nowrap">Детализация ▾</button>
+   <div id="levelDrop" class="msel-drop" style="display:none;position:absolute;top:100%;left:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:6px 0;z-index:50;min-width:180px">
+    <label style="display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:13px"><input type="checkbox" data-lv="dept" onchange="onLevelCheck()"> Отделы</label>
+    <label style="display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:13px"><input type="checkbox" data-lv="sd" onchange="onLevelCheck()"> Подотделы</label>
+    <label style="display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:13px"><input type="checkbox" data-lv="cat" onchange="onLevelCheck()"> Категории</label>
+    <label style="display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:13px"><input type="checkbox" data-lv="brand" onchange="onLevelCheck()"> Бренды</label>
+    <label style="display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:13px"><input type="checkbox" data-lv="sku" onchange="onLevelCheck()" checked> Товары</label>
+   </div>
+  </div>
+   <label style="margin-left:16px;font-size:12px;color:#475569;cursor:pointer;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="showStockOnly" onchange="render()" checked> С остатками без продаж</label>
+   <label style="margin-left:12px;font-size:12px;color:#475569;cursor:pointer;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="showByCities" onchange="render()"> По филиалам</label>
+ </div>
+ <div style="overflow-x:auto"><table class="ptbl"><thead id="prodHead"><tr>
+  <th style="width:30px">#</th><th>Товар</th>
+  <th data-col="dept">Отдел ▾</th>
+  <th data-col="sd">Подотдел ▾</th>
+  <th data-col="cat">Категория ▾</th>
+  <th class="num" data-col="qty">Шт. ▾</th>
+  <th class="num" data-col="rev">Выручка ₽ ▾</th>
+  <th class="num" data-col="price">Ср. цена ₽ ▾</th>
+  <th class="num" data-col="stock">Остаток ▾</th>
+ </tr></thead><tbody id="prodBody"></tbody></table></div>
+ <div class="pagination" id="pager"></div>
+</div>
+</div>
+
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+<div class="modal" id="modal"></div>
+</div>
+
+<script>
+var CC=['#f97316','#10b981','#3b82f6','#8b5cf6','#ec4899'],DC=['#f97316','#10b981','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#eab308','#ef4444','#14b8a6','#f472b6','#84cc16','#64748b','#fb923c','#6366f1','#a3e635'];
+var fm=new Intl.NumberFormat('ru-RU'),RAW_DATA,DATA,chD,chC,chH,chS,filterDept='',filterCity='',sortCol='rev',sortAsc=false,page=1,PER=50;
+var curStore='',selCities=[],selDepts=[],selSubdepts=[],selCats=[],selBrands=[];
+var viewLevels=['sku']; // selected hierarchy levels in order (all except brand)
+var LEVEL_ORDER=['dept','sd','cat','brand','sku']; // canonical order
+var shown=200;
+var treeOpen={};
+
+function onLevelCheck(){
+ viewLevels=[];
+ document.querySelectorAll('#levelDrop input[data-lv]').forEach(function(cb){
+   if(cb.checked)viewLevels.push(cb.dataset.lv);
+ });
+ if(!viewLevels.length)viewLevels=['dept'];
+ shown=200;treeOpen={};
+ updateLevelBtn();
+ render();
+}
+function toggleLevel(lv,ev){onLevelCheck()}
+function updateLevelTabs(){updateLevelBtn()}
+function updateLevelBtn(){
+ var labelMap={dept:'Отделы',sd:'Подотделы',cat:'Категории',brand:'Бренды',sku:'Товары'};
+ var names=LEVEL_ORDER.filter(function(l){return viewLevels.indexOf(l)>=0}).map(function(l){return labelMap[l]});
+ document.getElementById('levelBtn').textContent=(names.length===5?'Все уровни':names.join(' → '))+' ▾';
+ // Sync checkboxes
+ document.querySelectorAll('#levelDrop input[data-lv]').forEach(function(cb){
+   cb.checked=viewLevels.indexOf(cb.dataset.lv)>=0;
+ });
+}
+
+function drillDown(level,value){
+ // Apply filter and switch to SKU view
+ if(level==='dept'){selDepts=[value];updateMselBtn('ddDept',selDepts,'Все отделы');rebuildCascade('sd')}
+ else if(level==='sd'){document.getElementById('fSubdept').value=value;rebuildCascade('cat')}
+ else if(level==='cat'){document.getElementById('fCat').value=value;rebuildCascade('brand')}
+ else if(level==='brand'){selBrands=[value];updateMselBtn('ddBrand',selBrands,'Все бренды')}
+ viewLevel='sku';shown=50;
+ document.querySelectorAll('#viewTabs button').forEach(function(b){b.classList.toggle('on',b.textContent==='Товары')});
+ render();
+}
+
+function fD(ds){var d=new Date(ds),m=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'],w=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];return d.getDate()+' '+m[d.getMonth()]+' ('+w[d.getDay()]+')';}
+
+function buildMsel(id,items,arr,btnText,onAfter){
+ var drop=document.getElementById(id);drop.innerHTML='';
+ items.forEach(function(it){
+   var lb=document.createElement('label');var cb=document.createElement('input');cb.type='checkbox';cb.value=it;
+   cb.checked=arr.indexOf(it)>=0;
+   cb.onchange=function(){if(cb.checked){if(arr.indexOf(it)<0)arr.push(it)}else{var i=arr.indexOf(it);if(i>=0)arr.splice(i,1)}updateMselBtn(id,arr,btnText);page=1;if(onAfter)onAfter();render()};
+   lb.appendChild(cb);lb.appendChild(document.createTextNode(it));drop.appendChild(lb);
+ });
+}
+function updateMselBtn(dropId,arr,def){var btn=document.getElementById(dropId).parentElement.querySelector('.msel-btn');btn.textContent=arr.length?arr.length+' выбрано':def;}
+
+
+
+function rebuildCascade(from){
+ var prods=DATA._allProds||[];
+ var fp=prods;
+ if(selDepts.length)fp=fp.filter(function(p){return selDepts.indexOf(p.dept)>=0});
+ if(filterDept)fp=fp.filter(function(p){return p.dept===filterDept});
+ // Rebuild subdept
+ if(!from||from==='sd'){
+   var sds={};fp.forEach(function(p){if(p.sd)sds[p.sd]=1});
+   selSubdepts=selSubdepts.filter(function(s){return sds[s]});
+   buildMsel('sdDrop',Object.keys(sds).sort(),selSubdepts,'Все подотделы',function(){rebuildCascade('cat')});
+ }
+ var fp2=selSubdepts.length?fp.filter(function(p){return selSubdepts.indexOf(p.sd)>=0}):fp;
+ // Rebuild category
+ if(!from||from==='sd'||from==='cat'){
+   var cats={};fp2.forEach(function(p){if(p.cat)cats[p.cat]=1});
+   selCats=selCats.filter(function(c){return cats[c]});
+   buildMsel('catDrop',Object.keys(cats).sort(),selCats,'Все категории',function(){rebuildCascade('brand')});
+ }
+ var fp3=selCats.length?fp2.filter(function(p){return selCats.indexOf(p.cat)>=0}):fp2;
+ // Rebuild brands
+ var brands={};fp3.forEach(function(p){if(p.brand)brands[p.brand]=1});
+ selBrands=selBrands.filter(function(b){return brands[b]});
+ buildMsel('brandDrop',Object.keys(brands).sort(),selBrands,'Все бренды');
+}
+
+var STORE_CACHE={};  // cache loaded store data
+var CATALOG_CACHE={};  // cache catalog per store
+var INDEX_DATA=null; // index with store list + summary
+
+async function switchStore(){
+ var stName=document.getElementById('fStore').value;
+ curStore=stName;
+ // Find store info in index
+ var storeInfo=INDEX_DATA.stores.find(function(s){return s.name===stName});
+ if(!storeInfo)return;
+ // Load store data + catalog if not cached
+ if(!STORE_CACHE[stName]){
+   document.getElementById('prodBody').innerHTML='<tr><td colspan="10" style="text-align:center;padding:40px;color:#9ca3af">⏳ Загрузка данных '+stName+'...</td></tr>';
+   try{
+     var [sd, cat] = await Promise.all([
+       fetch('/analytics/'+storeInfo.file+'?_='+Date.now()).then(function(r){return r.json()}),
+       storeInfo.catalog ? fetch('/analytics/'+storeInfo.catalog+'?_='+Date.now()).then(function(r){return r.json()}) : Promise.resolve({})
+     ]);
+     // Merge catalog info into products
+     if(cat && Object.keys(cat).length>0){
+       (sd.days||[]).forEach(function(day){
+         (day.products||[]).forEach(function(p){
+           var ci=cat[p.sku];
+           if(ci){
+             if(!p.name)p.name=ci.name||p.sku;
+             if(!p.dept)p.dept=ci.dept||'';
+             if(!p.sd)p.sd=ci.sd||'';
+             if(!p.cat)p.cat=ci.cat||'';
+             if(!p.brand)p.brand=ci.brand||'';
+             if(!p.photo)p.photo=ci.photo||'';
+             if(!p.chars)p.chars=ci.chars||{};
+           }
+         });
+       });
+     }
+     STORE_CACHE[stName]=sd;
+     CATALOG_CACHE[stName]=cat;
+   }catch(e){
+     document.getElementById('prodBody').innerHTML='<tr><td colspan="10" style="text-align:center;padding:40px;color:red">Ошибка загрузки: '+e.message+'</td></tr>';
+     return;
+   }
+ }
+ var sd=STORE_CACHE[stName];
+ DATA={cities:sd.cities||[],days:sd.days||[],stores:INDEX_DATA.stores.map(function(s){return s.name})};
+ // Rebuild date selectors
+ var sf=document.getElementById('fFrom'),st=document.getElementById('fTo');
+ sf.innerHTML='<option value="">—</option>';st.innerHTML='<option value="">—</option>';
+ DATA.days.forEach(function(d){[sf,st].forEach(function(s){var o=document.createElement('option');o.value=d.date;o.textContent=fD(d.date);s.appendChild(o)})});
+ // Rebuild city filter
+ selCities=[];selDepts=[];selSubdepts=[];selCats=[];selBrands=[];
+ buildMsel('cityDrop',DATA.cities,selCities,'Все филиалы',function(){render()});
+ // Rebuild dept filter
+ var allProds=[];DATA.days.forEach(function(d){(d.products||[]).forEach(function(p){allProds.push(p)})});
+ DATA._allProds=allProds;
+ var allDepts={};allProds.forEach(function(p){if(p.dept)allDepts[p.dept]=1});
+ buildMsel('deptDrop',Object.keys(allDepts).sort(),selDepts,'Все отделы',function(){rebuildCascade()});
+ rebuildCascade();
+ page=1;shown=200;
+ if(chH)render();
+}
+async function init(){
+ try{INDEX_DATA=await(await fetch('/analytics/spy_data.json?_='+Date.now())).json()}catch(e){document.body.innerHTML='<p style="color:red;padding:40px">Ошибка: '+e.message+'</p>';return}
+ // Init echarts first
+ chD=echarts.init(document.getElementById('chDept'));
+ chC=echarts.init(document.getElementById('chCity'));
+ chH=echarts.init(document.getElementById('chHour'));
+ chS=echarts.init(document.getElementById('chStock'));
+ window.addEventListener('resize',function(){chD.resize();chC.resize();chH.resize();chS.resize()});
+ chD.on('click',function(p){filterDept=filterDept===p.name?'':p.name;page=1;rebuildCascade();render()});
+ chC.on('click',function(p){
+   var city=DATA.cities.find(function(c){return c.replace('Кострома ','К. ')===p.name})||p.name;
+   filterCity=filterCity===city?'':city;page=1;render()});
+ document.querySelectorAll('.ptbl th[data-col]').forEach(function(th){
+   th.onclick=function(){var c=th.dataset.col;if(sortCol===c)sortAsc=!sortAsc;else{sortCol=c;sortAsc=false}page=1;render()}});
+ document.addEventListener('click',function(e){document.querySelectorAll('.msel-drop.open').forEach(function(d){if(!d.parentElement.contains(e.target))d.classList.remove('open')})});
+ ['fFrom','fTo'].forEach(function(id){document.getElementById(id).onchange=function(){page=1;render()}});
+ // Populate store selector
+ var fst=document.getElementById('fStore');
+ var storeNames=INDEX_DATA.stores.map(function(s){return s.name});
+ storeNames.forEach(function(s){var o=document.createElement('option');o.value=s;o.textContent=s;fst.appendChild(o)});
+ curStore=storeNames[0]||'Главснаб';
+ fst.value=curStore;
+ await switchStore();
+}
+
+function getF(){
+ var df=document.getElementById('fFrom').value,dt=document.getElementById('fTo').value;
+
+ var days=DATA.days.filter(function(d){if(df&&d.date<df)return false;if(dt&&d.date>dt)return false;return true});
+ var prods={};
+ days.forEach(function(day){
+   (day.products||[]).forEach(function(p){
+     if(!prods[p.sku])prods[p.sku]={sku:p.sku,name:p.name,dept:p.dept,sd:p.sd||'',cat:p.cat||'',brand:p.brand,photo:p.photo,qty:0,rev:0,price:p.price,stock:0,chars:p.chars||{},desc:p.desc||'',hrs:{},ct:{},sh:[]};
+     // Merge city data — qty/rev accumulate
+     var pc=p.ct||{};for(var c in pc){if(!prods[p.sku].ct[c])prods[p.sku].ct[c]={qty:0,rev:0,stock:0,sv:0};var cc=pc[c];prods[p.sku].ct[c].qty+=(cc.qty||0);prods[p.sku].ct[c].rev+=(cc.rev||0)}
+     // Merge hourly
+     var ph=p.hrs||{};for(var h in ph){prods[p.sku].hrs[h]=(prods[p.sku].hrs[h]||0)+ph[h]}
+     prods[p.sku].qty+=p.qty;prods[p.sku].rev+=p.rev;
+   });
+ });
+ // Stock ALWAYS from latest day (ignores date filter)
+ var lastDay=DATA.days[DATA.days.length-1];
+ if(lastDay)(lastDay.products||[]).forEach(function(p){
+   if(!prods[p.sku])prods[p.sku]={sku:p.sku,name:p.name,dept:p.dept,sd:p.sd||'',cat:p.cat||'',brand:p.brand,photo:p.photo,qty:0,rev:0,price:p.price,stock:0,chars:p.chars||{},desc:p.desc||'',hrs:{},ct:{},sh:[]};
+   prods[p.sku].stock=(p.stock||0);prods[p.sku].price=p.price;if(p.sh&&p.sh.length)prods[p.sku].sh=p.sh;
+   // Overwrite city stock/sv from latest day
+   var pc=p.ct||{};for(var c in pc){if(!prods[p.sku].ct[c])prods[p.sku].ct[c]={qty:0,rev:0,stock:0,sv:0};prods[p.sku].ct[c].stock=(pc[c].stock||0);prods[p.sku].ct[c].sv=(pc[c].sv||0)}
+   // Expand compact cs array [stock_per_city] for stock-only products
+   if(p.cs&&DATA.cities){DATA.cities.forEach(function(c,i){if(p.cs[i]){if(!prods[p.sku].ct[c])prods[p.sku].ct[c]={qty:0,rev:0,stock:0,sv:0};prods[p.sku].ct[c].stock=p.cs[i];prods[p.sku].ct[c].sv=p.cs[i]*p.price}})}
+ });
+ var pa=Object.values(prods);
+ // If city filter is active: recompute qty/rev/stock from selected cities only
+ if(selCities.length){
+   pa=pa.map(function(p){
+     var cq=0,cr=0,cs=0;
+     selCities.forEach(function(c){var cd=p.ct[c];if(cd){cq+=cd.qty;cr+=cd.rev;cs+=cd.stock}});
+     return Object.assign({},p,{qty:cq,rev:cr,stock:cs,price:cq>0?Math.round(cr/cq):p.price});
+   }).filter(function(p){return p.qty>0||p.stock>0});
+ }
+ // Apply catalog filters
+ if(filterDept)pa=pa.filter(function(p){return p.dept===filterDept});
+ if(selDepts.length)pa=pa.filter(function(p){return selDepts.indexOf(p.dept)>=0});
+ if(selSubdepts.length)pa=pa.filter(function(p){return selSubdepts.indexOf(p.sd)>=0});
+ if(selCats.length)pa=pa.filter(function(p){return selCats.indexOf(p.cat)>=0});
+ if(selBrands.length)pa=pa.filter(function(p){return selBrands.indexOf(p.brand)>=0});
+  var showSO=document.getElementById('showStockOnly')&&document.getElementById('showStockOnly').checked;
+  if(!showSO)pa=pa.filter(function(p){return p.qty>0});
+ // Compute ALL aggregations from filtered products
+ var byD={},byC={},stockD={},hrs=new Array(24).fill(0);
+ var tq=0,tr=0,tst=0,tsv=0;
+ pa.forEach(function(p){
+   tq+=p.qty;tr+=p.rev;
+   if(!byD[p.dept])byD[p.dept]={dept:p.dept,qty:0,rev:0,skus:0};
+   byD[p.dept].qty+=p.qty;byD[p.dept].rev+=p.rev;byD[p.dept].skus++;
+   if(!stockD[p.dept])stockD[p.dept]={dept:p.dept,stock:0,sv:0};
+   stockD[p.dept].stock+=p.stock;stockD[p.dept].sv+=p.stock*p.price;
+   tst+=p.stock;tsv+=p.stock*p.price;
+   // Hourly: if city filter, only count hrs from selected cities (approximate with ratio)
+   var ph=p.hrs||{};for(var h in ph){hrs[parseInt(h)]+=ph[h]}
+   // City aggregation
+   var pc=p.ct||{};for(var c in pc){if(selCities.length&&selCities.indexOf(c)<0)continue;if(!byC[c])byC[c]={city:c,qty:0,rev:0,skus:0,stock:0,sv:0};byC[c].qty+=(pc[c].qty||0);byC[c].rev+=(pc[c].rev||0);byC[c].stock+=(pc[c].stock||0);byC[c].sv+=(pc[c].sv||0);byC[c].skus++}
+ });
+ var da=Object.values(byD).sort(function(a,b){return b.rev-a.rev});
+ var ca=Object.values(byC).sort(function(a,b){return b.rev-a.rev});
+ var sdArr=Object.values(stockD).sort(function(a,b){return b.sv-a.sv});
+ pa.sort(function(a,b){var va=a[sortCol]||0,vb=b[sortCol]||0;return sortAsc?(va>vb?1:-1):(va<vb?1:-1)});
+ return{depts:da,cities:ca,products:pa,tq:tq,tr:tr,ts:pa.length,tst:tst,tsv:tsv,days:days,hrs:hrs,stockD:sdArr};
+}
+
+function render(){var f=getF();renderKPI(f);renderHour(f);renderDept(f);renderCity(f);renderStock(f);renderProds(f);renderActiveFilters();}
+
+function renderKPI(f){
+ var avg=f.tq>0?Math.round(f.tr/f.tq):0,dl=f.days.length===1?fD(f.days[0].date):f.days.length+' дн.';
+ document.getElementById('kpiRow').innerHTML=
+  '<div class="kc o"><div class="lb">Выручка</div><div class="vl">'+fm.format(Math.round(f.tr))+' ₽</div><div class="sb">'+dl+'</div></div>'+
+  '<div class="kc b"><div class="lb">Остатки</div><div class="vl">'+fm.format(Math.round(f.tsv/1e6))+'M ₽</div><div class="sb">'+fm.format(f.tst)+' шт</div></div>'+
+  '<div class="kc p"><div class="lb">&nbsp;</div><div class="vl">&nbsp;</div><div class="sb">&nbsp;</div></div>'+
+  '<div class="kc p"><div class="lb">&nbsp;</div><div class="vl">&nbsp;</div><div class="sb">&nbsp;</div></div>';
+}
+
+function renderHour(f){
+ var labels=[],vals=[];
+ DATA.days.forEach(function(day){
+   var dayLabel=fD(day.date);
+   var dayRev=0;
+   (day.products||[]).forEach(function(p){
+     // Apply same filters as getF
+     if(selDepts.length&&selDepts.indexOf(p.dept)<0)return;
+     if(selSubdepts.length&&selSubdepts.indexOf(p.sd||'')<0)return;
+     if(selCats.length&&selCats.indexOf(p.cat||'')<0)return;
+     if(selBrands.length&&selBrands.indexOf(p.brand||'')<0)return;
+     if(selCities.length){
+       var cr=0;var pc=p.ct||{};
+       selCities.forEach(function(c){if(pc[c])cr+=(pc[c].rev||0)});
+       dayRev+=cr;
+     } else {
+       dayRev+=p.rev||0;
+     }
+   });
+   labels.push(dayLabel);vals.push(dayRev);
+ });
+ chH.setOption({tooltip:{trigger:'axis',backgroundColor:'#ffffff',textStyle:{color:'#1f2937'},borderColor:'#e5e7eb',borderWidth:1,formatter:function(p){return p[0].name+'<br/>'+fm.format(p[0].value)+' ₽'}},grid:{left:'3%',right:'3%',top:'8%',bottom:'12%',containLabel:true},
+  xAxis:{type:'category',data:labels,axisLabel:{color:'#6b7280',fontSize:11}},
+  yAxis:{type:'value',axisLabel:{formatter:function(v){return v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K'},color:'#6b7280',fontSize:10},splitLine:{lineStyle:{color:'#f3f4f6'}}},
+  series:[{type:'bar',data:vals.map(function(v){return{value:v,itemStyle:{color:v>0?'#f97316':'#e5e7eb',borderRadius:[3,3,0,0]}}}),barWidth:'40%',label:{show:true,position:'top',fontSize:12,fontWeight:600,color:'#334155',formatter:function(p){return fm.format(p.value)+' ₽'}}}]
+ },true);
+}
+
+function renderDept(f){
+ var d=f.depts.slice().reverse();
+ chD.setOption({tooltip:{trigger:'axis',backgroundColor:'#ffffff',textStyle:{color:'#1f2937'},borderColor:'#e5e7eb',borderWidth:1,axisPointer:{type:'shadow'}},grid:{left:'2%',right:'14%',top:'2%',bottom:'3%',containLabel:true},
+  xAxis:{type:'value',axisLabel:{formatter:function(v){return(v/1e6).toFixed(1)+'M'},color:'#6b7280',fontSize:11},splitLine:{lineStyle:{color:'#f3f4f6',type:'dashed'}}},
+  yAxis:{type:'category',data:d.map(function(x){return x.dept}),axisLabel:{color:function(v){return v===filterDept?'#ea580c':'#374151'},fontWeight:function(v){return v===filterDept?700:500},fontSize:11,width:140,overflow:'truncate'},axisLine:{show:false},axisTick:{show:false}},
+  series:[{type:'bar',data:d.map(function(x,i){return{value:x.rev,itemStyle:{color:x.dept===filterDept?'#ea580c':DC[i%DC.length],borderRadius:[0,4,4,0],opacity:filterDept&&x.dept!==filterDept?.3:1}}}),barWidth:'65%',
+   label:{show:true,position:'right',formatter:function(p){return fm.format(Math.round(p.value/1000))+'K'},color:'#6b7280',fontSize:11}}]
+ },true);
+}
+
+function renderCity(f){
+ var c=f.cities;
+ chC.setOption({tooltip:{trigger:'axis',backgroundColor:'#ffffff',textStyle:{color:'#1f2937'},borderColor:'#e5e7eb',borderWidth:1,axisPointer:{type:'shadow'}},grid:{left:'3%',right:'4%',top:'12%',bottom:'10%',containLabel:true},
+  xAxis:{type:'category',data:c.map(function(x){return x.city.replace('Кострома ','К. ')}),axisLabel:{color:'#6b7280',fontSize:11,rotate:15}},
+  yAxis:{type:'value',axisLabel:{formatter:function(v){return(v/1e6).toFixed(1)+'M'},color:'#6b7280',fontSize:11},splitLine:{lineStyle:{color:'#f3f4f6',type:'dashed'}}},
+  series:[{name:'Выручка',type:'bar',data:c.map(function(x,i){return{value:x.rev,itemStyle:{color:filterCity&&x.city!==filterCity?'#d1d5db':CC[i%5],borderRadius:[4,4,0,0],opacity:filterCity&&x.city!==filterCity?.4:1}}}),barWidth:'50%',
+   label:{show:true,position:'top',formatter:function(p){return fm.format(Math.round(p.value/1000))+'K'},color:'#6b7280',fontSize:10}}]
+ },true);
+}
+
+function renderStock(f){
+ var d=f.stockD.slice(0,15).reverse();
+ chS.setOption({tooltip:{trigger:'axis',backgroundColor:'#ffffff',textStyle:{color:'#1f2937'},borderColor:'#e5e7eb',borderWidth:1,axisPointer:{type:'shadow'},formatter:function(p){var r=p[0];return'<b>'+r.name+'</b><br/>Остатки: <b>'+fm.format(r.value)+' ₽</b>'}},
+  grid:{left:'2%',right:'12%',top:'2%',bottom:'3%',containLabel:true},
+  xAxis:{type:'value',axisLabel:{formatter:function(v){return(v/1e6).toFixed(0)+'M'},color:'#6b7280',fontSize:11},splitLine:{lineStyle:{color:'#f3f4f6',type:'dashed'}}},
+  yAxis:{type:'category',data:d.map(function(x){return x.dept}),axisLabel:{color:'#374151',fontSize:11,width:140,overflow:'truncate'},axisLine:{show:false},axisTick:{show:false}},
+  series:[{type:'bar',data:d.map(function(x,i){return{value:x.sv,itemStyle:{color:'#3b82f6',borderRadius:[0,4,4,0],opacity:.7}}}),barWidth:'65%',
+   label:{show:true,position:'right',formatter:function(p){return fm.format(Math.round(p.value/1e6))+'M'},color:'#6b7280',fontSize:11}}]
+ },true);
+}
+
+function renderActiveFilters(){
+ var html='';
+ if(filterDept)html+='<span class="active-filter" onclick="filterDept=\'\';page=1;rebuildCascade();render()">Отдел: '+filterDept+' ✕</span>';
+ if(filterCity)html+='<span class="active-filter" onclick="filterCity=\'\';page=1;render()">Магазин: '+filterCity+' ✕</span>';
+ document.getElementById('activeFilters').innerHTML=html;
+}
+
+function toggleTree(key){treeOpen[key]=treeOpen[key]===false?true:false;renderProds(getF())}
+
+function renderProds(f){
+ var thead=document.getElementById('prodHead');
+ var levels=LEVEL_ORDER.filter(function(l){return viewLevels.indexOf(l)>=0});
+ if(!levels.length)levels=['dept'];
+ var fieldMap={dept:'dept',sd:'sd',cat:'cat',brand:'brand',sku:'sku'};
+ var labelMap={dept:'Отдел',sd:'Подотдел',cat:'Категория',brand:'Бренд',sku:'Товар'};
+ var byCities=document.getElementById('showByCities')&&document.getElementById('showByCities').checked;
+ // Collect active cities for column headers
+ var activeCities=[];
+ if(byCities){
+   var cset={};
+   f.products.forEach(function(p){var ct=p.ct||{};for(var c in ct)cset[c]=1});
+   activeCities=Object.keys(cset).sort();
+ }
+
+ // Helper: build city columns HTML for a data object with ct:{city:{qty,rev,stock}}
+ function cityCols(ct){
+   var h='';
+   activeCities.forEach(function(c){
+     var cd=ct[c]||{qty:0,rev:0,stock:0};
+     h+='<td class="num" style="font-size:11px;color:#059669;border-left:2px solid #f1f5f9">'+fm.format(cd.qty)+'</td>';
+     h+='<td class="num" style="font-size:11px;color:#ea580c">'+fm.format(cd.rev)+'</td>';
+     h+='<td class="num" style="font-size:11px;color:#3b82f6">'+fm.format(cd.stock||0)+'</td>';
+     h+='<td class="num" style="font-size:11px;color:#3b82f6">'+fm.format(cd.sv||0)+'</td>';
+   });
+   return h;
+ }
+ function cityHead(){
+   var h='';
+   activeCities.forEach(function(c){
+     var short=c.replace('Кострома ','К. ');
+     h+='<th class="num" style="font-size:9px;border-left:2px solid #e2e8f0;white-space:nowrap">'+short+' шт</th><th class="num" style="font-size:9px;white-space:nowrap">'+short+' ₽</th><th class="num" style="font-size:9px;white-space:nowrap">'+short+' ост</th><th class="num" style="font-size:9px;white-space:nowrap">'+short+' ост₽</th>';
+   });
+   return h;
+ }
+ function citySubHead(){
+   return '';
+ }
+
+ // Single level flat aggregation (not sku)
+ if(levels.length===1 && levels[0]!=='sku'){
+   var lv=levels[0];
+   var agg={};
+   f.products.forEach(function(p){
+     var key=p[fieldMap[lv]]||'';if(!key)return;
+     if(!agg[key])agg[key]={name:key,qty:0,rev:0,stock:0,skus:0,ct:{}};
+     agg[key].qty+=p.qty;agg[key].rev+=p.rev;agg[key].stock+=p.stock;agg[key].skus++;
+     if(byCities){var pc=p.ct||{};for(var c in pc){if(!agg[key].ct[c])agg[key].ct[c]={qty:0,rev:0,stock:0,sv:0};agg[key].ct[c].qty+=(pc[c].qty||0);agg[key].ct[c].rev+=(pc[c].rev||0);agg[key].ct[c].stock+=(pc[c].stock||0);agg[key].ct[c].sv+=(pc[c].sv||0)}}
+   });
+   var rows=Object.values(agg);rows.sort(function(a,b){return b.rev-a.rev});
+   var thExtra=byCities?cityHead():'';
+   
+   thead.innerHTML='<tr><th style="width:30px">#</th><th colspan="4">'+labelMap[lv]+'</th><th class="num">Шт.</th><th class="num">Выручка ₽</th><th class="num">Цена ₽</th><th class="num">Ост. шт</th><th class="num">Ост. ₽</th>'+thExtra+'</tr>';
+   var html='',slice=rows.slice(0,shown);
+   slice.forEach(function(r,i){
+     html+='<tr><td class="num" style="color:#9ca3af">'+(i+1)+'</td><td colspan="4"><b>'+esc(r.name)+'</b> <span style="color:#9ca3af">('+r.skus+')</span></td>'+
+      '<td class="num" style="font-weight:600;color:#059669">'+fm.format(r.qty)+'</td>'+
+      '<td class="num" style="font-weight:700;color:#ea580c">'+fm.format(r.rev)+'</td>'+
+      '<td class="num" style="color:#3b82f6">'+fm.format(r.stock)+'</td>'+
+      '<td class="num" style="color:#3b82f6">'+fm.format(r.stock*(r.qty>0?Math.round(r.rev/r.qty):0))+'</td>'+(byCities?cityCols(r.ct):'')+'</tr>';
+   });
+   // ИТОГО по сети
+   var tq=0,tr=0,ts=0,tsv=0,tct={};
+   f.products.forEach(function(p){tq+=p.qty;tr+=p.rev;ts+=p.stock;tsv+=(p.stock||0)*p.price;
+     if(byCities){var pc=p.ct||{};for(var c in pc){if(!tct[c])tct[c]={qty:0,rev:0,stock:0,sv:0};tct[c].qty+=(pc[c].qty||0);tct[c].rev+=(pc[c].rev||0);tct[c].stock+=(pc[c].stock||0);tct[c].sv+=(pc[c].sv||0)}}
+   });
+   html+='<tr style="background:#f1f5f9;border-top:2px solid #cbd5e1"><td colspan="5" style="font-weight:800;font-size:13px;padding:10px 12px">ИТОГО по сети</td>'+
+    '<td class="num" style="font-weight:800;color:#059669;padding:10px 12px">'+fm.format(tq)+'</td>'+
+    '<td class="num" style="font-weight:800;color:#ea580c;padding:10px 12px">'+fm.format(tr)+'</td>'+
+   '<td class="num" style="font-weight:800;padding:10px 12px">'+(tq>0?fm.format(Math.round(tr/tq)):'')+'</td>'+
+    '<td class="num" style="font-weight:800;color:#3b82f6;padding:10px 12px">'+fm.format(ts)+'</td>'+
+    '<td class="num" style="font-weight:800;color:#3b82f6;padding:10px 12px">'+fm.format(tsv)+'</td>'+(byCities?cityCols(tct):'')+'</tr>';
+   document.getElementById('prodBody').innerHTML=html;
+   document.getElementById('prodCount').textContent=fm.format(rows.length);
+   var ph='';if(shown<rows.length){var rem=rows.length-shown;ph='<button onclick="shown+=50;renderProds(getF())" style="width:100%;padding:10px;font-size:13px;font-weight:600;color:var(--primary);border:1px solid var(--primary);border-radius:8px;background:#fff;cursor:pointer">Показать ещё '+Math.min(50,rem)+' ↓</button>';}
+   document.getElementById('pager').innerHTML=ph;
+   return;
+ }
+
+ // Single level = sku flat list
+ if(levels.length===1 && levels[0]==='sku'){
+   var thExtra=byCities?cityHead():'';
+   
+   thead.innerHTML='<tr><th style="width:30px">#</th><th>Товар</th><th data-col="dept">Отдел ▾</th><th data-col="sd">Подотдел ▾</th><th data-col="cat">Категория ▾</th><th class="num" data-col="qty">Шт. ▾</th><th class="num" data-col="rev">Выручка ₽ ▾</th><th class="num" data-col="price">Ср. цена ₽ ▾</th><th class="num" data-col="stock">Остаток ▾</th>'+thExtra+'</tr>';
+   document.querySelectorAll('.ptbl th[data-col]').forEach(function(th){
+     th.classList.toggle('sorted',th.dataset.col===sortCol);th.style.cursor='pointer';
+     th.onclick=function(){if(sortCol===th.dataset.col){sortAsc=!sortAsc}else{sortCol=th.dataset.col;sortAsc=false}shown=50;render()};
+   });
+   var slice=f.products.slice(0,shown),html='';
+   slice.forEach(function(p,i){
+     var photo=p.photo?'<img class="prod-img" src="'+p.photo+'" loading="lazy" onerror="this.outerHTML=\'<div class=prod-img style=display:flex;align-items:center;justify-content:center;background:#f1f5f9;font-size:18px>📦</div>\'">':'<div class="prod-img" style="display:flex;align-items:center;justify-content:center;background:#f1f5f9;font-size:18px">📦</div>';
+     html+='<tr><td class="num" style="color:#9ca3af">'+(i+1)+'</td><td><div class="prod-row">'+photo+'<div class="prod-info"><div class="pname" title="'+esc(p.name)+'" onclick="openCard(\''+p.sku+'\')">'+esc(p.name)+'</div><div class="pmeta">'+(p.brand?'<b>'+esc(p.brand)+'</b> · ':'')+'арт. '+p.sku+'</div></div></div></td>'+
+      '<td style="font-size:12px;color:#6b7280">'+esc(p.dept)+'</td><td style="font-size:12px;color:#6b7280">'+esc(p.sd||'')+'</td><td style="font-size:12px;color:#6b7280">'+esc(p.cat||'')+'</td>'+
+      '<td class="num" style="font-weight:600;color:#059669">'+fm.format(p.qty)+'</td><td class="num" style="font-weight:700;color:#ea580c">'+fm.format(p.rev)+'</td><td class="num">'+fm.format(p.price)+'</td><td class="num" style="color:#3b82f6">'+fm.format(p.stock||0)+'</td>'+(byCities?cityCols(p.ct||{}):'')+'</tr>';
+   });
+   // ИТОГО по сети
+   var tq=0,tr=0,ts=0,tsv=0,tct={};
+   f.products.forEach(function(p){tq+=p.qty;tr+=p.rev;ts+=p.stock;tsv+=(p.stock||0)*p.price;
+     if(byCities){var pc=p.ct||{};for(var c in pc){if(!tct[c])tct[c]={qty:0,rev:0,stock:0,sv:0};tct[c].qty+=(pc[c].qty||0);tct[c].rev+=(pc[c].rev||0);tct[c].stock+=(pc[c].stock||0);tct[c].sv+=(pc[c].sv||0)}}
+   });
+   html+='<tr style="background:#f1f5f9;border-top:2px solid #cbd5e1"><td colspan="5" style="font-weight:800;font-size:13px;padding:10px 12px">ИТОГО по сети</td>'+
+    '<td class="num" style="font-weight:800;color:#059669;padding:10px 12px">'+fm.format(tq)+'</td>'+
+    '<td class="num" style="font-weight:800;color:#ea580c;padding:10px 12px">'+fm.format(tr)+'</td>'+
+    '<td class="num" style="font-weight:800;padding:10px 12px">'+(tq>0?fm.format(Math.round(tr/tq)):'')+'</td>'+
+    '<td class="num" style="font-weight:800;color:#3b82f6;padding:10px 12px">'+fm.format(ts)+'</td>'+(byCities?cityCols(tct):'')+'</tr>';
+   document.getElementById('prodBody').innerHTML=html;
+   document.getElementById('prodCount').textContent=fm.format(f.products.length)+' товаров';
+   var ph='';if(shown<f.products.length){var rem=f.products.length-shown;ph='<button onclick="shown+=50;renderProds(getF())" style="width:100%;padding:10px;font-size:13px;font-weight:600;color:var(--primary);border:1px solid var(--primary);border-radius:8px;background:#fff;cursor:pointer">Показать ещё '+Math.min(50,rem)+' ↓</button>';}
+   document.getElementById('pager').innerHTML=ph;
+   return;
+ }
+
+ // MULTI-LEVEL TREE
+ var thExtra=byCities?cityHead():'';
+ 
+ thead.innerHTML='<tr><th colspan="5">Наименование</th><th class="num">Шт.</th><th class="num">Выручка ₽</th><th class="num">Цена ₽</th><th class="num">Ост. шт</th><th class="num">Ост. ₽</th>'+thExtra+'</tr>';
+ function buildNode(){return{qty:0,rev:0,stock:0,children:{},items:[],ct:{}}}
+ function mergeNodeCt(node,pct){
+   if(!byCities)return;
+   for(var c in pct){if(!node.ct[c])node.ct[c]={qty:0,rev:0,stock:0,sv:0};node.ct[c].qty+=(pct[c].qty||0);node.ct[c].rev+=(pct[c].rev||0);node.ct[c].stock+=(pct[c].stock||0);node.ct[c].sv+=(pct[c].sv||0)}
+ }
+ var root=buildNode();
+ f.products.forEach(function(p){
+   var node=root;
+   var groupLevels=levels[levels.length-1]==='sku'?levels.slice(0,-1):levels;
+   for(var i=0;i<groupLevels.length;i++){
+     var key=p[fieldMap[groupLevels[i]]]||'Без '+labelMap[groupLevels[i]].toLowerCase();
+     if(!node.children[key])node.children[key]=buildNode();
+     node.children[key].qty+=p.qty;node.children[key].rev+=p.rev;node.children[key].stock+=p.stock;
+     mergeNodeCt(node.children[key],p.ct||{});
+     node=node.children[key];
+   }
+   if(levels[levels.length-1]==='sku')node.items.push(p);
+ });
+ var html='';
+  var treeRowCount=0,treeLimit=shown||200;
+ var paddings=[0,20,40,56,72];
+ function renderLevel(node,depth,prefix){
+    if(treeRowCount>=treeLimit)return;
+   var keys=Object.keys(node.children).sort(function(a,b){return node.children[b].rev-node.children[a].rev});
+   var css=depth===0?'tr-dept':depth===1?'tr-sd':'tr-cat';
+   keys.forEach(function(key){
+      if(treeRowCount>=treeLimit)return;
+     var ch=node.children[key],tk=prefix+key,isOpen=treeOpen[tk]!==false;
+     var hasKids=Object.keys(ch.children).length>0||ch.items.length>0;
+     var arrow=hasKids?(isOpen?'\u25bc':'\u25b6'):'';
+     var onclick=hasKids?' onclick="toggleTree(\''+esc(tk)+'\')"':'';
+     var cnt=ch.items.length&&!Object.keys(ch.children).length?' <span style="color:#9ca3af;font-weight:400">('+ch.items.length+')</span>':'';
+     html+='<tr class="'+css+'"'+onclick+'><td colspan="5" style="padding-left:'+paddings[depth]+'px"><span class="tree-toggle">'+arrow+'</span>'+esc(key)+cnt+'</td>'+
+      '<td class="num" style="color:#059669;font-weight:'+(depth<1?700:600)+'">'+fm.format(ch.qty)+'</td>'+
+      '<td class="num" style="color:#ea580c;font-weight:'+(depth<1?700:600)+'">'+fm.format(ch.rev)+'</td>'+
+       '<td class="num" style="font-weight:'+(depth<1?700:400)+'">'+(ch.qty>0?fm.format(Math.round(ch.rev/ch.qty)):'')+'</td>'+
+      '<td class="num" style="color:#3b82f6;font-weight:'+(depth<1?700:400)+'">'+fm.format(ch.stock)+'</td>'+
+      '<td class="num" style="color:#3b82f6;font-weight:'+(depth<1?700:400)+'">'+fm.format(ch.stock*(ch.qty>0?Math.round(ch.rev/ch.qty):0))+'</td>'+(byCities?cityCols(ch.ct):'')+'</tr>';
+      treeRowCount++;
+     if(!isOpen)return;
+     if(Object.keys(ch.children).length)renderLevel(ch,depth+1,tk+'|');
+     ch.items.sort(function(a,b){return b.rev-a.rev});
+     var leafPad=paddings[depth+1]||paddings[depth]+16;
+     ch.items.forEach(function(p){
+        if(treeRowCount>=treeLimit)return;
+       var pht=p.photo?'<img src="'+p.photo+'" loading="lazy" onerror="this.style.display=\'none\'" style="width:32px;height:32px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:8px">':'';
+       html+='<tr class="tr-sku"><td colspan="5" style="padding-left:'+leafPad+'px">'+pht+'<span class="pname" onclick="openCard(\''+p.sku+'\')">'+esc(p.name)+'</span> <span style="color:#9ca3af;font-size:11px">'+(p.brand?esc(p.brand)+' \u00b7 ':'')+'арт.'+p.sku+'</span></td>'+
+        '<td class="num" style="color:#059669;font-size:12px">'+fm.format(p.qty)+'</td><td class="num" style="color:#ea580c;font-size:12px">'+fm.format(p.rev)+'</td>'+
+         '<td class="num" style="font-size:12px">'+fm.format(p.price)+'</td>'+
+        '<td class="num" style="color:#3b82f6;font-size:12px">'+fm.format(p.stock||0)+'</td><td class="num" style="color:#3b82f6;font-size:12px">'+fm.format((p.stock||0)*p.price)+'</td>'+(byCities?cityCols(p.ct||{}):'')+'</tr>';
+        treeRowCount++;
+     });
+   });
+ }
+ renderLevel(root,0,'');
+ // ИТОГО row
+ var tq=0,tr=0,ts=0,tsv=0,tct={};
+ f.products.forEach(function(p){tq+=p.qty;tr+=p.rev;ts+=p.stock;tsv+=(p.stock||0)*p.price;
+   if(byCities){var pc=p.ct||{};for(var c in pc){if(!tct[c])tct[c]={qty:0,rev:0,stock:0,sv:0};tct[c].qty+=(pc[c].qty||0);tct[c].rev+=(pc[c].rev||0);tct[c].stock+=(pc[c].stock||0);tct[c].sv+=(pc[c].sv||0)}}
+ });
+ html+='<tr style="background:#f1f5f9;border-top:2px solid #cbd5e1"><td colspan="5" style="font-weight:800;font-size:13px;padding:10px 12px">ИТОГО по сети</td>'+
+  '<td class="num" style="font-weight:800;color:#059669;padding:10px 12px">'+fm.format(tq)+'</td>'+
+  '<td class="num" style="font-weight:800;color:#ea580c;padding:10px 12px">'+fm.format(tr)+'</td>'+
+  '<td class="num" style="font-weight:800;padding:10px 12px">'+(tq>0?fm.format(Math.round(tr/tq)):'')+'</td>'+
+  '<td class="num" style="font-weight:800;color:#3b82f6;padding:10px 12px">'+fm.format(ts)+'</td>'+
+  '<td class="num" style="font-weight:800;color:#3b82f6;padding:10px 12px">'+fm.format(tsv)+'</td>'+(byCities?cityCols(tct):'')+'</tr>';
+ document.getElementById('prodBody').innerHTML=html;
+ document.getElementById('prodCount').textContent=fm.format(f.products.length)+' товаров';
+  var ph='';if(treeRowCount>=treeLimit){ph='<button onclick="shown+=200;renderProds(getF())" style="width:100%;padding:10px;font-size:13px;font-weight:600;color:var(--primary);border:1px solid var(--primary);border-radius:8px;background:#fff;cursor:pointer">Показать ещё 200 строк ↓</button>';}
+  document.getElementById('pager').innerHTML=ph;
+}
+
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'):''}
+
+function resetFilters(){
+ selCities.length=0;selDepts.length=0;selSubdepts.length=0;selCats.length=0;selBrands.length=0;
+ filterDept='';filterCity='';shown=200;viewLevels=['sku'];treeOpen={};
+ updateLevelBtn();
+ // Close level dropdown on outside click
+ document.addEventListener('click',function(e){var d=document.getElementById('levelDrop'),b=document.getElementById('levelBtn');if(d&&!d.contains(e.target)&&e.target!==b)d.classList.remove('show')});
+ document.getElementById('fFrom').value='';
+ document.getElementById('fTo').value='';
+ updateMselBtn('cityDrop',selCities,'Все филиалы');
+ updateMselBtn('deptDrop',selDepts,'Все отделы');
+ updateMselBtn('sdDrop',selSubdepts,'Все подотделы');
+ updateMselBtn('catDrop',selCats,'Все категории');
+ updateMselBtn('brandDrop',selBrands,'Все бренды');
+ document.querySelectorAll('.msel-drop input[type=checkbox]').forEach(function(cb){cb.checked=false});
+ switchStore();
+}
+
+function openCard(sku){
+ var f=getF();
+ var p=f.products.find(function(pr){return pr.sku===sku});
+ if(!p)return;
+ var html='<button class="close" onclick="closeModal()">✕</button>'+
+  '<h2>'+esc(p.name)+'</h2>'+
+  (p.photo?'<img src="'+p.photo+'" alt="'+esc(p.name)+'">':'')+
+  '<div class="char-grid">'+
+  '<div class="ck">Артикул</div><div class="cv">'+p.sku+'</div>'+
+  (p.brand?'<div class="ck">Бренд</div><div class="cv">'+esc(p.brand)+'</div>':'')+
+  '<div class="ck">Отдел</div><div class="cv">'+esc(p.dept)+'</div>'+
+  (p.sd?'<div class="ck">Подотдел</div><div class="cv">'+esc(p.sd)+'</div>':'')+
+  (p.cat?'<div class="ck">Категория</div><div class="cv">'+esc(p.cat)+'</div>':'')+
+  '<div class="ck">Цена</div><div class="cv">'+fm.format(p.price)+' ₽</div>'+
+  '<div class="ck">Продано</div><div class="cv" style="color:#059669;font-weight:700">'+fm.format(p.qty)+' шт</div>'+
+  '<div class="ck">Выручка</div><div class="cv" style="color:#ea580c;font-weight:700">'+fm.format(p.rev)+' ₽</div>'+
+  '<div class="ck">Остаток</div><div class="cv" style="color:#2563eb">'+fm.format(p.stock||0)+' шт</div>'+
+  '</div>';
+ // Add all characteristics from parsing
+ var chars=p.chars||{};
+ var charKeys=Object.keys(chars);
+ if(charKeys.length){
+   html+='<h3 style="margin-top:18px;font-size:14px;font-weight:600;color:var(--text)">Характеристики</h3><div class="char-grid" style="margin-top:8px">';
+   charKeys.forEach(function(k){html+='<div class="ck">'+esc(k)+'</div><div class="cv">'+esc(String(chars[k]))+'</div>'});
+   html+='</div>';
+ }
+ if(p.desc){html+='<div style="margin-top:14px;font-size:13px;color:var(--muted);line-height:1.5">'+esc(p.desc)+'</div>'}
+ // Stock history chart placeholder
+ var sh=p.sh||[];
+ if(sh.length>1){
+   html+='<div style="margin-top:18px"><div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px">Остаток сегодня</div><div id="chCardStock" style="height:180px"></div></div>';
+ }
+ document.getElementById('modal').innerHTML=html;
+ document.getElementById('modalBg').classList.add('show');
+ // Render stock history chart
+ if(sh.length>1){
+   var el=document.getElementById('chCardStock');
+   if(el){
+     var c=echarts.init(el);
+     c.setOption({
+       tooltip:{trigger:'axis',backgroundColor:'#ffffff',textStyle:{color:'#1f2937'},borderColor:'#e5e7eb',borderWidth:1,formatter:function(p){return p[0].name+'<br/>Остаток: <b>'+fm.format(p[0].value)+'</b> шт'}},
+       grid:{left:'8%',right:'4%',top:'8%',bottom:'12%'},
+       xAxis:{type:'category',data:sh.map(function(s){return s[0]}),axisLabel:{color:'#6b7280',fontSize:11}},
+       yAxis:{type:'value',axisLabel:{color:'#6b7280',fontSize:11},splitLine:{lineStyle:{color:'#f3f4f6',type:'dashed'}}},
+       series:[{type:'line',data:sh.map(function(s){return s[1]}),smooth:true,
+         areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(59,130,246,0.25)'},{offset:1,color:'rgba(59,130,246,0.02)'}]}},
+         lineStyle:{color:'#3b82f6',width:2.5},itemStyle:{color:'#3b82f6'},symbol:'circle',symbolSize:6,
+         label:{show:true,position:'top',formatter:function(p){return fm.format(p.value)},color:'#3b82f6',fontSize:10,fontWeight:'bold'}
+       }]
+     });
+     // Dispose on close
+     var origClose=closeModal;
+     closeModal=function(){c.dispose();closeModal=origClose;origClose()};
+   }
+ }
+}
+function closeModal(){document.getElementById('modalBg').classList.remove('show')}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal()});
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body></html>

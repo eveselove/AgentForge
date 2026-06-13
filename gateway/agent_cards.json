@@ -1,0 +1,59 @@
+{
+  "agents": [
+    {
+      "id": "antigravity",
+      "name": "Antigravity IDE",
+      "description": "Архитектор, оркестратор, code review, анализ. Полный доступ к инструментам.",
+      "capabilities": ["file_edit", "terminal", "ssh", "browser", "subagents", "mcp"],
+      "models": ["gemini-3.5-flash", "gemini-3.1-pro", "claude-opus-4.6", "claude-sonnet-4.6", "gpt-oss-120b"],
+      "max_parallel": 5,
+      "strengths": ["architecture", "complex_logic", "code_review", "analysis", "orchestration"],
+      "location": "windows_pc_via_ssh",
+      "status_endpoint": null,
+      "invoke": "Antigravity IDE chat"
+    },
+    {
+      "id": "grok",
+      "name": "Grok Build",
+      "description": "Быстрый мультиагентный исполнитель. Rust, Python, серверные задачи.",
+      "capabilities": ["file_edit", "terminal", "git", "multi_agent"],
+      "models": ["grok-3"],
+      "max_parallel": 10,
+      "strengths": ["speed", "rust", "debugging", "fixes", "multi_file"],
+      "location": "jetson_agx",
+      "version": "0.1.219",
+      "invoke": "grok --always-approve -p \"task\"",
+      "invoke_alias": "at grok \"task\"",
+      "flags": {
+        "headless": "--print",
+        "auto_approve": "--always-approve",
+        "self_check": "--check",
+        "best_of_n": "--best-of-n N"
+      }
+    },
+    {
+      "id": "jules",
+      "name": "Jules",
+      "description": "Асинхронный фоновый агент. Создаёт PR в GitHub.",
+      "capabilities": ["git", "github_pr", "file_edit", "tests"],
+      "models": ["gemini-2.5-pro"],
+      "max_parallel": 1,
+      "strengths": ["tests", "documentation", "refactoring", "async_tasks"],
+      "location": "jetson_agx",
+      "version": "0.1.42",
+      "invoke": "jules remote new --repo eveselove/planlytasksko --session \"task\"",
+      "invoke_alias": "at jules \"task\""
+    }
+  ],
+  "routing_rules": [
+    {"condition": "simple + test/docs tags", "agent": "jules"},
+    {"condition": "complex OR architecture/analysis/review tags", "agent": "antigravity"},
+    {"condition": "default (rust, fixes, routine)", "agent": "grok"}
+  ],
+  "infrastructure": {
+    "task_queue": "http://146.120.89.199:9090",
+    "jetson": "agx@146.120.89.199",
+    "project": "/home/agx/planlytasksko",
+    "github": "eveselove/planlytasksko"
+  }
+}

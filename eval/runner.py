@@ -37,7 +37,7 @@ EVAL_RESULTS_DIR = Path(
 )
 EVAL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-AGENTFORGE_API = "http://localhost:8080"
+AGENTFORGE_API = "http://localhost:9090"
 
 
 def _wait_for_agentforge_task(real_task_id: str, timeout_minutes: int = 90, poll_interval: int = 20) -> Dict[str, Any]:

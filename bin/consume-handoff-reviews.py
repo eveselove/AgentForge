@@ -42,7 +42,7 @@ Usage examples:
 Exit codes: 0 success (even if 0 items processed), 1 on fatal errors only.
 
 Integrates with:
-- Task Queue API (http://localhost:8080 by default, same as approve_tasks.py)
+- Task Queue API (http://localhost:9090 by default, same as approve_tasks.py)
 - Existing handoff package spec from ~/.grok/skills/agent-review/SKILL.md
 - Future Rust LanceTaskStore (via same HTTP surface during transition)
 
@@ -64,7 +64,7 @@ from typing import Optional, Dict, Any, List, Tuple
 
 # === Constants (tunable via CLI where appropriate) ===
 DEFAULT_HANDOFF_ROOT = Path.home() / ".grok" / "handoffs"
-DEFAULT_API_BASE = "http://localhost:8080/tasks"
+DEFAULT_API_BASE = "http://localhost:9090/tasks"
 CONSUMED_MARKER = ".consumed"
 LOG_FILE_DEFAULT = DEFAULT_HANDOFF_ROOT / "consume.log"
 
@@ -354,7 +354,7 @@ Examples:
     parser.add_argument("--handoff-root", type=Path, default=DEFAULT_HANDOFF_ROOT,
                         help="Root directory containing handoff subdirs (default: ~/.grok/handoffs)")
     parser.add_argument("--api", default=DEFAULT_API_BASE,
-                        help="Task Queue API base (default: http://localhost:8080/tasks)")
+                        help="Task Queue API base (default: http://localhost:9090/tasks)")
     parser.add_argument("--dry-run", action="store_true", default=True,
                         help="Preview only, do not mutate tasks or write markers (DEFAULT)")
     parser.add_argument("--apply", dest="dry_run", action="store_false",

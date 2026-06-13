@@ -24,7 +24,6 @@ sleep 2
 # Копируем юниты
 sudo cp "$AGENTFORGE_DIR/agentforge-api.service" /etc/systemd/system/
 sudo cp "$AGENTFORGE_DIR/agentforge-worker.service" /etc/systemd/system/
-sudo cp "$AGENTFORGE_DIR/agentforge-jules-worker.service" /etc/systemd/system/ 2>/dev/null || echo "  (jules-worker service не найден — пропускаем, можно установить позже)"
 
 # Перезагружаем systemd
 sudo systemctl daemon-reload
@@ -32,13 +31,11 @@ sudo systemctl daemon-reload
 # Активируем автозапуск при загрузке
 sudo systemctl enable agentforge-api
 sudo systemctl enable agentforge-worker
-sudo systemctl enable agentforge-jules-worker 2>/dev/null || true
 
 # Запускаем
 sudo systemctl start agentforge-api
 sleep 3
 sudo systemctl start agentforge-worker
-sudo systemctl start agentforge-jules-worker 2>/dev/null || true
 
 # Проверяем статус
 echo ""
@@ -89,7 +86,6 @@ echo ""
 echo "✅ Готово! AgentForge теперь полностью автономен:"
 echo "   • API запускается при загрузке Erbox"
 echo "   • Grok Worker запускается после API (основной исполнитель)"
-echo "   • Jules Worker запускается (для PR / документации)"
 echo "   • При падении — автоматический перезапуск"
 echo "   • Watchdog каждые 5 минут эскалирует зависшие задачи"
 echo "   • Ноутбук можно закрывать — Erbox работает 24/7"
@@ -97,7 +93,6 @@ echo ""
 echo "Команды управления:"
 echo "   sudo systemctl status agentforge-api"
 echo "   sudo systemctl status agentforge-worker"
-echo "   sudo systemctl status agentforge-jules-worker"
 echo "   sudo systemctl restart agentforge-worker"
 echo "   journalctl -u agentforge-worker -f   # live логи"
 echo ""

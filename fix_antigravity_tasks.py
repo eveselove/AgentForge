@@ -19,7 +19,7 @@ import json
 import sys
 import argparse
 
-API = "http://localhost:8080"
+API = "http://localhost:9090"
 
 DEEP_ANALYSIS_TAGS = {"deep-analysis", "architecture-decision", "critical-review", "antigravity-only", "principal-architect"}
 

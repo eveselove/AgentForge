@@ -4,12 +4,12 @@ import json
 import urllib.error
 
 try:
-    with urllib.request.urlopen("http://localhost:8080/metrics") as r:
+    with urllib.request.urlopen("http://localhost:9090/metrics") as r:
         metrics = json.loads(r.read().decode())
         print("=== МЕТРИКИ СИСТЕМЫ ===")
         print(json.dumps(metrics, indent=2, ensure_ascii=False))
 
-    with urllib.request.urlopen("http://localhost:8080/tasks") as r:
+    with urllib.request.urlopen("http://localhost:9090/tasks") as r:
         tasks = json.loads(r.read().decode())
         print("\n=== АКТИВНЫЕ ЗАДАЧИ ===")
         for t in tasks:

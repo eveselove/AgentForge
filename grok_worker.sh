@@ -60,7 +60,7 @@ else
 fi
 export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_RUST_RUNNER}"
 
-API="http://localhost:8080"
+API="http://localhost:9090"
 LOG_DIR="$HOME/agentforge/logs"
 if [ -d "/data/planlytasksko" ]; then
     PROJECT_DIR="/data/planlytasksko"
@@ -69,21 +69,37 @@ else
 fi
 POLL_INTERVAL=15
 TASK_TIMEOUT=300
-MAX_PARALLEL=1000
+MAX_PARALLEL=15
 TMP_DIR="/tmp/agentforge"
 
 mkdir -p "$LOG_DIR" "$TMP_DIR"
+
+# === Защита от зомби-процессов ===
+# Graceful shutdown: при завершении ждём всех фоновых детей
+_CLEANUP_DONE=0
+cleanup_worker() {
+    [ "$_CLEANUP_DONE" -eq 1 ] && return
+    _CLEANUP_DONE=1
+    log "⏹️ Остановка воркера: ожидаю завершения фоновых задач..."
+    # Убиваем только дочерних (не себя)
+    pkill -P $$ 2>/dev/null || true
+    wait 2>/dev/null || true
+    log "✅ Все фоновые задачи завершены"
+}
+trap cleanup_worker EXIT INT TERM
 
 log() {
     echo "[GrokWorker $(date '+%H:%M:%S')] $*" | tee -a "$LOG_DIR/grok_worker.log"
 }
 
-# Считаем сколько задач сейчас выполняется
+# Считаем сколько задач сейчас выполняется (ТОЛЬКО наши дочерние!)
 running_tasks() {
-    jobs -r 2>/dev/null | wc -l
+    # Подсчёт только дочерних процессов текущего worker ($$), не сирот
+    local count=$(jobs -r 2>/dev/null | wc -l)
+    echo "${count:-0}"
 }
 
-log "🚀 Воркер v3 (parallel=$MAX_PARALLEL, poll=${POLL_INTERVAL}s, worktree)"
+log "🚀 Воркер v3 (parallel=$MAX_PARALLEL, poll=${POLL_INTERVAL}s, worktree, zombie-safe)"
 
 while true; do
     # Сколько слотов свободно?
@@ -150,8 +166,16 @@ PYEOF
 
         log "📋 [$RUNNING/$MAX_PARALLEL] $TASK_ID — $TITLE"
 
-        # Диспатчим
-        curl -H "Authorization: Bearer $AGENTFORGE_API_KEY" -s -X POST "$API/tasks/$TASK_ID/dispatch" > /dev/null 2>&1
+        # Атомарно захватываем задачу через PATCH (не dispatch!)
+        # Проверяем ответ — если задача уже in_progress (другой воркер), пропускаем
+        CLAIM_RESP=$(curl -s -X PATCH "$API/tasks/$TASK_ID" \
+            -H "Content-Type: application/json" \
+            -d "{\"status\": \"in_progress\", \"assigned_agent\": \"grok\"}" 2>/dev/null)
+        CLAIMED_STATUS=$(echo "$CLAIM_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status',''))" 2>/dev/null || echo "")
+        if [ "$CLAIMED_STATUS" != "in_progress" ]; then
+            log "⏭️ $TASK_ID уже захвачена, пропускаю"
+            continue
+        fi
 
         # Запускаем в фоне с worktree
         (
@@ -175,9 +199,9 @@ PYEOF
             # Классификатор: tags + длина описания + история (result + feedback)
             # simple → flash (дешево), medium → pro, complex → grok-3 / Opus
             # ============================================
-            MODEL_SIMPLE="${MODEL_SIMPLE:-grok-build}"
-            MODEL_MEDIUM="${MODEL_MEDIUM:-grok-build}"
-            MODEL_COMPLEX="${MODEL_COMPLEX:-grok-build}"
+            MODEL_SIMPLE="${MODEL_SIMPLE:-grok-4.20-0309-non-reasoning}"
+            MODEL_MEDIUM="${MODEL_MEDIUM:-grok-4.20-0309-non-reasoning}"
+            MODEL_COMPLEX="${MODEL_COMPLEX:-grok-4.20-0309-reasoning}"
 
             MODEL=$(python3 -c '
 import sys, json, re, urllib.request, urllib.error
@@ -191,7 +215,7 @@ tags_str = sys.argv[6] or ""
 # Загружаем историю (result может содержать HITL-отказы, предыдущие ошибки)
 hist = ""
 try:
-    url = f"http://localhost:8080/tasks/{task_id}"
+    url = f"http://localhost:9090/tasks/{task_id}"
     with urllib.request.urlopen(url, timeout=4) as resp:
         data = json.loads(resp.read().decode("utf-8", errors="ignore"))
         hist = ((data.get("result") or "") + " " + (data.get("description") or "")).lower()
@@ -271,10 +295,9 @@ print(model)
                 git -C "$WORKTREE_PATH" submodule update --init --recursive 2>/dev/null ||                     ln -sfn "$PROJECT_DIR/chromimic" "$WORKTREE_PATH/chromimic" 2>/dev/null || true
             fi
 
-            # Запуск Grok с worktree + выбранная модель (экономия на простых задачах)
-            log "⚡ Grok старт: $TASK_ID ($PRIORITY, model=$MODEL) [worktree]"
-            timeout "$TASK_TIMEOUT" grok $GROK_FLAGS --model "$MODEL" \
-                -w "agentforge-$TASK_ID" \
+            # Запуск Grok Build (OAuth авторизация, модель выбирается автоматически)
+            log "⚡ Grok старт: $TASK_ID ($PRIORITY) [worktree]"
+            timeout "$TASK_TIMEOUT" grok $GROK_FLAGS \
                 -p "$PROMPT" 2>&1 | tee -a "$TASK_LOG"
             GROK_EXIT=$?
 
@@ -349,6 +372,9 @@ print(model)
         sleep 1
 
     done < "$PARSED_FILE"
+
+    # Собираем завершившихся детей (предотвращение зомби от (...) &)
+    while wait -n 2>/dev/null; do :; done
 
     sleep "$POLL_INTERVAL"
 done

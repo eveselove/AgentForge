@@ -4,7 +4,7 @@ import urllib.request
 import json
 
 # Загружаем все задачи
-x = json.loads(urllib.request.urlopen("http://localhost:8080/tasks").read().decode())
+x = json.loads(urllib.request.urlopen("http://localhost:9090/tasks").read().decode())
 
 fakes = []
 for t in x:
@@ -29,7 +29,7 @@ for t in fakes:
         "preferred_agent": "grok"
     }).encode()
     req = urllib.request.Request(
-        f"http://localhost:8080/tasks/{t['id']}",
+        f"http://localhost:9090/tasks/{t['id']}",
         data=data,
         method="PATCH"
     )

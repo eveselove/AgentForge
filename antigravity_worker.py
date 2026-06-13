@@ -21,14 +21,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # === Конфигурация (загружается из файла или дефолты) ===
 DEFAULT_CONFIG = {
-    "api_base": "http://localhost:8080",
+    "api_base": "http://localhost:9090",
     "poll_interval": 15,
-    "max_parallel": 3,
-    "task_timeout": 600,
+    "max_parallel": 10,
+    "task_timeout": 900,
     "project_dir": "/home/eveselove/planlytasksko",
     "log_dir": "/home/eveselove/agentforge/logs",
     "grok_bin": "/home/eveselove/.grok/bin/grok",
-    "default_model": "gemini-2.5-pro",
+    "default_model": "grok-3",
     "fallback_model": "grok-3",
     "agent_id": "antigravity",
 }
@@ -107,16 +107,10 @@ def api_request(method, path, data=None):
 
 def get_tasks_for_antigravity():
     """
-    Получить задачи для Antigravity.
-    Сначала новый endpoint /tasks/for/antigravity,
-    если нет — фильтруем вручную.
+    Fair Work-Stealing Queue: берём задачи из общего пула (auto)
+    и явно назначенные (antigravity). Задачи с pref=grok не трогаем.
+    Атомарность захвата обеспечивается CAS в PATCH endpoint.
     """
-    # Новый endpoint
-    tasks = api_request("GET", f"/tasks/for/{AGENT_ID}")
-    if tasks and isinstance(tasks, list):
-        return [t for t in tasks if t.get("status") == "pending"]
-
-    # Фоллбэк: фильтруем вручную
     all_tasks = api_request("GET", "/tasks")
     if not all_tasks or not isinstance(all_tasks, list):
         return []
@@ -126,22 +120,22 @@ def get_tasks_for_antigravity():
         if t.get("status") != "pending":
             continue
         pref = (t.get("preferred_agent") or "").lower()
-        if pref == "antigravity":
-            result.append(t)
-        elif pref == "auto":
-            tags = t.get("tags", [])
-            if isinstance(tags, str):
-                try:
-                    tags = json.loads(tags)
-                except Exception:
-                    tags = []
-            tags_lower = [str(tg).lower() for tg in tags]
-            
-            if "build" in tags_lower or "compile" in tags_lower:
-                continue
+        # Fair queue: берём auto (общий пул) и явно antigravity
+        if pref not in ("antigravity", "auto", ""):
+            log(f"⏭️ {t['id']} назначена {pref}, пропускаю")
+            continue
+        tags = t.get("tags", [])
+        if isinstance(tags, str):
+            try:
+                tags = json.loads(tags)
+            except Exception:
+                tags = []
+        tags_lower = [str(tg).lower() for tg in tags]
+        
+        if "build" in tags_lower or "compile" in tags_lower:
+            continue
 
-            # Берем все задачи, чтобы работать параллельно с Grok
-            result.append(t)
+        result.append(t)
     return result
 
 
@@ -180,8 +174,8 @@ def execute_task(task):
     # Выбираем модель
     model = select_model(task)
 
-    # Флаги Agy
-    agy_flags = ["--dangerously-skip-permissions"]
+    # Флаги Grok CLI (antigravity использует grok CLI с другой моделью)
+    grok_flags = ["--always-approve"]
 
     # Обновляем статус → in_progress
     api_request("PATCH", f"/tasks/{task_id}", {
@@ -191,7 +185,7 @@ def execute_task(task):
 
     start_time = time.time()
 
-    AGY_BIN = "/home/eveselove/.local/bin/agy"
+    GROK_BIN = CFG["grok_bin"]
     
     # Создаем изолированный git worktree
     branch_name = f"agentforge/{task_id}"
@@ -204,9 +198,9 @@ def execute_task(task):
         log(f"⚠️ Ошибка создания worktree: {e}")
         worktree_dir = PROJECT_DIR
 
-    # Запускаем Antigravity CLI
-    cmd = [AGY_BIN, *agy_flags, "--model", model, "-p", prompt]
-    log(f"⚡ Antigravity CLI запуск: {task_id} (model={model}, priority={priority}) в {worktree_dir}")
+    # Запускаем Grok CLI с выбранной моделью
+    cmd = [GROK_BIN, *grok_flags, "--cwd", worktree_dir, "-p", prompt]
+    log(f"⚡ Antigravity запуск: {task_id} (model={model}, priority={priority}) в {worktree_dir}")
 
     try:
         with open(task_log, "w") as logf:
@@ -313,21 +307,27 @@ def main():
                 for task in tasks[:free_slots]:
                     task_id = task["id"]
 
-                    # Диспатчим через API
-                    dispatch_result = api_request("POST", f"/tasks/{task_id}/dispatch")
-                    if not dispatch_result:
+                    # Атомарно захватываем задачу через PATCH (не dispatch!)
+                    # dispatch всегда назначает grok через resolve_agent,
+                    # поэтому antigravity напрямую ставит себя как assigned_agent
+                    claim_result = api_request("PATCH", f"/tasks/{task_id}", {
+                        "status": "in_progress",
+                        "assigned_agent": AGENT_ID,
+                    })
+                    if not claim_result:
                         continue
 
-                    # Проверяем назначение
-                    assigned = (dispatch_result.get("assigned_agent") or "").lower()
-                    if assigned != AGENT_ID:
-                        log(f"\u23ed\ufe0f {task_id} назначена {assigned}, пропускаю")
+                    # Проверяем что мы действительно захватили (не другой агент)
+                    claimed_agent = (claim_result.get("assigned_agent") or "").lower()
+                    claimed_status = (claim_result.get("status") or "").lower()
+                    if claimed_status != "in_progress" or claimed_agent != AGENT_ID:
+                        log(f"⏭️ {task_id} уже захвачена ({claimed_agent}), пропускаю")
                         continue
 
                     # Запускаем в пуле потоков
                     future = executor.submit(execute_task, task)
                     futures[future] = task_id
-                    log(f"\U0001f500 Задача {task_id} запущена в потоке")
+                    log(f"🔀 Задача {task_id} запущена в потоке")
                     time.sleep(1)
 
             except Exception as e:

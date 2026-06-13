@@ -1041,7 +1041,7 @@ def post_activity(
 
     Example:
         post_activity("grok-worker-3", "Я меняю структуру БД: добавляю колонку blackboard_scope", team_id="team-42")
-        post_activity("jules-1", "Пишу тесты для A2A messaging", task_id="t-991")
+        post_activity("grok-worker-4", "Пишу тесты для A2A messaging", task_id="t-991")
 
     Returns row id. Tags: memory,blackboard,communication
     """

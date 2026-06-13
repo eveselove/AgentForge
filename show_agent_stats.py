@@ -19,7 +19,7 @@ import sys
 from collections import Counter, defaultdict
 from datetime import datetime
 
-API = "http://localhost:8080"
+API = "http://localhost:9090"
 
 def fetch_tasks():
     try:

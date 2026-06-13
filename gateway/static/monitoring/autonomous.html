@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autonomous Matching Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0e1a; --surface: #111827; --surface2: #1f2937;
+  --border: #374151; --text: #f3f4f6; --muted: #9ca3af;
+  --green: #10b981; --yellow: #f59e0b; --red: #ef4444;
+  --blue: #3b82f6; --purple: #8b5cf6; --cyan: #06b6d4;
+  --gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+}
+body {
+  font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
+  min-height: 100vh; overflow-x: hidden;
+}
+.header {
+  background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15));
+  border-bottom: 1px solid var(--border);
+  padding: 24px 32px; display: flex; align-items: center; gap: 16px;
+}
+.header h1 { font-size: 24px; font-weight: 700; }
+.header h1 span { background: var(--gradient); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+.badge { background: var(--green); color: #000; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.badge.alert { background: var(--red); color: #fff; }
+.badge.loading { background: var(--yellow); color: #000; }
+.grid { display: grid; gap: 20px; padding: 24px 32px; }
+.row4 { grid-template-columns: repeat(4, 1fr); }
+.row3 { grid-template-columns: repeat(3, 1fr); }
+.row2 { grid-template-columns: 1fr 1fr; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 24px; position: relative; overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+.card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--gradient); opacity: 0;
+  transition: opacity 0.3s;
+}
+.card:hover::before { opacity: 1; }
+.card-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.card-value { font-size: 36px; font-weight: 700; line-height: 1.1; }
+.card-sub { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.card-value.green { color: var(--green); }
+.card-value.blue { color: var(--blue); }
+.card-value.purple { color: var(--purple); }
+.card-value.yellow { color: var(--yellow); }
+.card-value.cyan { color: var(--cyan); }
+.card-value.red { color: var(--red); }
+
+/* Tier bars */
+.tier-bar { display: flex; height: 32px; border-radius: 8px; overflow: hidden; margin-top: 16px; }
+.tier-bar div { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; transition: width 0.5s; }
+.tier-bar .t1 { background: var(--green); color: #000; }
+.tier-bar .t2 { background: var(--blue); color: #fff; }
+.tier-bar .t3 { background: var(--red); color: #fff; }
+
+/* Alert panel */
+.alert-item {
+  padding: 14px 16px; border-radius: 10px; margin-bottom: 10px;
+  display: flex; gap: 12px; align-items: flex-start;
+  font-size: 14px;
+}
+.alert-item.critical { background: rgba(239,68,68,0.15); border-left: 3px solid var(--red); }
+.alert-item.warning { background: rgba(245,158,11,0.15); border-left: 3px solid var(--yellow); }
+.alert-item.info { background: rgba(59,130,246,0.15); border-left: 3px solid var(--blue); }
+.alert-item .icon { font-size: 18px; }
+.alert-item .msg { flex: 1; }
+.alert-item .detail { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.no-alerts { text-align: center; padding: 32px; color: var(--muted); font-size: 14px; }
+
+/* Services table */
+.svc-table { width: 100%; border-collapse: collapse; }
+.svc-table th { text-align: left; color: var(--muted); font-size: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.svc-table td { padding: 10px 0; border-bottom: 1px solid rgba(55,65,81,0.5); font-size: 14px; }
+.svc-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+.svc-dot.up { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.svc-dot.down { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+/* Chart */
+.chart-container { height: 200px; margin-top: 16px; }
+
+/* Refresh */
+.refresh-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 12px 32px; display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; color: var(--muted); z-index: 100;
+}
+.refresh-bar button {
+  background: var(--gradient); border: none; color: #fff; padding: 8px 20px;
+  border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;
+}
+.refresh-bar button:hover { opacity: 0.9; }
+.btn-sm {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  transition: all 0.2s;
+}
+.btn-sm:hover { background: var(--blue); border-color: var(--blue); }
+.btn-sm.restarting { background: var(--yellow); color: #000; pointer-events: none; }
+.btn-start {
+  background: linear-gradient(135deg, #10b981, #06b6d4); border: none; color: #fff;
+  padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;
+  margin-right: 8px;
+}
+.btn-start:hover { opacity: 0.9; }
+
+@media (max-width: 800px) {
+  .row4, .row3, .row2 { grid-template-columns: 1fr; }
+  .grid { padding: 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🤖 <span>Autonomous Matching Engine</span></h1>
+  <div class="badge loading" id="statusBadge">Loading...</div>
+  <a href="/monitoring/wallpaper.html" style="color:var(--cyan);text-decoration:none;margin-left:auto;font-size:14px;font-weight:600">🏠 Обои →</a>
+</div>
+
+<!-- KPI Cards -->
+<div class="grid row4">
+  <div class="card">
+    <div class="card-label">Automation Rate</div>
+    <div class="card-value green" id="automationRate">—</div>
+    <div class="card-sub" id="automationSub">Tier1 + Tier2 auto-decisions</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Total Processed</div>
+    <div class="card-value blue" id="totalProcessed">—</div>
+    <div class="card-sub" id="totalSub">product pairs routed</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Human Queue</div>
+    <div class="card-value yellow" id="humanQueue">—</div>
+    <div class="card-sub">pairs awaiting review</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Auto Labels</div>
+    <div class="card-value purple" id="autoLabels">—</div>
+    <div class="card-sub">for LoRA training</div>
+  </div>
+</div>
+
+<!-- Tier Distribution -->
+<div class="grid row2">
+  <div class="card">
+    <div class="card-label">Tier Distribution</div>
+    <div style="display:flex;gap:24px;margin-top:12px;">
+      <div><div class="card-value green" style="font-size:28px" id="t1pct">—</div><div class="card-sub">Tier 1 (Auto)</div></div>
+      <div><div class="card-value blue" style="font-size:28px" id="t2pct">—</div><div class="card-sub">Tier 2 (LLM)</div></div>
+      <div><div class="card-value red" style="font-size:28px" id="t3pct">—</div><div class="card-sub">Tier 3 (Human)</div></div>
+    </div>
+    <div class="tier-bar" id="tierBar">
+      <div class="t1" style="width:95%">95%</div>
+      <div class="t2" style="width:4%">4%</div>
+      <div class="t3" style="width:1%">1%</div>
+    </div>
+  </div>
+  
+  <div class="card">
+    <div class="card-label">⚠️ Active Alerts</div>
+    <div id="alertPanel">
+      <div class="no-alerts">🟢 No alerts — system healthy</div>
+    </div>
+  </div>
+</div>
+
+<!-- Services -->
+<div class="grid row2">
+  <div class="card">
+    <div class="card-label">Neural Network Stack (on-device)</div>
+    <table class="svc-table">
+      <tr><th>Model</th><th>Port</th><th>VRAM</th><th>Status</th><th></th></tr>
+      <tr><td>Qwen3-Embedding-8B</td><td>:3000</td><td>15.0 GB</td><td id="svc-planly-gateway"><span class="svc-dot down"></span>—</td><td><button class="btn-sm" onclick="restartSvc('planly-gateway',this)">↻</button></td></tr>
+      <tr><td>Marqo-Ecommerce-L</td><td>:8200</td><td>2.5 GB</td><td id="svc-marqo-embed"><span class="svc-dot down"></span>—</td><td><button class="btn-sm" onclick="restartSvc('marqo-embed',this)">↻</button></td></tr>
+      <tr><td>Qwen3-Reranker-0.6B</td><td>:8300</td><td>1.2 GB</td><td id="svc-reranker"><span class="svc-dot down"></span>—</td><td><button class="btn-sm" onclick="restartSvc('reranker',this)">↻</button></td></tr>
+      <tr><td>Qwen3-30B-A3B MoE</td><td>:8400</td><td>~10 GB</td><td id="svc-llm-judge"><span class="svc-dot down"></span>—</td><td><button class="btn-sm" onclick="restartSvc('llm-judge',this)">↻</button></td></tr>
+      <tr><td>Autonomous Engine</td><td>:8500</td><td>—</td><td id="svc-autonomous-matcher"><span class="svc-dot down"></span>—</td><td><button class="btn-sm" onclick="restartSvc('autonomous-matcher',this)">↻</button></td></tr>
+      <tr><td>Spec Extractor</td><td>:8600</td><td>—</td><td id="svc-spec-extractor"><span class="svc-dot down"></span>—</td><td><button class="btn-sm" onclick="restartSvc('spec-extractor',this)">↻</button></td></tr>
+      <tr><td>VLM Verifier</td><td>:8800</td><td>—</td><td id="svc-vlm-verifier"><span class="svc-dot down"></span>—</td><td><button class="btn-sm" onclick="restartSvc('vlm-verifier',this)">↻</button></td></tr>
+      <tr><td>Streaming Matcher</td><td>daemon</td><td>—</td><td id="svc-streaming-matcher"><span class="svc-dot down"></span>—</td><td><button class="btn-sm" onclick="restartSvc('streaming-matcher',this)">↻</button></td></tr>
+    </table>
+  </div>
+  
+  <div class="card">
+    <div class="card-label">Self-Improving Loop</div>
+    <table class="svc-table">
+      <tr><th>Component</th><th>Schedule</th><th>Status</th></tr>
+      <tr><td>LoRA Training</td><td>02:00 nightly</td><td id="svc-lora">—</td></tr>
+      <tr><td>Drift Monitor</td><td>08:00 daily</td><td id="svc-drift">—</td></tr>
+      <tr><td>Weight Calibration</td><td>after 50+ labels</td><td id="svc-weights">—</td></tr>
+      <tr><td>Photo Batch</td><td>background</td><td id="svc-photo">—</td></tr>
+    </table>
+    <div class="card-sub" style="margin-top:16px">
+      <strong>VRAM Total:</strong> <span id="vramTotal">~28.7 GB</span> / 64 GB 
+      (<span id="vramPct">44.8%</span>)
+    </div>
+  </div>
+</div>
+
+<!-- Refresh bar -->
+<div class="refresh-bar">
+  <span id="lastUpdate">Last update: —</span>
+  <div>
+    <button class="btn-start" onclick="startAll()">🚀 Start All</button>
+    <button onclick="refresh()">↻ Refresh</button>
+  </div>
+</div>
+
+<div style="height:60px"></div>
+
+<script>
+function setServiceStatus(name, ok) {
+  const el = document.getElementById('svc-' + name);
+  if (!el) return;
+  const dot = el.querySelector('.svc-dot');
+  if (dot) { dot.className = 'svc-dot ' + (ok ? 'up' : 'down'); }
+  el.lastChild.textContent = ok ? ' Online' : ' Offline';
+}
+
+async function restartSvc(name, btn) {
+  btn.textContent = '...';
+  btn.className = 'btn-sm restarting';
+  try {
+    await fetch('/api/services/restart', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({service: name}),
+    });
+    btn.textContent = '✓';
+    setTimeout(() => { btn.textContent = '↻'; btn.className = 'btn-sm'; refresh(); }, 5000);
+  } catch {
+    btn.textContent = '✗'; btn.className = 'btn-sm';
+  }
+}
+
+async function startAll() {
+  if (!confirm('Start all AI services?')) return;
+  try {
+    const r = await fetch('/api/services/start-all', {method: 'POST'});
+    const d = await r.json();
+    alert(d.started ? '🚀 All services starting...' : '❌ Failed: ' + d.error);
+    setTimeout(refresh, 8000);
+  } catch(e) { alert('Error: ' + e); }
+}
+
+async function refresh() {
+  document.getElementById('statusBadge').textContent = 'Refreshing...';
+  document.getElementById('statusBadge').className = 'badge loading';
+  
+  // Check all services via gateway API (no CORS issues)
+  let allUp = true;
+  try {
+    const r = await fetch('/api/services/status');
+    const data = await r.json();
+    for (const svc of data.services || []) {
+      setServiceStatus(svc.name, svc.active);
+      if (!svc.active) allUp = false;
+    }
+  } catch { allUp = false; }
+  
+  // Get engine stats via gateway proxy
+  try {
+    const r = await fetch('/api/services/status');
+    const data = await r.json();
+    const engineUp = (data.services || []).find(s => s.name === 'autonomous-matcher');
+    if (engineUp && engineUp.active) {
+      try {
+        const sr = await fetch('http://localhost:8500/stats');
+        const stats = await sr.json();
+        document.getElementById('automationRate').textContent = stats.automation_rate + '%';
+        document.getElementById('totalProcessed').textContent = stats.total_processed.toLocaleString();
+        document.getElementById('humanQueue').textContent = stats.human_queue_count.toLocaleString();
+        document.getElementById('autoLabels').textContent = stats.auto_labels_count.toLocaleString();
+        document.getElementById('t1pct').textContent = stats.tier1_pct + '%';
+        document.getElementById('t2pct').textContent = stats.tier2_pct + '%';
+        document.getElementById('t3pct').textContent = stats.tier3_pct + '%';
+        const bar = document.getElementById('tierBar');
+        bar.innerHTML = `
+          <div class="t1" style="width:${Math.max(stats.tier1_pct, 2)}%">${stats.tier1_pct}%</div>
+          <div class="t2" style="width:${Math.max(stats.tier2_pct, 2)}%">${stats.tier2_pct}%</div>
+          <div class="t3" style="width:${Math.max(stats.tier3_pct, 2)}%">${stats.tier3_pct}%</div>
+        `;
+      } catch {}
+    }
+  } catch {}
+  
+  // Alerts
+  try {
+    const r = await fetch('/data/training/active_alerts.json');
+    if (r.ok) {
+      const data = await r.json();
+      const panel = document.getElementById('alertPanel');
+      if (data.alerts && data.alerts.length > 0) {
+        panel.innerHTML = data.alerts.map(a => `
+          <div class="alert-item ${a.severity}">
+            <div class="icon">${a.severity === 'critical' ? '🔴' : a.severity === 'warning' ? '🟡' : 'ℹ️'}</div>
+            <div class="msg"><strong>[${a.type}]</strong> ${a.message}
+              <div class="detail">${a.detail}</div></div>
+          </div>`).join('');
+        document.getElementById('statusBadge').textContent = 'ALERT';
+        document.getElementById('statusBadge').className = 'badge alert';
+        allUp = false;
+      } else {
+        panel.innerHTML = '<div class="no-alerts">🟢 No alerts — system healthy</div>';
+      }
+    }
+  } catch {}
+  
+  if (document.getElementById('statusBadge').textContent === 'Refreshing...') {
+    document.getElementById('statusBadge').textContent = allUp ? 'Healthy' : 'Degraded';
+    document.getElementById('statusBadge').className = 'badge' + (allUp ? '' : ' alert');
+  }
+  document.getElementById('lastUpdate').textContent = 'Last update: ' + new Date().toLocaleTimeString();
+}
+
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

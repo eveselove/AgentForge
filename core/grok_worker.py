@@ -42,6 +42,7 @@ Integration:
 """
 
 import argparse
+import json
 import os
 import random
 import shutil
@@ -162,7 +163,7 @@ def do_grok_start(task_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     print(f"[{task_id}] 🤖 GROK_START: Grok editing session on {data.get('branch')}")
     session_id = f"grok-sess-{int(time.time())}"
     data["grok_session_id"] = session_id
-    # In real worker: invoke Grok (or Jules) coding loop, apply patches via git commit(s)
+    # In real worker: invoke Grok coding loop, apply patches via git commit(s)
     # Here we simulate one "Grok edit" commit so the rollback has something to revert.
     clone = data["clone_path"]
     with open(os.path.join(clone, "GROK_EDIT.md"), "w") as f:
@@ -219,7 +220,7 @@ def do_ci_done(
         data["ci_status"] = "failed"
         data["ci_error"] = "forced failure for safety test"
     else:
-        cmd = ci_command or "python -c \"print('CI checks passed (default lightweight)'); exit(0)\""
+        cmd = ci_command or "python3 -c \"print('CI checks passed (default lightweight)'); exit(0)\""
         print(f"[{task_id}]    $ {cmd}")
         try:
             result = subprocess.run(
@@ -508,8 +509,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="grok_worker — Grok task runner with Git auto-rollback safety (multi-repo via task.repo)")
     parser.add_argument("--task", "-t", help="Unique task id (for standalone or gateway mode)")
     parser.add_argument("--gateway-task", "--from-gateway", dest="gateway_task", help="Task ID to fetch live from gateway (pulls repo/title/etc automatically for true multi-repo)")
-    parser.add_argument("--gateway", default=os.environ.get("PLANLY_GATEWAY", "http://localhost:3000"), help="Gateway base URL (default http://localhost:3000)")
-    parser.add_argument("--repo", default="https://github.com/example/planly-demo", help="Target repo (overridden by gateway task if present)")
+    parser.add_argument("--gateway", default=os.environ.get("PLANLY_GATEWAY", "http://127.0.0.1:9090"), help="Gateway base URL (default http://127.0.0.1:9090)")
+    parser.add_argument("--repo", default="/home/eveselove/agentforge", help="Target repo (overridden by gateway task if present)")
     parser.add_argument("--title", default="Grok autonomous change", help="Task title (overridden by gateway)")
     parser.add_argument("--workdir", default="/tmp/planly_work", help="Root for isolated clones (never host repo)")
     parser.add_argument("--ci-command", help="Shell command to run as CI inside clone (default: lightweight pass)")

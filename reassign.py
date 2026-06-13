@@ -12,7 +12,7 @@
 import urllib.request
 import json
 
-API = "http://localhost:8080"
+API = "http://127.0.0.1:9090"
 
 tasks = json.loads(urllib.request.urlopen(f"{API}/tasks").read().decode())
 
@@ -22,7 +22,7 @@ for t in tasks:
         continue
 
     pref = t.get("preferred_agent", "auto")
-    if pref in ("grok", "auto", "jules"):
+    if pref in ("grok", "auto"):
         continue
 
     # Не трогаем задачи, которые явно предназначены для глубокого анализа

@@ -14,7 +14,7 @@
         "Запуск self-тестов",
         "Git operations (commit, push)",
         "Подготовка пакетов для деплоя на другие хосты",
-        "AgentForge Gateway (localhost:8080)",
+        "AgentForge Gateway (localhost:9090)",
         "Grok API интеграция"
       ],
       "deploy_targets": ["gmktec", "jetson"],

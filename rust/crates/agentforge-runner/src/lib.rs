@@ -78,7 +78,7 @@ mod tests {
         let rec = TrajectoryRecord {
             task_id: "cross1".into(),
             benchmark_id: "benchX".into(),
-            agent: "jules".into(),
+            agent: "grok".into(),
             outcome: Outcome::Failure,  // from core, assigned to learning::TrajectoryRecord
             real_task_id: None,
             prm_overall: Some(0.4),

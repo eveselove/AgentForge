@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # === Конфигурация ===
 DEFAULT_CONFIG = {
-    "api_base": "http://localhost:8080",
+    "api_base": "http://localhost:9090",
     "poll_interval": 10,
     "max_parallel": 2,  # Билдеру даём 2 потока
     "task_timeout": 600,

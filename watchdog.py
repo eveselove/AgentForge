@@ -23,21 +23,30 @@ from collections import Counter
 import re
 import sys
 
-# Добавляем путь к planlytasksko для импорта task_checkpoints
-for p in ["/data/planlytasksko", "/home/eveselove/planlytasksko", os.path.expanduser("~/planlytasksko")]:
-    if os.path.exists(p):
-        sys.path.append(p)
-        break
+# Добавляем путь к planlytasksko / agentforge для импорта task_checkpoints (RAG для Guardian)
+# Исправлено (audit): более робастный поиск, как в core/agentforge_watchdog.py
+for p in [
+    "/data/planlytasksko", "/home/eveselove/planlytasksko", os.path.expanduser("~/planlytasksko"),
+    "/home/eveselove/agentforge", os.path.expanduser("~/agentforge"),
+]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+    core_p = os.path.join(p, "core") if os.path.exists(p) else ""
+    if core_p and os.path.exists(core_p) and core_p not in sys.path:
+        sys.path.insert(0, core_p)
 
 try:
-    from scripts.task_checkpoints import get_last_checkpoint, search_similar_tasks
+    from task_checkpoints import get_last_checkpoint, search_similar_tasks
 except ImportError:
-    get_last_checkpoint = None
-    search_similar_tasks = None
+    try:
+        from scripts.task_checkpoints import get_last_checkpoint, search_similar_tasks
+    except ImportError:
+        get_last_checkpoint = None
+        search_similar_tasks = None
 
-API_BASE = "http://localhost:8080"
+API_BASE = os.environ.get("AGENTFORGE_API", "http://127.0.0.1:9090")  # Gateway (единый порт, 8080 убран)
 LOG_DIR = os.path.expanduser("~/agentforge/logs")
-POLL_INTERVAL = 10
+POLL_INTERVAL = 30  # Увеличено с 10 до 30 (мониторинг не требует частого опроса)
 LOOP_THRESHOLD = 5 # Если одинаковая строка-ошибка или шаблон появляется >5 раз
 MAX_LOG_SIZE_MB = 2.0 # Лимит размера лога (защита от спама)
 
@@ -193,11 +202,9 @@ def guardian_loop():
                 "result": None  # Clear previous failure result
             }
 
-            # После рефакторинга routing (2026-06): если задача была на antigravity — переводим на grok при воскрешении
-            if task.get("assigned_agent") == "antigravity" or task.get("preferred_agent") == "antigravity":
-                patch_data["preferred_agent"] = "grok"
-                patch_data["assigned_agent"] = "grok"
-                log(f"   [Guardian] Задача {task_id} была на Antigravity — переводим на Grok при воскрешении (новая политика routing)")
+            # Fair work-stealing: при воскрешении сбрасываем assigned_agent,
+            # preferred_agent остаётся — пусть конкурируют за задачу
+            patch_data["assigned_agent"] = None
 
             api_patch(f"/tasks/{task_id}", patch_data)
             
@@ -431,9 +438,20 @@ def main():
             # 3. Подбор застрявших review-задач (sweep каждые ~60 сек)
             auto_review_stale()
             
+        except urllib.error.URLError as e:
+            # Exponential backoff при недоступности gateway
+            if not hasattr(main, '_backoff'):
+                main._backoff = POLL_INTERVAL
+            main._backoff = min(main._backoff * 2, 120)
+            log(f"⚠️ Gateway недоступен: {e} (retry через {main._backoff}s)")
+            time.sleep(main._backoff)
+            continue
         except Exception as e:
             log(f"⚠️ Глобальная ошибка: {e}")
             
+        # Сброс backoff при успешном цикле
+        if hasattr(main, '_backoff'):
+            main._backoff = POLL_INTERVAL
         time.sleep(POLL_INTERVAL)
 
 if __name__ == "__main__":

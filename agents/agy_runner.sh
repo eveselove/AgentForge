@@ -42,7 +42,7 @@ trap cleanup_worktree EXIT INT TERM
 agy --prompt "$TASK_DESC" --yes 2>&1 | tee -a $LOG_DIR/agy_$TASK_ID.log
 
 # Обновляем статус
-curl -s -X PATCH http://localhost:8080/tasks/$TASK_ID \
+curl -s -X PATCH http://localhost:9090/tasks/$TASK_ID \
   -H 'Content-Type: application/json' \
   -d '{"status": "review", "assigned_agent": "antigravity"}' > /dev/null 2>&1 || true
 

@@ -10,7 +10,7 @@
 # Запуск через cron: */5 * * * * bash ~/agentforge/watchdog.sh
 # ============================================
 
-API="http://localhost:8080"
+API="http://localhost:9090"
 LOG_DIR="/home/eveselove/agentforge/logs"
 TIMEOUT_MINUTES=30  # Таймаут для обычных задач
 CRITICAL_TIMEOUT=60 # Таймаут для critical (best-of-n дольше)

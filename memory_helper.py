@@ -54,7 +54,7 @@ def save_task(task_id: str):
     """Сохранить выполненную задачу в LanceDB векторную память"""
     try:
         # Получаем данные задачи через API
-        url = f"http://localhost:8080/tasks/{task_id}"
+        url = f"http://localhost:9090/tasks/{task_id}"
         req = urllib.request.urlopen(url)
         task = json.loads(req.read().decode("utf-8"))
         
@@ -147,7 +147,7 @@ def search_tasks(query: str, limit: int = 2):
 #           generate failure mode descriptions → update taxonomy (for prompt/skill fixes)
 # =============================================================================
 
-FAILURE_API = "http://localhost:8080/tasks?status=failed"
+FAILURE_API = "http://localhost:9090/tasks?status=failed"
 
 
 def _now_iso() -> str:
@@ -409,7 +409,7 @@ def persist_failures_to_lance(trajectories: list[dict]):
 def save_failure(task_id: str):
     """Сохранить ОДНУ failed траекторию (вызывается из runner'ов при CI fail)."""
     try:
-        url = f"http://localhost:8080/tasks/{task_id}"
+        url = f"http://localhost:9090/tasks/{task_id}"
         req = urllib.request.urlopen(url, timeout=10)
         task = json.loads(req.read().decode("utf-8"))
         

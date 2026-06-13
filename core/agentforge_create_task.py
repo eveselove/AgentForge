@@ -110,11 +110,11 @@ def main() -> int:
     parser.add_argument("--is-complex", dest="is_complex", action="store_true",
                         help="Mark for auto LLM decomposition on create (rarely needed with manual agent delegation)")
     parser.add_argument("--a2a-reviewer", dest="a2a_reviewer", default=None,
-                        help="Auto peer reviewer after completion (jules|grok|grok-2)")
+                        help="Auto peer reviewer after completion (grok|grok-2)")
     parser.add_argument("--experiment-id", dest="experiment_id", default=None)
     parser.add_argument("--variant-id", dest="variant_id", default=None)
 
-    parser.add_argument("--gateway", default=os.environ.get("PLANLY_GATEWAY", "http://localhost:3000"),
+    parser.add_argument("--gateway", default=os.environ.get("PLANLY_GATEWAY", "http://127.0.0.1:9090"),
                         help="Gateway base URL (env PLANLY_GATEWAY overrides)")
     parser.add_argument("--dry-run", action="store_true", help="Print what would be sent, do not POST")
     parser.add_argument("--json", action="store_true", help="Output full JSON response (default pretty)")
@@ -160,7 +160,7 @@ def main() -> int:
     if args.json:
         print(json.dumps(resp, indent=2, ensure_ascii=False))
     else:
-        if resp.get("ok"):
+        if resp.get("ok") or "id" in resp:
             tid = resp.get("id") or (resp.get("task", {}) or {}).get("id", "unknown")
             print(f"✅ Created task: {tid}")
             if args.parent_id:

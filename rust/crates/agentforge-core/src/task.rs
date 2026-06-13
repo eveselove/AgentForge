@@ -24,7 +24,7 @@ pub struct Task {
     pub description: String,
     pub priority: String,           // "low" | "medium" | "high" | "critical"
     pub complexity: String,         // "trivial" | "simple" | "medium" | "complex"
-    pub preferred_agent: Option<String>, // "grok" | "jules" | "antigravity" | "auto"
+    pub preferred_agent: Option<String>, // "grok" | "antigravity" | "auto"
     pub assigned_to: Option<String>,     // кто реально взял задачу в работу
     pub status: TaskStatus,
     pub tags: Vec<String>,
@@ -381,11 +381,11 @@ mod tests {
     fn test_task_creation() {
         let task = Task::new("test-1", "Do something", "Detailed description")
             .with_priority("high")
-            .with_preferred_agent("jules");
+            .with_preferred_agent("grok");
 
         assert_eq!(task.id, "test-1");
         assert_eq!(task.priority, "high");
-        assert_eq!(task.preferred_agent, Some("jules".to_string()));
+        assert_eq!(task.preferred_agent, Some("grok".to_string()));
         assert_eq!(task.status, TaskStatus::Pending);
     }
 }

@@ -8,7 +8,7 @@ import urllib.request
 import json
 
 tasks = ["0c2ed8ba", "3887fef1", "bd401b9f", "07cd1efe"]
-API = "http://localhost:8080/tasks"
+API = "http://localhost:9090/tasks"
 
 for tid in tasks:
     data = json.dumps({

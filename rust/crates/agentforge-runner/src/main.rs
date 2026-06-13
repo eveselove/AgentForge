@@ -39,7 +39,7 @@ One binary owns the FULL autonomous flywheel:
   candidate list|promote  FULLY REAL (timestamped skills/ copy, promotions.jsonl + promotion_history with source=rust stamp, meta+markers)
   + rich flywheel-export (PRM sidecars + learning_value + stats) + stats + full-stack
 
-Drop-in for post_process.py, rust_flywheel_after_task.sh, grok/jules workers, timers, services, parity harness, demo tools.
+Drop-in for post_process.py, rust_flywheel_after_task.sh, grok workers, timers, services, parity harness, demo tools.
 --shadow / AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 : dual-run fidelity (exact parity signals) in post_process + hooks + harness + watchdog.
 --json everywhere (machines, bridges, farm). Dry-run DEFAULT (safe). Excellent human + JSON UX.
 
@@ -83,7 +83,7 @@ SUPPORTING SUBCOMMANDS:
     export-pairs | export-prm-steps | export-sft | improve-skill | stats --input I | export-records | version
 
 TASK MANAGEMENT (Rust-native - replacing Python task_queue/mcp_server):
-    task create --title "..." [--description "..."] [--priority high] [--agent jules|grok]
+    task create --title "..." [--description "..."] [--priority high] [--agent grok|antigravity]
     task list
     task get <id>
     task claim <id> [--agent NAME]
@@ -431,7 +431,7 @@ fn main() {
 
                 _ => {
                     if json_mode {
-                        println!(r#"{{"status":"ok","commands":["create","list","get","dispatch"],"example":"agentforge-runner task create --title \"Do X\" --priority high --agent jules"}}"#);
+                        println!(r#"{"status":"ok","commands":["create","list","get","dispatch"],"example":"agentforge-runner task create --title \"Do X\" --priority high --agent grok"}"#);
                     } else {
                         eprintln!("agentforge-runner task <subcommand>");
                         eprintln!();
@@ -443,7 +443,7 @@ fn main() {
                         eprintln!("  dispatch  Mark the highest priority pending task as dispatched");
                         eprintln!();
                         eprintln!("Examples:");
-                        eprintln!("  agentforge-runner task create --title \"Fix auth\" --priority high --agent jules");
+                        eprintln!("  agentforge-runner task create --title \"Fix auth\" --priority high --agent grok");
                         eprintln!("  agentforge-runner task list");
                         eprintln!("  agentforge-runner task get 019e7d1b-4f99-...");
                         eprintln!("  agentforge-runner --json task create --title \"Refactor X\" -p critical -a grok");

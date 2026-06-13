@@ -26,7 +26,7 @@
 
 set -euo pipefail
 
-API="${API:-http://localhost:8080}"
+API="${API:-http://localhost:9090}"
 LOG_DIR="/home/eveselove/agentforge/logs"
 DATA_DIR="/home/eveselove/agentforge/data"
 SEEN_FILE="$DATA_DIR/seen_agentforge_issues.txt"

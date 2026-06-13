@@ -12,7 +12,7 @@ See RUST_ONLY_MIGRATION_PLAN.md
 import requests
 import json
 
-BASE = 'http://localhost:8080'
+BASE = 'http://localhost:9090'
 
 tasks = [
     {

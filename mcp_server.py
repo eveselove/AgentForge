@@ -9,7 +9,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
-API_BASE = "http://localhost:8080"
+API_BASE = "http://localhost:9090"
 
 server = Server("agentforge")
 

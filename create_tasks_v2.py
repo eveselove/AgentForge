@@ -11,7 +11,7 @@ See RUST_ONLY_MIGRATION_PLAN.md
 import urllib.request
 import json
 
-API = "http://localhost:8080"
+API = "http://127.0.0.1:9090"
 
 # Объединённый список: Grok + Antigravity рекомендации
 tasks = [
@@ -108,7 +108,7 @@ tasks = [
     },
     {
         "title": "A2A Protocol (Google): стандартная межагентная коммуникация",
-        "description": "Реализовать Agent2Agent protocol (Google/Linux Foundation) для стандартизированной коммуникации между Grok, Jules, Antigravity. Agent Card discovery, structured task delegation, OAuth2 auth. Позволит подключать внешних агентов через стандартный API.",
+        "description": "Реализовать Agent2Agent protocol (Google/Linux Foundation) для стандартизированной коммуникации между Grok, Grok-2, Antigravity. Agent Card discovery, structured task delegation, OAuth2 auth. Позволит подключать внешних агентов через стандартный API.",
         "priority": "medium",
         "complexity": "complex",
         "tags": ["a2a", "protocol", "interoperability", "google"],

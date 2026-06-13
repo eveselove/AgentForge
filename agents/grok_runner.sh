@@ -18,6 +18,9 @@ export PATH=/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove
 export NVM_DIR=/home/eveselove/.nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
+# API base для task_queue / guardian / watchdog (переведено на gateway 9090)
+export AGENTFORGE_API="${AGENTFORGE_API:-http://localhost:9090}"
+
 # === AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) ===
 # Python flywheel orchestration (post hooks via python step, phase2_3 glue) is PHASE 4 DELETION TARGET.
 # All paths now respect is_pure_rust_flywheel() preferring direct agentforge-runner binary.
@@ -180,7 +183,7 @@ if [ "$PRIORITY" = "critical" ]; then
 fi
 
 # Получаем полные данные задачи (включая result с историей HITL-отказов)
-TASK_DATA=$(curl -s "http://localhost:8080/tasks/$TASK_ID" 2>/dev/null | python3 -c '
+TASK_DATA=$(curl -s "${AGENTFORGE_API}/tasks/$TASK_ID" 2>/dev/null | python3 -c '
 import sys, json, re
 try:
     d = json.load(sys.stdin)
@@ -414,6 +417,15 @@ DURATION=$((END_TIME - START_TIME))
 
 echo "[AgentForge] Grok завершил задачу $TASK_ID за ${DURATION}с" | tee -a $LOG_DIR/grok_$TASK_ID.log
 
+# === CRASH_DETECT: обновляем статус при быстром крэше ===
+if [ "$DURATION" -le 5 ] && [ "$FINAL_STATUS" != "review" ] && [ "$FINAL_STATUS" != "done" ]; then
+    echo "[AgentForge] ⚠️ Задача $TASK_ID завершилась за ${DURATION}s — вероятный крэш" | tee -a $LOG_DIR/grok_$TASK_ID.log
+    FINAL_STATUS="failed"
+    curl -s -X PATCH "http://localhost:9090/tasks/$TASK_ID" \
+        -H "Content-Type: application/json" \
+        -d "{"status": "failed", "result": "Grok crashed after ${DURATION}s"}" > /dev/null 2>&1 || true
+fi
+
 # Post-execution rich capture for inside-agent visibility (deep instrumentation)
 # Extract tail of agent output + any obvious decision markers from the raw log into structured events
 GROK_LOG_TAIL=$(tail -c 2500 "$LOG_DIR/grok_$TASK_ID.log" 2>/dev/null | tr '\n' ' ' | head -c 900 || echo "")
@@ -492,9 +504,17 @@ else
         echo "$WORKTREE_DIR" > $QUEUE_DIR/grok_$TASK_ID
         
         echo "[CI] Ожидание завершения компиляции на ноутбуке..." | tee -a $LOG_DIR/grok_$TASK_ID.log
-        # Ждем ответного файла
+        # Ждем ответного файла (таймаут 60 секунд — было: бесконечность)
+        CI_WSL_WAIT=0
+        CI_WSL_TIMEOUT=60
         while [ ! -f "$RESP_DIR/grok_$TASK_ID" ]; do
             sleep 2
+            CI_WSL_WAIT=$((CI_WSL_WAIT + 2))
+            if [ "$CI_WSL_WAIT" -ge "$CI_WSL_TIMEOUT" ]; then
+                echo "[CI] ⏰ Таймаут ожидания ноутбука (${CI_WSL_TIMEOUT}s), пропускаем" | tee -a $LOG_DIR/grok_$TASK_ID.log
+                CI_RESULT="wsl_timeout"
+                break
+            fi
         done
         
         wsl_rc=$(cat "$RESP_DIR/grok_$TASK_ID")
@@ -546,7 +566,7 @@ fi
 
 
 # Обновляем статус задачи с метриками
-curl -s -X PATCH http://localhost:8080/tasks/$TASK_ID \
+curl -s -X PATCH "${AGENTFORGE_API}/tasks/$TASK_ID" \
   -H 'Content-Type: application/json' \
   -d "{\"status\": \"$FINAL_STATUS\", \"assigned_agent\": \"grok\", \"result\": \"$RESULT_MSG\"}"
 
@@ -587,7 +607,7 @@ data = {
     "skill": "agent-review"
 }
 req = urllib.request.Request(
-    "http://localhost:8080/tasks",
+    "${AGENTFORGE_API}/tasks",
     data=json.dumps(data, ensure_ascii=False).encode("utf-8"),
     headers={"Content-Type": "application/json"}
 )
@@ -605,6 +625,15 @@ fi  # end FINAL_STATUS=review
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 echo "[AgentForge] Grok завершил задачу $TASK_ID за ${DURATION}с" | tee -a $LOG_DIR/grok_$TASK_ID.log
+
+# === CRASH_DETECT: обновляем статус при быстром крэше ===
+if [ "$DURATION" -le 5 ] && [ "$FINAL_STATUS" != "review" ] && [ "$FINAL_STATUS" != "done" ]; then
+    echo "[AgentForge] ⚠️ Задача $TASK_ID завершилась за ${DURATION}s — вероятный крэш" | tee -a $LOG_DIR/grok_$TASK_ID.log
+    FINAL_STATUS="failed"
+    curl -s -X PATCH "http://localhost:9090/tasks/$TASK_ID" \
+        -H "Content-Type: application/json" \
+        -d "{"status": "failed", "result": "Grok crashed after ${DURATION}s"}" > /dev/null 2>&1 || true
+fi
 
 log_completion "$FINAL_STATUS" "$DURATION" "0.0" 2>/dev/null || true
 log_event "grok_execution_end" "{\"status\":\"$FINAL_STATUS\",\"duration_seconds\":$DURATION,\"ci_result\":\"$CI_RESULT\"}" 2>/dev/null || true
@@ -662,7 +691,7 @@ fi
 if [ "$FINAL_STATUS" = "review" ]; then
     echo "[AgentForge Guardian] Авто-проверка задачи $TASK_ID..." | tee -a $LOG_DIR/grok_$TASK_ID.log
     # Fix: убран & (фоновый режим) + добавлен retry, чтобы Guardian не терялся
-    curl -s --retry 3 --retry-delay 2 --max-time 10 -X POST "http://localhost:8080/tasks/$TASK_ID/review"
+    curl -s --retry 3 --retry-delay 2 --max-time 10 -X POST "${AGENTFORGE_API}/tasks/$TASK_ID/review"
     echo "[AgentForge Memory] Сохраняем задачу в векторную память..." | tee -a $LOG_DIR/grok_$TASK_ID.log
     python3 /home/eveselove/agentforge/memory_helper.py save "$TASK_ID" >> $LOG_DIR/grok_$TASK_ID.log 2>&1
 fi
@@ -672,6 +701,9 @@ if [ "$FINAL_STATUS" = "failed" ]; then
     echo "[AgentForge FailureCluster] Сохраняем failed trajectory для кластеринга..." | tee -a $LOG_DIR/grok_$TASK_ID.log
     python3 /home/eveselove/agentforge/memory_helper.py save-failure "$TASK_ID" >> $LOG_DIR/grok_$TASK_ID.log 2>&1 || true
 fi
+
+# Ждём фоновые хуки (post_process, flywheel) чтобы не осиротели/не стали зомби
+wait 2>/dev/null || true
 
 # Явная очистка worktree (trap уже стоит, но для надёжности)
 cleanup_worktree
