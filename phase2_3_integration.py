@@ -11,7 +11,7 @@ Direct replacement (USE THIS - COMPLETE polished UX): agentforge-runner flywheel
 USE ONLY THE HARDENED CENTRAL GUARD (no local logic):
   from agentforge.learning.utils import is_pure_rust_flywheel, is_rust_flywheel_disabled
 
-Loud deprecation everywhere. Non-breaking for !pure. Planning/safety modules exempt.
+Loud deprecation everywhere. Non-breaking for !pure. Planning/safety/long/obs now thin duals (delegated under pure per 20g+3a wave).
 
 See learning/utils.py (Phase 4 strengthened guards + full list)
 See PHASE4_REMOVAL_PLAN.md (surgical removal of flywheel glue only; full risks + safe rollback strategy + order)

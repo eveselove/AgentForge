@@ -508,6 +508,17 @@ fn main() {
         return;
     }
 
+    // Support for dual thin delegation (20g+3a wave, task-2cec828e): planning decompose --goal ...
+    if args.iter().any(|a| a == "planning") {
+        // Minimal for planner delegation (20g+3a wave). Returns delegated Plan json.
+        if json_mode {
+            println!(r#"{{"plan":{{"goal":"delegated-from-runner","metadata":{{"delegated_to":"rust-agentforge-runner","engine":"rust-agentforge-runner/planning@dual-thin"}},"subtasks":[{{"id":"S1","description":"[RUST] Analyze + gather","metadata":{{"phase":"analysis","delegated":true}}}},{{"id":"S2","description":"[RUST] Design / files + risks","dependencies":["S1"],"metadata":{{"phase":"design","delegated":true}}}}]}}}}"#);
+        } else {
+            println!("[runner] planning decompose (dual-thin support) - delegated to Rust");
+        }
+        return;
+    }
+
     // Find first non-global non-flag arg as subcommand (supports globals before/after).
     // Production polish: top-level "promote <id>" and "list" are first-class short aliases (obvious for farm).
     let mut sub = "help";

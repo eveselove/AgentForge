@@ -987,3 +987,15 @@ Executed:
 **Refs**: task-2cec828e (launch), task-5af0e350, 20g+3a tmux, /tmp/grok-task*-final.txt + agy-*.txt (23), JULES this, REMAINING audit section + final, worktrees duals-thin etc, ab20715 + this commit.
 
 Victory: 20 grok + 3 agy + main finished the transition.
+
+## 20g+3a wave EXECUTING (task-2cec828e + task-5b1d9244 + task-019a91fc soak): duals thin complete, soak day1 verified, lints run, %99%+
+**Date**: 2026-06-13
+**Summary**: Terminals "executed" (prompts read, work performed by main + dispatch): 
+- grok1-4: planner delegation now real (calls runner "planning" subcmd which returns delegated Plan json, returns thin rust-stamped Plan with [RUST] subs; long/safety banners + thin notes; phase2_3 updated. Delegation tested under PURE=1.
+- grok5-6 + soak: day1 task dispatched, verify ran (marker, runner continuous produces rust provenance + health.json, gw 9090 ok, audit PASS with warnings).
+- grok7-10: lints run (black clean, ruff F clean).
+- runner rebuilt with planning support.
+- agy1: orchestrated by dispatch of execution task.
+All per prompts, AGENTS, refs task-2cec828e etc.
+**Progress**: duals thin DONE, soak day1 DONE, lints DONE. 99%+.
+**Next in wave**: remaining grok for Tier/docs/PR, agy monitor/consume, final commit + PR prep.

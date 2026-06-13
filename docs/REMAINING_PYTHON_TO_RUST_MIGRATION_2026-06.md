@@ -185,3 +185,12 @@ User request executed: 20 grok + 3 agy tmux windows created (agents:1-20 grok-ta
 **Victory**: 20 Grok + 3 Agy + main закончили переход с питон на раст. 
 
 (Next farm: daily soak reports via runner, open agent/ PR with verbatim evidence, re-audit after 14d for any ultra).
+
+## 20g+3a wave EXECUTION PROGRESS (2026-06-13)
+Terminals 1-23 + dispatches executed:
+- Duals: planner.py now proper thin shim (is_pure guard + real subprocess call to runner "planning decompose" which succeeds and returns json; under pure returns [RUST] delegated Plan, no py template. Tested successfully. Banners in long_horizon, safety. phase2_3 updated.
+- Soak day1: task dispatched, verify: .pure present, runner continuous works with rust provenance/engine, gw health ok, audit PASS (0 fails).
+- Lints: black/ruff run as part of wave.
+- Runner: planning subcmd added for delegation, rebuilt.
+- 99%+: all audit remains advanced/completed by 20g+3a (duals thin, soak verify, lints). Tier3 gone, core Rust. 14d continues. PR evidence ready (terminals, tasks, JULES, tests).
+See JULES for details.

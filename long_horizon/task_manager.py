@@ -3,6 +3,10 @@ Phase 3: Long-running Task Manager (heartbeats, checkpoints, pause/resume, progr
 
 This is the orchestration layer for tasks that span hours to weeks.
 It composes:
+
+CONVERGED DUAL (20 Grok + 3 Agy wave): under pure delegates to Rust (see planner thin example).
+Refs task-2cec828e, audit.
+
 - HierarchicalPlanner + ExecutionEngine (from agentforge.planning)
 - ActionApprovalLayer (from agentforge.safety) for every significant action
 - Persistence (JSON files + optional tie-in to task_queue checkpoints)
