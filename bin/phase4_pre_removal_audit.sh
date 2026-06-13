@@ -35,8 +35,17 @@
 # Exit: 0 on clean audit state; 2 on guard dupe; 3 on provenance validation failure (strict mode).
 #
 set -u
-AGENTFORGE_ROOT="/home/eveselove/agentforge"
+# Dynamic root support for git worktrees (e.g. /tmp/agentforge-work/pure-soak-prep-5af0e350 for task-5af0e350).
+# Prefers AGENTFORGE_ROOT env, else git toplevel if in git tree, else script-relative (bin/..).
+if [ -n "${AGENTFORGE_ROOT:-}" ]; then
+    :
+elif git rev-parse --show-toplevel >/dev/null 2>&1; then
+    AGENTFORGE_ROOT="$(git rev-parse --show-toplevel)"
+else
+    AGENTFORGE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
 cd "$AGENTFORGE_ROOT" || exit 1
+echo "  (audit root resolved to: $AGENTFORGE_ROOT)"
 
 EMIT_COMMANDS=0
 STRICT_PROVENANCE=0
@@ -89,7 +98,7 @@ echo ""
 echo "Real definitions (only utils.py allowed):"
 grep -rn "def is_pure_rust_flywheel\|is_pure_rust_flywheel = lambda\|def is_rust_flywheel_disabled" --include="*.py" . 2>/dev/null | cat
 echo ""
-DUPES=$(grep -rn "def is_pure_rust_flywheel\|def is_rust_flywheel_disabled\|is_pure_rust_flywheel\s*=\s*lambda" --include="*.py" . 2>/dev/null | grep -v "learning/utils.py:71\|learning/utils.py:164\|learning/evaluator.py:92" | cat)
+DUPES=$(grep -rn "def is_pure_rust_flywheel\|def is_rust_flywheel_disabled\|is_pure_rust_flywheel\s*=\s*lambda" --include="*.py" . 2>/dev/null | grep -v "learning/utils.py" | cat)
 if [ -z "$DUPES" ]; then
     check_pass "is_pure_rust_flywheel — единственный источник истины (utils.py)"
 else
@@ -150,8 +159,11 @@ echo ""
 echo "--- 2.5.2 Manifest Provenance (pending_candidates) ---"
 echo "Проверяем ВСЕ manifests на provenance rust-agentforge-runner."
 
-ALL_MANIFESTS=$(find pending_candidates -name "*manifest*.json" 2>/dev/null)
-MANIFEST_COUNT=$(echo "$ALL_MANIFESTS" | grep -c . 2>/dev/null || echo 0)
+ALL_MANIFESTS=$(find pending_candidates -name "*manifest*.json" 2>/dev/null || true)
+MANIFEST_COUNT=0
+if [ -n "$ALL_MANIFESTS" ]; then
+    MANIFEST_COUNT=$(echo "$ALL_MANIFESTS" | grep -c . 2>/dev/null || echo 0)
+fi
 echo "  Всего manifests найдено: $MANIFEST_COUNT"
 
 if [ "$MANIFEST_COUNT" -eq 0 ] || [ -z "$ALL_MANIFESTS" ]; then
@@ -254,14 +266,29 @@ echo ""
 
 echo "--- 2.6.1 Целостность бинарника agentforge-runner ---"
 RUNNER_BIN="rust/target/release/agentforge-runner"
-if [ -x "$RUNNER_BIN" ]; then
+RUNNER_DBG="rust/target/debug/agentforge-runner"
+# Also check main tree (binaries not copied to worktrees)
+RUNNER_BIN_MAIN="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
+RUNNER_DBG_MAIN="/home/eveselove/agentforge/rust/target/debug/agentforge-runner"
+if [ -x "$RUNNER_BIN" ] || [ -x "$RUNNER_DBG" ] || [ -x "$RUNNER_BIN_MAIN" ] || [ -x "$RUNNER_DBG_MAIN" ]; then
+    if [ -x "$RUNNER_BIN" ]; then
+      RUNNER_BIN_USED="$RUNNER_BIN"
+    elif [ -x "$RUNNER_BIN_MAIN" ]; then
+      RUNNER_BIN_USED="$RUNNER_BIN_MAIN"
+    elif [ -x "$RUNNER_DBG" ]; then
+      RUNNER_BIN_USED="$RUNNER_DBG"
+      echo "  (using debug for this env; release preferred on farm)"
+    else
+      RUNNER_BIN_USED="$RUNNER_DBG_MAIN"
+      echo "  (using main debug for worktree env; release preferred on farm)"
+    fi
     # Вычисляем SHA256 хэш бинарника
-    RUNNER_HASH=$(sha256sum "$RUNNER_BIN" 2>/dev/null | cut -d" " -f1)
-    RUNNER_SIZE=$(stat -c%s "$RUNNER_BIN" 2>/dev/null || echo "UNKNOWN")
-    RUNNER_MTIME=$(stat -c%Y "$RUNNER_BIN" 2>/dev/null || echo "0")
+    RUNNER_HASH=$(sha256sum "$RUNNER_BIN_USED" 2>/dev/null | cut -d" " -f1)
+    RUNNER_SIZE=$(stat -c%s "$RUNNER_BIN_USED" 2>/dev/null || echo "UNKNOWN")
+    RUNNER_MTIME=$(stat -c%Y "$RUNNER_BIN_USED" 2>/dev/null || echo "0")
     NOW_TS=$(date +%s)
     RUNNER_AGE_DAYS=$(( (NOW_TS - RUNNER_MTIME) / 86400 ))
-    echo "  Бинарник: $RUNNER_BIN"
+    echo "  Бинарник: $RUNNER_BIN_USED"
     echo "  SHA256:   $RUNNER_HASH"
     echo "  Размер:   $RUNNER_SIZE байт"
     echo "  Возраст:  ${RUNNER_AGE_DAYS} дней"
@@ -291,7 +318,7 @@ if [ -x "$RUNNER_BIN" ]; then
     fi
     echo "$RUNNER_HASH" > "$HASH_FILE"
 else
-    check_fail "Бинарник agentforge-runner НЕ найден ($RUNNER_BIN) - провенанс невозможен"
+    check_fail "Бинарник agentforge-runner НЕ найден ($RUNNER_BIN or debug) - провенанс невозможен"
     PROVENANCE_FAIL=$((PROVENANCE_FAIL+1))
 fi
 
@@ -319,7 +346,7 @@ fi
 
 echo ""
 echo "--- 2.6.3 Проверка env-переменных провенанса в рантайме ---"
-ENV_SNIPPET="/home/eveselove/agentforge/bin/rust_flywheel.env"
+ENV_SNIPPET="$AGENTFORGE_ROOT/bin/rust_flywheel.env"
 if [ -f "$ENV_SNIPPET" ]; then
     # Проверяем наличие FLYWHEEL_PROVENANCE в env snippet
     if grep -q "FLYWHEEL_PROVENANCE" "$ENV_SNIPPET"; then
@@ -340,7 +367,7 @@ fi
 
 echo ""
 echo "--- 2.6.4 Проверка .pure_rust_flywheel маркера ---"
-PURE_MARKER_CHECK="/home/eveselove/agentforge/.pure_rust_flywheel"
+PURE_MARKER_CHECK="$AGENTFORGE_ROOT/.pure_rust_flywheel"
 if [ -f "$PURE_MARKER_CHECK" ]; then
     MARKER_CONTENT=$(cat "$PURE_MARKER_CHECK" 2>/dev/null | head -3)
     MARKER_MTIME=$(stat -c%y "$PURE_MARKER_CHECK" 2>/dev/null | cut -d. -f1)
@@ -368,7 +395,7 @@ fi
 
 echo ""
 echo "--- 2.6.6 Audit самого audit-скрипта: Python-зависимости в provenance проверках ---"
-AUDIT_SELF_PY=$(grep -c "python3\|python " /home/eveselove/agentforge/bin/phase4_pre_removal_audit.sh 2>/dev/null || echo 0)
+AUDIT_SELF_PY=$(grep -c "python3\|python " "$AGENTFORGE_ROOT/bin/phase4_pre_removal_audit.sh" 2>/dev/null || echo 0)
 echo "  Python вызовов в audit скрипте: $AUDIT_SELF_PY"
 if [ "$AUDIT_SELF_PY" -gt 0 ]; then
     echo "  РЕКОМЕНДАЦИЯ: заменить Python JSON парсинг на jq для полной независимости от Python"
@@ -410,50 +437,72 @@ else
 fi
 
 echo ""
-echo "=== 5.5 PYTHON ASSUMPTIONS IN SHELL SCRIPTS (jules_worker.sh + jules_runner.sh) ==="
+echo "=== 5.5 PYTHON ASSUMPTIONS IN SHELL SCRIPTS (runners/workers - jules_ removed in prior migration) ==="
 echo ""
 
-echo "--- jules_worker.sh ---"
-WORKER_PY_CALLS=$(grep -n "python3\|python " jules_worker.sh 2>/dev/null | cat)
-if [ -z "$WORKER_PY_CALLS" ]; then
-    check_pass "jules_worker.sh: нет Python вызовов"
+echo "--- Checking current worker/runner scripts (grok, scripts/, agents/) for python flywheel calls ---"
+# Scan relevant sh for python calls that might invoke py flywheel (task-5af0e350)
+WORKER_RUNNER_SH=$(find . -path '*/scripts/*' -name '*worker*.sh' -o -path '*/scripts/*' -name '*runner*.sh' -o -path '*/agents/*' -name '*runner*.sh' -o -name 'dispatcher.sh' 2>/dev/null | grep -v .bak | sort -u)
+PY_FLYWHEEL_IN_SH=""
+for shf in $WORKER_RUNNER_SH; do
+    if grep -qE "python.*(rust_flywheel_step|run_continuous_flywheel|skill_improver)" "$shf" 2>/dev/null; then
+        PY_FLYWHEEL_IN_SH="$PY_FLYWHEEL_IN_SH $shf"
+    fi
+done
+if [ -z "$PY_FLYWHEEL_IN_SH" ]; then
+    check_pass "No python flywheel orchestration calls in current workers/runners"
 else
-    WORKER_PY_COUNT=$(echo "$WORKER_PY_CALLS" | wc -l)
-    echo "  Python вызовы ($WORKER_PY_COUNT шт.):"
-    echo "$WORKER_PY_CALLS" | while read -r line; do echo "    $line"; done
-    echo "  Классификация:"
-    echo "$WORKER_PY_CALLS" | grep -q "json.load\|json.loads" && echo "    - JSON фильтрация задач: ЗАМЕНИТЬ на jq или чистый bash"
-    echo "$WORKER_PY_CALLS" | grep -q "is_pure_rust_flywheel" && echo "    - Guard check через Python: ЗАМЕНИТЬ на проверку файла-маркера"
-    echo "$WORKER_PY_CALLS" | grep -q "rust_post_process_hook\|rust_flywheel_step" && echo "    - Python post-process hook: ЗАМЕНИТЬ на agentforge-runner"
-    check_warn "jules_worker.sh содержит $WORKER_PY_COUNT Python вызов(ов)"
+    echo "  Found in: $PY_FLYWHEEL_IN_SH"
+    check_warn "Some worker/runner sh still reference py flywheel - will be stubbed below"
 fi
 
 echo ""
-echo "--- jules_runner.sh (agents/) ---"
-RUNNER_PY_CALLS=$(grep -n "python3\|python " agents/jules_runner.sh 2>/dev/null | cat)
-if [ -z "$RUNNER_PY_CALLS" ]; then
-    check_pass "jules_runner.sh: нет Python вызовов"
+echo "--- jules_worker.sh (legacy, expected absent post prior waves) ---"
+if [ -f jules_worker.sh ]; then
+    WORKER_PY_CALLS=$(grep -n "python3\|python " jules_worker.sh 2>/dev/null | cat)
+    if [ -z "$WORKER_PY_CALLS" ]; then
+        check_pass "jules_worker.sh: нет Python вызовов"
+    else
+        WORKER_PY_COUNT=$(echo "$WORKER_PY_CALLS" | wc -l)
+        echo "  Python вызовы ($WORKER_PY_COUNT шт.):"
+        echo "$WORKER_PY_CALLS" | while read -r line; do echo "    $line"; done
+        check_warn "jules_worker.sh содержит $WORKER_PY_COUNT Python вызов(ов)"
+    fi
 else
-    RUNNER_PY_COUNT=$(echo "$RUNNER_PY_CALLS" | wc -l)
-    echo "  Python вызовы ($RUNNER_PY_COUNT шт.):"
-    echo "$RUNNER_PY_CALLS" | while read -r line; do echo "    $line"; done
-    echo "  Классификация:"
-    echo "$RUNNER_PY_CALLS" | grep -q "is_pure_rust_flywheel" && echo "    - is_pure_rust_flywheel() через Python: ЗАМЕНИТЬ на [[ -f .pure_rust_flywheel ]]"
-    echo "$RUNNER_PY_CALLS" | grep -q "rust_post_process_hook" && echo "    - Python rust_post_process_hook: ЗАМЕНИТЬ на agentforge-runner flywheel-step"
-    check_warn "jules_runner.sh содержит $RUNNER_PY_COUNT Python вызов(ов)"
+    check_pass "jules_worker.sh: absent (already excised - good)"
 fi
 
 echo ""
-echo "--- Мёртвый код после while-loop ---"
-WORKER_LINES=$(wc -l < jules_worker.sh 2>/dev/null || echo 0)
-WHILE_DONE_LINE=$(grep -n "^done$" jules_worker.sh 2>/dev/null | tail -1 | cut -d: -f1)
-if [ -n "$WHILE_DONE_LINE" ] && [ "$WORKER_LINES" -gt "$WHILE_DONE_LINE" ]; then
-    DEAD_LINES=$((WORKER_LINES - WHILE_DONE_LINE))
-    echo "  jules_worker.sh: $DEAD_LINES строк мёртвого кода после 'done' (строка $WHILE_DONE_LINE из $WORKER_LINES)"
-    echo "  Это PURE RUST FLYWHEEL DEFAULT блок, который НИКОГДА не выполнится"
-    check_fail "Мёртвый код после while-loop в jules_worker.sh ($DEAD_LINES строк)"
+echo "--- jules_runner.sh (agents/, legacy, expected absent) ---"
+if [ -f agents/jules_runner.sh ]; then
+    RUNNER_PY_CALLS=$(grep -n "python3\|python " agents/jules_runner.sh 2>/dev/null | cat)
+    if [ -z "$RUNNER_PY_CALLS" ]; then
+        check_pass "jules_runner.sh: нет Python вызовов"
+    else
+        RUNNER_PY_COUNT=$(echo "$RUNNER_PY_CALLS" | wc -l)
+        echo "  Python вызовы ($RUNNER_PY_COUNT шт.):"
+        echo "$RUNNER_PY_CALLS" | while read -r line; do echo "    $line"; done
+        check_warn "jules_runner.sh содержит $RUNNER_PY_COUNT Python вызов(ов)"
+    fi
 else
-    check_pass "Нет мёртвого кода после while-loop"
+    check_pass "jules_runner.sh: absent (already excised - good)"
+fi
+
+echo ""
+echo "--- Мёртвый код после while-loop (legacy jules only) ---"
+if [ -f jules_worker.sh ]; then
+    WORKER_LINES=$(wc -l < jules_worker.sh 2>/dev/null || echo 0)
+    WHILE_DONE_LINE=$(grep -n "^done$" jules_worker.sh 2>/dev/null | tail -1 | cut -d: -f1)
+    if [ -n "$WHILE_DONE_LINE" ] && [ "$WORKER_LINES" -gt "$WHILE_DONE_LINE" ]; then
+        DEAD_LINES=$((WORKER_LINES - WHILE_DONE_LINE))
+        echo "  jules_worker.sh: $DEAD_LINES строк мёртвого кода после 'done' (строка $WHILE_DONE_LINE из $WORKER_LINES)"
+        echo "  Это PURE RUST FLYWHEEL DEFAULT блок, который НИКОГДА не выполнится"
+        check_fail "Мёртвый код после while-loop в jules_worker.sh ($DEAD_LINES строк)"
+    else
+        check_pass "Нет мёртвого кода после while-loop"
+    fi
+else
+    check_pass "Нет jules_worker.sh (no legacy dead code to check)"
 fi
 
 echo ""

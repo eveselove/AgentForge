@@ -116,6 +116,7 @@ def save_skill(
     # Инвалидация кэша в task_queue (если модуль уже загружен)
     try:
         import task_queue
+
         if hasattr(task_queue, "_skills_cache"):
             task_queue._skills_cache = None  # type: ignore[attr-defined]
     except Exception:
@@ -131,7 +132,9 @@ def capture_from_json(obj: Dict[str, Any]) -> str:
     """Сохранение из словаря/JSON (самый удобный путь для LLM-агентов)."""
     return save_skill(
         name=obj.get("name") or obj.get("skill_name") or "unnamed",
-        description=obj.get("description") or obj.get("desc") or "Auto-captured tool skill",
+        description=obj.get("description")
+        or obj.get("desc")
+        or "Auto-captured tool skill",
         system_prompt=obj.get("system_prompt") or obj.get("prompt") or "",
         required_tags=obj.get("required_tags") or obj.get("tags") or [],
         ci_checks=obj.get("ci_checks") or obj.get("ci") or [],
@@ -145,16 +148,36 @@ def main() -> int:
         description="AgentForge self-expanding skills capture (Tool Creation)"
     )
     parser.add_argument("--name", "-n", help="Skill name (kebab-case recommended)")
-    parser.add_argument("--description", "-d", help="Human-readable description of the skill")
-    parser.add_argument("--tags", "-t", help="Comma-separated list of required_tags (e.g. parser,api,acme)")
-    parser.add_argument("--prompt", "-p", help="Full system_prompt text (for short prompts)")
-    parser.add_argument("--prompt-file", "-f", help="Path to file containing the full system_prompt")
+    parser.add_argument(
+        "--description", "-d", help="Human-readable description of the skill"
+    )
+    parser.add_argument(
+        "--tags",
+        "-t",
+        help="Comma-separated list of required_tags (e.g. parser,api,acme)",
+    )
+    parser.add_argument(
+        "--prompt", "-p", help="Full system_prompt text (for short prompts)"
+    )
+    parser.add_argument(
+        "--prompt-file", "-f", help="Path to file containing the full system_prompt"
+    )
     parser.add_argument("--ci", help="Comma-separated CI check commands")
-    parser.add_argument("--timeout", type=int, default=900, help="Timeout seconds (default 900)")
+    parser.add_argument(
+        "--timeout", type=int, default=900, help="Timeout seconds (default 900)"
+    )
     parser.add_argument("--model", default="grok", help="Preferred model")
-    parser.add_argument("--stdin", action="store_true", help="Read full JSON spec from stdin")
-    parser.add_argument("--json", help="JSON string with full spec (alternative to --stdin)")
-    parser.add_argument("--dry-run", action="store_true", help="Print generated YAML and exit without writing")
+    parser.add_argument(
+        "--stdin", action="store_true", help="Read full JSON spec from stdin"
+    )
+    parser.add_argument(
+        "--json", help="JSON string with full spec (alternative to --stdin)"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print generated YAML and exit without writing",
+    )
 
     args = parser.parse_args()
 
@@ -165,22 +188,26 @@ def main() -> int:
         else:
             data = json.load(sys.stdin)
         if args.dry_run:
-            print(generate_skill_yaml(
-                name=data.get("name", "dry"),
-                description=data.get("description", ""),
-                system_prompt=data.get("system_prompt", ""),
-                required_tags=data.get("required_tags") or data.get("tags") or [],
-                ci_checks=data.get("ci_checks") or data.get("ci") or [],
-                timeout=data.get("timeout", 900),
-                preferred_model=data.get("preferred_model", "grok"),
-            ))
+            print(
+                generate_skill_yaml(
+                    name=data.get("name", "dry"),
+                    description=data.get("description", ""),
+                    system_prompt=data.get("system_prompt", ""),
+                    required_tags=data.get("required_tags") or data.get("tags") or [],
+                    ci_checks=data.get("ci_checks") or data.get("ci") or [],
+                    timeout=data.get("timeout", 900),
+                    preferred_model=data.get("preferred_model", "grok"),
+                )
+            )
             return 0
         capture_from_json(data)
         return 0
 
     # === Режим 2: CLI флаги ===
     if not args.name or not args.description:
-        parser.error("--name and --description are required unless using --stdin/--json")
+        parser.error(
+            "--name and --description are required unless using --stdin/--json"
+        )
 
     tags = [t.strip() for t in (args.tags or "").split(",") if t.strip()]
     ci = [c.strip() for c in (args.ci or "").split(",") if c.strip()]
@@ -197,18 +224,22 @@ def main() -> int:
             prompt_text = sys.stdin.read()
 
     if not prompt_text.strip():
-        parser.error("system_prompt is required (use --prompt, --prompt-file, or pipe stdin)")
+        parser.error(
+            "system_prompt is required (use --prompt, --prompt-file, or pipe stdin)"
+        )
 
     if args.dry_run:
-        print(generate_skill_yaml(
-            name=args.name,
-            description=args.description,
-            system_prompt=prompt_text,
-            required_tags=tags,
-            ci_checks=ci,
-            timeout=args.timeout,
-            preferred_model=args.model,
-        ))
+        print(
+            generate_skill_yaml(
+                name=args.name,
+                description=args.description,
+                system_prompt=prompt_text,
+                required_tags=tags,
+                ci_checks=ci,
+                timeout=args.timeout,
+                preferred_model=args.model,
+            )
+        )
         return 0
 
     save_skill(

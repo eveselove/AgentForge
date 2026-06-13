@@ -1,3 +1,4 @@
+# PHASE4_REMOVAL_PLAN AGGRESSIVE FINAL DEPRECATION SWEEP (marker): no flywheel py; audit broad grep on "flywheel" in tree.
 [Unit]
 Description=AgentForge Grok XAI Cloud Worker Instance %i
 After=network.target
@@ -7,6 +8,11 @@ Type=simple
 User=agx
 WorkingDirectory=/home/eveselove/agentforge
 EnvironmentFile=/home/eveselove/agentforge/.env.xai
+# task-5af0e350 pure rust flywheel default
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
+Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
 ExecStart=/bin/bash /home/eveselove/agentforge/grok_xai_worker.sh
 Restart=always
 RestartSec=8

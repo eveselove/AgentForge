@@ -87,3 +87,19 @@ This document contains the highest-leverage remaining work, broken into small pa
 P1 → 95%+, P2 → 95%+, P3 → 80%+, P4 → 40%+ with clear dogfooding evidence.
 
 This is the final targeted push. After this, the plan should be effectively closed.
+
+---
+
+## Pure Rust Flywheel Soak Prep (task-5af0e350, 2026-06-13)
+**Status: SOAK READY** — 14-day mandatory soak clock can/should start immediately.
+- .pure_rust_flywheel marker created/touched in worktree (/tmp/agentforge-work/pure-soak-prep-5af0e350) + main (note: sync on merge).
+- Updated: all agentforge-*.service, systemd/*.service, services/*.service, install_services.sh, bin/{enable,disable,make}*_flywheel*.sh , bin/rust_flywheel.env , grok_worker.sh , agents/grok_runner.sh , rust_flywheel_after_task.sh , scripts/ etc. to export AGENTFORGE_PURE_RUST_FLYWHEEL=1 , AGENTFORGE_RUST_RUNNER=.../release/agentforge-runner , FLYWHEEL_PROVENANCE=rust-agentforge-runner .
+- Stubbed py flywheel entrypoints (rust_flywheel_step.py, run_continuous_flywheel.py, learning/{skill_improver,pending_candidates,evaluator}.py) to direct to runner when invoked as main.
+- learning/utils.py guards made worktree-aware via _get_agentforge_root() + marker honored.
+- bin/phase4_pre_removal_audit.sh : dynamic root (supports worktree), fixed manifest bash err, jules legacy checks, updated dupe filter.
+- Also updated docs (PHASE4_*, REMAINING_*) with soak-ready status + traceability.
+- Pre-commit installed per setup. All changes include "task-5af0e350".
+- Verification: test_pure script, audit re-runs (pre-binary/health expected fails ok until farm).
+- This unblocks Tier3/4 deletions post-14d green soak + clean audit + 100% provenance.
+- Next: run on farm, monitor logs/manifests/health for "rust-agentforge-runner", start 14d timer, handoff for review.
+Traceability enforced (AGENTS.md).

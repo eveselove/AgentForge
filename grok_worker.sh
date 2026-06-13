@@ -24,7 +24,7 @@ export NVM_DIR=$HOME/.nvm
 # See PHASE4_REMOVAL_PLAN.md for safe removal order (Tier 3), risks, full rollback (instant via env+dotfile).
 # PHASE 3 FINAL DEPRECATION SWEEP: Python flywheel orchestration heavily marked.
 # Strong central is_pure_rust_flywheel() (marker+disables). Prefer agentforge-runner flywheel-step.
-RUST_FLYWHEEL_SNIPPET="$HOME/agentforge/bin/rust_flywheel.env"
+RUST_FLYWHEEL_SNIPPET="${AGENTFORGE_ROOT:-$HOME/agentforge}/bin/rust_flywheel.env"
 if [ -f "$RUST_FLYWHEEL_SNIPPET" ]; then
     # shellcheck disable=SC1091
     source "$RUST_FLYWHEEL_SNIPPET" 2>/dev/null || true
@@ -41,8 +41,10 @@ if [[ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]] && [[ ! -f "$DISABLE_FILE" ]]; the
       _RUST_RUNNER="$HOME/agentforge/rust/target/debug/agentforge-runner"
     fi
     export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_RUST_RUNNER}"
+# task-5af0e350 pure default: also set provenance
+export FLYWHEEL_PROVENANCE="${FLYWHEEL_PROVENANCE:-rust-agentforge-runner}"
     # shellcheck disable=SC1091
-    [[ -x $HOME/agentforge/bin/enable_rust_flywheel.sh ]] && source $HOME/agentforge/bin/enable_rust_flywheel.sh 2>/dev/null || true
+    _ROOT="${AGENTFORGE_ROOT:-$HOME/agentforge}"; [[ -x $_ROOT/bin/enable_rust_flywheel.sh ]] && source $_ROOT/bin/enable_rust_flywheel.sh 2>/dev/null || true
 fi
 # Final safe export (DEFAULT=1 unless rollback active)
 if [[ "${DISABLE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ -f "$DISABLE_FILE" ]]; then
@@ -59,6 +61,8 @@ else
   _RUST_RUNNER="$HOME/agentforge/rust/target/debug/agentforge-runner"
 fi
 export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_RUST_RUNNER}"
+# task-5af0e350 pure default: also set provenance
+export FLYWHEEL_PROVENANCE="${FLYWHEEL_PROVENANCE:-rust-agentforge-runner}"
 
 API="http://localhost:9090"
 LOG_DIR="$HOME/agentforge/logs"
@@ -373,15 +377,16 @@ done
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="$HOME/agentforge/.pure_rust_flywheel"
+PURE_MARKER="${AGENTFORGE_ROOT:-$HOME/agentforge}/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "$HOME/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="$HOME/agentforge/rust/target/release/agentforge-runner"
+    _ROOT="${AGENTFORGE_ROOT:-$HOME/agentforge}"
+    if [ -x "$_ROOT/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="$_ROOT/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "$HOME/agentforge/bin/rust_flywheel.env" ] && source "$HOME/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "$_ROOT/bin/rust_flywheel.env" ] && source "$_ROOT/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

@@ -16,7 +16,6 @@ AgentForge RAG Indexer — индексация логов в LanceDB
 """
 
 import os
-import sys
 import glob
 import hashlib
 import argparse
@@ -30,12 +29,13 @@ LOGS_DIR = os.path.expanduser("~/agentforge/logs")
 DB_PATH = os.path.expanduser("~/lance_data")
 TABLE_NAME = "agentforge_logs"
 MODEL_NAME = "all-MiniLM-L6-v2"
-CHUNK_SIZE = 500          # Символов на чанк
-CHUNK_OVERLAP = 50        # Перекрытие между чанками
-BATCH_SIZE = 32           # Размер батча для эмбеддинга
+CHUNK_SIZE = 500  # Символов на чанк
+CHUNK_OVERLAP = 50  # Перекрытие между чанками
+BATCH_SIZE = 32  # Размер батча для эмбеддинга
 
 # === Глобальная модель (ленивая инициализация) ===
 _model = None
+
 
 def get_model():
     """Получить или инициализировать модель эмбеддинга"""
@@ -43,11 +43,13 @@ def get_model():
     if _model is None:
         print(f"[RAG] Загрузка модели {MODEL_NAME}...")
         _model = SentenceTransformer(MODEL_NAME)
-        print(f"[RAG] Модель загружена")
+        print("[RAG] Модель загружена")
     return _model
 
 
-def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
+def chunk_text(
+    text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP
+) -> list[str]:
     """
     Разбивает текст на чанки фиксированного размера с перекрытием.
     Старается разделять по переносам строк, чтобы не рвать контекст.
@@ -191,18 +193,20 @@ def index_logs(reindex: bool = False):
             chunks = chunk_text(content)
 
             for i, chunk in enumerate(chunks):
-                all_chunks.append({
-                    "text": chunk,
-                    "filename": filename,
-                    "task_id": task_id,
-                    "agent": agent,
-                    "chunk_index": i,
-                    "total_chunks": len(chunks),
-                    "file_size": file_size,
-                    "file_hash": file_hash,
-                    "modified_at": modified_at,
-                    "indexed_at": datetime.now().isoformat(),
-                })
+                all_chunks.append(
+                    {
+                        "text": chunk,
+                        "filename": filename,
+                        "task_id": task_id,
+                        "agent": agent,
+                        "chunk_index": i,
+                        "total_chunks": len(chunks),
+                        "file_size": file_size,
+                        "file_hash": file_hash,
+                        "modified_at": modified_at,
+                        "indexed_at": datetime.now().isoformat(),
+                    }
+                )
 
             print(f"  📄 {filename}: {len(chunks)} чанков ({file_size} байт)")
 
@@ -222,7 +226,7 @@ def index_logs(reindex: bool = False):
     # Батчевое кодирование для экономии памяти
     all_vectors = []
     for i in range(0, len(texts), BATCH_SIZE):
-        batch = texts[i:i + BATCH_SIZE]
+        batch = texts[i : i + BATCH_SIZE]
         vectors = model.encode(batch, show_progress_bar=False)
         all_vectors.extend(vectors.tolist())
         if (i + BATCH_SIZE) % 100 == 0:
@@ -250,7 +254,7 @@ def index_logs(reindex: bool = False):
         print(f"[RAG] ✅ Создана таблица '{TABLE_NAME}' с {len(all_chunks)} чанками")
 
     # Итоговая статистика
-    print(f"\n[RAG] Итого:")
+    print("\n[RAG] Итого:")
     print(f"  📊 Проиндексировано: {len(all_chunks)} чанков")
     print(f"  ⏭️  Пропущено: {skipped} файлов (без изменений)")
     print(f"  ❌ Ошибок: {errors}")
@@ -313,7 +317,7 @@ def show_stats():
     print(f"  📊 Всего чанков: {total_chunks}")
     print(f"  📄 Уникальных файлов: {unique_files}")
     print(f"  🎯 Уникальных задач: {unique_tasks}")
-    print(f"  🤖 По агентам:")
+    print("  🤖 По агентам:")
     for agent, count in agent_stats.items():
         print(f"     {agent}: {count} чанков")
 
@@ -327,26 +331,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="AgentForge RAG Indexer — индексация логов в LanceDB"
     )
-    parser.add_argument(
-        "--search", "-s",
-        type=str,
-        help="Семантический поиск по логам"
-    )
+    parser.add_argument("--search", "-s", type=str, help="Семантический поиск по логам")
     parser.add_argument(
         "--reindex",
         action="store_true",
-        help="Полная переиндексация (удаляет старый индекс)"
+        help="Полная переиндексация (удаляет старый индекс)",
     )
     parser.add_argument(
-        "--stats",
-        action="store_true",
-        help="Показать статистику индекса"
+        "--stats", action="store_true", help="Показать статистику индекса"
     )
     parser.add_argument(
-        "--limit", "-n",
+        "--limit",
+        "-n",
         type=int,
         default=5,
-        help="Количество результатов поиска (по умолчанию: 5)"
+        help="Количество результатов поиска (по умолчанию: 5)",
     )
 
     args = parser.parse_args()

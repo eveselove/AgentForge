@@ -154,7 +154,12 @@ mod tests {
         let _ = c.dry_run;
         assert!(c.limit.is_none());
         // shadow handled at runner layer but config drives emission for flywheel-step
-        let mut c2 = FlywheelConfig { skill_name: "cont".into(), dry_run: true, real_data: false, ..Default::default() };
+        let mut c2 = FlywheelConfig {
+            skill_name: "cont".into(),
+            dry_run: true,
+            real_data: false,
+            ..Default::default()
+        };
         c2.output_dir = Some(std::path::PathBuf::from("/tmp/fw"));
         assert_eq!(c2.skill_name, "cont");
     }
@@ -172,7 +177,10 @@ mod tests {
             skill_name: "emit-skill".into(),
             overall_rationale: "mined failures".into(),
             estimated_impact: "high".into(),
-            proposals: vec![ImprovementProposal { section: "tool_use".into(), ..Default::default() }],
+            proposals: vec![ImprovementProposal {
+                section: "tool_use".into(),
+                ..Default::default()
+            }],
             ..Default::default()
         };
         assert_eq!(ps.proposals.len(), 1);

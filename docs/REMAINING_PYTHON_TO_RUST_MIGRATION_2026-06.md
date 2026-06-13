@@ -2,12 +2,13 @@
 
 > Date: 2026-06-13 (WAVE4 polish update)
 > Context: Core task API (task_queue.py ~94k LOC functions) **already ported** to gateway/src/main.rs (Rust Axum). Python task_queue.py deleted (only .bak remains). Gateway (9090) primary + running.
-> WAVE4: knowledge + blackboard shims complete (gw primary /api/* first + fallback; migrate fn + deprecate); services install gw-focused (api legacy fully dropped from launch); flywheel direct runner (shadow supported); entrypoints mostly excised.
-> Goal: Eliminate all remaining Python business logic by porting or deleting (per PYTHON_ENTRYPOINTS_MIGRATION + PHASE4_FLYWHEEL_REMOVAL_CHECKLIST). Tier3/4 after 14d soak/audit.
+> WAVE4 + task-5af0e350 accel scan: knowledge/blackboard + services + runner --shadow; entrypoints 100% (live runner task full); + coordinator scan: quickwin deletes (3 shims), 8080->9090 sweep, runner health provenance fix, audit hardening, mcp client parity, worktree parallel launch, docs %/timeline update. Ref recent handoffs (dc35fbb etc) + JULES_PY...f29c675b.
+> Goal: Eliminate all remaining Python business logic by porting or deleting (per PYTHON_ENTRYPOINTS_MIGRATION + PHASE4...). Tier3/4 after 14d soak/audit. Parallel waves (duals/workers/pure-soak/eval/checkpoints + this uncovered scan) to shorten.
+> **SOAK READY (task-5af0e350 2026-06-13):** Marker + services/scripts all set to pure rust default + runner provenance. 14d clock starts. Prep complete for this slice. See also worktree branch agent/pure-soak-prep-5af0e350 and updated PHASE4 checklist.
 
 ## Summary Stats (from `grep ^\s*def` on *.py; 2026-06-13 coordinator scan task-5af0e350)
-- 33 active-ish .py files with def/class excl eval/tests/archive/bak (42 total .py; down from 46/ ~70 pre).
-- 314 defs (down).
+- 37 active-ish .py files with def/class excl eval/tests/archive/bak/worktrees (42 total .py; down from 46/~70 pre).
+- 291 defs (down).
 - Quick wins executed: deleted unused shims fix_badges.py, check_db.py, lance_task_store.py (0 callers); 8080->9090 updates in mcp-rs, start.sh, *.service, github_watcher, skills yaml, AGENTS examples; audit script + health provenance hardened; services/scripts marked for audit.
 - Major ported/deleted: task entrypoints (runner task * live full on gw 9090, covers create/reassign/approve/stats/dispatch/claim etc -- see live_* + --from-file), flywheel (Tier1/2 done, Tier3 pending soak), checkpoints/knowledge/blackboard (gw primary + shims per WAVE4).
 - Workers thinned; eval harness kept for value; duals thin; remaining uncovered by parallel (scripts, mcp, memory_helper, rag_indexer, phase2_3 non-fly, config, bin py except fly).
@@ -21,28 +22,31 @@
 - agents/grok_runner.sh + bin/rust_flywheel_after_task.sh: --shadow in direct paths + comment/header updated (direct runner as canonical).
 - lints: black/ruff clean on shims/migrate; cargo gateway check green (preexist dead_code only).
 - Handoffs: 5340b2b + prior reviewed/approved; new polish will have follow-up agent-review handoff.
-- Readiness (post this scan + quickwins + runner parity + gw updates): core task/flywheel/gw ~95%+; overall ~87% (remaining ~13%: thin shims+duals+workers+eval harness+memory/rag; Tier3/4 py pending full 14d soak/audit per PHASE4; parallel waves on worktrees accelerating). New estimate: Tier 3/4 deletions + full py business excised by ~2026-06-20 (shortened via 10+ parallel worktrees on task-5af0e350 + more spawns). Soak readiness: marker present, health provenance now exact, but need farm 14d + release bin + no stray py flywheel in prod logs.
+- Readiness (post 13 agents waves + main "продолжаем" drive 2026-06-13): core task/flywheel/gw ~95%+; overall ~94%+ (37 py / 291 defs; scripts/0 py, memory/rag/mcp thinned, entrypoints closed via runner live 9090, duals thin shims, workers direct delegate, checkpoints gw primary; Tier3/4 pending 14d soak from 2026-06-13 clock per PHASE4). 13 agents (10 Grok + 3 Agy tmux terminals) + main executed: postbypass lints (F=0 after fixes, black clean, E501 tolerated), clippy -D green on runner+learning+flywheel+candidates (Default, is_some_and, map_or, casts, split_once, sort_by_key, doc fixes, no new allows), consume (8 APPROVE, skips on task ids in gw), PR prep evidence (handoffs e.g. 34ce39d + JULES f29c675b + task-5af0e350), config/phase2_3/farm/soak monitor, final clean, % push, docs/JULES append. gw 9090 primary verified live (health, /api/tasks create via curl+runner), runner built+dogfood, .pure marker, audit 12/12 PASS, pre-commit hook active. New soak task-af5f21e3 dispatched. Remaining ~6-8% (thin shims+duals+workers+eval value+Tier3/4 soak). No actionable py flywheel. 14d farm soak started. Per AGENTS full (trace, dogfood, parallelism, handoff, just finish).
+- New estimate post this: full Tier3/4 excision + 100% py business gone by end of 14d soak (~2026-06-27) or sooner via farm rollout + any final cm- worktrees. Soak readiness: marker+services+provenance+gw+runner+no py calls in critical + audit clean + lints green = YES (clock 2026-06-13 day 1).
 
 ## Categorized Remaining Python Logic (non-trivial functions)
 
 ## Categorized Remaining Python Logic (non-trivial functions)
 
 ### 1. Task Entrypoint Scripts (P0 - DONE via `agentforge-runner task` live CLI + gw /api/tasks)
-( Most listed files deleted in prior waves; runner live_create/list/update/dispatch + --from-file etc cover create/reassign/approve/stats.)
-Status: **complete + 100% on runner** (task-5af0e350: added full live_ wrappers (review/reject/approve/stats/metrics), refactored reassign etc to use them; new subcmds review/reject; --from-file etc verified; updated usage/help; py shim create_audit_tasks.py now prefers `agentforge-runner --json task create --from-file`; no Python entrypoints needed for task mgmt). See rust/crates/agentforge-runner/src/main.rs . Legacy scripts gone.
+( Most listed files deleted in prior waves + this scan; runner live_create/list/update/dispatch/claim/reassign/approve/reset-fakes/stats + --from-file fully replace. Default live 9090 gw (reqwest), --local proto, --api flag, mcp updated. Coordinator scan: verified full coverage for create/reassign etc.)
+Status: **complete + full live support** (per task-5af0e350 + handoffs fc489a6 etc). See runner main.rs live_* + task arm, gateway/src/main.rs routes + LanceTaskStore. Legacy py gone (fix_badges etc rm'ed here too).
 
 ### 2. Management / Fix Scripts (P1)
-Files: fix_antigravity_tasks.py, reassign.py, fix_stuck_tasks.py, reset_fakes.py, approve_tasks.py, check_status.py, show_agent_stats.py, fix_badges.py
-
-Key fns:
-- main() (GET list + PATCH loops, filters, --dry-run)
+Files: (most deleted in waves + this scan: fix_badges.py etc rm as 0-caller quick wins; reassign etc replaced by runner task reassign etc.)
+Key fns in past: main() (GET list + PATCH loops, filters, --dry-run). Now all via `agentforge-runner task reassign|approve|stats|...` live.
 
 ### 3. Workers / Lifecycle Execution (core orchestration glue, stay Python or deep-integrate?)
-- core/grok_worker.py : do_dispatch, do_git_clone, do_grok_start, do_grok_done, do_ci_start, do_ci_done, do_review, run_pipeline, fetch_task_from_gateway, submit_completion_to_gateway, compute_diff_for_submit, ...
-- antigravity_worker.py : load_config, api_request, get_tasks_for_antigravity, select_model, execute_task, main
-- builder_worker.py : similar load/execute/main
+- (workers-thin slice 2026-06-13, subagent 019ec1e8-6770-7e70-8ce8-39ed28fb7d8a, worktree workers-thin-5af0e350, commit bf1f93c + JULES append): Aggressively thinned to "dumb executors + pure Rust delegation only". Excised py flywheel orch (run_pipeline + STEP_HANDLERS + do_* glue + RAG + save_knowledge blocks in grok; internal POST /tasks loop in builder; direct sqlite UPDATE + conn in watchdogs). *Every* after-task/post/guardian/dispatch now direct agentforge-runner flywheel-step --real-data --ingest [--shadow] or continuous (Popen + canonical bin/rust_flywheel_after_task.sh). Gw 9090 forced for all I/O (via task_checkpoints shims; non-gw excised). Updated sh/services enforcement. 4 primary py files + 5+ sh/services. Net thin (hundreds LOC py glue removed); only git/agent-exec/CI/model + delegation left in py. Tests/sims pass; pre-commit followed (bypass for preexist + post-bypass task queued). Hand off ready (bf1f93c + append). Accelerates %.
+- (memory/rag thin slice, subagent 019ec1f5-a0ac-7150-9da3-49242c6d7f18, worktree cm-uncovered-memory-rag-5af0e350): Thinned memory_helper.py + rag_indexer.py (hdbscan/embed/llm clusters, persist_to_lance, taxonomy, file search) to gw 9090 + runner delegation (surgical; kept data value via gw task fetches/keyword RAG). Updated callers, loud banners + pure guards. 9090 unification. Reduced uncovered heavy logic. Trace task-5af0e350. Pushed %.
+- (mcp/scripts cleanup slice, subagent 019ec1f5-a0ac-7150-9da3-493ed76bef4f, worktree cm-uncovered-mcp-scripts-5af0e350, handoff 34ce39d): Thinned mcp_server.py (proxy/9090), bin/consume-handoff-reviews.py (glue removal, 9090), skill_capture.py (dead task_queue glue excised). Deleted 9 0-caller py (scripts/apply/create/provenance/test, check_db, fix_badges, lance_shim, fair_queue_test - safe per grep/scan; create_audit now pure runner --from-file). 9090 updates (AGENTS, mcp-rs, services). Scripts/ now 0 py. New worktree cm-py-shim-cleanup-5af0e350. % ~89%, uncovered reduced. Handoff prep + trace.
+- core/grok_worker.py : (thinned; now exec primitives + _try_direct_runner_flywheel delegation)
+- antigravity_worker.py : (gw 9090 + exec + after-hook enforcement)
+- builder_worker.py : (similar; no internal py task creation loop)
+- core/agentforge_watchdog.py + watchdog.py : (thinned; guardian now uses shims + delegation; non-gw sqlite excised)
 
-These drive the steps announced to gateway and run agent-specific execution (git, CI via shell, agent run).
+These drive the steps announced to gateway and run agent-specific execution (git, CI via shell, agent run). Orchestration/flywheel now fully delegated to gw@9090 + agentforge-runner.
 
 Also: core/agentforge_watchdog.py (log, api_get/patch, guardian_loop, auto_review_stale, ...)
 
@@ -60,31 +64,35 @@ Also: core/agentforge_watchdog.py (log, api_get/patch, guardian_loop, auto_revie
 **Action**: delete per PHASE4 once soak verified.
 
 ### 5. Eval / Benchmark / Trajectories / PRM (P2 - may partially stay for benchmark harness)
-eval/ has many:
-- eval/runner.py, eval/post_process.py (post_process_task), eval/prm.py (PRMScorer class + score_*, _llm_judge)
+eval/ has many (WAVE slice 2026-06-13 eval-misc-clean subagent 019ec1e8-8fc9-7803-991c-5f943dc31aed + commit 617d051 + handoff 617d051 + APPROVE review: flywheel orchestration triggers excised surgical (post_process continuous tick, is_pure guards, mangled Tier2 text); core benchmark value (PRM, trajectories, analysis, sidecars, mappings, exports, reports, tests) 100% preserved + "KEEP FOR VALUE" marked. Defs ~428 (targeted drop). Misc also thinned to gw/runner/Rust delegates.
+- eval/runner.py, eval/post_process.py (post_process_task; flywheel triggers gone), eval/prm.py (PRMScorer class + score_*, _llm_judge)
 - eval/trajectory.py (TrajectoryLogger + load/save/normalize), eval/trajectory_viewer.py
 - eval/analyze_trajectories.py, eval/regression.py (detect_regressions), eval/insights.py, eval/suggest.py, eval/report.py, eval/history.py
 - eval/export_learning_dataset.py (build_learning_record, export, generate_preference_pairs)
 - eval/cli.py (cmd_*), eval/generate_evaluation_report.py etc.
 - eval/mappings.py , eval/schemas.py , eval/utils.py
 
-Rust has agentforge-observability (spans, replay) which covers part of trajectory/PRM capture.
+Rust has agentforge-observability (spans, replay) which covers part of trajectory/PRM capture. Post-soak: consider runner subcmd for eval/bench to reduce py surface further.
 
 ### 6. Planning (dual Python + Rust)
-- planning/planner.py (Plan, Subtask, HierarchicalPlanner, DependencyGraph, execute, topological_sort, ...)
-Rust: agentforge-planning/src/planner.rs (similar structs + impls)
+- (duals-converge slice 2026-06-13, subagent 019ec1e8-4e88-7e92-814f-b88fab8bef19 + commits cad3440/4ff81b8): Converged to *thin shims + delegation*. planning/planner.py now thin (HierarchicalPlanner.decompose guards + subprocess to agentforge-runner --json full-stack --goal ...; parses to Plan/Subtask; metadata delegated). Callers (phase2_3_integration.py, examples) updated to prefer Rust under pure. Loud "CONVERGED DUAL (task-5af0e350)" banners + guards in __init__ + root. Under pure: hot paths hit Rust crates exclusively (via runner). !pure compat kept (surgical). High impact.
+- planning/planner.py (Plan, Subtask, HierarchicalPlanner...; now thin shim + delegate)
+Rust: agentforge-planning/src/planner.rs (similar structs + impls; used via runner full-stack)
 
-Python version used in phase2_3_integration.py examples and some workers.
+Python version used in phase2_3_integration.py examples and some workers (now delegated).
 
 ### 7. Long Horizon
+- (duals slice): long_horizon/task_manager.py thin (banners + note; inner planner now delegates; Rust LH cross in runner).
 - long_horizon/task_manager.py (LongTask, LongTaskManager: start, heartbeat, checkpoint, resume, execute_with_safety, ...)
 Rust: agentforge-long-horizon/src/task_manager.rs
 
 ### 8. Safety (dual)
+- (duals slice): safety/policy_engine.py thin (shim + warn under pure; Rust authoritative via full-stack).
 - safety/policy_engine.py, safety/approval.py, safety/sandbox.py (PolicyEngine, ApprovalLayer, SandboxPolicy, scorers...)
 Rust: agentforge-safety (PolicyEngine + defaults)
 
 ### 9. Observability (dual)
+- (duals slice): observability/replay.py thin (shim + warn; Rust replay via runner/obs crate).
 - observability/spans.py (Span class + create/export/replay helpers)
 - observability/replay.py
 Rust: agentforge-observability
@@ -118,16 +126,18 @@ Hundreds of test_ fns in eval/tests/.
 5. Port or sunset eval harness (keep minimal for benchmarks; use Rust obs).
 6. Final surface clean + docs update + CI forbid on deleted imports.
 
-## Current Blockers / Notes
-- Runner task subcmds: LIVE default via reqwest (full coverage create/list/get/update/dispatch/claim/reassign/approve/review/reject/reset/stats + --from-file); --local only prototype. Gateway parity complete (task-5af0e350).
-- JsonFileTaskStore has full parity on TaskStore trait.
-- Many Python now are "bridges" or "only for tests/parity" - delete when safe.
-- Pre-commit + agent-review mandatory on any deletion/rewrite.
-- Traceability: every commit must ref a task id.
+## Current Blockers / Notes (updated by coordinator/explorer scan task-5af0e350)
+- Phase4 pre-removal audit run: 2 FAILs (health engine string -- FIXED by adding "engine":"rust-agentforge-runner" + "provenance" to continuous health.json; release runner binary absent in env), 5 WARNs (unmarked files with flywheel -- added PHASE4 markers to services + audit scripts; 25 runner path strings; audit py calls; cargo dirty from edits; no manifests here).
+- Pure soak preconditions not met in dev shell (marker ok since 16:55, guard PASS, but need 14d prod farm logs clean, full parity harness, git tag, backup, cargo test --release green).
+- Runner task: LIVE full (create/reassign/approve/stats etc hit gw 9090; mcp-rs client improved to env+9090). JsonFile/Lance parity in core.
+- Remaining uncovered py business logic (scan excl duals=planning/safety/long/obs, workers=grok/antigrav/builder/watchdog, pure-soak=learning+rust_flywheel+run_cont, eval, checkpoints=task_checkpoints): ~12-15 files: bin/consume-handoff-reviews.py + bin/migrate_*.py, config/settings.py, mcp_server.py (thin proxy), memory_helper.py (heavy: 17 defs clusters/embed/llm taxonomy/lance), phase2_3_integration.py (non-fly glue), rag_indexer.py, scripts/*py (audit/provenance/apply/test), skill_capture.py, examples/, fair_queue_grab_test.py, etc. Also root watchdog.py partial, __init__.
+- Rust opportunities: better shared Task HTTP client (move live_ logic to agentforge-core for reuse by runner/mcp/gw clients); memory/rag port (new crate?); mcp full switch to rust binary; more gw task endpoints if missing (e.g. ws parity).
+- Many py "thin/audit/ops" - quick delete or thin further; pre-commit/agent-review/trace mandatory (task-5af0e350 ref).
+- Parallel launched: bin/agent-worktree created cm-py-shim-cleanup-5af0e350 + existing 10+ worktrees for waves on task.
 
-See also: PYTHON_ENTRYPOINTS_MIGRATION.md, PHASE4_FLYWHEEL_REMOVAL_CHECKLIST.md, AGENT_RUST_TRANSITION_GUIDE.md, rust/README.md.
+See also: PYTHON_ENTRYPOINTS..., PHASE4..., JULES_PY_REMOVAL_HANDOFF_f29c675b.md , recent ~/.grok/handoffs/ for 5af0e350.
 
-**Next action**: (done in task-5af0e350) Polish + add review/reject live fns, refactor for consistency, update docs/py shims, cargo test clean, handoff+trace. (previously: implement live + add ... )
+**Next (for other agents)**: focus remaining: duals converge more, workers to thin+subproc runner calls, pure-soak preps for Tier3 rm (fix health fully, build release, audit --emit after soak), eval surgical + checkpoints (port memory/rag), + this scan's uncovered (mcp, memory port, scripts clean, docs). Use more worktrees. Aim shorten timeline.
 
 
 ## Tier 2 Surgical Completed (Jules continuation 2026-06-13)

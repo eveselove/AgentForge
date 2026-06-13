@@ -17,10 +17,11 @@
 #   Optional: --shadow when AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 for dual fidelity.
 # - Legacy ( ! pure ): still falls back (deprecated).
 # - Logs to logs/rust_flywheel_after_*.log
+# - task-5af0e350: ensures 100% "rust-agentforge-runner" provenance in logs/health/manifests.
 #
 # Enable permanently:
-#   - touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
-#   - or export AGENTFORGE_RUST_FLYWHEEL=1 in workers + source bin/rust_flywheel.env
+#   - touch .pure_rust_flywheel  (HARD DEFAULT)
+#   - or export AGENTFORGE_RUST_FLYWHEEL=1 + AGENTFORGE_PURE_RUST_FLYWHEEL=1 in workers + source bin/rust_flywheel.env
 #   - Workers will then call this after real post_process.
 #
 # Usage (manual test):

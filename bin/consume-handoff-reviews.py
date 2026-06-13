@@ -91,7 +91,13 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def log(msg: str, *, verbose: bool = False, log_file: Optional[Path] = None, force: bool = False) -> None:
+def log(
+    msg: str,
+    *,
+    verbose: bool = False,
+    log_file: Optional[Path] = None,
+    force: bool = False,
+) -> None:
     """Timestamped structured logging to stdout (and file if provided)."""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}"
@@ -103,7 +109,10 @@ def log(msg: str, *, verbose: bool = False, log_file: Optional[Path] = None, for
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
         except Exception as e:
-            print(f"[{ts}] [WARN] Could not write to log file {log_file}: {e}", file=sys.stderr)
+            print(
+                f"[{ts}] [WARN] Could not write to log file {log_file}: {e}",
+                file=sys.stderr,
+            )
 
 
 def is_approved(review_text: str) -> Tuple[bool, str, str]:
@@ -120,25 +129,37 @@ def is_approved(review_text: str) -> Tuple[bool, str, str]:
 
     # Strong blockers first
     for pat in BLOCK_PATTERNS:
-        if re.search(pat, last_lines, re.IGNORECASE) or re.search(pat, upper, re.IGNORECASE):
+        if re.search(pat, last_lines, re.IGNORECASE) or re.search(
+            pat, upper, re.IGNORECASE
+        ):
             return False, f"blocked by pattern '{pat}'", "BLOCKED"
 
     # Look for explicit positive signals in the verdict area (preferred)
     for pat in APPROVE_PATTERNS:
         if re.search(pat, last_lines, re.IGNORECASE | re.MULTILINE):
-            return True, f"matched verdict pattern '{pat}' in last {VERDICT_SCAN_LINES} lines", "APPROVE"
+            return (
+                True,
+                f"matched verdict pattern '{pat}' in last {VERDICT_SCAN_LINES} lines",
+                "APPROVE",
+            )
 
     # Fallback: explicit APPROVE anywhere near the end + zero bugs language
     if re.search(r"\*\*APPROVE\*\*", last_lines, re.IGNORECASE):
         return True, "explicit **APPROVE** near end of review", "APPROVE"
 
     # Very conservative fallback: "No BUGs" + "APPROVE" word somewhere prominent
-    bug_count_match = re.search(r"(Bugs|BUGs)\s*[:\-]?\s*(\d+)", review_text, re.IGNORECASE)
+    bug_count_match = re.search(
+        r"(Bugs|BUGs)\s*[:\-]?\s*(\d+)", review_text, re.IGNORECASE
+    )
     if bug_count_match and int(bug_count_match.group(2)) == 0:
         if "APPROVE" in upper[-2000:]:  # last ~2k chars
             return True, "zero bugs + APPROVE token present", "APPROVE_LIKELY"
 
-    return False, "no strong explicit APPROVE verdict found (conservative default)", "NEEDS_REVIEW"
+    return (
+        False,
+        "no strong explicit APPROVE verdict found (conservative default)",
+        "NEEDS_REVIEW",
+    )
 
 
 def load_metadata(handoff_dir: Path) -> Optional[Dict[str, Any]]:
@@ -153,7 +174,9 @@ def load_metadata(handoff_dir: Path) -> Optional[Dict[str, Any]]:
 
 def find_review_file(handoff_dir: Path) -> Optional[Path]:
     """Return the primary review file if present (prefers jules-review-*.md)."""
-    candidates = sorted(handoff_dir.glob("jules-review-*.md")) + sorted(handoff_dir.glob("*review*.md"))
+    candidates = sorted(handoff_dir.glob("jules-review-*.md")) + sorted(
+        handoff_dir.glob("*review*.md")
+    )
     for p in candidates:
         if p.is_file() and p.name != "REVIEW_INSTRUCTIONS.md":
             return p
@@ -182,7 +205,9 @@ def update_task_status(task_id: str, status: str, result: str, api_base: str) ->
         "result": result,
     }
     data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="PATCH")
+    req = urllib.request.Request(
+        url, data=data, headers={"Content-Type": "application/json"}, method="PATCH"
+    )
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             return 200 <= resp.status < 300
@@ -193,14 +218,18 @@ def update_task_status(task_id: str, status: str, result: str, api_base: str) ->
 def mark_consumed(handoff_dir: Path, info: Dict[str, Any]) -> None:
     marker = handoff_dir / CONSUMED_MARKER
     try:
-        marker.write_text(json.dumps(info, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        marker.write_text(
+            json.dumps(info, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
         # Make it obvious
         os.chmod(marker, 0o644)
     except Exception:
         pass  # best effort
 
 
-def already_consumed(handoff_dir: Path, task_result: Optional[str], handoff_id: str) -> bool:
+def already_consumed(
+    handoff_dir: Path, task_result: Optional[str], handoff_id: str
+) -> bool:
     if (handoff_dir / CONSUMED_MARKER).exists():
         return True
     if task_result and handoff_id in task_result:
@@ -314,7 +343,11 @@ def process_handoff(
         result["action"] = "would-advance"
         result["reason"] = f"DRY-RUN: would set status=done (was {current_status})"
         result["proposed_result_preview"] = new_result[:300] + "..."
-        log(f"  [DRY] {handoff_id} -> task {task_id} ({current_status} -> done) | {approve_reason}", verbose=verbose, log_file=log_file)
+        log(
+            f"  [DRY] {handoff_id} -> task {task_id} ({current_status} -> done) | {approve_reason}",
+            verbose=verbose,
+            log_file=log_file,
+        )
         return result
 
     # Real update
@@ -322,16 +355,23 @@ def process_handoff(
     if success:
         result["action"] = "advanced-to-done"
         result["reason"] = f"updated task {task_id} from {current_status} to done"
-        mark_consumed(handoff_dir, {
-            "handoff_id": handoff_id,
-            "task_id": task_id,
-            "approved": approved,
-            "verdict": verdict,
-            "processed_at": processed_at,
-            "review_file": str(review_file),
-            "consumer_version": "c48c5f56-v1",
-        })
-        log(f"  ✅ ADVANCED {handoff_id} -> task {task_id} (was {current_status})", verbose=verbose or True, log_file=log_file)
+        mark_consumed(
+            handoff_dir,
+            {
+                "handoff_id": handoff_id,
+                "task_id": task_id,
+                "approved": approved,
+                "verdict": verdict,
+                "processed_at": processed_at,
+                "review_file": str(review_file),
+                "consumer_version": "c48c5f56-v1",
+            },
+        )
+        log(
+            f"  ✅ ADVANCED {handoff_id} -> task {task_id} (was {current_status})",
+            verbose=verbose or True,
+            log_file=log_file,
+        )
     else:
         result["action"] = "update-failed"
         result["reason"] = f"PATCH to API failed for task {task_id}"
@@ -351,38 +391,87 @@ Examples:
   %(prog)s --apply  # process all clear approvals (use after dry-run inspection)
         """,
     )
-    parser.add_argument("--handoff-root", type=Path, default=DEFAULT_HANDOFF_ROOT,
-                        help="Root directory containing handoff subdirs (default: ~/.grok/handoffs)")
-    parser.add_argument("--api", default=DEFAULT_API_BASE,
-                        help="Task Queue API base (default: http://localhost:9090/tasks)")
-    parser.add_argument("--dry-run", action="store_true", default=True,
-                        help="Preview only, do not mutate tasks or write markers (DEFAULT)")
-    parser.add_argument("--apply", dest="dry_run", action="store_false",
-                        help="Actually perform PATCH updates and write .consumed markers (DANGEROUS - review dry-run first)")
-    parser.add_argument("--require-approve", action="store_true", default=True,
-                        help="Only advance tasks whose review passes the conservative APPROVE heuristic (DEFAULT)")
-    parser.add_argument("--all-reviewed", dest="require_approve", action="store_false",
-                        help="Process every handoff that has ANY review file (even REQUEST_CHANGES). Use only after manual inspection.")
-    parser.add_argument("--limit", type=int, default=0,
-                        help="Maximum number of handoffs to consider (0 = unlimited)")
-    parser.add_argument("--handoff-id", type=str, default="",
-                        help="Comma-separated list of specific handoff IDs to process (ignores limit/filter)")
-    parser.add_argument("--stats", action="store_true",
-                        help="Print summary counts only (reviews present, consumed, candidate approvals) and exit")
-    parser.add_argument("--list", action="store_true",
-                        help="List handoffs with review presence, approval verdict, linked task status")
-    parser.add_argument("--verbose", "-v", action="store_true",
-                        help="Extra logging of decisions and excerpts")
-    parser.add_argument("--log-file", type=Path, default=None,
-                        help=f"Append structured log (default: {LOG_FILE_DEFAULT} when --apply / not dry-run)")
-    parser.add_argument("--force", action="store_true",
-                        help="Skip some safety prompts (for automation)")
+    parser.add_argument(
+        "--handoff-root",
+        type=Path,
+        default=DEFAULT_HANDOFF_ROOT,
+        help="Root directory containing handoff subdirs (default: ~/.grok/handoffs)",
+    )
+    parser.add_argument(
+        "--api",
+        default=DEFAULT_API_BASE,
+        help="Task Queue API base (default: http://localhost:9090/tasks)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=True,
+        help="Preview only, do not mutate tasks or write markers (DEFAULT)",
+    )
+    parser.add_argument(
+        "--apply",
+        dest="dry_run",
+        action="store_false",
+        help="Actually perform PATCH updates and write .consumed markers (DANGEROUS - review dry-run first)",
+    )
+    parser.add_argument(
+        "--require-approve",
+        action="store_true",
+        default=True,
+        help="Only advance tasks whose review passes the conservative APPROVE heuristic (DEFAULT)",
+    )
+    parser.add_argument(
+        "--all-reviewed",
+        dest="require_approve",
+        action="store_false",
+        help="Process every handoff that has ANY review file (even REQUEST_CHANGES). Use only after manual inspection.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="Maximum number of handoffs to consider (0 = unlimited)",
+    )
+    parser.add_argument(
+        "--handoff-id",
+        type=str,
+        default="",
+        help="Comma-separated list of specific handoff IDs to process (ignores limit/filter)",
+    )
+    parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Print summary counts only (reviews present, consumed, candidate approvals) and exit",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List handoffs with review presence, approval verdict, linked task status",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Extra logging of decisions and excerpts",
+    )
+    parser.add_argument(
+        "--log-file",
+        type=Path,
+        default=None,
+        help=f"Append structured log (default: {LOG_FILE_DEFAULT} when --apply / not dry-run)",
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Skip some safety prompts (for automation)"
+    )
 
     args = parser.parse_args()
 
     log_file = args.log_file or (LOG_FILE_DEFAULT if (not args.dry_run) else None)
 
-    log(f"=== handoff-consumer starting (c48c5f56) dry_run={args.dry_run} require_approve={args.require_approve} ===", log_file=log_file)
+    log(
+        f"=== handoff-consumer starting (c48c5f56) dry_run={args.dry_run} require_approve={args.require_approve} ===",
+        log_file=log_file,
+    )
 
     root = args.handoff_root
     if not root.exists():
@@ -398,7 +487,7 @@ Examples:
         log(f"Restricted to specific handoffs: {wanted}", log_file=log_file)
 
     if args.limit > 0:
-        handoffs = handoffs[:args.limit]
+        handoffs = handoffs[: args.limit]
 
     # Stats mode - fast path
     if args.stats or args.list:
@@ -419,15 +508,21 @@ Examples:
             try:
                 txt = review.read_text(encoding="utf-8", errors="replace")
                 appr, reason, verdict = is_approved(txt)
-                if args.require_approve and not appr and not args.all_reviewed:  # note: --all-reviewed flips the flag
+                if (
+                    args.require_approve and not appr and not args.all_reviewed
+                ):  # note: --all-reviewed flips the flag
                     pass
                 by_verdict[verdict] = by_verdict.get(verdict, 0) + 1
                 if appr:
                     approved_count += 1
                 if args.list:
-                    task = get_task_via_api(task_id, args.api) if task_id != "?" else None
+                    task = (
+                        get_task_via_api(task_id, args.api) if task_id != "?" else None
+                    )
                     tstatus = task.get("status") if task else "?"
-                    print(f"  {h.name}: review={review.name} verdict={verdict} task={task_id}({tstatus}) approved={appr}")
+                    print(
+                        f"  {h.name}: review={review.name} verdict={verdict} task={task_id}({tstatus}) approved={appr}"
+                    )
             except Exception:
                 pass
 
@@ -468,12 +563,16 @@ Examples:
         time.sleep(0.05)
 
     mode = "DRY-RUN" if args.dry_run else "APPLY"
-    log(f"=== {mode} COMPLETE: processed={processed} would/adv={advanced} skipped={skipped} ===", force=True, log_file=log_file)
+    log(
+        f"=== {mode} COMPLETE: processed={processed} would/adv={advanced} skipped={skipped} ===",
+        force=True,
+        log_file=log_file,
+    )
     log(f"Log (if any): {log_file}", log_file=log_file)
 
     # Final progress note for the task itself (best-effort, non-fatal)
     try:
-        note = f"[handoff-consumer self-update] {mode} run at {now_iso()}: {advanced} tasks advanced/would-advance out of {processed} handoffs considered (root={root}). See bin/consume-handoff-reviews.py and this log."
+        _note = f"[handoff-consumer self-update] {mode} run at {now_iso()}: {advanced} tasks advanced/would-advance out of {processed} handoffs considered (root={root}). See bin/consume-handoff-reviews.py and this log."
         # We do not call update here on c48c5f56 to avoid side-effects unless explicitly --apply on the consumer itself.
     except Exception:
         pass

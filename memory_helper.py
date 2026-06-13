@@ -18,6 +18,8 @@ MODEL_NAME = "all-MiniLM-L6-v2"
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 _model = None
+
+
 def get_model():
     global _model
     if _model is None:
@@ -27,28 +29,39 @@ def get_model():
 
 # Optional heavy deps for clustering (HDBSCAN preferred)
 _hdbscan = None
+
+
 def _get_hdbscan():
     global _hdbscan
     if _hdbscan is not None:
         return _hdbscan
     try:
         import hdbscan as _h
+
         _hdbscan = _h
         return _hdbscan
     except ImportError:
-        print("[FailureCluster] hdbscan not found — attempting auto-install (may take time)...")
+        print(
+            "[FailureCluster] hdbscan not found — attempting auto-install (may take time)..."
+        )
         try:
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "install", "--user", "hdbscan"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=180,
             )
             import hdbscan as _h
+
             _hdbscan = _h
             print("[FailureCluster] ✅ hdbscan installed successfully")
             return _hdbscan
         except Exception as e:
-            print(f"[FailureCluster] ⚠️ Could not install hdbscan ({e}). Falling back to sklearn DBSCAN.")
+            print(
+                f"[FailureCluster] ⚠️ Could not install hdbscan ({e}). Falling back to sklearn DBSCAN."
+            )
             return None
+
 
 def save_task(task_id: str):
     """Сохранить выполненную задачу в LanceDB векторную память"""
@@ -57,38 +70,42 @@ def save_task(task_id: str):
         url = f"http://localhost:9090/tasks/{task_id}"
         req = urllib.request.urlopen(url)
         task = json.loads(req.read().decode("utf-8"))
-        
+
         if task.get("status") not in ("done", "review"):
-            print(f"[Memory] Задача {task_id} еще не завершена. Статус: {task.get('status')}")
+            print(
+                f"[Memory] Задача {task_id} еще не завершена. Статус: {task.get('status')}"
+            )
             return
-            
+
         title = task.get("title", "")
         desc = task.get("description", "")
         result = task.get("result", "")
-        
+
         if not title or not result:
             print("[Memory] Пропуск: пустое название или результат.")
             return
-            
+
         # Формируем текст для эмбеддинга
         text_to_embed = f"Задача: {title}\nОписание: {desc}"
-        
+
         # Получаем эмбеддинг
         model = get_model()
         vector = model.encode(text_to_embed).tolist()
-        
+
         # Подключаемся к LanceDB
         os.makedirs(DB_PATH, exist_ok=True)
         db = lancedb.connect(DB_PATH)
-        
-        data = [{
-            "id": task_id,
-            "title": title,
-            "description": desc,
-            "result": result,
-            "vector": vector
-        }]
-        
+
+        data = [
+            {
+                "id": task_id,
+                "title": title,
+                "description": desc,
+                "result": result,
+                "vector": vector,
+            }
+        ]
+
         if TABLE_NAME in db.table_names():
             table = db.open_table(TABLE_NAME)
             # Избегаем дубликатов по id
@@ -98,9 +115,10 @@ def save_task(task_id: str):
         else:
             table = db.create_table(TABLE_NAME, data=data)
             print(f"[Memory] ✅ Создана векторная таблица и добавлена задача {task_id}")
-            
+
     except Exception as e:
         print(f"[Memory] ❌ Ошибка сохранения задачи: {e}")
+
 
 def search_tasks(query: str, limit: int = 2):
     """Поиск похожих задач в памяти и вывод их результатов в формате RAG контекста"""
@@ -108,22 +126,22 @@ def search_tasks(query: str, limit: int = 2):
         db = lancedb.connect(DB_PATH)
         if TABLE_NAME not in db.table_names():
             return ""
-            
+
         table = db.open_table(TABLE_NAME)
         model = get_model()
         query_vector = model.encode(query).tolist()
-        
+
         # Векторный поиск
         results = table.search(query_vector).limit(limit).to_list()
-        
+
         if not results:
             return ""
-            
+
         context_parts = ["\n=== НАЙДЕННЫЙ ОПЫТ ИЗ ПРОШЛЫХ РЕШЕНИЙ ==="]
         for r in results:
             # LanceDB возвращает дистанцию _distance (меньше = ближе)
             dist = r.get("_distance", 1.0)
-            if dist > 1.2: # Отсекаем слишком далекие результаты
+            if dist > 1.2:  # Отсекаем слишком далекие результаты
                 continue
             context_parts.append(
                 f"Задача: {r['title']}\n"
@@ -131,19 +149,19 @@ def search_tasks(query: str, limit: int = 2):
                 f"Как было решено: {r['result']}\n"
                 f"---"
             )
-            
+
         if len(context_parts) > 1:
             return "\n".join(context_parts)
-            
+
     except Exception as e:
         print(f"[Memory] ❌ Ошибка поиска в памяти: {e}", file=sys.stderr)
-        
+
     return ""
 
 
 # =============================================================================
 # Automated Failure Clustering: таксономия ошибок агентов
-# Pipeline: failed trajectories → embed (sentence-transformers) → HDBSCAN → 
+# Pipeline: failed trajectories → embed (sentence-transformers) → HDBSCAN →
 #           generate failure mode descriptions → update taxonomy (for prompt/skill fixes)
 # =============================================================================
 
@@ -213,17 +231,19 @@ def collect_failed_trajectories(limit: int | None = None) -> list[dict]:
             f"--- END ---"
         )
 
-        trajectories.append({
-            "id": tid,
-            "title": title,
-            "description": desc,
-            "result": result,
-            "assigned_agent": agent,
-            "skill": skill,
-            "log_excerpt": log_ex[:800],
-            "text_for_embed": failure_text,
-            "updated_at": t.get("updated_at", ""),
-        })
+        trajectories.append(
+            {
+                "id": tid,
+                "title": title,
+                "description": desc,
+                "result": result,
+                "assigned_agent": agent,
+                "skill": skill,
+                "log_excerpt": log_ex[:800],
+                "text_for_embed": failure_text,
+                "updated_at": t.get("updated_at", ""),
+            }
+        )
 
     print(f"[FailureCluster] Собрано {len(trajectories)} failed траекторий")
     return trajectories
@@ -244,9 +264,26 @@ def _heuristic_failure_mode(members: list[dict]) -> dict:
 
     # Частые типы ошибок из CI
     error_types = []
-    for et in ["clippy_fail", "test_fail", "build_fail", "pytest_fail", "skill_ci_fail",
-               "timeout", "download", "ssl", "network", "cuda", "permission", "import",
-               "assertion", "expected", "cargo", "rustc", "E0", "panic"]:
+    for et in [
+        "clippy_fail",
+        "test_fail",
+        "build_fail",
+        "pytest_fail",
+        "skill_ci_fail",
+        "timeout",
+        "download",
+        "ssl",
+        "network",
+        "cuda",
+        "permission",
+        "import",
+        "assertion",
+        "expected",
+        "cargo",
+        "rustc",
+        "E0",
+        "panic",
+    ]:
         if et in results or et in all_text:
             error_types.append(et)
 
@@ -259,7 +296,16 @@ def _heuristic_failure_mode(members: list[dict]) -> dict:
 
     # Ключевые симптомы (простой частотный)
     symptoms = []
-    for kw in ["fail", "error", "cannot", "no such", "missing", "timeout", "refused", "denied"]:
+    for kw in [
+        "fail",
+        "error",
+        "cannot",
+        "no such",
+        "missing",
+        "timeout",
+        "refused",
+        "denied",
+    ]:
         if kw in all_text:
             symptoms.append(kw)
 
@@ -308,11 +354,15 @@ def _llm_describe_cluster(members: list[dict]) -> dict | None:
         # Non-interactive, time bounded call via grok CLI
         proc = subprocess.run(
             ["grok", "--always-approve", "-p", prompt],
-            capture_output=True, text=True, timeout=90, cwd="/tmp"
+            capture_output=True,
+            text=True,
+            timeout=90,
+            cwd="/tmp",
         )
         out = (proc.stdout or "") + (proc.stderr or "")
         # Ищем JSON блок
         import re
+
         m = re.search(r'\{[\s\S]*?"short_name"[\s\S]*?\}', out)
         if m:
             data = json.loads(m.group(0))
@@ -322,7 +372,9 @@ def _llm_describe_cluster(members: list[dict]) -> dict | None:
                 "description": str(data.get("description", ""))[:300],
                 "symptoms": data.get("symptoms", [])[:6],
                 "suggested_prompt_fix": str(data.get("suggested_prompt_fix", ""))[:400],
-                "suggested_skill_change": str(data.get("suggested_skill_change", ""))[:300],
+                "suggested_skill_change": str(data.get("suggested_skill_change", ""))[
+                    :300
+                ],
                 "count": len(members),
             }
     except Exception as e:
@@ -359,7 +411,7 @@ def _load_taxonomy() -> dict:
         "last_updated": _now_iso(),
         "total_failures_analyzed": 0,
         "failure_modes": [],
-        "notes": "Auto-generated by AgentForge Failure Clustering. Used to drive targeted prompt & skill improvements."
+        "notes": "Auto-generated by AgentForge Failure Clustering. Used to drive targeted prompt & skill improvements.",
     }
 
 
@@ -383,16 +435,18 @@ def persist_failures_to_lance(trajectories: list[dict]):
         data = []
         for t in trajectories:
             vec = model.encode(t["text_for_embed"]).tolist()
-            data.append({
-                "id": t["id"],
-                "title": t["title"],
-                "result": t["result"],
-                "assigned_agent": t.get("assigned_agent", ""),
-                "skill": t.get("skill", ""),
-                "failure_text": t["text_for_embed"][:2000],
-                "vector": vec,
-                "updated_at": t.get("updated_at", _now_iso()),
-            })
+            data.append(
+                {
+                    "id": t["id"],
+                    "title": t["title"],
+                    "result": t["result"],
+                    "assigned_agent": t.get("assigned_agent", ""),
+                    "skill": t.get("skill", ""),
+                    "failure_text": t["text_for_embed"][:2000],
+                    "vector": vec,
+                    "updated_at": t.get("updated_at", _now_iso()),
+                }
+            )
 
         if FAILURE_TABLE in db.table_names():
             tbl = db.open_table(FAILURE_TABLE)
@@ -401,7 +455,9 @@ def persist_failures_to_lance(trajectories: list[dict]):
             tbl.add(data)
         else:
             db.create_table(FAILURE_TABLE, data=data)
-        print(f"[FailureCluster] Persisted {len(data)} failures to LanceDB::{FAILURE_TABLE}")
+        print(
+            f"[FailureCluster] Persisted {len(data)} failures to LanceDB::{FAILURE_TABLE}"
+        )
     except Exception as e:
         print(f"[FailureCluster] Lance persist error: {e}")
 
@@ -412,11 +468,11 @@ def save_failure(task_id: str):
         url = f"http://localhost:9090/tasks/{task_id}"
         req = urllib.request.urlopen(url, timeout=10)
         task = json.loads(req.read().decode("utf-8"))
-        
+
         if task.get("status") != "failed":
             print(f"[Failure] {task_id} not in failed status")
             return
-            
+
         # Reuse the collector logic for single item
         trajs = collect_failed_trajectories()  # lightweight enough
         this = [t for t in trajs if t["id"] == task_id]
@@ -429,7 +485,9 @@ def save_failure(task_id: str):
         print(f"[Failure] save_failure error: {e}")
 
 
-def cluster_failures(min_cluster_size: int = 2, use_llm: bool = True, limit: int | None = None) -> dict:
+def cluster_failures(
+    min_cluster_size: int = 2, use_llm: bool = True, limit: int | None = None
+) -> dict:
     """
     Полный pipeline кластеринга failure modes.
     1. Собрать траектории
@@ -452,6 +510,7 @@ def cluster_failures(min_cluster_size: int = 2, use_llm: bool = True, limit: int
     if n_samples > 6 and embeddings.shape[1] > 32:
         try:
             from sklearn.decomposition import PCA
+
             n_comp = min(30, n_samples - 1, embeddings.shape[1] - 1)
             embeddings = PCA(n_components=n_comp).fit_transform(embeddings)
         except Exception:
@@ -476,10 +535,13 @@ def cluster_failures(min_cluster_size: int = 2, use_llm: bool = True, limit: int
         # sklearn DBSCAN fallback (cosine-friendly via precomputed or normed)
         from sklearn.cluster import DBSCAN
         from sklearn.metrics.pairwise import cosine_distances
+
         # Use cosine distance for embeddings
         dists = cosine_distances(embeddings)
         eps = 0.65  # tuned for sentence embeddings
-        clustering = DBSCAN(eps=eps, min_samples=max(1, min_cluster_size), metric="precomputed")
+        clustering = DBSCAN(
+            eps=eps, min_samples=max(1, min_cluster_size), metric="precomputed"
+        )
         labels = clustering.fit_predict(dists)
 
     # Group members (include noise as potential singletons if very few total)
@@ -516,12 +578,20 @@ def cluster_failures(min_cluster_size: int = 2, use_llm: bool = True, limit: int
         key = new_mode["short_name"]
         if key in existing:
             # refresh count + suggestions
-            existing[key].update({
-                "count": existing[key].get("count", 0) + new_mode.get("count", 0),
-                "task_ids": list(set(existing[key].get("task_ids", []) + new_mode.get("task_ids", []))),
-                "suggested_prompt_fix": new_mode.get("suggested_prompt_fix") or existing[key].get("suggested_prompt_fix"),
-                "updated_at": new_mode["updated_at"],
-            })
+            existing[key].update(
+                {
+                    "count": existing[key].get("count", 0) + new_mode.get("count", 0),
+                    "task_ids": list(
+                        set(
+                            existing[key].get("task_ids", [])
+                            + new_mode.get("task_ids", [])
+                        )
+                    ),
+                    "suggested_prompt_fix": new_mode.get("suggested_prompt_fix")
+                    or existing[key].get("suggested_prompt_fix"),
+                    "updated_at": new_mode["updated_at"],
+                }
+            )
         else:
             existing[key] = new_mode
 
@@ -532,7 +602,9 @@ def cluster_failures(min_cluster_size: int = 2, use_llm: bool = True, limit: int
     return {
         "status": "ok",
         "num_failures": len(traj),
-        "num_clusters": len([m for m in failure_modes if m.get("cluster_id", -1) != -1]),
+        "num_clusters": len(
+            [m for m in failure_modes if m.get("cluster_id", -1) != -1]
+        ),
         "num_outliers": len([m for m in failure_modes if m.get("cluster_id", 0) == -1]),
         "failure_modes": failure_modes,
         "taxonomy_path": TAXONOMY_PATH,
@@ -547,7 +619,9 @@ def get_failure_taxonomy() -> dict:
         db = lancedb.connect(DB_PATH)
         if FAILURE_TABLE in db.table_names():
             tbl = db.open_table(FAILURE_TABLE)
-            tax["lance_failure_count"] = tbl.count_rows() if hasattr(tbl, "count_rows") else len(tbl.to_list())
+            tax["lance_failure_count"] = (
+                tbl.count_rows() if hasattr(tbl, "count_rows") else len(tbl.to_list())
+            )
     except Exception:
         pass
     return tax
@@ -555,11 +629,13 @@ def get_failure_taxonomy() -> dict:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: memory_helper.py <save|search|save-failure|cluster-failures|show-taxonomy> [arg]")
+        print(
+            "Usage: memory_helper.py <save|search|save-failure|cluster-failures|show-taxonomy> [arg]"
+        )
         sys.exit(1)
-        
+
     cmd = sys.argv[1]
-    
+
     if cmd == "save" and len(sys.argv) >= 3:
         save_task(sys.argv[2])
     elif cmd == "search" and len(sys.argv) >= 3:
@@ -567,7 +643,9 @@ if __name__ == "__main__":
     elif cmd == "save-failure" and len(sys.argv) >= 3:
         save_failure(sys.argv[2])
     elif cmd == "cluster-failures":
-        limit = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else None
+        limit = (
+            int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else None
+        )
         report = cluster_failures(min_cluster_size=2, use_llm=True, limit=limit)
         print(json.dumps(report, ensure_ascii=False, indent=2))
     elif cmd == "show-taxonomy":

@@ -52,40 +52,30 @@ scaffolding — it is already composable, observable, safe, and learning-ready.
 
 from __future__ import annotations
 
-import os
 import time
-import uuid
-import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
-
-import warnings
+from typing import Any, Dict, List, Optional
 
 # PHASE 3/4: ONLY use the EVEN STRONGER central hardened guards (no local duplication)
 # from learning/utils.py (expanded disables + pure signals + Phase 4 prep)
 try:
     from agentforge.learning.utils import (
-        is_pure_rust_flywheel,
-        is_rust_flywheel_disabled,
         get_rust_runner_path,
     )
 except Exception:
     try:
         from learning.utils import (
-            is_pure_rust_flywheel,
-            is_rust_flywheel_disabled,
             get_rust_runner_path,
         )  # fallback for -m / direct
     except Exception:
-        from learning.utils import is_pure_rust_flywheel, is_rust_flywheel_disabled  # fallback
         get_rust_runner_path = None  # type: ignore
 
 # === Phase 2/3 modules (the new foundations) ===
 from agentforge.planning import HierarchicalPlanner, Plan, Subtask
 from agentforge.safety import PolicyEngine, ActionDecision, Decision
-from agentforge.long_horizon import LongTaskManager, LongTask
+from agentforge.long_horizon import LongTaskManager
 from agentforge.observability import (
     create_spans_from_trajectory,
     summarize_spans,
@@ -97,19 +87,20 @@ from agentforge.observability import (
 from agentforge.learning.trajectory_dataset import TrajectoryDataset
 
 # === Existing world-class eval + runner + PRM stack (Phase 0/1) ===
-from agentforge.eval.runner import run_benchmark_task, post_process_run
+from agentforge.eval.runner import run_benchmark_task
 from agentforge.eval.prm import ProcessRewardModel
-from agentforge.eval.trajectory import load_trajectory, find_trajectory_file
+from agentforge.eval.trajectory import load_trajectory
 from agentforge.eval.schemas import BenchmarkTask
-
 
 # ---------------------------------------------------------------------------
 # Core Orchestrator — the living proof of composition
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Phase23Result:
     """Rich result object returned by the high-level integration APIs."""
+
     goal: str
     long_task_id: str
     plan: Plan
@@ -194,11 +185,15 @@ class Phase23Orchestrator:
         )
         print(f"\n[Phase23] ▶ Starting long-horizon task {long_task.id}")
         print(f"[Phase23]    Goal: {goal}")
-        print(f"[Phase23]    Agent: {self.agent} | Safety={'on' if self.enable_safety else 'off'} | PRM=auto")
+        print(
+            f"[Phase23]    Agent: {self.agent} | Safety={'on' if self.enable_safety else 'off'} | PRM=auto"
+        )
 
         # 1. Planning (Phase 3)
         with start_as_current_span("phase23.planning.decompose") as plan_span:
-            plan = self.planner.decompose(goal, context={"agent": self.agent, "task_id": long_task.id})
+            plan = self.planner.decompose(
+                goal, context={"agent": self.agent, "task_id": long_task.id}
+            )
             plan_span.set_attribute("num_subtasks", len(plan.subtasks))
             plan_span.end("ok")
 
@@ -214,7 +209,9 @@ class Phase23Orchestrator:
         # 2. Execution loop with safety + long-horizon + observability (the magic composition)
         exec_order = self.planner.get_execution_order(plan)
 
-        with start_as_current_span("phase23.long_horizon.execution", parent=None) as root_span:
+        with start_as_current_span(
+            "phase23.long_horizon.execution", parent=None
+        ) as root_span:
             root_span.set_attribute("long_task_id", long_task.id)
             root_span.set_attribute("goal", goal)
 
@@ -229,28 +226,42 @@ class Phase23Orchestrator:
                 decision = self.policy_engine.evaluate("subtask_execution", ctx)
 
                 if decision.decision in (Decision.BLOCK,):
-                    print(f"[Safety] BLOCKED subtask {subtask.id}: {subtask.description} — {decision.reason}")
+                    print(
+                        f"[Safety] BLOCKED subtask {subtask.id}: {subtask.description} — {decision.reason}"
+                    )
                     safety_blocks += 1
                     subtask.status = "blocked"
-                    simulated_events.append({
-                        "type": "safety_block",
-                        "data": {"subtask": subtask.id, "reason": decision.reason}
-                    })
+                    simulated_events.append(
+                        {
+                            "type": "safety_block",
+                            "data": {"subtask": subtask.id, "reason": decision.reason},
+                        }
+                    )
                     continue
                 if decision.decision == Decision.REQUIRE_APPROVAL:
-                    print(f"[Safety] REQUIRE_APPROVAL: {subtask.description} — {decision.reason}")
+                    print(
+                        f"[Safety] REQUIRE_APPROVAL: {subtask.description} — {decision.reason}"
+                    )
                     # In real system this would pause + HITL; here we proceed with note for demo
-                    simulated_events.append({
-                        "type": "safety_approval_requested",
-                        "data": {"subtask": subtask.id, "reason": decision.reason}
-                    })
+                    simulated_events.append(
+                        {
+                            "type": "safety_approval_requested",
+                            "data": {"subtask": subtask.id, "reason": decision.reason},
+                        }
+                    )
 
-                print(f"[Phase23] Executing [{idx+1}/{len(exec_order)}]: {subtask.description[:70]}...")
+                print(
+                    f"[Phase23] Executing [{idx+1}/{len(exec_order)}]: {subtask.description[:70]}..."
+                )
 
                 # Checkpoint before work (long horizon superpower — current API)
                 self.task_manager.checkpoint(
                     long_task.id,
-                    {"phase": "pre_subtask", "subtask_id": subtask.id, "plan_progress": f"{idx}/{len(exec_order)}"},
+                    {
+                        "phase": "pre_subtask",
+                        "subtask_id": subtask.id,
+                        "plan_progress": f"{idx}/{len(exec_order)}",
+                    },
                     message=f"pre {subtask.id}",
                 )
 
@@ -269,27 +280,41 @@ class Phase23Orchestrator:
                                 wait=wait_for_real,
                                 timeout_minutes=timeout_minutes,
                             )
-                            sub_result = {"real_task_id": eval_res.real_task_id, "outcome": eval_res.outcome.value}
+                            sub_result = {
+                                "real_task_id": eval_res.real_task_id,
+                                "outcome": eval_res.outcome.value,
+                            }
                             if eval_res.trajectory_path:
-                                simulated_events.append({
-                                    "type": "real_eval_run",
-                                    "data": {"benchmark": benchmark_id, "real_id": eval_res.real_task_id}
-                                })
+                                simulated_events.append(
+                                    {
+                                        "type": "real_eval_run",
+                                        "data": {
+                                            "benchmark": benchmark_id,
+                                            "real_id": eval_res.real_task_id,
+                                        },
+                                    }
+                                )
                     else:
                         # High-fidelity simulation that still produces artifacts consumable by
                         # load_trajectory / PRM / create_spans_from_trajectory / learning dataset
                         time.sleep(0.08)
                         sub_result = self._rich_simulated_step(subtask, idx)
-                        simulated_events.append({
-                            "type": "llm_call" if "implement" in subtask.description.lower() else "tool_call",
-                            "data": {
-                                "subtask": subtask.id,
-                                "description": subtask.description,
-                                "result": str(sub_result)[:200],
-                                "tokens_out": 420 + idx * 17,
-                                "duration_ms": 850 + idx * 40,
+                        simulated_events.append(
+                            {
+                                "type": (
+                                    "llm_call"
+                                    if "implement" in subtask.description.lower()
+                                    else "tool_call"
+                                ),
+                                "data": {
+                                    "subtask": subtask.id,
+                                    "description": subtask.description,
+                                    "result": str(sub_result)[:200],
+                                    "tokens_out": 420 + idx * 17,
+                                    "duration_ms": 850 + idx * 40,
+                                },
                             }
-                        })
+                        )
 
                     subtask.result = sub_result
                     subtask.status = "done"
@@ -297,13 +322,22 @@ class Phase23Orchestrator:
                 except Exception as e:
                     subtask.status = "failed"
                     subtask.result = str(e)
-                    simulated_events.append({"type": "error", "data": {"subtask": subtask.id, "error": str(e)}})
+                    simulated_events.append(
+                        {
+                            "type": "error",
+                            "data": {"subtask": subtask.id, "error": str(e)},
+                        }
+                    )
                     root_span.set_attribute("error", str(e)[:300])
 
                 # Post-subtask checkpoint
                 self.task_manager.checkpoint(
                     long_task.id,
-                    {"phase": "post_subtask", "subtask_id": subtask.id, "status": subtask.status},
+                    {
+                        "phase": "post_subtask",
+                        "subtask_id": subtask.id,
+                        "status": subtask.status,
+                    },
                     message=f"post {subtask.id}",
                 )
 
@@ -323,7 +357,8 @@ class Phase23Orchestrator:
                 "task_id": long_task.id,
                 "agent": self.agent,
                 "outcome": "success" if safety_blocks < 2 else "partial",
-                "events": simulated_events or [{"type": "task_start", "data": {"goal": goal}}],
+                "events": simulated_events
+                or [{"type": "task_start", "data": {"goal": goal}}],
                 "duration_seconds": round(duration, 2),
             }
             try:
@@ -343,11 +378,15 @@ class Phase23Orchestrator:
                     ],
                 }
                 # Now the magic: turn it into real Spans with per-step PRM attached
-                spans = create_spans_from_trajectory(fake_traj, include_prm=True)  # works on dict too via replay
+                spans = create_spans_from_trajectory(
+                    fake_traj, include_prm=True
+                )  # works on dict too via replay
                 spans_summary = summarize_spans(spans)
 
                 if export_spans:
-                    export_path = Path(f"/tmp/agentforge/phase23_spans_{long_task.id}.json")
+                    export_path = Path(
+                        f"/tmp/agentforge/phase23_spans_{long_task.id}.json"
+                    )
                     export_spans_to_json(spans, export_path, include_otel_wrapper=True)
                     long_task.metadata["spans_export"] = str(export_path)
 
@@ -357,6 +396,7 @@ class Phase23Orchestrator:
                 traj_path = traj_dir / f"{long_task.id}_phase23.jsonl"
                 # Write minimal jsonl that load_trajectory understands
                 import json as _json
+
                 with open(traj_path, "w") as f:
                     f.write(_json.dumps(fake_traj) + "\n")
                 long_task.metadata["synthetic_trajectory"] = str(traj_path)
@@ -374,8 +414,14 @@ class Phase23Orchestrator:
             ds = TrajectoryDataset(name=f"phase23_{long_task.id[:6]}")
             if traj_path and traj_path.exists():
                 ds.add_from_trajectory(
-                    trajectory=fake_traj if 'fake_traj' in locals() else load_trajectory(str(traj_path), include_prm=True),
-                    prm_result=fake_traj.get("prm_result") if 'fake_traj' in locals() else None,
+                    trajectory=(
+                        fake_traj
+                        if "fake_traj" in locals()
+                        else load_trajectory(str(traj_path), include_prm=True)
+                    ),
+                    prm_result=(
+                        fake_traj.get("prm_result") if "fake_traj" in locals() else None
+                    ),
                     benchmark_id=benchmark_id,
                 )
                 learning_records = len(ds.records)
@@ -401,7 +447,9 @@ class Phase23Orchestrator:
             },
         )
 
-        print(f"[Phase23] ✓ Completed in {duration:.1f}s | PRM={prm_overall} | Safety blocks={safety_blocks} | Learning records ready: {learning_records}")
+        print(
+            f"[Phase23] ✓ Completed in {duration:.1f}s | PRM={prm_overall} | Safety blocks={safety_blocks} | Learning records ready: {learning_records}"
+        )
         return result
 
     def _rich_simulated_step(self, subtask: Subtask, idx: int) -> Dict[str, Any]:
@@ -417,6 +465,7 @@ class Phase23Orchestrator:
     def _load_benchmark_safely(self, benchmark_id: str) -> Optional[BenchmarkTask]:
         try:
             from agentforge.eval.cli import EXAMPLES_DIR
+
             path = EXAMPLES_DIR / f"{benchmark_id}.json"
             if not path.exists():
                 path = EXAMPLES_DIR / f"{benchmark_id.replace('-', '_')}.json"
@@ -430,6 +479,7 @@ class Phase23Orchestrator:
 # ---------------------------------------------------------------------------
 # Stand-alone high-value convenience functions (the public API surface)
 # ---------------------------------------------------------------------------
+
 
 def run_long_task_with_planning_safety_and_prm_logging(
     goal: str,
@@ -485,7 +535,9 @@ def auto_capture_learning_dataset(
     # Further filter if caller wants hard cap
     if len(ds.records) > limit:
         ds.records = ds.records[:limit]
-    print(f"[Phase23] Learning dataset ready: {len(ds.records)} high-value records (min_prm={min_prm})")
+    print(
+        f"[Phase23] Learning dataset ready: {len(ds.records)} high-value records (min_prm={min_prm})"
+    )
     return ds
 
 
@@ -494,7 +546,9 @@ def instrument_any_trajectory(task_or_path: str, export: bool = True) -> Dict[st
     Given a real or synthetic task_id / path, produce full spans + PRM + summary.
     Uses the canonical create_spans_from_trajectory bridge.
     """
-    spans = create_spans_from_trajectory(task_or_path, include_prm=True, export_json=export)
+    spans = create_spans_from_trajectory(
+        task_or_path, include_prm=True, export_json=export
+    )
     summary = summarize_spans(spans)
     return {
         "spans_count": len(spans),
@@ -520,7 +574,9 @@ if __name__ == "__main__":
     print(f"PRM:      {res.prm_overall}")
     print(f"Safety blocks: {res.safety_blocks}")
     if res.spans_summary:
-        print(f"Spans:    {res.spans_summary.get('total_spans')} spans | avg_prm={res.spans_summary.get('avg_prm')}")
+        print(
+            f"Spans:    {res.spans_summary.get('total_spans')} spans | avg_prm={res.spans_summary.get('avg_prm')}"
+        )
     print(f"Learning ready records: {res.learning_dataset_records}")
     print("\nIntegration layer is live and composing all modules successfully.")
 
@@ -530,5 +586,3 @@ if __name__ == "__main__":
 # =============================================================================
 
 # run_rust_flywheel_step EXCISED (Tier 2, Jules continuation 2026-06-13)
-
-

@@ -12,12 +12,11 @@ import json
 import os
 import signal
 import subprocess
-import sys
 import time
 import urllib.request
 import urllib.error
-from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 # === Конфигурация (загружается из файла или дефолты) ===
 DEFAULT_CONFIG = {
@@ -32,6 +31,7 @@ DEFAULT_CONFIG = {
     "fallback_model": "grok-3",
     "agent_id": "antigravity",
 }
+
 
 def load_config():
     """Загрузка конфигурации из JSON файла или дефолты"""
@@ -49,6 +49,7 @@ def load_config():
             log(f"\u26a0\ufe0f Ошибка загрузки конфига: {e}")
     return config
 
+
 CFG = load_config()
 API_BASE = CFG["api_base"]
 POLL_INTERVAL = CFG["poll_interval"]
@@ -65,10 +66,13 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 # Graceful shutdown
 _shutdown = False
+
+
 def _handle_signal(signum, frame):
     global _shutdown
     _shutdown = True
     log("\u23f9\ufe0f Получен сигнал остановки, завершаю текущие задачи...")
+
 
 signal.signal(signal.SIGTERM, _handle_signal)
 signal.signal(signal.SIGINT, _handle_signal)
@@ -131,7 +135,7 @@ def get_tasks_for_antigravity():
             except Exception:
                 tags = []
         tags_lower = [str(tg).lower() for tg in tags]
-        
+
         if "build" in tags_lower or "compile" in tags_lower:
             continue
 
@@ -178,21 +182,37 @@ def execute_task(task):
     grok_flags = ["--always-approve"]
 
     # Обновляем статус → in_progress
-    api_request("PATCH", f"/tasks/{task_id}", {
-        "status": "in_progress",
-        "assigned_agent": AGENT_ID,
-    })
+    api_request(
+        "PATCH",
+        f"/tasks/{task_id}",
+        {
+            "status": "in_progress",
+            "assigned_agent": AGENT_ID,
+        },
+    )
 
     start_time = time.time()
 
     GROK_BIN = CFG["grok_bin"]
-    
+
     # Создаем изолированный git worktree
     branch_name = f"agentforge/{task_id}"
-    worktree_dir = os.path.join(os.path.dirname(PROJECT_DIR), f"planlytasksko_{task_id}")
+    worktree_dir = os.path.join(
+        os.path.dirname(PROJECT_DIR), f"planlytasksko_{task_id}"
+    )
     try:
-        subprocess.run(["git", "branch", branch_name], cwd=PROJECT_DIR, check=False, capture_output=True)
-        subprocess.run(["git", "worktree", "add", worktree_dir, branch_name], cwd=PROJECT_DIR, check=False, capture_output=True)
+        subprocess.run(
+            ["git", "branch", branch_name],
+            cwd=PROJECT_DIR,
+            check=False,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "worktree", "add", worktree_dir, branch_name],
+            cwd=PROJECT_DIR,
+            check=False,
+            capture_output=True,
+        )
         log(f"🌿 Создан worktree {worktree_dir} (ветка {branch_name})")
     except Exception as e:
         log(f"⚠️ Ошибка создания worktree: {e}")
@@ -200,7 +220,9 @@ def execute_task(task):
 
     # Запускаем Grok CLI с выбранной моделью
     cmd = [GROK_BIN, *grok_flags, "--cwd", worktree_dir, "-p", prompt]
-    log(f"⚡ Antigravity запуск: {task_id} (model={model}, priority={priority}) в {worktree_dir}")
+    log(
+        f"⚡ Antigravity запуск: {task_id} (model={model}, priority={priority}) в {worktree_dir}"
+    )
 
     try:
         with open(task_log, "w") as logf:
@@ -223,11 +245,15 @@ def execute_task(task):
         log(f"\u23f1\ufe0f Таймаут задачи {task_id} ({TASK_TIMEOUT}s)")
     except Exception as e:
         log(f"\u274c Ошибка запуска задачи {task_id}: {e}")
-        api_request("PATCH", f"/tasks/{task_id}", {
-            "status": "failed",
-            "result": f"AntigravityWorker: ошибка запуска — {str(e)[:200]}",
-            "assigned_agent": AGENT_ID,
-        })
+        api_request(
+            "PATCH",
+            f"/tasks/{task_id}",
+            {
+                "status": "failed",
+                "result": f"AntigravityWorker: ошибка запуска — {str(e)[:200]}",
+                "assigned_agent": AGENT_ID,
+            },
+        )
         return
 
     duration = time.time() - start_time
@@ -244,14 +270,18 @@ def execute_task(task):
         result = f"AntigravityWorker: {int(duration)}s (model={model}) \u2705"
 
     # Обновляем задачу
-    api_request("PATCH", f"/tasks/{task_id}", {
-        "status": status,
-        "result": result,
-        "assigned_agent": AGENT_ID,
-        "duration_seconds": round(duration, 1),
-    })
+    api_request(
+        "PATCH",
+        f"/tasks/{task_id}",
+        {
+            "status": status,
+            "result": result,
+            "assigned_agent": AGENT_ID,
+            "duration_seconds": round(duration, 1),
+        },
+    )
 
-    icon = '\u2705' if status == 'review' else '\u274c'
+    icon = "\u2705" if status == "review" else "\u274c"
     log(f"{icon} {task_id}: {result}")
 
     # Guardian auto-review для успешных
@@ -268,7 +298,7 @@ def execute_task(task):
 
 def main():
     """Главный цикл воркера с ThreadPoolExecutor"""
-    log(f"\U0001f680 Antigravity Worker запущен")
+    log("\U0001f680 Antigravity Worker запущен")
     log(f"   API: {API_BASE}")
     log(f"   Параллельность: {MAX_PARALLEL}")
     log(f"   Таймаут: {TASK_TIMEOUT}s")
@@ -302,7 +332,9 @@ def main():
                     time.sleep(POLL_INTERVAL)
                     continue
 
-                log(f"\U0001f4cb Найдено {len(tasks)} задач, свободно {free_slots} слотов")
+                log(
+                    f"\U0001f4cb Найдено {len(tasks)} задач, свободно {free_slots} слотов"
+                )
 
                 for task in tasks[:free_slots]:
                     task_id = task["id"]
@@ -310,10 +342,14 @@ def main():
                     # Атомарно захватываем задачу через PATCH (не dispatch!)
                     # dispatch всегда назначает grok через resolve_agent,
                     # поэтому antigravity напрямую ставит себя как assigned_agent
-                    claim_result = api_request("PATCH", f"/tasks/{task_id}", {
-                        "status": "in_progress",
-                        "assigned_agent": AGENT_ID,
-                    })
+                    claim_result = api_request(
+                        "PATCH",
+                        f"/tasks/{task_id}",
+                        {
+                            "status": "in_progress",
+                            "assigned_agent": AGENT_ID,
+                        },
+                    )
                     if not claim_result:
                         continue
 

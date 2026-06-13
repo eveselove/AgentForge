@@ -854,7 +854,7 @@ async fn get_blackboard_feed(
     // WAVE4: apply team_id/task_id/agent/since_minutes filters (from py shims) for parity; json store (newest first slice after filter).
     let store = state.blackboard.lock().await;
     let limit = q.limit.unwrap_or(50);
-    let mut items: Vec<_> = store.all().into_iter().collect();
+    let mut items: Vec<BlackboardEntry> = store.all().to_vec();
     if let Some(ref v) = q.team_id {
         items.retain(|e| e.team_id.as_ref() == Some(v));
     }

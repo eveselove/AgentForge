@@ -1,4 +1,5 @@
 #!/bin/bash
+# PHASE4_REMOVAL_PLAN AGGRESSIVE FINAL DEPRECATION SWEEP: flywheel/soak refs are the purpose of this tool (keep); marker for unmarked audit.
 # ============================================================
 # soak_daily_report.sh — Ежедневный отчёт soak-мониторинга
 # Собирает метрики: fidelity, provenance, fallback counts

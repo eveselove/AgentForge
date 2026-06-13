@@ -4,6 +4,9 @@ After=network.target planly-gateway.service reranker.service llm-judge.service
 Wants=reranker.service llm-judge.service
 
 [Service]
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
+# task-5af0e350 pure default
 Type=simple
 User=agx
 WorkingDirectory=/home/agx/planlytasksko

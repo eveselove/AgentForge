@@ -10,18 +10,21 @@ After=network.target
 Type=simple
 User=agx
 WorkingDirectory=/home/eveselove/agentforge
-# PHASE 4: API now Rust gateway (agentforge-gateway binary). Old task_queue.py is .bak.
-# ExecStart kept for reference/rollback only. Real: /home/eveselove/agentforge/gateway/target/release/agentforge-gateway (or systemd unit).
-ExecStart=/usr/bin/python3 -m uvicorn task_queue:app --host 0.0.0.0 --port 8080  # DEPRECATED (use gateway)
+# PHASE 4 / task-5af0e350: API now Rust gateway (agentforge-gateway binary). task_queue.py .bak only.
+# Use dedicated agentforge-gateway.service for clean gw; this kept for ref/compat.
+ExecStart=/home/eveselove/agentforge/gateway/target/release/agentforge-gateway
 Restart=always
 RestartSec=5
 Environment=PATH=/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=HOME=/home/eveselove
+# task-5af0e350: PURE RUST FLYWHEEL HARD DEFAULT (soak timer) - applies to all flywheel paths even if this unit is gateway.
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
+Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
 
 [Install]
 WantedBy=multi-user.target
 
-Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
-Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
-Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
-# Pure cutover injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00 — rollback via FLYWHEEL_ENGINE=python or .disable_pure_rust_flywheel
+# Pure cutover + task-5af0e350: PURE RUST HARD DEFAULT for 14d soak. Rollback via disable_pure script.
+# PHASE4_REMOVAL_PLAN AGGRESSIVE FINAL DEPRECATION SWEEP: flywheel mentions are for rollback+env only; unit updated to gw binary.

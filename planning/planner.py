@@ -36,10 +36,8 @@ from typing import List, Dict, Any, Optional, Callable, Set, Tuple
 from datetime import datetime
 import json
 import uuid
-import heapq
 from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
 
 
 @dataclass
@@ -52,7 +50,9 @@ class Subtask:
     error: Optional[str] = None
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)  # tags, estimated_min, risk, skill_hint, worktree etc.
+    metadata: Dict[str, Any] = field(
+        default_factory=dict
+    )  # tags, estimated_min, risk, skill_hint, worktree etc.
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -68,7 +68,9 @@ class Plan:
     subtasks: List[Subtask]
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    metadata: Dict[str, Any] = field(default_factory=dict)  # source, version, estimated_total_min etc.
+    metadata: Dict[str, Any] = field(
+        default_factory=dict
+    )  # source, version, estimated_total_min etc.
 
     def get_subtask(self, sid: str) -> Optional[Subtask]:
         for st in self.subtasks:
@@ -158,7 +160,11 @@ class DependencyGraph:
         for sid, s in self.subtasks.items():
             if s.status in ("done", "skipped") or sid in completed:
                 continue
-            if all(d in completed or self.subtasks.get(d, Subtask(d, "")).status in ("done", "skipped") for d in s.dependencies):
+            if all(
+                d in completed
+                or self.subtasks.get(d, Subtask(d, "")).status in ("done", "skipped")
+                for d in s.dependencies
+            ):
                 ready.append(sid)
         return ready
 
@@ -185,15 +191,50 @@ class HierarchicalPlanner:
         ctx = context or {}
         # Pragmatic template decomposition (good enough for skeleton + many real tasks)
         base = [
-            Subtask(id="S1", description=f"Analyze goal and gather context: {goal}", metadata={"phase": "analysis", "tags": ["understand"]}),
-            Subtask(id="S2", description="Design / plan concrete steps and identify affected files + risks", dependencies=["S1"], metadata={"phase": "design"}),
-            Subtask(id="S3", description="Implement core changes (edits, new modules, refactors)", dependencies=["S2"], metadata={"phase": "implement", "skill_hint": "rust-fix or tool-creation"}),
-            Subtask(id="S4", description="Add / update tests and verification", dependencies=["S3"], metadata={"phase": "verify"}),
-            Subtask(id="S5", description="Run CI + self-checks + final validation inside worktree", dependencies=["S4"], metadata={"phase": "ci"}),
+            Subtask(
+                id="S1",
+                description=f"Analyze goal and gather context: {goal}",
+                metadata={"phase": "analysis", "tags": ["understand"]},
+            ),
+            Subtask(
+                id="S2",
+                description="Design / plan concrete steps and identify affected files + risks",
+                dependencies=["S1"],
+                metadata={"phase": "design"},
+            ),
+            Subtask(
+                id="S3",
+                description="Implement core changes (edits, new modules, refactors)",
+                dependencies=["S2"],
+                metadata={
+                    "phase": "implement",
+                    "skill_hint": "rust-fix or tool-creation",
+                },
+            ),
+            Subtask(
+                id="S4",
+                description="Add / update tests and verification",
+                dependencies=["S3"],
+                metadata={"phase": "verify"},
+            ),
+            Subtask(
+                id="S5",
+                description="Run CI + self-checks + final validation inside worktree",
+                dependencies=["S4"],
+                metadata={"phase": "ci"},
+            ),
         ]
         # Simple heuristic extensions (robust id-based wiring)
-        if "refactor" in goal.lower() or "large" in str(ctx.get("complexity", "")).lower():
-            migration = Subtask(id="S2b", description="Create incremental migration plan + rollback strategy", dependencies=["S2"], metadata={"risk": "high"})
+        if (
+            "refactor" in goal.lower()
+            or "large" in str(ctx.get("complexity", "")).lower()
+        ):
+            migration = Subtask(
+                id="S2b",
+                description="Create incremental migration plan + rollback strategy",
+                dependencies=["S2"],
+                metadata={"risk": "high"},
+            )
             base.insert(2, migration)
             # Rewire S4 (now at index 4 after insert) and S5
             for st in base:
@@ -202,9 +243,20 @@ class HierarchicalPlanner:
                 if st.id == "S5":
                     st.dependencies = ["S4"]
         if "crawler" in goal.lower() or "proxy" in goal.lower():
-            base.append(Subtask(id="S6", description="Benchmark + adaptive tuning + load test", dependencies=["S5"], metadata={"category": "perf"}))
+            base.append(
+                Subtask(
+                    id="S6",
+                    description="Benchmark + adaptive tuning + load test",
+                    dependencies=["S5"],
+                    metadata={"category": "perf"},
+                )
+            )
 
-        plan = Plan(goal=goal, subtasks=base, metadata={"decomposer": "template-v1", "context": ctx})
+        plan = Plan(
+            goal=goal,
+            subtasks=base,
+            metadata={"decomposer": "template-v1", "context": ctx},
+        )
         return plan
 
     def build_graph(self, plan: Plan) -> DependencyGraph:
@@ -259,8 +311,14 @@ class ExecutionEngine:
             # Wave-based parallel execution (true concurrency for independent subtasks)
             waves = graph.get_parallel_schedule()
             for wave in waves:
-                wave_tasks = [plan.get_subtask(sid) for sid in wave if sid not in completed]
-                wave_tasks = [t for t in wave_tasks if t and t.status not in ("done", "failed", "skipped")]
+                wave_tasks = [
+                    plan.get_subtask(sid) for sid in wave if sid not in completed
+                ]
+                wave_tasks = [
+                    t
+                    for t in wave_tasks
+                    if t and t.status not in ("done", "failed", "skipped")
+                ]
 
                 if not wave_tasks:
                     continue
@@ -293,7 +351,12 @@ class ExecutionEngine:
                 if not sub or sub.status in ("done", "skipped"):
                     continue
                 # Check deps still satisfied (in case of prior failures)
-                if any(d not in completed and plan.get_subtask(d) and plan.get_subtask(d).status != "done" for d in sub.dependencies):
+                if any(
+                    d not in completed
+                    and plan.get_subtask(d)
+                    and plan.get_subtask(d).status != "done"
+                    for d in sub.dependencies
+                ):
                     sub.status = "skipped"
                     sub.error = "Dependency not completed"
                     continue
@@ -315,7 +378,9 @@ class ExecutionEngine:
         self._mark_ready(plan, graph)
         return plan
 
-    def _safe_exec(self, executor: Callable[[Subtask], Any], sub: Subtask) -> Tuple[bool, Any, Optional[str]]:
+    def _safe_exec(
+        self, executor: Callable[[Subtask], Any], sub: Subtask
+    ) -> Tuple[bool, Any, Optional[str]]:
         try:
             result = executor(sub)
             return True, result, None
@@ -347,9 +412,12 @@ class ExecutionEngine:
         graph = self.planner.build_graph(plan)
         self._mark_ready(plan, graph)
         return self.execute(
-            plan, executor,
-            parallel=parallel, max_workers=max_workers,
-            on_progress=on_progress, stop_on_first_failure=True
+            plan,
+            executor,
+            parallel=parallel,
+            max_workers=max_workers,
+            on_progress=on_progress,
+            stop_on_first_failure=True,
         )
 
 
@@ -388,6 +456,10 @@ class PlanCheckpoint:
 
 # Convenience re-exports for users of the module
 __all__ = [
-    "Subtask", "Plan", "DependencyGraph",
-    "HierarchicalPlanner", "ExecutionEngine", "PlanCheckpoint",
+    "Subtask",
+    "Plan",
+    "DependencyGraph",
+    "HierarchicalPlanner",
+    "ExecutionEngine",
+    "PlanCheckpoint",
 ]

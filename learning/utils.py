@@ -72,6 +72,37 @@ from pathlib import Path
 from typing import Optional
 
 
+def _get_agentforge_root() -> Path:
+    """Resolve repo root dynamically for git worktrees + installs (task-5af0e350).
+    Supports /tmp/agentforge-work/* and /home/eveselove/agentforge.
+    """
+    env_root = os.environ.get("AGENTFORGE_ROOT")
+    if env_root:
+        p = Path(env_root)
+        if p.is_dir():
+            return p
+    # Prefer __file__ for when imported as package (learning/utils.py -> root = parents[2])
+    try:
+        here = Path(__file__).resolve()
+        for parent in [here.parents[2], here.parents[3]]:  # try learning/ or pkg
+            if parent.is_dir() and (
+                (parent / "bin").is_dir()
+                or (parent / ".git").exists()
+                or (parent / "learning" / "utils.py").is_file()
+            ):
+                return parent
+    except Exception:
+        pass
+    # cwd based
+    cwd = Path.cwd()
+    if (cwd / "learning" / "utils.py").is_file() or (
+        cwd / "bin" / "phase4_pre_removal_audit.sh"
+    ).is_file():
+        return cwd
+    # last resort (original main)
+    return Path("/home/eveselove/agentforge")
+
+
 def is_pure_rust_flywheel() -> bool:
     """
     !!! PHASE 3/4 HARDENED GUARD (EVEN STRONGER FOR REMOVAL SWEEP) !!!
@@ -105,20 +136,25 @@ def is_pure_rust_flywheel() -> bool:
     Usage (all files): pure = is_pure_rust_flywheel()
     Non-breaking default: False (legacy Python 100% intact until Phase 4 deletion).
     """
-    root = Path("/home/eveselove/agentforge")
+    root = _get_agentforge_root()
 
     # PHASE 4 HARDENED: expanded disable variants (catch more bypass patterns)
     disable_envs = [
-        "DISABLE_RUST_FLYWHEEL", "AGENTFORGE_DISABLE_RUST_FLYWHEEL",
-        "AGENTFORGE_FLYWHEEL_DISABLED", "DISABLE_FLYWHEEL", "AGENTFORGE_DISABLE_FLYWHEEL",
+        "DISABLE_RUST_FLYWHEEL",
+        "AGENTFORGE_DISABLE_RUST_FLYWHEEL",
+        "AGENTFORGE_FLYWHEEL_DISABLED",
+        "DISABLE_FLYWHEEL",
+        "AGENTFORGE_DISABLE_FLYWHEEL",
     ]
     for name in disable_envs:
         if str(os.environ.get(name, "")).lower() in ("1", "true", "yes", "on"):
             return False
 
     disable_files = [
-        ".disable_rust_flywheel", ".disable_pure_rust_flywheel",
-        ".disable_flywheel", ".flywheel_disabled",
+        ".disable_rust_flywheel",
+        ".disable_pure_rust_flywheel",
+        ".disable_flywheel",
+        ".flywheel_disabled",
     ]
     for f in disable_files:
         if (root / f).exists():
@@ -126,7 +162,14 @@ def is_pure_rust_flywheel() -> bool:
 
     # Positive pure signals — expanded for Phase 4 robustness
     engine = (os.environ.get("AGENTFORGE_FLYWHEEL_ENGINE") or "").strip().lower()
-    if engine in ("rust", "pure-rust", "rust-only", "pure_rust", "agentforge-runner", "rust_flywheel"):
+    if engine in (
+        "rust",
+        "pure-rust",
+        "rust-only",
+        "pure_rust",
+        "agentforge-runner",
+        "rust_flywheel",
+    ):
         return True
 
     pure = (os.environ.get("AGENTFORGE_PURE_RUST_FLYWHEEL") or "").strip().lower()
@@ -153,7 +196,7 @@ def get_rust_runner_path() -> Optional[Path]:
         if p.is_file() and os.access(p, os.X_OK):
             return p
 
-    root = Path("/home/eveselove/agentforge")
+    root = _get_agentforge_root()
     candidates = [
         root / "rust" / "target" / "release" / "agentforge-runner",
         root / "rust" / "target" / "debug" / "agentforge-runner",
@@ -181,19 +224,24 @@ def is_rust_flywheel_disabled() -> bool:
     Direct migration: when this is True, prefer full bypass to agentforge-runner commands.
     See is_pure_rust_flywheel() for the positive decision (calls this internally).
     """
-    root = Path("/home/eveselove/agentforge")
+    root = _get_agentforge_root()
 
     disable_envs = [
-        "DISABLE_RUST_FLYWHEEL", "AGENTFORGE_DISABLE_RUST_FLYWHEEL",
-        "AGENTFORGE_FLYWHEEL_DISABLED", "DISABLE_FLYWHEEL", "AGENTFORGE_DISABLE_FLYWHEEL",
+        "DISABLE_RUST_FLYWHEEL",
+        "AGENTFORGE_DISABLE_RUST_FLYWHEEL",
+        "AGENTFORGE_FLYWHEEL_DISABLED",
+        "DISABLE_FLYWHEEL",
+        "AGENTFORGE_DISABLE_FLYWHEEL",
     ]
     for name in disable_envs:
         if str(os.environ.get(name, "")).lower() in ("1", "true", "yes", "on"):
             return True
 
     disable_files = [
-        ".disable_rust_flywheel", ".disable_pure_rust_flywheel",
-        ".disable_flywheel", ".flywheel_disabled",
+        ".disable_rust_flywheel",
+        ".disable_pure_rust_flywheel",
+        ".disable_flywheel",
+        ".flywheel_disabled",
     ]
     for f in disable_files:
         if (root / f).exists():

@@ -15,7 +15,10 @@ impl Outcome {
     }
 
     pub fn is_failure(&self) -> bool {
-        matches!(self, Outcome::Failure | Outcome::Timeout | Outcome::Cancelled)
+        matches!(
+            self,
+            Outcome::Failure | Outcome::Timeout | Outcome::Cancelled
+        )
     }
 }
 
@@ -130,7 +133,10 @@ mod tests {
     fn outcome_from_str_and_from_lenient() {
         use std::str::FromStr;
         assert_eq!(Outcome::from_str("success").unwrap(), Outcome::Success);
-        assert_eq!(Outcome::from_str("Partial_Success").unwrap(), Outcome::PartialSuccess);
+        assert_eq!(
+            Outcome::from_str("Partial_Success").unwrap(),
+            Outcome::PartialSuccess
+        );
         assert_eq!(Outcome::from_str("TIMEOUT").unwrap(), Outcome::Timeout);
         assert!(Outcome::from_str("nonsense").is_err());
 

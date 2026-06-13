@@ -46,12 +46,15 @@ pub fn promote_candidate(
 ) -> Result<PromotionResult> {
     let candidate_dir = store.root.join(candidate_id);
     if !candidate_dir.is_dir() {
-        anyhow::bail!("candidate dir not found under store: {}", candidate_dir.display());
+        anyhow::bail!(
+            "candidate dir not found under store: {}",
+            candidate_dir.display()
+        );
     }
 
     let meta_p = candidate_dir.join("candidate_meta.json");
     let yaml_src = candidate_dir.join("candidate_skill.yaml");
-    let history_path = store.root.join("promotions.jsonl");  // canonical py parity log (promotions.jsonl + skills array)
+    let history_path = store.root.join("promotions.jsonl"); // canonical py parity log (promotions.jsonl + skills array)
     let marker_p = candidate_dir.join(".promoted");
     let reviewed_marker_p = candidate_dir.join(".reviewed");
 
@@ -75,9 +78,15 @@ pub fn promote_candidate(
             for line in txt.lines().take(15) {
                 let t = line.trim_start();
                 if t.starts_with("name:") || t.starts_with("name :") {
-                    if let Some(v) = t.splitn(2, ':').nth(1) {
-                        let n = v.trim().trim_matches(|c: char| c=='"' || c=='\'' ).to_string();
-                        if !n.is_empty() { base = n; break; }
+                    if let Some((_, v)) = t.split_once(':') {
+                        let n = v
+                            .trim()
+                            .trim_matches(|c: char| c == '"' || c == '\'')
+                            .to_string();
+                        if !n.is_empty() {
+                            base = n;
+                            break;
+                        }
                     }
                 }
             }
@@ -85,26 +94,56 @@ pub fn promote_candidate(
         if base == candidate_id && meta_p.exists() {
             if let Ok(txt) = fs::read_to_string(&meta_p) {
                 if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
-                    if let Some(s) = v.get("skill").and_then(|x| x.as_str()) { if !s.is_empty() { base = s.to_string(); } }
+                    if let Some(s) = v.get("skill").and_then(|x| x.as_str()) {
+                        if !s.is_empty() {
+                            base = s.to_string();
+                        }
+                    }
                 }
             }
         }
-        let base: String = base.chars().map(|c| if c.is_alphanumeric() || c=='-' || c=='_' {c} else {'_'}).collect();
+        let base: String = base
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
 
         let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S").to_string();
         let dest_name = format!("{}.promoted.{}.yaml", base, ts);
         let dest = skills_dir.join(&dest_name);
 
         if !dry_run {
-            if let Some(p) = dest.parent() { let _ = fs::create_dir_all(p); }
+            if let Some(p) = dest.parent() {
+                let _ = fs::create_dir_all(p);
+            }
             match fs::copy(&yaml_src, &dest) {
-                Ok(_) => { promoted_to = Some(dest.clone()); copy_succeeded = true; }
-                Err(e) => { let w = format!("copy failed: {}", e); warnings.push(w.clone()); eprintln!("[promote] WARNING: {}", w); }
+                Ok(_) => {
+                    promoted_to = Some(dest.clone());
+                    copy_succeeded = true;
+                }
+                Err(e) => {
+                    let w = format!("copy failed: {}", e);
+                    warnings.push(w.clone());
+                    eprintln!("[promote] WARNING: {}", w);
+                }
             }
         } else {
             promoted_to = Some(dest.clone());
         }
-        eprintln!("[promote] {} candidate_skill.yaml → {} (copy_to_skills)", if dry_run { "DRY-RUN: would copy" } else { "Copied" }, dest.display());
+        eprintln!(
+            "[promote] {} candidate_skill.yaml → {} (copy_to_skills)",
+            if dry_run {
+                "DRY-RUN: would copy"
+            } else {
+                "Copied"
+            },
+            dest.display()
+        );
     } else if copy_to_skills {
         let w = "copy_to_skills requested but candidate_skill.yaml missing".to_string();
         warnings.push(w.clone());
@@ -114,7 +153,10 @@ pub fn promote_candidate(
     // 2) Update meta (promoted + reviewed for parity)
     if !dry_run {
         let mut meta_val: serde_json::Value = if meta_p.exists() {
-            fs::read_to_string(&meta_p).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_else(|| serde_json::json!({}))
+            fs::read_to_string(&meta_p)
+                .ok()
+                .and_then(|t| serde_json::from_str(&t).ok())
+                .unwrap_or_else(|| serde_json::json!({}))
         } else {
             serde_json::json!({"candidate_id": candidate_id, "timestamp": promoted_at})
         };
@@ -128,25 +170,60 @@ pub fn promote_candidate(
         }
         meta_val["last_promote_copy_to_skills"] = serde_json::json!(copy_to_skills);
         meta_val["last_promote_source"] = serde_json::json!("rust-agentforge-runner");
-        if let Some(p) = meta_p.parent() { let _ = fs::create_dir_all(p); }
+        if let Some(p) = meta_p.parent() {
+            let _ = fs::create_dir_all(p);
+        }
 
-        match fs::write(&meta_p, serde_json::to_string_pretty(&meta_val).unwrap_or_default()) {
-            Ok(_) => { meta_updated = true; }
-            Err(e) => { let w = format!("meta write failed: {}", e); warnings.push(w.clone()); eprintln!("[promote] WARNING: {}", w); }
+        match fs::write(
+            &meta_p,
+            serde_json::to_string_pretty(&meta_val).unwrap_or_default(),
+        ) {
+            Ok(_) => {
+                meta_updated = true;
+            }
+            Err(e) => {
+                let w = format!("meta write failed: {}", e);
+                warnings.push(w.clone());
+                eprintln!("[promote] WARNING: {}", w);
+            }
         }
     } else if meta_p.exists() {
-        eprintln!("[promote] DRY-RUN: would mark promoted=true + reviewed=true in {}", meta_p.display());
+        eprintln!(
+            "[promote] DRY-RUN: would mark promoted=true + reviewed=true in {}",
+            meta_p.display()
+        );
     }
 
     // 3) Markers (never remove dir)
     if !dry_run {
-        match fs::write(&marker_p, format!("promoted_at: {}\nsource: rust-agentforge-runner\ncandidate_id: {}\n", promoted_at, candidate_id)) {
-            Ok(_) => { marker_created = true; }
-            Err(e) => { let w = format!("marker failed: {}", e); warnings.push(w.clone()); eprintln!("[promote] WARNING: {}", w); }
+        match fs::write(
+            &marker_p,
+            format!(
+                "promoted_at: {}\nsource: rust-agentforge-runner\ncandidate_id: {}\n",
+                promoted_at, candidate_id
+            ),
+        ) {
+            Ok(_) => {
+                marker_created = true;
+            }
+            Err(e) => {
+                let w = format!("marker failed: {}", e);
+                warnings.push(w.clone());
+                eprintln!("[promote] WARNING: {}", w);
+            }
         }
-        let _ = fs::write(&reviewed_marker_p, format!("reviewed_at: {}\nsource: rust-agentforge-runner\ncandidate_id: {}\n", promoted_at, candidate_id));
+        let _ = fs::write(
+            &reviewed_marker_p,
+            format!(
+                "reviewed_at: {}\nsource: rust-agentforge-runner\ncandidate_id: {}\n",
+                promoted_at, candidate_id
+            ),
+        );
     } else {
-        eprintln!("[promote] DRY-RUN: would create .promoted + .reviewed under {}", candidate_dir.display());
+        eprintln!(
+            "[promote] DRY-RUN: would create .promoted + .reviewed under {}",
+            candidate_dir.display()
+        );
     }
 
     // 4) Append to promotions.jsonl (the canonical py-parity live log under pending) + update skills/promotion_history.json (rolling array)
@@ -164,34 +241,63 @@ pub fn promote_candidate(
         "promoted_to_skills": copy_succeeded,
     });
     if !dry_run {
-        if let Some(p) = history_path.parent() { let _ = fs::create_dir_all(p); }
-        match OpenOptions::new().create(true).append(true).open(&history_path) {
+        if let Some(p) = history_path.parent() {
+            let _ = fs::create_dir_all(p);
+        }
+        match OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&history_path)
+        {
             Ok(mut f) => {
-                if writeln!(f, "{}", entry.to_string()).is_ok() {
+                if writeln!(f, "{}", entry).is_ok() {
                     history_updated = true;
-                    eprintln!("[promote] Appended to promotions.jsonl: {}", history_path.display());
+                    eprintln!(
+                        "[promote] Appended to promotions.jsonl: {}",
+                        history_path.display()
+                    );
                 }
             }
-            Err(e) => { let w = format!("could not open promotions.jsonl: {}", e); warnings.push(w.clone()); eprintln!("[promote] WARNING: {}", w); }
+            Err(e) => {
+                let w = format!("could not open promotions.jsonl: {}", e);
+                warnings.push(w.clone());
+                eprintln!("[promote] WARNING: {}", w);
+            }
         }
         // Also append to promotion_history.jsonl (full spec + legacy name coverage for any tools/docs referencing it)
         let legacy_hist_p = store.root.join("promotion_history.jsonl");
-        if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&legacy_hist_p) {
-            let _ = writeln!(f, "{}", entry.to_string());
-            eprintln!("[promote] Also appended to promotion_history.jsonl: {}", legacy_hist_p.display());
+        if let Ok(mut f) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&legacy_hist_p)
+        {
+            let _ = writeln!(f, "{}", entry);
+            eprintln!(
+                "[promote] Also appended to promotion_history.jsonl: {}",
+                legacy_hist_p.display()
+            );
         }
     } else {
         eprintln!("[promote] DRY-RUN: would append (source=rust-agentforge-runner) to promotions.jsonl + promotion_history.jsonl + skills/promotion_history.json");
     }
 
     // 5) Rolling skills/promotion_history.json (exact Python shape, last 50) for complete audit/UX on real data (full end-to-end)
-    let skills_dir = std::env::var("AGENTFORGE_SKILLS_DIR").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("/home/eveselove/agentforge/skills"));
+    let skills_dir = std::env::var("AGENTFORGE_SKILLS_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/home/eveselove/agentforge/skills"));
     let skills_hist_p = skills_dir.join("promotion_history.json");
     if !dry_run {
-        if let Some(p) = skills_hist_p.parent() { let _ = fs::create_dir_all(p); }
+        if let Some(p) = skills_hist_p.parent() {
+            let _ = fs::create_dir_all(p);
+        }
         let mut arr: Vec<serde_json::Value> = if skills_hist_p.exists() {
-            fs::read_to_string(&skills_hist_p).ok().and_then(|t| serde_json::from_str::<Vec<_>>(&t).ok()).unwrap_or_default()
-        } else { vec![] };
+            fs::read_to_string(&skills_hist_p)
+                .ok()
+                .and_then(|t| serde_json::from_str::<Vec<_>>(&t).ok())
+                .unwrap_or_default()
+        } else {
+            vec![]
+        };
         arr.push(serde_json::json!({
             "candidate_id": candidate_id,
             "promoted_to": promoted_to.as_ref().map(|p| p.to_string_lossy().to_string()),
@@ -199,17 +305,32 @@ pub fn promote_candidate(
             "ab_prepared": false,
             "source": "rust-agentforge-runner",
         }));
-        if arr.len() > 50 { arr = arr.split_off(arr.len() - 50); }
-        let _ = fs::write(&skills_hist_p, serde_json::to_string_pretty(&arr).unwrap_or_default());
+        if arr.len() > 50 {
+            arr = arr.split_off(arr.len() - 50);
+        }
+        let _ = fs::write(
+            &skills_hist_p,
+            serde_json::to_string_pretty(&arr).unwrap_or_default(),
+        );
         eprintln!("[promote] Updated skills/promotion_history.json (rolling)");
     }
 
-    let success = dry_run || (meta_updated && history_updated && marker_created && (!copy_to_skills || copy_succeeded || !yaml_src.exists()));
+    let success = dry_run
+        || (meta_updated
+            && history_updated
+            && marker_created
+            && (!copy_to_skills || copy_succeeded || !yaml_src.exists()));
 
     if dry_run {
-        eprintln!("[promote] DRY-RUN complete for {} (no mutation; success={})", candidate_id, success);
+        eprintln!(
+            "[promote] DRY-RUN complete for {} (no mutation; success={})",
+            candidate_id, success
+        );
     } else {
-        eprintln!("[promote] COMPLETE for {} (success={} promoted={} history={} copy={})", candidate_id, success, meta_updated, history_updated, copy_succeeded);
+        eprintln!(
+            "[promote] COMPLETE for {} (success={} promoted={} history={} copy={})",
+            candidate_id, success, meta_updated, history_updated, copy_succeeded
+        );
     }
 
     Ok(PromotionResult {
@@ -234,14 +355,16 @@ pub fn promote_candidate(
 }
 
 pub fn ab_prep(candidate_id: &str, auto_ab: bool) -> Result<serde_json::Value> {
-    Ok(serde_json::json!({ "candidate_id": candidate_id, "ab_prepared": true, "auto_ab": auto_ab, "note": "A/B prep available via Python shims or future direct" }))
+    Ok(
+        serde_json::json!({ "candidate_id": candidate_id, "ab_prepared": true, "auto_ab": auto_ab, "note": "A/B prep available via Python shims or future direct" }),
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
     use proptest::prelude::*;
+    use std::fs;
 
     #[test]
     fn promote_candidate_real_logic_dry_run_and_writes_history_meta() {
@@ -252,19 +375,42 @@ mod tests {
         let cid = "20260530_test_promote";
         let cand_dir = tmp_root.join(cid);
         let _ = fs::create_dir_all(&cand_dir);
-        let _ = fs::write(cand_dir.join("candidate_meta.json"), r#"{"candidate_id":"20260530_test_promote","skill":"test-skill","promoted":false}"#);
-        let _ = fs::write(cand_dir.join("candidate_skill.yaml"), "name: test-skill\nprompt: test\n");
+        let _ = fs::write(
+            cand_dir.join("candidate_meta.json"),
+            r#"{"candidate_id":"20260530_test_promote","skill":"test-skill","promoted":false}"#,
+        );
+        let _ = fs::write(
+            cand_dir.join("candidate_skill.yaml"),
+            "name: test-skill\nprompt: test\n",
+        );
 
         let res_dry = promote_candidate(&store, cid, true, true).expect("dry");
-        assert!(res_dry.dry_run && res_dry.success && res_dry.promoted_to.is_some() && !res_dry.history_updated);
+        assert!(
+            res_dry.dry_run
+                && res_dry.success
+                && res_dry.promoted_to.is_some()
+                && !res_dry.history_updated
+        );
 
         let res = promote_candidate(&store, cid, false, false).expect("real");
-        assert!(!res.dry_run && res.success && res.history_updated && res.meta_updated && res.marker_created);
-        let meta: serde_json::Value = serde_json::from_str(&fs::read_to_string(cand_dir.join("candidate_meta.json")).unwrap()).unwrap();
+        assert!(
+            !res.dry_run
+                && res.success
+                && res.history_updated
+                && res.meta_updated
+                && res.marker_created
+        );
+        let meta: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(cand_dir.join("candidate_meta.json")).unwrap(),
+        )
+        .unwrap();
         assert_eq!(meta["promoted"], true);
         assert_eq!(meta["promoted_by"], "rust-agentforge-runner");
         let hist = fs::read_to_string(tmp_root.join("promotions.jsonl")).unwrap_or_default();
-        assert!(hist.contains(cid) && (hist.contains("rust-agentforge-runner") || hist.contains("source")));
+        assert!(
+            hist.contains(cid)
+                && (hist.contains("rust-agentforge-runner") || hist.contains("source"))
+        );
         assert!(cand_dir.join(".promoted").exists());
 
         let _ = fs::remove_dir_all(&tmp_root);
@@ -284,13 +430,22 @@ mod tests {
         let _ = fs::create_dir_all(&tmp_root);
         let store = CandidateStore::new(Some(tmp_root.clone()));
         let cid = "noyaml_cand";
-        let d = tmp_root.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"x","promoted":false}"#);
+        let d = tmp_root.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"x","promoted":false}"#,
+        );
 
         let res = promote_candidate(&store, cid, true, false).expect("ok");
         assert!(res.success && res.meta_updated && res.history_updated && !res.warnings.is_empty());
         let hist = fs::read_to_string(&res.history_path).unwrap_or_default();
-        assert!(hist.contains(cid) || fs::read_to_string(tmp_root.join("promotions.jsonl")).unwrap_or_default().contains(cid));
+        assert!(
+            hist.contains(cid)
+                || fs::read_to_string(tmp_root.join("promotions.jsonl"))
+                    .unwrap_or_default()
+                    .contains(cid)
+        );
         let _ = fs::remove_dir_all(&tmp_root);
     }
 
@@ -309,17 +464,28 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "done_cand_1";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"s","promoted":true,"promoted_at":"old"}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"s","promoted":true,"promoted_at":"old"}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: s");
 
         let res = promote_candidate(&store, cid, false, false).expect("promote-if-done");
         assert!(res.success && res.meta_updated && res.history_updated);
-        let meta: serde_json::Value = serde_json::from_str(&fs::read_to_string(d.join("candidate_meta.json")).unwrap()).unwrap();
+        let meta: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(d.join("candidate_meta.json")).unwrap())
+                .unwrap();
         assert_eq!(meta["promoted"], true);
         assert_eq!(meta["promoted_by"], "rust-agentforge-runner");
         let hist = fs::read_to_string(&res.history_path).unwrap_or_default();
-        assert!(hist.contains(cid) || fs::read_to_string(tmp.join("promotions.jsonl")).unwrap_or_default().contains(cid));
+        assert!(
+            hist.contains(cid)
+                || fs::read_to_string(tmp.join("promotions.jsonl"))
+                    .unwrap_or_default()
+                    .contains(cid)
+        );
         let _ = fs::remove_dir_all(&tmp);
     }
 
@@ -331,8 +497,12 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "rich_for_ci";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"ci","promoted":false}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"ci","promoted":false}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: ci");
 
         let res = promote_candidate(&store, cid, false, true); // dry to keep clean
@@ -340,7 +510,13 @@ mod tests {
         let r = res.unwrap();
         assert!(r.dry_run && r.promoted);
         let hp = r.history_path.to_string_lossy();
-        assert!(hp.ends_with("promotions.jsonl") || hp.contains("promotions.jsonl") || r.history_path.file_name().map_or(false, |n| n.to_string_lossy().contains("promotions")));
+        assert!(
+            hp.ends_with("promotions.jsonl")
+                || hp.contains("promotions.jsonl")
+                || r.history_path
+                    .file_name()
+                    .map_or(false, |n| n.to_string_lossy().contains("promotions"))
+        );
         assert!(!r.marker_created); // dry
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -355,16 +531,26 @@ mod tests {
         let _ = fs::create_dir_all(&custom_skills);
         let store = CandidateStore::new(Some(tmp_root.clone()));
         let cid = "env_skills_cand";
-        let d = tmp_root.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"env-skill","promoted":false}"#);
-        let _ = fs::write(d.join("candidate_skill.yaml"), "name: env-skill\nprompt: test");
+        let d = tmp_root.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"env-skill","promoted":false}"#,
+        );
+        let _ = fs::write(
+            d.join("candidate_skill.yaml"),
+            "name: env-skill\nprompt: test",
+        );
 
         std::env::set_var("AGENTFORGE_SKILLS_DIR", &custom_skills);
         let res = promote_candidate(&store, cid, true, true).expect("dry with env");
         std::env::remove_var("AGENTFORGE_SKILLS_DIR");
         assert!(res.dry_run && res.promoted_to.is_some());
         let dest = res.promoted_to.unwrap();
-        assert!(dest.starts_with(&custom_skills), "must respect AGENTFORGE_SKILLS_DIR override");
+        assert!(
+            dest.starts_with(&custom_skills),
+            "must respect AGENTFORGE_SKILLS_DIR override"
+        );
         assert!(dest.to_string_lossy().contains("env-skill.promoted."));
         let _ = fs::remove_dir_all(&tmp_root);
         let _ = fs::remove_dir_all(&custom_skills);
@@ -377,14 +563,22 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "marker_cand";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"m","promoted":false}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"m","promoted":false}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: m");
 
         let res = promote_candidate(&store, cid, false, false).expect("real markers");
         assert!(res.marker_created && res.success);
         let marker = fs::read_to_string(&res.marker_path).unwrap_or_default();
-        assert!(marker.contains("promoted_at:") && marker.contains("source: rust-agentforge-runner") && marker.contains(cid));
+        assert!(
+            marker.contains("promoted_at:")
+                && marker.contains("source: rust-agentforge-runner")
+                && marker.contains(cid)
+        );
         let reviewed = fs::read_to_string(&res.reviewed_marker_path).unwrap_or_default();
         assert!(reviewed.contains("reviewed_at:"));
         let _ = fs::remove_dir_all(&tmp);
@@ -397,8 +591,12 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "multi_hist";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"mh","promoted":false}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"mh","promoted":false}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "");
 
         let _ = promote_candidate(&store, cid, false, false).expect("first");
@@ -406,7 +604,10 @@ mod tests {
 
         let hist = fs::read_to_string(tmp.join("promotions.jsonl")).unwrap_or_default();
         let count = hist.lines().filter(|l| l.contains(cid)).count();
-        assert!(count >= 2, "history must append on re-promote for continuous loops");
+        assert!(
+            count >= 2,
+            "history must append on re-promote for continuous loops"
+        );
         let _ = fs::remove_dir_all(&tmp);
     }
 
@@ -417,7 +618,8 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "dry_no_mut";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
         let meta_p = d.join("candidate_meta.json");
         let _ = fs::write(&meta_p, r#"{"skill":"d","promoted":false}"#);
         let yaml_p = d.join("candidate_skill.yaml");
@@ -428,9 +630,17 @@ mod tests {
         assert!(res.dry_run && res.success);
         // No markers, no history write, meta unchanged
         assert!(!d.join(".promoted").exists());
-        assert!(!tmp.join("promotion_history.jsonl").exists() || fs::read_to_string(tmp.join("promotion_history.jsonl")).unwrap_or_default().is_empty());
+        assert!(
+            !tmp.join("promotion_history.jsonl").exists()
+                || fs::read_to_string(tmp.join("promotion_history.jsonl"))
+                    .unwrap_or_default()
+                    .is_empty()
+        );
         let after_meta = fs::read_to_string(&meta_p).unwrap();
-        assert_eq!(before_meta, after_meta, "dry_run must be pure no-mutation for safe continuous use");
+        assert_eq!(
+            before_meta, after_meta,
+            "dry_run must be pure no-mutation for safe continuous use"
+        );
         let _ = fs::remove_dir_all(&tmp);
     }
 
@@ -442,14 +652,23 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "full_fields_cand";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"ff","promoted":false}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"ff","promoted":false}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: ff");
 
         let res = promote_candidate(&store, cid, false, true).expect("dry full");
         assert!(res.candidate_id == cid);
         assert!(res.candidate_dir.exists() || res.dry_run);
-        assert!(res.history_path.file_name().unwrap().to_string_lossy().contains("promotion"));
+        assert!(res
+            .history_path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .contains("promotion"));
         assert!(res.meta_path.exists() || res.dry_run);
         assert!(res.marker_path.ends_with(".promoted"));
         assert!(res.reviewed_marker_path.ends_with(".reviewed"));
@@ -466,8 +685,12 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "cutover_cand";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"cut","promoted":false}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"cut","promoted":false}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: cut");
 
         let res = promote_candidate(&store, cid, true, true).expect("cutover dry");
@@ -487,15 +710,22 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "shadow_cont";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"sc","promoted":false}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"sc","promoted":false}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "");
 
         let _ = promote_candidate(&store, cid, false, false).expect("first promote");
         let _ = promote_candidate(&store, cid, false, false).expect("shadow repromote");
         let hist = fs::read_to_string(tmp.join("promotions.jsonl")).unwrap_or_default();
         let lines_for_id = hist.lines().filter(|l| l.contains(cid)).count();
-        assert!(lines_for_id >= 2, "shadow/continuous must allow history append on re-promote for audit");
+        assert!(
+            lines_for_id >= 2,
+            "shadow/continuous must allow history append on re-promote for audit"
+        );
         let _ = fs::remove_dir_all(&tmp);
     }
 
@@ -507,17 +737,29 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "post_cutover";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
         // Complete seed for robust parse
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"candidate_id":"post_cutover","timestamp":"","skill":"post","estimated_impact":"med","rust_pairs_used":0,"high_learning_value_records":3,"source_artifacts":"","generated_by":"","copied_files":[],"promoted":false,"reviewed":false,"rich_avg_learning_value":0.6}"#);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"candidate_id":"post_cutover","timestamp":"","skill":"post","estimated_impact":"med","rust_pairs_used":0,"high_learning_value_records":3,"source_artifacts":"","generated_by":"","copied_files":[],"promoted":false,"reviewed":false,"rich_avg_learning_value":0.6}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: post");
 
         let _ = promote_candidate(&store, cid, false, false).expect("do cutover promote");
         // Verify via direct meta (guaranteed by promote) + list_high_value (the continuous API)
-        let meta_after: serde_json::Value = serde_json::from_str(&fs::read_to_string(d.join("candidate_meta.json")).unwrap()).unwrap();
-        assert_eq!(meta_after["promoted"], true, "promote must have set flag for cutover");
+        let meta_after: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(d.join("candidate_meta.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            meta_after["promoted"], true,
+            "promote must have set flag for cutover"
+        );
         let high = store.list_high_value(1);
-        assert!(high.iter().all(|c| c.id != cid || !c.promoted), "post-promote must be disabled from continuous high-value list");
+        assert!(
+            high.iter().all(|c| c.id != cid || !c.promoted),
+            "post-promote must be disabled from continuous high-value list"
+        );
         let _ = fs::remove_dir_all(&tmp);
     }
 
@@ -529,8 +771,12 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "runner_sub_shadow";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"rs","promoted":false}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"rs","promoted":false}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: rs");
 
         let res = promote_candidate(&store, cid, true, true).expect("runner subcmd promote");
@@ -613,8 +859,12 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "cross_cont_promote_1";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"cross","promoted":false,"high_learning_value_records":5,"rich_avg_learning_value":0.82}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"cross","promoted":false,"high_learning_value_records":5,"rich_avg_learning_value":0.82}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: cross");
 
         // Pre-promote: visible to continuous
@@ -625,7 +875,10 @@ mod tests {
 
         // Post-promote: continuous high-value list (used by continuous cmd) MUST exclude it
         let post_high = store.list_high_value(10);
-        assert!(post_high.iter().all(|c| c.id != cid), "promote must disable from continuous high-value for production loop safety");
+        assert!(
+            post_high.iter().all(|c| c.id != cid),
+            "promote must disable from continuous high-value for production loop safety"
+        );
 
         // Also via prioritizer path (used by runner continuous)
         let tops = list_high_value_candidates(&store, 5);
@@ -642,16 +895,29 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "bad$name!id";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"bad!name with space","promoted":false}"#);
-        let _ = fs::write(d.join("candidate_skill.yaml"), "name: \"bad name with space & *\"");
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"bad!name with space","promoted":false}"#,
+        );
+        let _ = fs::write(
+            d.join("candidate_skill.yaml"),
+            "name: \"bad name with space & *\"",
+        );
 
         std::env::set_var("AGENTFORGE_SKILLS_DIR", &tmp);
         let res = promote_candidate(&store, cid, true, true).expect("sanitize dry");
         std::env::remove_var("AGENTFORGE_SKILLS_DIR");
         let dest = res.promoted_to.unwrap();
         let name = dest.file_name().unwrap().to_string_lossy();
-        assert!(!name.contains('!') && !name.contains(' ') && !name.contains('*') && !name.contains('&'), "dest name must be sanitized alnum-_ for safe FS in promote from emission");
+        assert!(
+            !name.contains('!')
+                && !name.contains(' ')
+                && !name.contains('*')
+                && !name.contains('&'),
+            "dest name must be sanitized alnum-_ for safe FS in promote from emission"
+        );
         assert!(name.contains("bad_name_with_space") || name.contains("badname"));
 
         let _ = fs::remove_dir_all(&tmp);
@@ -665,8 +931,12 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "repro_audit";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"ra","promoted":false}"#);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"ra","promoted":false}"#,
+        );
         let _ = fs::write(d.join("candidate_skill.yaml"), "");
 
         for i in 0..3 {
@@ -675,7 +945,10 @@ mod tests {
         }
         let hist = fs::read_to_string(tmp.join("promotions.jsonl")).unwrap_or_default();
         let count = hist.lines().filter(|l| l.contains(cid)).count();
-        assert!(count >= 3, "shadow/continuous repromote must append every time for audit parity");
+        assert!(
+            count >= 3,
+            "shadow/continuous repromote must append every time for audit parity"
+        );
         let _ = fs::remove_dir_all(&tmp);
     }
 
@@ -687,14 +960,17 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "malformed_emit";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
         let _ = fs::write(d.join("candidate_meta.json"), r#"{bad json no close"#); // malformed
-        // no yaml
+                                                                                   // no yaml
 
         let res = promote_candidate(&store, cid, false, false).expect("malformed ok");
         assert!(res.success && res.meta_updated && res.history_updated);
         // meta should have been replaced with promoted fields
-        let meta_after: serde_json::Value = serde_json::from_str(&fs::read_to_string(d.join("candidate_meta.json")).unwrap()).unwrap();
+        let meta_after: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(d.join("candidate_meta.json")).unwrap())
+                .unwrap();
         assert_eq!(meta_after["promoted"], true);
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -712,10 +988,17 @@ mod tests {
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "shadow_emit_cross_20260531";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
         // Simulated rich emission artifacts (from flywheel with LLM)
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"shadow-llm-emit","promoted":false,"rich_avg_learning_value":0.91,"high_learning_value_records":7,"estimated_impact":"high"}"#);
-        let _ = fs::write(d.join("candidate_skill.yaml"), "name: shadow-llm-improved\nprompt: improved via llm critique\n");
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"shadow-llm-emit","promoted":false,"rich_avg_learning_value":0.91,"high_learning_value_records":7,"estimated_impact":"high"}"#,
+        );
+        let _ = fs::write(
+            d.join("candidate_skill.yaml"),
+            "name: shadow-llm-improved\nprompt: improved via llm critique\n",
+        );
 
         // Pre: visible to continuous prioritizer
         let pre = list_high_value_candidates(&store, 5);
@@ -727,12 +1010,19 @@ mod tests {
 
         // Post: disabled from continuous (critical for production loop)
         let post = list_high_value_candidates(&store, 10);
-        assert!(post.iter().all(|c| c.id != cid), "promote from shadow emission must cutover-disable from continuous high-value");
+        assert!(
+            post.iter().all(|c| c.id != cid),
+            "promote from shadow emission must cutover-disable from continuous high-value"
+        );
         assert!(d.join(".promoted").exists() && d.join(".reviewed").exists());
 
         // History audit for shadow parity
         let hist = fs::read_to_string(tmp.join("promotions.jsonl")).unwrap_or_default();
-        assert!(hist.contains(cid) && hist.contains("rust-agentforge-runner") && hist.contains("shadow-llm-emit"));
+        assert!(
+            hist.contains(cid)
+                && hist.contains("rust-agentforge-runner")
+                && hist.contains("shadow-llm-emit")
+        );
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -806,7 +1096,8 @@ mod tests {
         let _ = fs::create_dir_all(&skills_tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "llm_sections_emit";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
         let yaml = r#"name: llm-rich
 prompt: base
 # _learning_meta with LLM sections
@@ -816,7 +1107,10 @@ _learning_meta:
   critique_source: "AGENTFORGE_LLM_CMD split_basic"
 "#;
         let _ = fs::write(d.join("candidate_skill.yaml"), yaml);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"llm-rich","promoted":false}"#);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"llm-rich","promoted":false}"#,
+        );
 
         std::env::set_var("AGENTFORGE_SKILLS_DIR", &skills_tmp);
         let res = promote_candidate(&store, cid, true, false).expect("llm sections promote");
@@ -833,18 +1127,30 @@ _learning_meta:
     fn promote_shadow_env_continuous_chain_excludes_and_emits_health_compat() {
         // Deeper cross: AGENTFORGE_RUST_FLYWHEEL_SHADOW + promote -> continuous list_high + health shape (used by watchdog/timer/parity)
         let pid = std::process::id();
-        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let tmp = std::env::temp_dir().join(format!("p_shadow_chain_{}_{}", pid, nanos));
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "shadow_chain_emit";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"shadow-chain","promoted":false,"rich_avg_learning_value":0.88,"high_learning_value_records":6}"#);
-        let _ = fs::write(d.join("candidate_skill.yaml"), "name: shadow-chain\n# from LLM emission\n");
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"shadow-chain","promoted":false,"rich_avg_learning_value":0.88,"high_learning_value_records":6}"#,
+        );
+        let _ = fs::write(
+            d.join("candidate_skill.yaml"),
+            "name: shadow-chain\n# from LLM emission\n",
+        );
 
         std::env::set_var("AGENTFORGE_RUST_FLYWHEEL_SHADOW", "1");
         // Pre-promote visible
-        assert!(list_high_value_candidates(&store, 3).iter().any(|c| c.id == cid));
+        assert!(list_high_value_candidates(&store, 3)
+            .iter()
+            .any(|c| c.id == cid));
         let res = promote_candidate(&store, cid, false, false).expect("shadow promote");
         std::env::remove_var("AGENTFORGE_RUST_FLYWHEEL_SHADOW");
         assert!(res.success && res.marker_created);
@@ -860,7 +1166,11 @@ _learning_meta:
             "promoted_excluded": cid
         });
         assert!(health_like["shadow"].as_bool().unwrap());
-        assert!(!health_like["suggested"].as_array().unwrap().iter().any(|v| v.as_str() == Some(cid)));
+        assert!(!health_like["suggested"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_str() == Some(cid)));
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -914,10 +1224,14 @@ _learning_meta:
         let _ = fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "llm-emit_2026-shadow-cont_!special@name";
-        let d = tmp.join(cid); let _ = fs::create_dir_all(&d);
+        let d = tmp.join(cid);
+        let _ = fs::create_dir_all(&d);
         // LLM emission style yaml + meta (name with special -> promote sanitizes for dest)
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: \"llm-special!@#\"\nprompt: | \n  recovery after LLM critique\n  CRITIQUE-DERIVED: heartbeat\n");
-        let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"llm-special","promoted":false,"rich_avg_learning_value":0.91,"high_learning_value_records":7,"generated_by":"flywheel emission with LLM"}"#);
+        let _ = fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"skill":"llm-special","promoted":false,"rich_avg_learning_value":0.91,"high_learning_value_records":7,"generated_by":"flywheel emission with LLM"}"#,
+        );
 
         // Shadow env (as in continuous dual run)
         std::env::set_var("AGENTFORGE_RUST_FLYWHEEL_SHADOW", "1");
@@ -929,7 +1243,12 @@ _learning_meta:
         // Real promote + copy (exercises sanitization + full paths used by runner continuous after shadow flywheel-step)
         let res1 = promote_candidate(&store, cid, true, false).expect("first promote llm-shadow");
         assert!(res1.success && res1.copy_succeeded && res1.history_updated);
-        assert!(res1.promoted_to.as_ref().unwrap().to_string_lossy().contains("llm-special.promoted."));
+        assert!(res1
+            .promoted_to
+            .as_ref()
+            .unwrap()
+            .to_string_lossy()
+            .contains("llm-special.promoted."));
         assert!(d.join(".promoted").exists());
 
         // Post: excluded from continuous high value (critical production invariant)
@@ -941,7 +1260,10 @@ _learning_meta:
         assert!(res2.success && res2.history_updated);
         let hist = fs::read_to_string(tmp.join("promotions.jsonl")).unwrap_or_default();
         let count = hist.lines().filter(|l| l.contains(cid)).count();
-        assert!(count >= 2, "shadow/continuous repromote must append history for fidelity/audit");
+        assert!(
+            count >= 2,
+            "shadow/continuous repromote must append history for fidelity/audit"
+        );
 
         // Also check promotion_history.json under skills (if default) or tmp (env not set)
         // Sanitize exercised: dest name clean

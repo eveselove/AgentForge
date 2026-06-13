@@ -12,7 +12,9 @@
 
 set -e
 
-AGENTFORGE_DIR="/home/eveselove/agentforge"
+AGENTFORGE_DIR="${AGENTFORGE_DIR:-/home/eveselove/agentforge}"
+# task-5af0e350: PURE RUST FLYWHEEL DEFAULT - marker + env enforced at install time for soak start.
+# Note: when run from worktree, caller should set AGENTFORGE_DIR to worktree path and sync marker back to main if needed.
 
 echo "🔧 Установка systemd сервисов AgentForge..."
 
@@ -40,6 +42,11 @@ sudo systemctl enable agentforge-antigravity || true
 sudo systemctl enable agentforge-watchdog || true
 sudo systemctl enable agentforge-flywheel || true
 # api enable REMOVED (legacy drop)
+
+# task-5af0e350: enforce .pure_rust_flywheel marker + provenance for pure default (14d soak)
+touch "$AGENTFORGE_DIR/.pure_rust_flywheel" || true
+echo "PURE RUST FLYWHEEL DEFAULT ENABLED - task-5af0e350 - $(date -Iseconds)" >> "$AGENTFORGE_DIR/.pure_rust_flywheel" || true
+# also ensure rust_flywheel.env is sourced in workers if not (idempotent append check left to callers)
 
 # Запускаем (explicit gateway first + status)
 sudo systemctl start agentforge-gateway || true

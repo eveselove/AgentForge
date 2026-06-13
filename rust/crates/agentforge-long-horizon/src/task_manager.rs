@@ -87,7 +87,12 @@ impl LongTaskManager {
             final_outcome: None,
             created_at: Utc::now().to_rfc3339(),
             updated_at: Utc::now().to_rfc3339(),
-            checkpoint_path: Some(self.persistence_dir.join(format!("{}.json", id)).to_string_lossy().to_string()),
+            checkpoint_path: Some(
+                self.persistence_dir
+                    .join(format!("{}.json", id))
+                    .to_string_lossy()
+                    .to_string(),
+            ),
             metadata: HashMap::new(),
         };
 

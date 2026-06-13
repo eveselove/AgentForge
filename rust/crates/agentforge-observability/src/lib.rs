@@ -105,11 +105,14 @@ pub fn replay_trajectory_to_spans(
 
     for (i, ev) in events.iter().enumerate() {
         let etype = ev.get("type").and_then(|v| v.as_str()).unwrap_or("event");
-        current.add_event(etype, Some({
-            let mut m = HashMap::new();
-            m.insert("raw".to_string(), ev.clone());
-            m
-        }));
+        current.add_event(
+            etype,
+            Some({
+                let mut m = HashMap::new();
+                m.insert("raw".to_string(), ev.clone());
+                m
+            }),
+        );
         if i % 4 == 0 && i > 0 {
             current.finish();
             spans.push(current.clone());

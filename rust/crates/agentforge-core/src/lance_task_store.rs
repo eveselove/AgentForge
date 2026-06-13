@@ -44,44 +44,136 @@ fn task_schema() -> Arc<Schema> {
 fn task_to_batch(task: &Task) -> Result<RecordBatch> {
     let tags_json = serde_json::to_string(&task.tags).unwrap_or("[]".into());
     let metadata_json = serde_json::to_string(&task.metadata).unwrap_or("{}".into());
-    let result_json = task.result.as_ref().map(|r| r.to_string()).unwrap_or_default();
+    let result_json = task
+        .result
+        .as_ref()
+        .map(|r| r.to_string())
+        .unwrap_or_default();
     let status_str = format!("{:?}", task.status);
 
     RecordBatch::try_from_iter(vec![
-        ("id", Arc::new(StringArray::from(vec![task.id.as_str()])) as ArrayRef),
-        ("title", Arc::new(StringArray::from(vec![task.title.as_str()])) as ArrayRef),
-        ("description", Arc::new(StringArray::from(vec![task.description.as_str()])) as ArrayRef),
-        ("priority", Arc::new(StringArray::from(vec![task.priority.as_str()])) as ArrayRef),
-        ("complexity", Arc::new(StringArray::from(vec![task.complexity.as_str()])) as ArrayRef),
-        ("preferred_agent", Arc::new(StringArray::from(vec![task.preferred_agent.as_deref().unwrap_or("")])) as ArrayRef),
-        ("assigned_to", Arc::new(StringArray::from(vec![task.assigned_to.as_deref().unwrap_or("")])) as ArrayRef),
-        ("status", Arc::new(StringArray::from(vec![status_str.as_str()])) as ArrayRef),
-        ("tags_json", Arc::new(StringArray::from(vec![tags_json.as_str()])) as ArrayRef),
-        ("created_at", Arc::new(StringArray::from(vec![task.created_at.as_str()])) as ArrayRef),
-        ("updated_at", Arc::new(StringArray::from(vec![task.updated_at.as_str()])) as ArrayRef),
-        ("started_at", Arc::new(StringArray::from(vec![task.started_at.as_deref().unwrap_or("")])) as ArrayRef),
-        ("completed_at", Arc::new(StringArray::from(vec![task.completed_at.as_deref().unwrap_or("")])) as ArrayRef),
-        ("metadata_json", Arc::new(StringArray::from(vec![metadata_json.as_str()])) as ArrayRef),
-        ("result_json", Arc::new(StringArray::from(vec![result_json.as_str()])) as ArrayRef),
-    ]).map_err(|e| anyhow::anyhow!(e))
+        (
+            "id",
+            Arc::new(StringArray::from(vec![task.id.as_str()])) as ArrayRef,
+        ),
+        (
+            "title",
+            Arc::new(StringArray::from(vec![task.title.as_str()])) as ArrayRef,
+        ),
+        (
+            "description",
+            Arc::new(StringArray::from(vec![task.description.as_str()])) as ArrayRef,
+        ),
+        (
+            "priority",
+            Arc::new(StringArray::from(vec![task.priority.as_str()])) as ArrayRef,
+        ),
+        (
+            "complexity",
+            Arc::new(StringArray::from(vec![task.complexity.as_str()])) as ArrayRef,
+        ),
+        (
+            "preferred_agent",
+            Arc::new(StringArray::from(vec![task
+                .preferred_agent
+                .as_deref()
+                .unwrap_or("")])) as ArrayRef,
+        ),
+        (
+            "assigned_to",
+            Arc::new(StringArray::from(vec![task
+                .assigned_to
+                .as_deref()
+                .unwrap_or("")])) as ArrayRef,
+        ),
+        (
+            "status",
+            Arc::new(StringArray::from(vec![status_str.as_str()])) as ArrayRef,
+        ),
+        (
+            "tags_json",
+            Arc::new(StringArray::from(vec![tags_json.as_str()])) as ArrayRef,
+        ),
+        (
+            "created_at",
+            Arc::new(StringArray::from(vec![task.created_at.as_str()])) as ArrayRef,
+        ),
+        (
+            "updated_at",
+            Arc::new(StringArray::from(vec![task.updated_at.as_str()])) as ArrayRef,
+        ),
+        (
+            "started_at",
+            Arc::new(StringArray::from(vec![task
+                .started_at
+                .as_deref()
+                .unwrap_or("")])) as ArrayRef,
+        ),
+        (
+            "completed_at",
+            Arc::new(StringArray::from(vec![task
+                .completed_at
+                .as_deref()
+                .unwrap_or("")])) as ArrayRef,
+        ),
+        (
+            "metadata_json",
+            Arc::new(StringArray::from(vec![metadata_json.as_str()])) as ArrayRef,
+        ),
+        (
+            "result_json",
+            Arc::new(StringArray::from(vec![result_json.as_str()])) as ArrayRef,
+        ),
+    ])
+    .map_err(|e| anyhow::anyhow!(e))
 }
 
 fn batch_to_tasks(batch: &RecordBatch) -> Vec<Task> {
-    let ids = batch.column_by_name("id").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let titles = batch.column_by_name("title").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let descs = batch.column_by_name("description").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let priorities = batch.column_by_name("priority").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let complexities = batch.column_by_name("complexity").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let pref_agents = batch.column_by_name("preferred_agent").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let assigned = batch.column_by_name("assigned_to").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let statuses = batch.column_by_name("status").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let tags = batch.column_by_name("tags_json").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let created = batch.column_by_name("created_at").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let updated = batch.column_by_name("updated_at").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let started = batch.column_by_name("started_at").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let completed = batch.column_by_name("completed_at").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let meta = batch.column_by_name("metadata_json").and_then(|c| c.as_any().downcast_ref::<StringArray>());
-    let results = batch.column_by_name("result_json").and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let ids = batch
+        .column_by_name("id")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let titles = batch
+        .column_by_name("title")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let descs = batch
+        .column_by_name("description")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let priorities = batch
+        .column_by_name("priority")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let complexities = batch
+        .column_by_name("complexity")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let pref_agents = batch
+        .column_by_name("preferred_agent")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let assigned = batch
+        .column_by_name("assigned_to")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let statuses = batch
+        .column_by_name("status")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let tags = batch
+        .column_by_name("tags_json")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let created = batch
+        .column_by_name("created_at")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let updated = batch
+        .column_by_name("updated_at")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let started = batch
+        .column_by_name("started_at")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let completed = batch
+        .column_by_name("completed_at")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let meta = batch
+        .column_by_name("metadata_json")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let results = batch
+        .column_by_name("result_json")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
 
     let n = batch.num_rows();
     let mut tasks = Vec::with_capacity(n);
@@ -144,9 +236,7 @@ impl LanceTaskStore {
 
         std::fs::create_dir_all(&path)?;
 
-        let db = lancedb::connect(path.to_str().unwrap())
-            .execute()
-            .await?;
+        let db = lancedb::connect(path.to_str().unwrap()).execute().await?;
 
         // Create table if not exists
         let table_name = "tasks".to_string();
@@ -154,10 +244,7 @@ impl LanceTaskStore {
         if !table_names.contains(&table_name) {
             let schema = task_schema();
             let empty = RecordBatch::new_empty(schema.clone());
-            let batches = RecordBatchIterator::new(
-                vec![Ok(empty)],
-                schema,
-            );
+            let batches = RecordBatchIterator::new(vec![Ok(empty)], schema);
             db.create_table(&table_name, Box::new(batches))
                 .execute()
                 .await?;
@@ -177,7 +264,7 @@ impl LanceTaskStore {
         };
 
         let batches = if let Some(f) = filter {
-            match table.query().only_if(f).execute().await {
+            match table.query().only_if(f).limit(10000).execute().await {
                 Ok(stream) => {
                     use futures::TryStreamExt;
                     stream.try_collect::<Vec<_>>().await.unwrap_or_default()
@@ -185,7 +272,7 @@ impl LanceTaskStore {
                 Err(_) => return vec![],
             }
         } else {
-            match table.query().execute().await {
+            match table.query().limit(10000).execute().await {
                 Ok(stream) => {
                     use futures::TryStreamExt;
                     stream.try_collect::<Vec<_>>().await.unwrap_or_default()
@@ -230,7 +317,10 @@ impl TaskStore for LanceTaskStore {
         let mut tasks = self.query_all_tasks(Some("status = 'Pending'")).await;
         tasks.sort_by(|a, b| {
             let prio = |p: &str| match p {
-                "critical" => 0, "high" => 1, "medium" => 2, _ => 3,
+                "critical" => 0,
+                "high" => 1,
+                "medium" => 2,
+                _ => 3,
             };
             prio(&a.priority).cmp(&prio(&b.priority))
         });
@@ -281,7 +371,10 @@ impl TaskStore for LanceTaskStore {
                 return Err(format!("Task {} is not pending ({:?})", id, task.status));
             }
             if task.assigned_to.is_some() {
-                return Err(format!("Task {} already assigned to {:?}", id, task.assigned_to));
+                return Err(format!(
+                    "Task {} already assigned to {:?}",
+                    id, task.assigned_to
+                ));
             }
 
             task.assigned_to = Some(agent.to_string());

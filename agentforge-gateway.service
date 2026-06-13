@@ -1,8 +1,9 @@
-# === GATEWAY (Rust task API server - PHASE 4 replacement for old Python uvicorn task_queue) ===
+# === GATEWAY (Rust task API server - PHASE 4 / task-5af0e350 replacement for old Python uvicorn task_queue:8080) ===
 # Built from gateway/ (axum + agentforge-core LanceTaskStore etc.).
 # Runs the full CRUD, dispatch, review, WS, knowledge/blackboard on :9090.
-# Non-blocking for migration; legacy 8080/api may coexist briefly for rollback.
-# See gateway/src/main.rs, AUDIT-5-systemd-services.md, install_services.sh.
+# Legacy 8080/api excised. Use this unit.
+# See gateway/src/main.rs, install_services.sh, AGENTS.md.
+# PHASE4_REMOVAL_PLAN AGGRESSIVE FINAL DEPRECATION SWEEP: references to legacy are historical only.
 
 [Unit]
 Description=AgentForge Gateway (Rust task queue / API - 9090)
@@ -16,6 +17,11 @@ ExecStart=/home/eveselove/agentforge/gateway/target/release/agentforge-gateway
 Restart=always
 RestartSec=5
 Environment=HOME=/home/eveselove
+# task-5af0e350: PURE RUST FLYWHEEL HARD DEFAULT (propagates to all downstream even via gateway)
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
+Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
 StandardOutput=append:/home/eveselove/agentforge/logs/gateway.log
 StandardError=append:/home/eveselove/agentforge/logs/gateway.log
 

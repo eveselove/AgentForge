@@ -3,6 +3,9 @@ Description=LLM Judge LoRA Training
 After=network.target
 
 [Service]
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
+# task-5af0e350 pure default
 Type=oneshot
 ExecStart=/home/agx/planlytasksko/scripts/nightly_judge_train.sh
 WorkingDirectory=/home/agx/planlytasksko

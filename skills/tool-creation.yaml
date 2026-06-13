@@ -53,7 +53,7 @@ system_prompt: |
     JSON
 
   Method B — Direct API call (works from any environment):
-    curl -X POST http://localhost:8080/skills/capture \
+    curl -X POST http://localhost:9090/skills/capture \  # legacy; prefer agentforge-runner or direct gw /api if available (updated task-5af0e350)
       -H 'Content-Type: application/json' \
       -d @- << 'EOF'
     { ... same JSON ... }
@@ -119,7 +119,7 @@ required_tags:
 
 ci_checks:
   - "python /home/eveselove/agentforge/skill_capture.py --help || echo 'helper ok'"
-  - "curl -s http://localhost:8080/skills | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"skills count:\", d.get(\"count\",0))' || true"
+  - "curl -s http://localhost:9090/skills | python3 -c 'import sys,json; d=json.load(sys.stdin); print(\"skills count:\", d.get(\"count\",0))' || true"  # legacy endpoint; gw 9090 primary
 
 timeout: 1800
 preferred_model: grok

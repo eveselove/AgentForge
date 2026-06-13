@@ -720,17 +720,19 @@ echo "[AgentForge] Worktree $WORKTREE_DIR removed (isolation complete)" | tee -a
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
+_ROOT="${AGENTFORGE_ROOT:-$HOME/agentforge}"
+PURE_MARKER="$_ROOT/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "$_ROOT/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="$_ROOT/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "$_ROOT/bin/rust_flywheel.env" ] && source "$_ROOT/bin/rust_flywheel.env" 2>/dev/null || true
 fi
+# task-5af0e350: provenance ensured for 100% rust-agentforge-runner in logs
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.
 
 # === MANUAL COMPLETION NOTE (Grok direct, 2026-06) ===

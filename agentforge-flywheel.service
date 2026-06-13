@@ -38,10 +38,14 @@ WorkingDirectory=/home/eveselove/agentforge
 Environment=ENABLE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
 Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
 Environment=PYTHONPATH=/home/eveselove
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
+Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
 # PHASE 4: Direct Rust runner (complete surface). Use env (set in unit) with release fallback.
-# Non-breaking for debug builds or custom paths.
+# Non-breaking for debug builds or custom paths. task-5af0e350 pure default soak start.
 ExecStart=/bin/sh -c 'exec "${AGENTFORGE_RUST_RUNNER:-/home/eveselove/agentforge/rust/target/release/agentforge-runner}" --json continuous --top-n 2'
 StandardOutput=append:/home/eveselove/agentforge/logs/continuous_flywheel.log
 StandardError=append:/home/eveselove/agentforge/logs/continuous_flywheel.log
@@ -52,7 +56,4 @@ KillMode=process
 [Install]
 WantedBy=default.target
 
-Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
-Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
-Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
-# Pure cutover injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00 — rollback via FLYWHEEL_ENGINE=python or .disable_pure_rust_flywheel
+# Pure cutover + task-5af0e350: PURE RUST HARD DEFAULT for 14d soak (see marker .pure_rust_flywheel). Rollback via disable_pure script.

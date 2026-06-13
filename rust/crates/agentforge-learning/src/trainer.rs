@@ -1,6 +1,6 @@
 use crate::dataset::TrajectoryDataset;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Common training hyperparameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +51,7 @@ pub trait BaseTrainer {
 
     fn train(
         &self,
-        prepared_data: &PathBuf,
+        prepared_data: &Path,
         config: &TrainingConfig,
         output_dir: Option<PathBuf>,
     ) -> Result<TrainingRun, String>;
@@ -83,7 +83,7 @@ impl BaseTrainer for DPOTrainer {
 
     fn train(
         &self,
-        _prepared_data: &PathBuf,
+        _prepared_data: &Path,
         config: &TrainingConfig,
         output_dir: Option<PathBuf>,
     ) -> Result<TrainingRun, String> {
@@ -93,7 +93,7 @@ impl BaseTrainer for DPOTrainer {
             run_id: uuid::Uuid::new_v4().to_string(),
             method: config.method.clone(),
             config: config.clone(),
-            prepared_data_path: Some(_prepared_data.clone()),
+            prepared_data_path: Some(_prepared_data.to_path_buf()),
             output_dir,
             status: "dry_run".to_string(),
             started_at: chrono::Utc::now().to_rfc3339(),
@@ -142,7 +142,7 @@ impl BaseTrainer for KTOTrainer {
 
     fn train(
         &self,
-        prepared_data: &PathBuf,
+        prepared_data: &Path,
         config: &TrainingConfig,
         output_dir: Option<PathBuf>,
     ) -> Result<TrainingRun, String> {
@@ -150,7 +150,7 @@ impl BaseTrainer for KTOTrainer {
             run_id: uuid::Uuid::new_v4().to_string(),
             method: "kto".to_string(),
             config: config.clone(),
-            prepared_data_path: Some(prepared_data.clone()),
+            prepared_data_path: Some(prepared_data.to_path_buf()),
             output_dir,
             status: "dry_run".to_string(),
             started_at: chrono::Utc::now().to_rfc3339(),
@@ -198,7 +198,7 @@ impl BaseTrainer for SFTTrainer {
 
     fn train(
         &self,
-        prepared_data: &PathBuf,
+        prepared_data: &Path,
         config: &TrainingConfig,
         output_dir: Option<PathBuf>,
     ) -> Result<TrainingRun, String> {
@@ -206,7 +206,7 @@ impl BaseTrainer for SFTTrainer {
             run_id: uuid::Uuid::new_v4().to_string(),
             method: "sft".to_string(),
             config: config.clone(),
-            prepared_data_path: Some(prepared_data.clone()),
+            prepared_data_path: Some(prepared_data.to_path_buf()),
             output_dir,
             status: "dry_run".to_string(),
             started_at: chrono::Utc::now().to_rfc3339(),
@@ -224,13 +224,28 @@ mod tests {
 
     fn minimal_rec(id: &str, outcome: Outcome) -> TrajectoryRecord {
         TrajectoryRecord {
-            task_id: id.into(), benchmark_id: "bench".into(), agent: "a".into(),
-            outcome, real_task_id: None, prm_overall: Some(0.8),
-            prm_high_quality_steps: None, prm_low_quality_steps: None, prm_step_labels: None,
-            prm_suggestions: None, duration_seconds: 0.0, steps_taken: 0, tool_calls: 0,
-            cost_usd: 0.0, error_message: None, events: vec![], judge_notes: None,
-            quality_score: None, learning_value_score: 0.0, trajectory_path: None,
-            evaluated_at: None, metadata: HashMap::new(),
+            task_id: id.into(),
+            benchmark_id: "bench".into(),
+            agent: "a".into(),
+            outcome,
+            real_task_id: None,
+            prm_overall: Some(0.8),
+            prm_high_quality_steps: None,
+            prm_low_quality_steps: None,
+            prm_step_labels: None,
+            prm_suggestions: None,
+            duration_seconds: 0.0,
+            steps_taken: 0,
+            tool_calls: 0,
+            cost_usd: 0.0,
+            error_message: None,
+            events: vec![],
+            judge_notes: None,
+            quality_score: None,
+            learning_value_score: 0.0,
+            trajectory_path: None,
+            evaluated_at: None,
+            metadata: HashMap::new(),
         }
     }
 

@@ -62,19 +62,13 @@ import time
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable, Literal, Union
+from typing import Any, Dict, List, Optional, Callable, Union
 
 # --- Reuse the battle-tested eval stack (Phase 1 foundation) ---
 try:
     from agentforge.eval.trajectory import load_trajectory, find_trajectory_file
-    from agentforge.eval.prm import ProcessRewardModel, TrajectoryPRMResult
-    from agentforge.eval.export_learning_dataset import (
-        build_learning_record,
-        generate_preference_pairs as _legacy_generate_pairs,
-        LEARNING_DATASETS_DIR as EVAL_LEARNING_DIR,
-    )
-    from agentforge.eval.schemas import EvaluationResult
-    from agentforge.eval.history import load_history  # for extra context
+    from agentforge.eval.prm import ProcessRewardModel
+    # (other eval imports removed: only soft-dep for standalone; used ones above)
 except ImportError as e:
     # Allow standalone testing / partial envs
     print(f"[learning] Warning: could not import full eval stack: {e}")
@@ -111,14 +105,30 @@ EVAL_TRAJECTORIES_DIR = Path(
 # roundtrip interop with the unified Rust side (binary exports, flywheel-export, runner).
 # Lenient on input (old lowercase "success"/"failed", Rust Display lowercase, typos etc).
 # Unknowns fall back to Failure (matches Rust From<&str> lenient behavior).
-RUST_CANONICAL_OUTCOMES = ("Success", "Failure", "PartialSuccess", "Timeout", "Cancelled")
+RUST_CANONICAL_OUTCOMES = (
+    "Success",
+    "Failure",
+    "PartialSuccess",
+    "Timeout",
+    "Cancelled",
+)
 _RUST_OUTCOME_MAP = {
-    "success": "Success", "succeeded": "Success", "ok": "Success",
-    "failure": "Failure", "failed": "Failure", "fail": "Failure",
-    "partial": "PartialSuccess", "partial_success": "PartialSuccess", "partialsuccess": "PartialSuccess",
-    "timeout": "Timeout", "timed_out": "Timeout",
-    "cancelled": "Cancelled", "canceled": "Cancelled", "cancel": "Cancelled",
+    "success": "Success",
+    "succeeded": "Success",
+    "ok": "Success",
+    "failure": "Failure",
+    "failed": "Failure",
+    "fail": "Failure",
+    "partial": "PartialSuccess",
+    "partial_success": "PartialSuccess",
+    "partialsuccess": "PartialSuccess",
+    "timeout": "Timeout",
+    "timed_out": "Timeout",
+    "cancelled": "Cancelled",
+    "canceled": "Cancelled",
+    "cancel": "Cancelled",
 }
+
 
 def normalize_outcome_to_rust_canonical(val: Any) -> str:
     """Normalize outcome value to Rust canonical string for unified core::Outcome interop."""
@@ -134,6 +144,7 @@ def normalize_outcome_to_rust_canonical(val: Any) -> str:
 @dataclass
 class TrajectoryRecord:
     """Canonical rich record for learning. One trajectory + rich labels."""
+
     task_id: str
     benchmark_id: str
     agent: str
@@ -144,7 +155,9 @@ class TrajectoryRecord:
     prm_overall: Optional[float] = None
     prm_high_quality_steps: Optional[int] = None
     prm_low_quality_steps: Optional[int] = None
-    prm_step_labels: Optional[List[Dict[str, Any]]] = None  # [{index, type, score, reasons, ...}]
+    prm_step_labels: Optional[List[Dict[str, Any]]] = (
+        None  # [{index, type, score, reasons, ...}]
+    )
     prm_suggestions: Optional[List[str]] = None
 
     # Execution metadata
@@ -155,7 +168,9 @@ class TrajectoryRecord:
     error_message: Optional[str] = None
 
     # Rich content
-    events: List[Dict[str, Any]] = field(default_factory=list)  # normalized canonical shape
+    events: List[Dict[str, Any]] = field(
+        default_factory=list
+    )  # normalized canonical shape
     judge_notes: Optional[str] = None
     quality_score: Optional[float] = None
 
@@ -167,7 +182,9 @@ class TrajectoryRecord:
 
     def __post_init__(self):
         # Wire unified: normalize on every construction (real loads, exports, manual, Rust bridge results)
-        object.__setattr__(self, "outcome", normalize_outcome_to_rust_canonical(self.outcome))
+        object.__setattr__(
+            self, "outcome", normalize_outcome_to_rust_canonical(self.outcome)
+        )
 
     def is_high_quality(self, min_prm: float = 0.65) -> bool:
         if self.prm_overall is None:
@@ -191,6 +208,7 @@ class TrajectoryRecord:
 @dataclass
 class DatasetVersion:
     """Manifest for a saved, reproducible dataset version."""
+
     name: str
     version: str
     created_at: str
@@ -247,30 +265,60 @@ class TrajectoryDataset:
                 if tmp:
                     before = len(self.records)
                     self.load_from_export_file(tmp, include_events=False)
-                    added = len(self.records) - before
+                    len(self.records) - before
                     # apply requested filters post-load (cheap in-mem)
-                    if only_real or only_success or only_failed or agents or since_days or min_prm is not None:
-                        cutoff = datetime.utcnow() - timedelta(days=since_days) if since_days else None
+                    if (
+                        only_real
+                        or only_success
+                        or only_failed
+                        or agents
+                        or since_days
+                        or min_prm is not None
+                    ):
+                        cutoff = (
+                            datetime.utcnow() - timedelta(days=since_days)
+                            if since_days
+                            else None
+                        )
                         kept = []
                         for r in self.records[before:]:
-                            if only_real and not getattr(r, "real_task_id", None): continue
-                            norm_o = normalize_outcome_to_rust_canonical(getattr(r, "outcome", ""))
-                            if only_success and norm_o != "Success": continue
-                            if only_failed and norm_o != "Failure": continue
-                            if agents and getattr(r, "agent", None) not in agents: continue
+                            if only_real and not getattr(r, "real_task_id", None):
+                                continue
+                            norm_o = normalize_outcome_to_rust_canonical(
+                                getattr(r, "outcome", "")
+                            )
+                            if only_success and norm_o != "Success":
+                                continue
+                            if only_failed and norm_o != "Failure":
+                                continue
+                            if agents and getattr(r, "agent", None) not in agents:
+                                continue
                             if cutoff and getattr(r, "evaluated_at", None):
                                 try:
-                                    ts = datetime.fromisoformat(getattr(r, "evaluated_at").replace("Z", "+00:00"))
-                                    if ts < cutoff: continue
+                                    ts = datetime.fromisoformat(
+                                        getattr(r, "evaluated_at").replace(
+                                            "Z", "+00:00"
+                                        )
+                                    )
+                                    if ts < cutoff:
+                                        continue
                                 except Exception:
                                     pass
-                            if min_prm is not None and (getattr(r, "prm_overall", 0) or 0) < min_prm: continue
+                            if (
+                                min_prm is not None
+                                and (getattr(r, "prm_overall", 0) or 0) < min_prm
+                            ):
+                                continue
                             kept.append(r)
                         self.records = self.records[:before] + kept
-                    print(f"[TrajectoryDataset] load_from_eval_results used Rust fast path ({len(self.records)-before} records)")
+                    print(
+                        f"[TrajectoryDataset] load_from_eval_results used Rust fast path ({len(self.records)-before} records)"
+                    )
                     return self
             except Exception as e:
-                print(f"[TrajectoryDataset] Rust load fast-path error (falling to Python): {e}")
+                print(
+                    f"[TrajectoryDataset] Rust load fast-path error (falling to Python): {e}"
+                )
         # --- end Rust fast path ---
 
         prm = ProcessRewardModel() if (attach_prm and ProcessRewardModel) else None
@@ -302,12 +350,16 @@ class TrajectoryDataset:
                     except Exception:
                         pass
 
-            rec = self._result_to_record(data, include_full_trajectories, max_events, prm)
+            rec = self._result_to_record(
+                data, include_full_trajectories, max_events, prm
+            )
             if min_prm is not None and (rec.prm_overall or 0) < min_prm:
                 continue
             self.records.append(rec)
 
-        print(f"[TrajectoryDataset] Loaded {len(self.records)} records from eval results")
+        print(
+            f"[TrajectoryDataset] Loaded {len(self.records)} records from eval results"
+        )
         return self
 
     def load_from_export_file(
@@ -332,31 +384,42 @@ class TrajectoryDataset:
             if isinstance(data, dict) and "per_record_learning_values" in data:
                 # Richer stats from binary export: ingest the per-record for full interop
                 for entry in data.get("per_record_learning_values", []):
-                    rec_data = entry.get("data", entry) if isinstance(entry, dict) else {}
+                    rec_data = (
+                        entry.get("data", entry) if isinstance(entry, dict) else {}
+                    )
                     rec = TrajectoryRecord(
-                        task_id=rec_data.get("task_id") or rec_data.get("benchmark_id", "unknown"),
-                        benchmark_id=rec_data.get("benchmark_id") or rec_data.get("task_id", "unknown"),
+                        task_id=rec_data.get("task_id")
+                        or rec_data.get("benchmark_id", "unknown"),
+                        benchmark_id=rec_data.get("benchmark_id")
+                        or rec_data.get("task_id", "unknown"),
                         agent=rec_data.get("agent", "unknown"),
                         outcome=rec_data.get("outcome", "unknown"),
                         prm_overall=rec_data.get("prm_overall"),
                         learning_value=rec_data.get("learning_value"),
                         duration_seconds=rec_data.get("duration_seconds", 0),
                         steps_taken=rec_data.get("steps_taken", 0),
-                        metadata={"source": "rust_rich_flywheel_export", "path": str(p)},
+                        metadata={
+                            "source": "rust_rich_flywheel_export",
+                            "path": str(p),
+                        },
                     )
                     self.records.append(rec)
-                print(f"[TrajectoryDataset] Ingested richer stats from Rust flywheel-export bundle: +{len(data.get('per_record_learning_values', []))} records")
+                print(
+                    f"[TrajectoryDataset] Ingested richer stats from Rust flywheel-export bundle: +{len(data.get('per_record_learning_values', []))} records"
+                )
                 # also try pairs if present for compat
                 for pair in data.get("preference_pairs", []):
                     for side_key in ("chosen", "rejected"):
                         if side_key in pair:
                             sd = pair[side_key]
-                            self.records.append(TrajectoryRecord(
-                                task_id=pair.get("benchmark_id", "pair"),
-                                benchmark_id=pair.get("benchmark_id", "pair"),
-                                agent="unknown",
-                                outcome=sd.get("outcome", "unknown"),
-                            ))
+                            self.records.append(
+                                TrajectoryRecord(
+                                    task_id=pair.get("benchmark_id", "pair"),
+                                    benchmark_id=pair.get("benchmark_id", "pair"),
+                                    agent="unknown",
+                                    outcome=sd.get("outcome", "unknown"),
+                                )
+                            )
                 return self
         except Exception:
             pass  # fall to jsonl parsing
@@ -387,7 +450,8 @@ class TrajectoryDataset:
                 # Flat record
                 rec = TrajectoryRecord(
                     task_id=item.get("benchmark_id") or item.get("task_id", "unknown"),
-                    benchmark_id=item.get("benchmark_id") or item.get("task_id", "unknown"),
+                    benchmark_id=item.get("benchmark_id")
+                    or item.get("task_id", "unknown"),
                     agent=item.get("agent", "unknown"),
                     outcome=item.get("outcome", "unknown"),
                     prm_overall=item.get("prm_overall_score"),
@@ -406,7 +470,9 @@ class TrajectoryDataset:
                 )
                 self.records.append(rec)
 
-        print(f"[TrajectoryDataset] Ingested from export: now {len(self.records)} total records")
+        print(
+            f"[TrajectoryDataset] Ingested from export: now {len(self.records)} total records"
+        )
         return self
 
     def load_from_trajectories_dir(
@@ -430,7 +496,9 @@ class TrajectoryDataset:
         cands = []
         for ext in ("*.jsonl", "*.json"):
             cands.extend(traj_dir.glob(ext))
-        cands = sorted(cands, key=lambda p: p.stat().st_mtime, reverse=True)[:limit * 2]
+        cands = sorted(cands, key=lambda p: p.stat().st_mtime, reverse=True)[
+            : limit * 2
+        ]
 
         loaded = 0
         for p in cands:
@@ -452,14 +520,16 @@ class TrajectoryDataset:
                 outcome = raw.get("outcome", "unknown")
 
                 # Attach sidecar .prm.json if exists (strip repeated suffixes for matching)
-                prm_overall = raw.get("prm_overall_score") or raw.get("prm_result", {}).get("overall_prm_score")
+                prm_overall = raw.get("prm_overall_score") or raw.get(
+                    "prm_result", {}
+                ).get("overall_prm_score")
                 prm_high = None
                 prm_low = None
                 prm_sugs = None
                 prm_steps = None
 
                 if attach_sidecar_prm:
-                    base = p.with_suffix("")
+                    p.with_suffix("")
                     # Handle foo.prm.prm... cases and foo_grok.jsonl -> foo_grok.prm.json
                     prm_cand = p.with_suffix(".prm.json")
                     if not prm_cand.exists():
@@ -470,16 +540,30 @@ class TrajectoryDataset:
                         prm_cand = p.parent / f"{stem}.prm.json"
                     if prm_cand.exists():
                         try:
-                            prm_data = json.loads(prm_cand.read_text(encoding="utf-8", errors="replace"))
+                            prm_data = json.loads(
+                                prm_cand.read_text(encoding="utf-8", errors="replace")
+                            )
                             pr = prm_data.get("prm_result", prm_data)
                             prm_overall = pr.get("overall_prm_score", prm_overall)
-                            prm_high = pr.get("prm_high_quality_steps") or pr.get("num_high_quality_steps")
-                            prm_low = pr.get("prm_low_quality_steps") or pr.get("num_low_quality_steps")
-                            prm_sugs = pr.get("prm_suggestions") or pr.get("suggestions_for_improvement")
+                            prm_high = pr.get("prm_high_quality_steps") or pr.get(
+                                "num_high_quality_steps"
+                            )
+                            prm_low = pr.get("prm_low_quality_steps") or pr.get(
+                                "num_low_quality_steps"
+                            )
+                            prm_sugs = pr.get("prm_suggestions") or pr.get(
+                                "suggestions_for_improvement"
+                            )
                             if pr.get("step_scores"):
                                 prm_steps = [
-                                    {"index": s.get("step_index", i), "type": s.get("event_type", s.get("type", "unknown")),
-                                     "score": s.get("score", 0.0), "reasons": s.get("reasons", [])}
+                                    {
+                                        "index": s.get("step_index", i),
+                                        "type": s.get(
+                                            "event_type", s.get("type", "unknown")
+                                        ),
+                                        "score": s.get("score", 0.0),
+                                        "reasons": s.get("reasons", []),
+                                    }
                                     for i, s in enumerate(pr.get("step_scores", []))
                                 ]
                         except Exception:
@@ -507,22 +591,32 @@ class TrajectoryDataset:
                     trajectory_path=str(p),
                     evaluated_at=raw.get("evaluated_at"),
                     learning_value_score=0.0,
-                    metadata={"source": "trajectories_dir", "prm_sidecar_used": bool(prm_overall)},
+                    metadata={
+                        "source": "trajectories_dir",
+                        "prm_sidecar_used": bool(prm_overall),
+                    },
                 )
                 # Compute a quick learning value
                 dur = max(rec.duration_seconds or 1.0, 1.0)
                 fail_boost = 1.6 if rec.outcome != "Success" else 1.0
                 err_boost = 1.4 if rec.error_message else 1.0
                 prm_b = (rec.prm_overall or 0.5) - 0.3
-                rec.learning_value_score = round(max(0.05, (fail_boost * err_boost * (0.6 + prm_b)) / (dur / 120 + 1) ), 3)
+                rec.learning_value_score = round(
+                    max(
+                        0.05, (fail_boost * err_boost * (0.6 + prm_b)) / (dur / 120 + 1)
+                    ),
+                    3,
+                )
 
                 self.records.append(rec)
                 loaded += 1
-            except Exception as e:
+            except Exception:
                 # Skip unreadable files silently in production loader
                 continue
 
-        print(f"[TrajectoryDataset] Loaded {loaded} records from trajectories dir (with sidecar PRM where available)")
+        print(
+            f"[TrajectoryDataset] Loaded {loaded} records from trajectories dir (with sidecar PRM where available)"
+        )
         return self
 
     def add_trajectory(
@@ -607,7 +701,10 @@ class TrajectoryDataset:
                 continue
             if max_cost is not None and r.cost_usd > max_cost:
                 continue
-            if min_learning_value is not None and r.learning_value_score < min_learning_value:
+            if (
+                min_learning_value is not None
+                and r.learning_value_score < min_learning_value
+            ):
                 continue
             if custom and not custom(r):
                 continue
@@ -621,12 +718,16 @@ class TrajectoryDataset:
         require_success: bool = True,
     ) -> "TrajectoryDataset":
         """Opinionated high-signal filter for training data."""
+
         def q(r: TrajectoryRecord) -> bool:
             if require_success and r.outcome != "Success":
                 return False
             if r.prm_overall is not None and r.prm_overall < min_overall_prm:
                 return False
-            if r.prm_high_quality_steps is not None and r.prm_high_quality_steps < min_high_quality_steps:
+            if (
+                r.prm_high_quality_steps is not None
+                and r.prm_high_quality_steps < min_high_quality_steps
+            ):
                 return False
             return True
 
@@ -638,7 +739,10 @@ class TrajectoryDataset:
         """Convenience split for preference methods."""
         successes = self.filter(outcome="Success")
         failures = self.filter(outcome="Failure")
-        return {"success": successes, "failed": failures}  # keep legacy keys for compat; records use Rust canonical
+        return {
+            "success": successes,
+            "failed": failures,
+        }  # keep legacy keys for compat; records use Rust canonical
 
     # ------------------------------------------------------------------
     # EXPORTS — ready for real training loops (DPO / KTO / SFT / PRM)
@@ -657,7 +761,9 @@ class TrajectoryDataset:
             try:
                 pairs = export_preference_pairs_via_rust(input_dir=EVAL_RESULTS_DIR)
                 if pairs:
-                    print("[TrajectoryDataset] export_preference_pairs used Rust fast path")
+                    print(
+                        "[TrajectoryDataset] export_preference_pairs used Rust fast path"
+                    )
                     return pairs
             except Exception as e:
                 print(f"[TrajectoryDataset] Rust export_preference_pairs fallback: {e}")
@@ -676,37 +782,47 @@ class TrajectoryDataset:
 
             # Choose best success and worst failure (by PRM or learning value)
             if prefer_high_prm:
-                best = max(successes, key=lambda x: (x.prm_overall or 0, x.learning_value_score))
-                worst = min(failures, key=lambda x: (x.prm_overall or 1.0, -x.learning_value_score))
+                best = max(
+                    successes,
+                    key=lambda x: (x.prm_overall or 0, x.learning_value_score),
+                )
+                worst = min(
+                    failures,
+                    key=lambda x: (x.prm_overall or 1.0, -x.learning_value_score),
+                )
             else:
                 best = max(successes, key=lambda x: x.learning_value_score)
                 worst = max(failures, key=lambda x: x.learning_value_score)
 
-            pair_quality = round((best.learning_value_score + worst.learning_value_score) / 2, 2)
+            pair_quality = round(
+                (best.learning_value_score + worst.learning_value_score) / 2, 2
+            )
             if pair_quality < min_pair_quality:
                 continue
 
-            pairs.append({
-                "benchmark_id": bid,
-                "chosen": {
-                    "outcome": "Success",
-                    "prm_overall": best.prm_overall,
-                    "events": best.events[-150:],  # bounded for training
-                    "summary": best.to_summary(),
-                    "trajectory_path": best.trajectory_path,
-                    "real_task_id": best.real_task_id,
-                },
-                "rejected": {
-                    "outcome": worst.outcome,
-                    "prm_overall": worst.prm_overall,
-                    "events": worst.events[-150:],
-                    "summary": worst.to_summary(),
-                    "error_message": worst.error_message,
-                    "trajectory_path": worst.trajectory_path,
-                },
-                "pair_quality": pair_quality,
-                "dataset": self.name,
-            })
+            pairs.append(
+                {
+                    "benchmark_id": bid,
+                    "chosen": {
+                        "outcome": "Success",
+                        "prm_overall": best.prm_overall,
+                        "events": best.events[-150:],  # bounded for training
+                        "summary": best.to_summary(),
+                        "trajectory_path": best.trajectory_path,
+                        "real_task_id": best.real_task_id,
+                    },
+                    "rejected": {
+                        "outcome": worst.outcome,
+                        "prm_overall": worst.prm_overall,
+                        "events": worst.events[-150:],
+                        "summary": worst.to_summary(),
+                        "error_message": worst.error_message,
+                        "trajectory_path": worst.trajectory_path,
+                    },
+                    "pair_quality": pair_quality,
+                    "dataset": self.name,
+                }
+            )
 
         pairs.sort(key=lambda x: x["pair_quality"], reverse=True)
         return pairs
@@ -715,21 +831,30 @@ class TrajectoryDataset:
         """KTO-style: completion + label (desired/undesired) + optional prompt context."""
         kto = []
         for r in self.records:
-            kto.append({
-                "task_id": r.task_id,
-                "benchmark_id": r.benchmark_id,
-                "completion": self._events_to_text(r.events),
-                "label": "desired" if r.outcome == "Success" else "undesired",
-                "prm": r.prm_overall,
-                "metadata": r.to_summary(),
-            })
+            kto.append(
+                {
+                    "task_id": r.task_id,
+                    "benchmark_id": r.benchmark_id,
+                    "completion": self._events_to_text(r.events),
+                    "label": "desired" if r.outcome == "Success" else "undesired",
+                    "prm": r.prm_overall,
+                    "metadata": r.to_summary(),
+                }
+            )
         return kto
 
-    def export_sft_jsonl(self, path: Optional[Path] = None, only_success: bool = True) -> Path:
+    def export_sft_jsonl(
+        self, path: Optional[Path] = None, only_success: bool = True
+    ) -> Path:
         """Supervised fine-tuning format. Success trajectories as instruction + response."""
-        records = [r for r in self.records if (not only_success or r.outcome == "Success")]
+        records = [
+            r for r in self.records if (not only_success or r.outcome == "Success")
+        ]
 
-        out_path = path or (_DEFAULT_LEARNING_DIR / f"sft_{self.name}_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.jsonl")
+        out_path = path or (
+            _DEFAULT_LEARNING_DIR
+            / f"sft_{self.name}_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.jsonl"
+        )
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(out_path, "w", encoding="utf-8") as f:
@@ -747,12 +872,17 @@ class TrajectoryDataset:
                 }
                 f.write(json.dumps(ex, ensure_ascii=False) + "\n")
 
-        print(f"[TrajectoryDataset] Wrote SFT jsonl → {out_path} ({len(records)} examples)")
+        print(
+            f"[TrajectoryDataset] Wrote SFT jsonl → {out_path} ({len(records)} examples)"
+        )
         return out_path
 
     def export_prm_training_data(self, path: Optional[Path] = None) -> Path:
         """Clean step-level PRM labels for training a process reward model / critic."""
-        out_path = path or (_DEFAULT_LEARNING_DIR / f"prm_labels_{self.name}_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.jsonl")
+        out_path = path or (
+            _DEFAULT_LEARNING_DIR
+            / f"prm_labels_{self.name}_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.jsonl"
+        )
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         count = 0
@@ -770,7 +900,9 @@ class TrajectoryDataset:
                 f.write(json.dumps(ex, ensure_ascii=False) + "\n")
                 count += 1
 
-        print(f"[TrajectoryDataset] Wrote PRM step labels → {out_path} ({count} trajectories)")
+        print(
+            f"[TrajectoryDataset] Wrote PRM step labels → {out_path} ({count} trajectories)"
+        )
         return out_path
 
     def to_hf_dataset_dict(self) -> Dict[str, List[Dict]]:
@@ -904,7 +1036,9 @@ class TrajectoryDataset:
                         rec.prm_step_labels = [
                             {
                                 "index": getattr(s, "step_index", i),
-                                "type": getattr(s, "event_type", getattr(s, "type", "unknown")),
+                                "type": getattr(
+                                    s, "event_type", getattr(s, "type", "unknown")
+                                ),
                                 "score": getattr(s, "score", 0.0),
                                 "reasons": getattr(s, "reasons", []),
                             }
@@ -922,7 +1056,9 @@ class TrajectoryDataset:
 
         return rec
 
-    def _events_to_text(self, events: List[Dict[str, Any]], max_chars: int = 8000) -> str:
+    def _events_to_text(
+        self, events: List[Dict[str, Any]], max_chars: int = 8000
+    ) -> str:
         """Turn normalized events into a readable trace for SFT / context."""
         parts = []
         for ev in events:
@@ -1004,7 +1140,6 @@ This is the concrete "1" integration step after the full Rust port of all 3 phas
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional, List, Dict, Any
 
 
 def find_rust_runner() -> Optional[Path]:
@@ -1023,10 +1158,18 @@ def find_rust_runner() -> Optional[Path]:
     # Production: prefer release (smaller, faster exec), then debug dev
     candidates = [
         Path("/home/eveselove/agentforge/rust/target/release/agentforge-runner"),
-        Path(__file__).parent.parent / "rust" / "target" / "release" / "agentforge-runner",
+        Path(__file__).parent.parent
+        / "rust"
+        / "target"
+        / "release"
+        / "agentforge-runner",
         Path.cwd() / "rust" / "target" / "release" / "agentforge-runner",
         Path("/home/eveselove/agentforge/rust/target/debug/agentforge-runner"),
-        Path(__file__).parent.parent / "rust" / "target" / "debug" / "agentforge-runner",
+        Path(__file__).parent.parent
+        / "rust"
+        / "target"
+        / "debug"
+        / "agentforge-runner",
         Path.cwd() / "rust" / "target" / "debug" / "agentforge-runner",
     ]
     for c in candidates:
@@ -1062,16 +1205,26 @@ def export_preference_pairs_via_rust(
     )
     prm_dir = traj_dir
     results_dir = input_dir or EVAL_RESULTS_DIR
-    out_path = Path(output) if output else (Path("/tmp") / f"rust_flywheel_rich_pairs_{os.getpid()}.json")
+    out_path = (
+        Path(output)
+        if output
+        else (Path("/tmp") / f"rust_flywheel_rich_pairs_{os.getpid()}.json")
+    )
 
     # Rich command: always produces richer pairs (learning_value etc) + full bundle
     rich_cmd = [
-        str(runner), "flywheel-export",
-        "--trajectories", str(traj_dir),
-        "--prm-dir", str(prm_dir),
-        "--results", str(results_dir),
-        "--output", str(out_path),
-        "--format", "pairs",
+        str(runner),
+        "flywheel-export",
+        "--trajectories",
+        str(traj_dir),
+        "--prm-dir",
+        str(prm_dir),
+        "--results",
+        str(results_dir),
+        "--output",
+        str(out_path),
+        "--format",
+        "pairs",
         "--json",
     ]
     rich_success = False
@@ -1084,7 +1237,9 @@ def export_preference_pairs_via_rust(
                 bundle = json.loads(out_path.read_text(encoding="utf-8"))
                 pairs = bundle.get("preference_pairs") or bundle.get("pairs") or []
                 if isinstance(pairs, list) and pairs:
-                    print(f"[learning.rust_bridge] Got {len(pairs)} RICH pairs from flywheel-export (learning_value + sidecars)")
+                    print(
+                        f"[learning.rust_bridge] Got {len(pairs)} RICH pairs from flywheel-export (learning_value + sidecars)"
+                    )
                     rich_success = True
                     return pairs
                 # fallback: if it was jsonl flattened
@@ -1096,32 +1251,46 @@ def export_preference_pairs_via_rust(
                             if "chosen" in obj or "preference_pairs" in obj:
                                 pairs.extend(obj.get("preference_pairs", [obj]))
                     if pairs:
-                        print(f"[learning.rust_bridge] Parsed {len(pairs)} rich pairs from flywheel jsonl output")
+                        print(
+                            f"[learning.rust_bridge] Parsed {len(pairs)} rich pairs from flywheel jsonl output"
+                        )
                         rich_success = True
                         return pairs
             except Exception as parse_e:
-                print(f"[learning.rust_bridge] Rich bundle parse issue ({parse_e}), trying direct jsonl...")
+                print(
+                    f"[learning.rust_bridge] Rich bundle parse issue ({parse_e}), trying direct jsonl..."
+                )
                 # try parse as jsonl of pairs
                 pairs = []
                 for line in out_path.read_text().splitlines():
                     if line.strip():
                         try:
                             obj = json.loads(line)
-                            if isinstance(obj, dict) and ("chosen" in obj or "benchmark_id" in obj):
+                            if isinstance(obj, dict) and (
+                                "chosen" in obj or "benchmark_id" in obj
+                            ):
                                 pairs.append(obj)
                         except Exception:
                             pass
                 if pairs:
-                    print(f"[learning.rust_bridge] Got {len(pairs)} pairs from rich jsonl fallback")
+                    print(
+                        f"[learning.rust_bridge] Got {len(pairs)} pairs from rich jsonl fallback"
+                    )
                     rich_success = True
                     return pairs
         # If no pairs in rich or empty, but command succeeded, still note rich was attempted
         if proc.returncode == 0:
-            print("[learning.rust_bridge] Rich flywheel-export ran (may have 0 contrast pairs on this batch); will try basic or py")
-            rich_success = True  # command success counts for health (healthy rich export run)
+            print(
+                "[learning.rust_bridge] Rich flywheel-export ran (may have 0 contrast pairs on this batch); will try basic or py"
+            )
+            rich_success = (
+                True  # command success counts for health (healthy rich export run)
+            )
     except Exception as e:
         rich_err = str(e)
-        print(f"[learning.rust_bridge] Rich flywheel-export failed ({e}); falling back to basic export-pairs")
+        print(
+            f"[learning.rust_bridge] Rich flywheel-export failed ({e}); falling back to basic export-pairs"
+        )
     finally:
         # SAFEGUARD: always update rich export health (observability + auto-disable triggers in watchdog/continuous)
         try:
@@ -1130,20 +1299,37 @@ def export_preference_pairs_via_rust(
             pass  # never impact export path
 
     # Fallback: basic export-pairs (with *corrected modern flags*)
-    out_path2 = Path(output) if output else (Path("/tmp") / f"rust_dpo_pairs_{os.getpid()}.jsonl")
-    basic_cmd = [str(runner), "export-pairs", "--input", str(results_dir), "--output", str(out_path2)]
+    out_path2 = (
+        Path(output)
+        if output
+        else (Path("/tmp") / f"rust_dpo_pairs_{os.getpid()}.jsonl")
+    )
+    basic_cmd = [
+        str(runner),
+        "export-pairs",
+        "--input",
+        str(results_dir),
+        "--output",
+        str(out_path2),
+    ]
     try:
-        subprocess.run(basic_cmd, check=True, capture_output=True, text=True, timeout=180)
+        subprocess.run(
+            basic_cmd, check=True, capture_output=True, text=True, timeout=180
+        )
         if out_path2.exists():
             pairs = []
             for line in out_path2.read_text().splitlines():
                 if line.strip():
                     pairs.append(json.loads(line))
             if pairs:
-                print(f"[learning.rust_bridge] Got {len(pairs)} pairs from basic export-pairs (fallback)")
+                print(
+                    f"[learning.rust_bridge] Got {len(pairs)} pairs from basic export-pairs (fallback)"
+                )
                 return pairs
     except Exception as e:
-        print(f"[learning.rust_bridge] Basic export-pairs also failed: {e} — falling to Python")
+        print(
+            f"[learning.rust_bridge] Basic export-pairs also failed: {e} — falling to Python"
+        )
 
     return []
 
@@ -1162,7 +1348,10 @@ def load_eval_results_via_rust(
     d = results_dir or EVAL_RESULTS_DIR
     if not d.exists():
         return None
-    out_path = Path("/tmp") / f"rust_eval_records_{os.getpid()}_{int(__import__('time').time())}.jsonl"
+    out_path = (
+        Path("/tmp")
+        / f"rust_eval_records_{os.getpid()}_{int(__import__('time').time())}.jsonl"
+    )
     cmd = [str(runner), "export-records", "--from", str(d), "--out", str(out_path)]
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=timeout)
@@ -1177,20 +1366,30 @@ def load_eval_results_via_rust(
 def _maybe_use_rust_export(self, use_rust: bool = False) -> List[Dict[str, Any]]:
     force_rust = use_rust or (os.environ.get("AGENTFORGE_USE_RUST") == "1")
     if not force_rust:
-        return self.export_preference_pairs() if hasattr(self, "export_preference_pairs") else []
+        return (
+            self.export_preference_pairs()
+            if hasattr(self, "export_preference_pairs")
+            else []
+        )
 
     pairs = export_preference_pairs_via_rust(input_dir=EVAL_RESULTS_DIR)
     if pairs:
         return pairs
     # graceful fallback to pure Python
-    return self.export_preference_pairs() if hasattr(self, "export_preference_pairs") else []
+    return (
+        self.export_preference_pairs()
+        if hasattr(self, "export_preference_pairs")
+        else []
+    )
 
 
 # Attach as method if people want ds.export_preference_pairs(use_rust=True)
 # (kept non-breaking — the original method remains)
 TrajectoryDataset.export_preference_pairs_rust = _maybe_use_rust_export
 
-print("[learning] Rust bridge loaded (set AGENTFORGE_RUST_RUNNER or let auto-discovery work)")
+print(
+    "[learning] Rust bridge loaded (set AGENTFORGE_RUST_RUNNER or let auto-discovery work)"
+)
 
 
 # =============================================================================
@@ -1200,6 +1399,7 @@ print("[learning] Rust bridge loaded (set AGENTFORGE_RUST_RUNNER or let auto-dis
 
 FLYWHEEL_STATE_DIR = Path("/tmp/agentforge_rust_flywheel")
 FLYWHEEL_HEALTH_FILE = FLYWHEEL_STATE_DIR / "flywheel_health.json"
+
 
 def get_flywheel_health() -> Dict[str, Any]:
     """Read current flywheel health snapshot (rich exports + continuous + timer). Non-fatal."""
@@ -1211,7 +1411,10 @@ def get_flywheel_health() -> Dict[str, Any]:
         pass
     return {}
 
-def update_rich_export_health(success: bool, error_msg: Optional[str] = None) -> Dict[str, Any]:
+
+def update_rich_export_health(
+    success: bool, error_msg: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Core monitoring helper for safeguards.
     Tracks success rate of rich flywheel-exports (the agentforge-runner flywheel-export path).
@@ -1247,19 +1450,25 @@ def update_rich_export_health(success: bool, error_msg: Optional[str] = None) ->
                 last_err = str(error_msg)[:300]
 
         sr = round(succ / max(1, total), 4) if total > 0 else 0.0
-        rich.update({
-            "total_attempts": total,
-            "successes": succ,
-            "failures": fails,
-            "success_rate": sr,
-            "error_rate": round(fails / max(1, total), 4) if total > 0 else 0.0,
-            "last_success_unix": last_succ,
-            "last_success_iso": datetime.utcfromtimestamp(last_succ).isoformat() + "Z" if last_succ else None,
-            "last_error": last_err,
-            "consecutive_failures": consec,
-            "last_attempt_unix": now,
-            "last_attempt_iso": datetime.utcnow().isoformat() + "Z",
-        })
+        rich.update(
+            {
+                "total_attempts": total,
+                "successes": succ,
+                "failures": fails,
+                "success_rate": sr,
+                "error_rate": round(fails / max(1, total), 4) if total > 0 else 0.0,
+                "last_success_unix": last_succ,
+                "last_success_iso": (
+                    datetime.utcfromtimestamp(last_succ).isoformat() + "Z"
+                    if last_succ
+                    else None
+                ),
+                "last_error": last_err,
+                "consecutive_failures": consec,
+                "last_attempt_unix": now,
+                "last_attempt_iso": datetime.utcnow().isoformat() + "Z",
+            }
+        )
         health["rich_exports"] = rich
         health["timestamp"] = datetime.utcnow().isoformat() + "Z"
 
@@ -1269,17 +1478,26 @@ def update_rich_export_health(success: bool, error_msg: Optional[str] = None) ->
         degraded = high_consec or stale
         health["degraded"] = degraded
         if degraded:
-            health["degraded_reason"] = "consecutive_rich_export_failures" if high_consec else ("no_rich_exports_for_hours" if stale else "unknown")
+            health["degraded_reason"] = (
+                "consecutive_rich_export_failures"
+                if high_consec
+                else ("no_rich_exports_for_hours" if stale else "unknown")
+            )
             health["degraded_since_unix"] = health.get("degraded_since_unix") or now
         else:
             health.pop("degraded_reason", None)
             health.pop("degraded_since_unix", None)
 
         FLYWHEEL_HEALTH_FILE.write_text(json.dumps(health, indent=2), encoding="utf-8")
-        return {"success_rate": sr, "consecutive_failures": consec, "degraded": degraded}
+        return {
+            "success_rate": sr,
+            "consecutive_failures": consec,
+            "degraded": degraded,
+        }
     except Exception as e:
         # Never break callers
         return {"error": str(e)[:120]}
+
 
 # Convenience: lightweight reader for rich stats only
 def get_rich_export_stats() -> Dict[str, Any]:

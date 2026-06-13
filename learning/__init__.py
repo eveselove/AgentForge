@@ -29,6 +29,7 @@ from .trajectory_dataset import (
     DatasetVersion,
     TrajectoryExample,  # legacy alias
 )
+
 # trainer_interface + dataset.py shim DELETED (Jules wave).
 # Tier3 flywheel orchestration (below) stubbed with clear ImportError; reexports wrapped for non-breaking guarded paths.
 # Full removal after preconditions (see JULES_PY_REMOVAL_HANDOFF + PHASE4 Tier 3).
@@ -92,6 +93,7 @@ __all__ = [
     "promote_candidate",
     "get_pending_dir",
 ]
+
 
 # Convenience: full flywheel one-liner access
 def create_learning_flywheel(name: str = "flywheel") -> TrajectoryDataset:
