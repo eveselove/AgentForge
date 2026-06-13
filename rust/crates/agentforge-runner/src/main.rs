@@ -1354,9 +1354,9 @@ fn main() {
             let mut ds = TrajectoryDataset::new("flywheel_export");
             let mut load_summary = serde_json::json!({});
             if trajectories.is_some() || prm_dir.is_some() || results.is_some() {
-                let t_arg = trajectories.as_ref().map(|s| std::path::PathBuf::from(s));
-                let p_arg = prm_dir.as_ref().map(|s| std::path::PathBuf::from(s));
-                let r_arg = results.as_ref().map(|s| std::path::PathBuf::from(s));
+                let t_arg = trajectories.as_ref().map(std::path::PathBuf::from);
+                let p_arg = prm_dir.as_ref().map(std::path::PathBuf::from);
+                let r_arg = results.as_ref().map(std::path::PathBuf::from);
                 match ds.load_flywheel_data(t_arg.as_ref(), p_arg.as_ref(), r_arg.as_ref()) {
                     Ok((tt, pp, rr)) => {
                         load_summary = serde_json::json!({"trajectories":tt,"prm_enriched":pp,"results":rr,"mode":"dirs"});

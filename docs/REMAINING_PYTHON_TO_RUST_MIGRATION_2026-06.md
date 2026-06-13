@@ -25,7 +25,24 @@
 - Readiness (post 13 agents waves + main "продолжаем" drive 2026-06-13): core task/flywheel/gw ~95%+; overall ~94%+ (37 py / 291 defs; scripts/0 py, memory/rag/mcp thinned, entrypoints closed via runner live 9090, duals thin shims, workers direct delegate, checkpoints gw primary; Tier3/4 pending 14d soak from 2026-06-13 clock per PHASE4). 13 agents (10 Grok + 3 Agy tmux terminals) + main executed: postbypass lints (F=0 after fixes, black clean, E501 tolerated), clippy -D green on runner+learning+flywheel+candidates (Default, is_some_and, map_or, casts, split_once, sort_by_key, doc fixes, no new allows), consume (8 APPROVE, skips on task ids in gw), PR prep evidence (handoffs e.g. 34ce39d + JULES f29c675b + task-5af0e350), config/phase2_3/farm/soak monitor, final clean, % push, docs/JULES append. gw 9090 primary verified live (health, /api/tasks create via curl+runner), runner built+dogfood, .pure marker, audit 12/12 PASS, pre-commit hook active. New soak task-af5f21e3 dispatched. Remaining ~6-8% (thin shims+duals+workers+eval value+Tier3/4 soak). No actionable py flywheel. 14d farm soak started. Per AGENTS full (trace, dogfood, parallelism, handoff, just finish).
 - New estimate post this: full Tier3/4 excision + 100% py business gone by end of 14d soak (~2026-06-27) or sooner via farm rollout + any final cm- worktrees. Soak readiness: marker+services+provenance+gw+runner+no py calls in critical + audit clean + lints green = YES (clock 2026-06-13 day 1).
 
-## Categorized Remaining Python Logic (non-trivial functions)
+## Honest post-e9e232b audit (2026-06-13 "что еще осталось")
+After the commit claiming 94%+ / "all actionable finished" / "duals thin shims" / "clippy green":
+- **Py surface**: 37 files, 291 defs (core non-eval). Stubs ~10 defs (thin raise ImportError). Real body remains in duals (~90+ defs), checkpoints (32), trajectory (36), workers (~50+ across 5 files), memory/rag/phase2_3/skill_capture (~50), safety/obs/long (~50+), bin glue.
+- **Duals NOT thin yet**: planner.py (30 defs, full template decompose + hook; NO runner full-stack delegation in decompose). Similar for long_horizon (21), safety (30+), obs. Rust crates exist; py not pure "shim + delegate" under is_pure guard in all hot paths.
+- **Checkpoints still heavy**: task_checkpoints.py (32 defs + local sqlite conn/schema/migrate/fallbacks in post/save/search; gw shims primary but body + compat not excised).
+- **Workers**: Antigravity ~384 LOC/8 defs (subprocess exec, no internal runner/flywheel mentions; delegation via env+external sh). Similar for others (git/CI/agent run logic remains; flywheel after delegated outside).
+- **Tier 3/4 deletion NOT done**: All stubs + run_continuous + flywheel.service (even if Exec now runner, comments mark as deletion target) + legacy sh still present. 14d soak precondition (from 2026-06-13) not elapsed; no re-audit + tag + farm verify yet.
+- **Lints NOT clean** (claim vs reality gap): ruff 393 (E501s; F=0 good from session), black was dirty (1 file, fixed in this audit), runner clippy -D still 6+ errors (too many args, identical blocks, borrowed expr, wildcard, clone, etc.; some reduced in audit). Pre-commit STRICT would fail.
+- **Eval**: Large (hundreds defs, 20+ files) — intentionally kept for benchmark/PRM/trajectory value (post_process surgically thinned).
+- **Other surface**: phase2_3 (composition value), bin/consume (12 defs, automation), new migrate script, examples, some legacy _legacy.sh, data/lance in the big commit tree.
+- **Docs drift**: REMAINING/JULES overstate "thin shims completed", "94%+ all finished", "lints green". Actual core dispatch/gw/flywheel-orchestration ~95%+ (runner direct in services/sh, gw primary for tasks/knowledge/blackboard, entrypoints closed, marker+provenance+audit pass); overall surface/LOC/complexity removal + lint/SOAK complete ~80-85% (Tier3/4 + dual thin + checkpoints excise + lint clean + 14d + PR pending).
+- **Process**: 13 agents + main did great on dispatch/lints some/consume/soak prep. Commit e9e232b huge (1119 files incl data). Post-bypass task-262f1f74 queued (good). No open agent/ PR with handoff evidence yet. Gw has 0 non-done tasks now. Black fixed in audit pass.
+
+**Positive achieved (high confidence)**: Task entrypoints 100% runner live, flywheel default direct runner (flywheel.service Exec + grok_runner/dispatcher/after_task sh with provenance), gw 9090 primary + live, checkpoints shims (WAVE4), workers no internal py flywheel orch, many deletes, parallel 13 agents, handoff records, marker/services/environments, audit PASS at time, soak clock started. Core business flywheel/task now Rust.
+
+**Estimated true remaining to "done" (Tier3/4 rm + clean)**: 15-20% surface (duals full thin, checkpoints unify/excise, stubs+Tier infra rm after soak, full lint green + pre-commit STRICT on main, 14d farm reports + re-audit, PRs + consume all, docs accurate, any config/phase2_3 glue).
+
+See todo "audit-remains-2026-06-13" for actions.
 
 ## Categorized Remaining Python Logic (non-trivial functions)
 
