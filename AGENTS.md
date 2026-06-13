@@ -104,7 +104,8 @@ When `jules-watch.sh` creates an "Accept Jules session" task:
 
 This is the **judgment layer** that replaces traditional "required GitHub approvals" (see Branch Protection A7 decision). It is mandatory for all agent-generated changes before merge to `main`. 
 
-**Agent-review is now the default path**: Every agent (Grok, Antigravity, etc.) must run it after work and usually create a follow-up review task. This is the standard for the current closure waves.
+**Agent-review is now the mandatory default path**: Every agent (Grok, Antigravity, etc.) must run it after work and usually create a follow-up review task. This is the standard for the current closure waves. 
+Tasks created via the API or `agentforge-runner` can now include the `requires_agent_review: true` flag, which ensures that a follow-up review task is automatically created upon task completion.
 
 **Special rule for Antigravity**: See the dedicated [Antigravity Orchestration Protocol](docs/ANTIGRAVITY_ORCHESTRATION_PROTOCOL.md). Antigravity's primary output is **delegated work via the task queue**, not solo implementation. Heavy decomposition + parallel dispatch is mandatory for non-trivial initiatives.
 

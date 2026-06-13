@@ -11,7 +11,7 @@
 
 use crate::task::{Task, TaskStatus, TaskStore};
 use anyhow::Result;
-use arrow_array::{Array, ArrayRef, RecordBatch, RecordBatchIterator, StringArray};
+use arrow_array::{Array, ArrayRef, RecordBatch, RecordBatchIterator, StringArray, BooleanArray};
 use arrow_schema::{DataType, Field, Schema};
 use lancedb::query::{ExecutableQuery, QueryBase};
 use std::sync::Arc;
@@ -32,6 +32,7 @@ fn task_schema() -> Arc<Schema> {
         Field::new("assigned_to", DataType::Utf8, true),
         Field::new("status", DataType::Utf8, false),
         Field::new("tags_json", DataType::Utf8, true),
+        Field::new("requires_agent_review", DataType::Boolean, false),
         Field::new("created_at", DataType::Utf8, false),
         Field::new("updated_at", DataType::Utf8, false),
         Field::new("started_at", DataType::Utf8, true),
@@ -95,6 +96,10 @@ fn task_to_batch(task: &Task) -> Result<RecordBatch> {
             Arc::new(StringArray::from(vec![tags_json.as_str()])) as ArrayRef,
         ),
         (
+            "requires_agent_review",
+            Arc::new(BooleanArray::from(vec![task.requires_agent_review])) as ArrayRef,
+        ),
+        (
             "created_at",
             Arc::new(StringArray::from(vec![task.created_at.as_str()])) as ArrayRef,
         ),
@@ -156,6 +161,9 @@ fn batch_to_tasks(batch: &RecordBatch) -> Vec<Task> {
     let tags = batch
         .column_by_name("tags_json")
         .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let requires_review = batch
+        .column_by_name("requires_agent_review")
+        .and_then(|c| c.as_any().downcast_ref::<BooleanArray>());
     let created = batch
         .column_by_name("created_at")
         .and_then(|c| c.as_any().downcast_ref::<StringArray>());
@@ -202,6 +210,9 @@ fn batch_to_tasks(batch: &RecordBatch) -> Vec<Task> {
         };
 
         let tags_vec: Vec<String> = serde_json::from_str(&get_str(tags)).unwrap_or_default();
+        let requires_agent_review = requires_review
+            .and_then(|a| (!a.is_null(i)).then(|| a.value(i)))
+            .unwrap_or(false);
         let metadata_map = serde_json::from_str(&get_str(meta)).unwrap_or_default();
         let result_val = get_opt(results).and_then(|s| serde_json::from_str(&s).ok());
 
@@ -215,6 +226,7 @@ fn batch_to_tasks(batch: &RecordBatch) -> Vec<Task> {
             assigned_to: get_opt(assigned),
             status,
             tags: tags_vec,
+            requires_agent_review,
             created_at: get_str(created),
             updated_at: get_str(updated),
             started_at: get_opt(started),

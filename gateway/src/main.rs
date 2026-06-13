@@ -102,6 +102,7 @@ struct TaskResponse {
     created_at: String,
     updated_at: String,
     tags: Vec<String>,
+    requires_agent_review: bool,
     duration_seconds: Option<f64>,
     started_at: Option<String>,
     completed_at: Option<String>,
@@ -132,6 +133,7 @@ impl From<&Task> for TaskResponse {
             created_at: t.created_at.clone(),
             updated_at: t.updated_at.clone(),
             tags: t.tags.clone(),
+            requires_agent_review: t.requires_agent_review,
             duration_seconds: t.metadata.get("duration_seconds").and_then(|v| v.as_f64()),
             started_at: t.started_at.clone(),
             completed_at: t.completed_at.clone(),
@@ -152,6 +154,8 @@ struct CreateTask {
     preferred_agent: Option<String>,
     #[serde(default)]
     tags: Option<Vec<String>>,
+    #[serde(default)]
+    requires_agent_review: Option<bool>,
     #[serde(default)]
     parent_id: Option<String>,
     #[serde(default)]
@@ -375,7 +379,8 @@ async fn create_task_api(
 
     let mut task = Task::new(&task_id, &payload.title, &description)
         .with_priority(&priority)
-        .with_tags(tags);
+        .with_tags(tags)
+        .with_requires_agent_review(payload.requires_agent_review.unwrap_or(false));
 
     task.complexity = complexity;
     task.preferred_agent = Some(preferred_agent);
@@ -443,7 +448,30 @@ async fn update_task_api(
     let now = Utc::now().to_rfc3339();
 
     if let Some(ref status_str) = payload.status {
-        task.status = status_str_to_enum(status_str);
+        let new_status = status_str_to_enum(status_str);
+
+        if (new_status == TaskStatus::Review || new_status == TaskStatus::Done) 
+            && task.status != new_status 
+            && task.requires_agent_review 
+        {
+            // Auto-create review task
+            let review_id = format!("task-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+            let review_title = format!("agent-review: {} {:.50}", task_id, task.description);
+            let review_desc = format!(
+                "MANDATORY agent-review for task {}.\nOriginal branch: agentforge/{}",
+                task_id, task_id
+            );
+            
+            let mut review_task = Task::new(&review_id, &review_title, &review_desc)
+                .with_priority("high")
+                .with_tags(vec!["agent-review".into(), "followup".into(), task_id.clone()]);
+            review_task.preferred_agent = Some("auto".into());
+            
+            // We ignore errors here as it's best-effort auto-creation
+            let _ = store.create(review_task).await;
+        }
+
+        task.status = new_status;
 
         if status_str == "in_progress" || status_str == "dispatched" {
             task.started_at = Some(now.clone());

@@ -63,6 +63,7 @@ For the full branching + traceability rules see `docs/BRANCHING_STRATEGY.md`.
      - Obtain an independent review from Jules (or another Grok) running in a separate context.
      - Record the handoff package (`~/.grok/handoffs/<id>/`) + a summary record (see `docs/*_AGENT_REVIEW_HANDOFF.md` examples).
      - Only after the review is received and recorded may you finalize commits for PR and update the task.
+     - *Note*: If a task was created via the API or `agentforge-runner` with `requires_agent_review: true`, a follow-up review task will be automatically generated upon completion.
    - Link PRs to task IDs and/or Jules session IDs (use the PR template). The "Related (MANDATORY)" section and checklist items for pre-commit + agent-review are required.
    - Use the Pull Request template.
 
