@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
+# PHASE4_REMOVAL_PLAN AGGRESSIVE FINAL DEPRECATION SWEEP: contains "flywheel" only in audit task descriptions for completeness; keep. Marker added.
 """
 Создаёт группу задач для комплексного аудита AgentForge.
 Каждая задача — отдельный аспект аудита, назначается на разных агентов.
 """
 
 import json
+import subprocess
+import sys
+import tempfile
 import urllib.request
 
 API = "http://localhost:9090/tasks"
+RUNNER = "agentforge-runner"  # prefers pure-Rust entrypoint (live to gw); falls back to direct HTTP if needed or no binary in PATH
 
 AUDIT_TASKS = [
     # === 1. МЁРТВЫЙ КОД / ДУБЛИКАТЫ ===
@@ -192,25 +197,68 @@ print(f"🔍 Создаю {len(AUDIT_TASKS)} задач аудита AgentForge.
 print("")
 
 created = []
-for i, task in enumerate(AUDIT_TASKS, 1):
-    data = json.dumps(task).encode()
-    req = urllib.request.Request(API, data=data, headers={"Content-Type": "application/json"})
+# Prefer Rust entrypoint (agentforge-runner task create --from-file) for full py->rust migration completeness (task-5af0e350)
+use_runner = False
+try:
+    # quick check if runner binary available (in PATH or common rust target)
+    subprocess.check_call([RUNNER, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    use_runner = True
+except Exception:
+    # fallback to direct (old http path, still works)
+    pass
+
+if use_runner:
+    # serialize all to temp json array, one call (mass --from-file)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tf:
+        json.dump(AUDIT_TASKS, tf)
+        tmp_path = tf.name
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read().decode())
-            tid = result.get("id", "?")
+        out = subprocess.check_output(
+            [RUNNER, "--json", "task", "create", "--from-file", tmp_path],
+            stderr=subprocess.STDOUT,
+            timeout=30,
+        )
+        resp = json.loads(out.decode())
+        # runner --from-file json returns {"created": N, "ids": [...]}
+        ids = resp.get("ids", [])
+        for i, task in enumerate(AUDIT_TASKS, 1):
+            tid = ids[i-1] if i-1 < len(ids) else "?"
             agent = task["preferred_agent"]
             prio = task["priority"]
             print(f"  ✅ #{i} [{prio:>8}] [{agent:>5}] {task['title']}")
-            print(f"     → ID: {tid[:8]}")
+            print(f"     → ID: {str(tid)[:8]}  (via {RUNNER})")
             created.append({"id": tid, "agent": agent, "title": task["title"]})
     except Exception as e:
-        print(f"  ❌ #{i} {task['title']}: {e}")
+        print(f"  runner --from-file failed ({e}); falling back to direct HTTP")
+        use_runner = False
+    finally:
+        try:
+            import os; os.unlink(tmp_path)
+        except Exception:
+            pass
+
+if not use_runner:
+    # legacy direct path (for when runner not in env yet)
+    for i, task in enumerate(AUDIT_TASKS, 1):
+        data = json.dumps(task).encode()
+        req = urllib.request.Request(API, data=data, headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                result = json.loads(resp.read().decode())
+                tid = result.get("id", "?")
+                agent = task["preferred_agent"]
+                prio = task["priority"]
+                print(f"  ✅ #{i} [{prio:>8}] [{agent:>5}] {task['title']}")
+                print(f"     → ID: {tid[:8]}")
+                created.append({"id": tid, "agent": agent, "title": task["title"]})
+        except Exception as e:
+            print(f"  ❌ #{i} {task['title']}: {e}")
 
 print("")
 print(f"═══════════════════════════════════════════════════════")
 print(f"  Создано {len(created)} задач аудита")
 print(f"  Grok:  {sum(1 for c in created if c['agent'] == 'grok')}")
 print(f"  Auto:  {sum(1 for c in created if c['agent'] == 'auto')}")
-print(f"  Просмотр: http://localhost:9090/tasks")
+print(f"  Просмотр: http://localhost:9090/tasks (or via: {RUNNER} task list --status pending)")
+print(f"  (used {'runner --from-file (pure Rust live)' if use_runner else 'direct HTTP fallback'})")
 print(f"═══════════════════════════════════════════════════════")

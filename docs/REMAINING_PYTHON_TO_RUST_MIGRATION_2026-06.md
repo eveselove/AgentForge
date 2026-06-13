@@ -5,12 +5,14 @@
 > WAVE4: knowledge + blackboard shims complete (gw primary /api/* first + fallback; migrate fn + deprecate); services install gw-focused (api legacy fully dropped from launch); flywheel direct runner (shadow supported); entrypoints mostly excised.
 > Goal: Eliminate all remaining Python business logic by porting or deleting (per PYTHON_ENTRYPOINTS_MIGRATION + PHASE4_FLYWHEEL_REMOVAL_CHECKLIST). Tier3/4 after 14d soak/audit.
 
-## Summary Stats (from `grep ^\s*def` on *.py; 2026-06-13 wave)
-- 46 active-ish .py files with def/class (excl tests/archive/bak; down from ~70+ pre-waves).
-- 419 defs (down from ~580+).
-- Major ported/deleted: task entrypoints (runner task live CLI), flywheel orchestration (Tier1/2/3 stubs + direct runner), checkpoints/knowledge/blackboard (gw primary + shims).
-- Workers thinned to delegates + execution; eval mostly data harness (keep value); duals (planning/safety/long/obs) thin wrappers.
-- Gateway + runner dogfood primary. 
+## Summary Stats (from `grep ^\s*def` on *.py; 2026-06-13 coordinator scan task-5af0e350)
+- 33 active-ish .py files with def/class excl eval/tests/archive/bak (42 total .py; down from 46/ ~70 pre).
+- 314 defs (down).
+- Quick wins executed: deleted unused shims fix_badges.py, check_db.py, lance_task_store.py (0 callers); 8080->9090 updates in mcp-rs, start.sh, *.service, github_watcher, skills yaml, AGENTS examples; audit script + health provenance hardened; services/scripts marked for audit.
+- Major ported/deleted: task entrypoints (runner task * live full on gw 9090, covers create/reassign/approve/stats/dispatch/claim etc -- see live_* + --from-file), flywheel (Tier1/2 done, Tier3 pending soak), checkpoints/knowledge/blackboard (gw primary + shims per WAVE4).
+- Workers thinned; eval harness kept for value; duals thin; remaining uncovered by parallel (scripts, mcp, memory_helper, rag_indexer, phase2_3 non-fly, config, bin py except fly).
+- Gateway + runner primary; .pure_rust_flywheel marker present.
+- Recent handoffs ref: JULES_PY_REMOVAL_HANDOFF_f29c675b.md , ~/.grok/handoffs/{dc35fbb,ed73e58e,fc489a6} etc for task-5af0e350.
 
 ## WAVE4 (knowledge/blackboard gw + services + runner polish) complete in this continuation
 - core/task_checkpoints.py: gw /api/knowledge + /api/blackboard/* primary shims (consistent), migrate improved (dedup+delete_local+stats), headers/docs accurate (knowledge.json/blackboard.json, /api/, no bogus /current).
@@ -19,7 +21,7 @@
 - agents/grok_runner.sh + bin/rust_flywheel_after_task.sh: --shadow in direct paths + comment/header updated (direct runner as canonical).
 - lints: black/ruff clean on shims/migrate; cargo gateway check green (preexist dead_code only).
 - Handoffs: 5340b2b + prior reviewed/approved; new polish will have follow-up agent-review handoff.
-- Readiness: core task/flywheel/gw ~90-95%; overall ~82%+ (workers/eval/infra/duals remaining ~18%; eval/data value kept; Tier3/4 py pending soak per PHASE4).
+- Readiness (post this scan + quickwins + runner parity + gw updates): core task/flywheel/gw ~95%+; overall ~87% (remaining ~13%: thin shims+duals+workers+eval harness+memory/rag; Tier3/4 py pending full 14d soak/audit per PHASE4; parallel waves on worktrees accelerating). New estimate: Tier 3/4 deletions + full py business excised by ~2026-06-20 (shortened via 10+ parallel worktrees on task-5af0e350 + more spawns). Soak readiness: marker present, health provenance now exact, but need farm 14d + release bin + no stray py flywheel in prod logs.
 
 ## Categorized Remaining Python Logic (non-trivial functions)
 
@@ -27,7 +29,7 @@
 
 ### 1. Task Entrypoint Scripts (P0 - DONE via `agentforge-runner task` live CLI + gw /api/tasks)
 ( Most listed files deleted in prior waves; runner live_create/list/update/dispatch + --from-file etc cover create/reassign/approve/stats.)
-Status: **complete** (direct to 9090 gw; provenance rust-agentforge-runner). Legacy scripts gone or stubs. See runner main.rs + bin/phase4_audit.
+Status: **complete + 100% on runner** (task-5af0e350: added full live_ wrappers (review/reject/approve/stats/metrics), refactored reassign etc to use them; new subcmds review/reject; --from-file etc verified; updated usage/help; py shim create_audit_tasks.py now prefers `agentforge-runner --json task create --from-file`; no Python entrypoints needed for task mgmt). See rust/crates/agentforge-runner/src/main.rs . Legacy scripts gone.
 
 ### 2. Management / Fix Scripts (P1)
 Files: fix_antigravity_tasks.py, reassign.py, fix_stuck_tasks.py, reset_fakes.py, approve_tasks.py, check_status.py, show_agent_stats.py, fix_badges.py
@@ -117,15 +119,15 @@ Hundreds of test_ fns in eval/tests/.
 6. Final surface clean + docs update + CI forbid on deleted imports.
 
 ## Current Blockers / Notes
-- Runner task subcmds currently only hit local /tmp JSON store (prototype). Gateway is source of truth for live farm.
-- No full parity for all gateway endpoints yet in Rust TaskStore (JsonFile is separate).
+- Runner task subcmds: LIVE default via reqwest (full coverage create/list/get/update/dispatch/claim/reassign/approve/review/reject/reset/stats + --from-file); --local only prototype. Gateway parity complete (task-5af0e350).
+- JsonFileTaskStore has full parity on TaskStore trait.
 - Many Python now are "bridges" or "only for tests/parity" - delete when safe.
 - Pre-commit + agent-review mandatory on any deletion/rewrite.
 - Traceability: every commit must ref a task id.
 
 See also: PYTHON_ENTRYPOINTS_MIGRATION.md, PHASE4_FLYWHEEL_REMOVAL_CHECKLIST.md, AGENT_RUST_TRANSITION_GUIDE.md, rust/README.md.
 
-**Next action**: Implement live API support in runner task CLI (use reqwest) + add reassign/approve/stats subcmds modeled on the Python mains. Then mass-delete scripts + update callers.
+**Next action**: (done in task-5af0e350) Polish + add review/reject live fns, refactor for consistency, update docs/py shims, cargo test clean, handoff+trace. (previously: implement live + add ... )
 
 
 ## Tier 2 Surgical Completed (Jules continuation 2026-06-13)
@@ -135,3 +137,4 @@ See also: PYTHON_ENTRYPOINTS_MIGRATION.md, PHASE4_FLYWHEEL_REMOVAL_CHECKLIST.md,
 - learning/flywheel_parity/ deleted
 - runner/analyze flywheel refs stubbed
 See JULES_PY_REMOVAL_HANDOFF_f29c675b.md (update)
+- (this continuation task-5af0e350 closes remaining "entrypoints not 100% on runner" for tasks)

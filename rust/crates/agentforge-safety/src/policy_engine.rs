@@ -23,6 +23,12 @@ pub struct PolicyEngine {
     rules: Vec<PolicyRule>,
 }
 
+impl Default for PolicyEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PolicyEngine {
     pub fn new() -> Self {
         Self { rules: Vec::new() }

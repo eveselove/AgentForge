@@ -1,7 +1,9 @@
 //! Vision example: How Phase 2 (Learning) + Phase 3 (Planning + Safety + Obs + LongHorizon) work together in Rust.
 //! Updated to demonstrate FULL flow using runner entrypoint + all crates (2026 port).
 
-use agentforge_learning::{TrajectoryDataset, DPOTrainer, SkillImprover, TrainingConfig, BaseTrainer};
+use agentforge_learning::{
+    BaseTrainer, DPOTrainer, SkillImprover, TrainingConfig, TrajectoryDataset,
+};
 use agentforge_long_horizon::LongTaskManager;
 use agentforge_observability::{replay_trajectory_to_spans, Span};
 // use agentforge_planning::HierarchicalPlanner;  // enabled when runner dev-deps include it or via workspace example config
@@ -32,27 +34,55 @@ fn main() {
     let trainer = DPOTrainer;
     let _p = trainer.prepare_dataset(&dataset, None).ok();
     let cfg = TrainingConfig::default();
-    println!("   DPO/SFT/KTO dry-runs ready. Config lr={}", cfg.learning_rate);
+    println!(
+        "   DPO/SFT/KTO dry-runs ready. Config lr={}",
+        cfg.learning_rate
+    );
 
     // === Phase 3: Full stack via runner (planning + safety + obs + prm spans) ===
     println!("\n[Phase 3] Invoking FULL STACK runner entrypoint (planning/safety/obs/learning)...");
-    let stack_res = run_with_full_stack("Implement long-horizon checkpoints with topo safety gates", "grok");
+    let stack_res = run_with_full_stack(
+        "Implement long-horizon checkpoints with topo safety gates",
+        "grok",
+    );
     println!("   Runner outcome: {}", stack_res.outcome);
-    println!("   Plan subtasks: {}", stack_res.plan.as_ref().map(|p| p.subtasks.len()).unwrap_or(0));
+    println!(
+        "   Plan subtasks: {}",
+        stack_res
+            .plan
+            .as_ref()
+            .map(|p| p.subtasks.len())
+            .unwrap_or(0)
+    );
     println!("   Spans (with PRM): {}", stack_res.spans.len());
-    if let Some(p) = stack_res.prm_overall { println!("   Overall PRM: {:.2}", p); }
+    if let Some(p) = stack_res.prm_overall {
+        println!("   Overall PRM: {:.2}", p);
+    }
 
     // Demo replay + OTEL shape
-    let demo_events = vec![serde_json::json!({"type":"llm_turn"}), serde_json::json!({"type":"tool_result"})];
+    let demo_events = vec![
+        serde_json::json!({"type":"llm_turn"}),
+        serde_json::json!({"type":"tool_result"}),
+    ];
     let spans: Vec<Span> = replay_trajectory_to_spans("vision", &demo_events, Some(0.88));
-    println!("   OTEL-like export sample keys: {}", spans[0].to_otel_like()["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["name"]);
+    println!(
+        "   OTEL-like export sample keys: {}",
+        spans[0].to_otel_like()["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["name"]
+    );
 
     // === Long Horizon + Planning + Safety integration ===
     println!("\n[Long-Horizon] Start resumable task with checkpoints...");
     let mut lh = LongTaskManager::new();
     let ltask = lh.start_long_task("Port all 3 phases + PyO3 doc + tests to Rust", true);
-    println!("   LongTask {} created with plan, checkpoint at {:?}", ltask.id, ltask.checkpoint_path);
-    lh.heartbeat(&ltask.id, "Rust port 80% complete - tests+interop added", 0.8);
+    println!(
+        "   LongTask {} created with plan, checkpoint at {:?}",
+        ltask.id, ltask.checkpoint_path
+    );
+    lh.heartbeat(
+        &ltask.id,
+        "Rust port 80% complete - tests+interop added",
+        0.8,
+    );
     println!("   Heartbeat updated + checkpointed.");
 
     println!("[Safety] Policy gate demo on long task subtask...");

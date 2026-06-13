@@ -84,15 +84,19 @@ SUPPORTING SUBCOMMANDS:
     demo [GOAL] | full-stack --goal G [--agent A] [--input I]
     export-pairs | export-prm-steps | export-sft | improve-skill | stats --input I | export-records | version
 
-TASK MANAGEMENT (LIVE by default — replaces Python create_*.py fix_*.py approve reassign check_status show_agent_stats etc):
-    agentforge-runner task create --title "..." [--priority high] [--agent grok] [--tags a,b] [--from-file file.json]
-    agentforge-runner task list [--status pending]
+TASK MANAGEMENT (LIVE by default to gw:9090 — replaces ALL Python create_*.py / fix_*.py / approve / reassign / check_status / show_agent_stats / reset_fakes etc. NO py needed for task mgmt):
+    agentforge-runner task create --title "..." [--priority high] [--agent grok] [--tags a,b] [--from-file file.json] [--parent P] [--repo R]
+    agentforge-runner task list [--status pending|review|done|...]
     agentforge-runner task get <id>
-    agentforge-runner task update <id> --status done --result "..."
-    agentforge-runner task reassign --from antigravity --to grok --pending-only
+    agentforge-runner task update <id> --status done --result "..." [--agent new]
+    agentforge-runner task dispatch <id>
+    agentforge-runner task claim <id> --agent grok
+    agentforge-runner task reassign --from antigravity --to grok --pending-only [--dry-run]
     agentforge-runner task approve --all-review
-    agentforge-runner task stats
-    (Full live via gateway API; --local for prototype Json store. See `task --help` style)
+    agentforge-runner task review <id>
+    agentforge-runner task reject <id> --feedback "reason (resets to pending)"
+    agentforge-runner task reset-fakes | stats
+    (live default via reqwest to agentforge-gateway /api/* on 9090 or $AGENTFORGE_API or --api; --local for JsonFileTaskStore prototype only. --from-file kills the last create_*.py . See `task --help`)
 
 INPUT FLAGS (real farm data + sidecars): --input PATH | --trajectories DIR | --prm-dir DIR | --results DIR
     (TrajectoryDataset::load_flywheel_data + enrich_from_prm_sidecars, graceful fallbacks)
@@ -373,6 +377,91 @@ async fn live_get_task(
         .map_err(|e| format!("decode get: {}", e))
 }
 
+/// Live wrappers for full gateway coverage (reassign/approve/stats use these for consistency with live_create etc).
+/// All talk to gw on 9090 (or --api); default live, --local only for the JsonFile prototype.
+async fn live_review_task(
+    client: &reqwest::Client,
+    base: &str,
+    id: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/tasks/{}/review", base.trim_end_matches('/'), id);
+    let resp = client
+        .post(&url)
+        .send()
+        .await
+        .map_err(|e| format!("review POST {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("review failed {}: {}", status, text));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode review: {}", e))
+}
+
+async fn live_reject_task(
+    client: &reqwest::Client,
+    base: &str,
+    id: &str,
+    feedback: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/tasks/{}/reject", base.trim_end_matches('/'), id);
+    let payload = serde_json::json!({ "feedback": feedback });
+    let resp = client
+        .post(&url)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("reject POST {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("reject failed {}: {}", status, text));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode reject: {}", e))
+}
+
+async fn live_review_all(
+    client: &reqwest::Client,
+    base: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/review/all", base.trim_end_matches('/'));
+    let resp = client
+        .post(&url)
+        .send()
+        .await
+        .map_err(|e| format!("review-all POST {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("review-all failed {}: {}", status, text));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode review-all: {}", e))
+}
+
+async fn live_get_metrics(
+    client: &reqwest::Client,
+    base: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/metrics", base.trim_end_matches('/'));
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("metrics GET {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        return Err(format!("metrics failed: {}", resp.status()));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode metrics: {}", e))
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let json_mode = has_flag(&args, &["--json", "-j"]);
@@ -598,12 +687,14 @@ fn main() {
                             }
                         } else if let Some(ref mut store) = local_store {
                             let pending = store.list_pending().await;
-                            // ... (old list code abbreviated for local)
                             if json_mode {
                                 let arr: Vec<_> = pending.iter().map(|t| serde_json::to_value(t).unwrap()).collect();
                                 println!("{}", serde_json::to_string_pretty(&arr).unwrap());
                             } else {
-                                println!("Local pending: {}", pending.len());
+                                println!("Local pending ({}):", pending.len());
+                                for t in pending.iter().take(20) {
+                                    println!("  {} | {:?} | {}", &t.id[..t.id.len().min(12)], t.status, t.title);
+                                }
                             }
                         }
                     }
@@ -728,16 +819,47 @@ fn main() {
                     "approve" | "review-all" => {
                         // agentforge-runner task approve --all-review
                         if let Some(ref c) = client {
-                            let url = format!("{}/api/review/all", api_base.trim_end_matches('/'));
-                            match c.post(&url).send().await {
-                                Ok(r) if r.status().is_success() => {
-                                    let body: serde_json::Value = r.json().await.unwrap_or(serde_json::json!({}));
+                            match live_review_all(c, &api_base).await {
+                                Ok(body) => {
                                     if json_mode { println!("{}", serde_json::to_string_pretty(&body).unwrap()); } else { println!("review-all: {}", body); }
                                 }
-                                Ok(r) => eprintln!("approve failed: {}", r.status()),
-                                Err(e) => eprintln!("{}", e),
+                                Err(e) => eprintln!("approve error: {}", e),
                             }
                         } else { eprintln!("approve requires live"); }
+                    }
+
+                    "review" => {
+                        // agentforge-runner task review <id>   (single guardian review -> done or needs_attention)
+                        let sub_idx = args.iter().position(|x| x == "review").unwrap_or(3);
+                        let id = find_positional_after(&args, sub_idx);
+                        if let Some(id) = id {
+                            if let Some(ref c) = client {
+                                match live_review_task(c, &api_base, &id).await {
+                                    Ok(r) => { if json_mode { println!("{}", serde_json::to_string_pretty(&r).unwrap()); } else { println!("reviewed {}: {}", id, r); } }
+                                    Err(e) => eprintln!("{}", e),
+                                }
+                            } else { eprintln!("review requires live (gw guardian logic)"); }
+                        } else {
+                            eprintln!("usage: task review <id>");
+                        }
+                    }
+
+                    "reject" => {
+                        // agentforge-runner task reject <id> --feedback "reason for reject (resets to pending)"
+                        let sub_idx = args.iter().position(|x| x == "reject").unwrap_or(3);
+                        let id = find_positional_after(&args, sub_idx);
+                        let feedback = find_flag_value(&args, &["--feedback", "-f", "--reason"])
+                            .unwrap_or_else(|| "Rejected via agentforge-runner (no details)".to_string());
+                        if let Some(id) = id {
+                            if let Some(ref c) = client {
+                                match live_reject_task(c, &api_base, &id, &feedback).await {
+                                    Ok(r) => { if json_mode { println!("{}", serde_json::to_string_pretty(&r).unwrap()); } else { println!("rejected {}: {}", id, r); } }
+                                    Err(e) => eprintln!("{}", e),
+                                }
+                            } else { eprintln!("reject requires live"); }
+                        } else {
+                            eprintln!("usage: task reject <id> --feedback \"...\"");
+                        }
                     }
 
                     "reset-fakes" | "reset" => {
@@ -762,19 +884,14 @@ fn main() {
 
                     "stats" => {
                         if let Some(ref c) = client {
-                            let url = format!("{}/api/metrics", api_base.trim_end_matches('/'));
-                            match c.get(&url).send().await {
-                                Ok(resp) => match resp.error_for_status() {
-                                    Ok(ok_resp) => match ok_resp.json::<serde_json::Value>().await {
-                                        Ok(m) => {
-                                            if json_mode { println!("{}", serde_json::to_string_pretty(&m).unwrap()); }
-                                            else { println!("{}", serde_json::to_string_pretty(&m).unwrap()); }
-                                        }
-                                        Err(e) => eprintln!("stats decode: {}", e),
-                                    },
-                                    Err(e) => eprintln!("stats http: {}", e),
-                                },
-                                Err(e) => eprintln!("stats connect: {}", e),
+                            match live_get_metrics(c, &api_base).await {
+                                Ok(m) => {
+                                    if json_mode { println!("{}", serde_json::to_string_pretty(&m).unwrap()); }
+                                    else { println!("{}", serde_json::to_string_pretty(&m).unwrap()); }
+                                }
+                                Err(e) => {
+                                    if json_mode { println!(r#"{{"error":"{}"}}"#, e); } else { eprintln!("stats error: {}", e); }
+                                }
                             }
                         } else {
                             println!("local stats: use the store directly");
@@ -783,18 +900,18 @@ fn main() {
 
                     _ => {
                         if json_mode {
-                            println!(r#"{{"status":"ok","commands":["create","list","get","update","dispatch","claim","reassign","approve","reset-fakes","stats"],"note":"live default; --local for prototype; --from-file for mass create"}}"#);
+                            println!(r#"{{"status":"ok","commands":["create","list","get","update","dispatch","claim","reassign","approve","review","reject","reset-fakes","stats"],"note":"live default (gw 9090); --local for prototype JsonFile; --from-file for mass create; also review/reject"}}"#);
                         } else {
-                            eprintln!("agentforge-runner task <subcommand>  [ --live | --local ] [ --api http://localhost:9090 ]");
+                            eprintln!("agentforge-runner task <subcommand>  [ --local ] [ --api http://localhost:9090 ]  (live to gw by default)");
                             eprintln!();
                             eprintln!("Live (default, talks to gateway):");
-                            eprintln!("  create --title T [--priority P] [--agent A] [--tags t1,t2] [--from-file tasks.json]");
+                            eprintln!("  create --title T [--priority P] [--agent A] [--tags t1,t2] [--from-file tasks.json] [--parent P] [--repo R]");
                             eprintln!("  list [--status pending|review|done]");
                             eprintln!("  get <id>");
-                            eprintln!("  update <id> --status done --result \"...\" ");
+                            eprintln!("  update <id> --status done --result \"...\" [--agent X]");
                             eprintln!("  dispatch <id> | claim <id> --agent grok");
                             eprintln!("  reassign --from antigravity --to grok --pending-only [--dry-run]");
-                            eprintln!("  approve --all-review | reset-fakes | stats");
+                            eprintln!("  approve --all-review | review <id> | reject <id> --feedback \"...\" | reset-fakes | stats");
                             eprintln!();
                             eprintln!("This surface replaces the Python create/fix/approve/reassign/show_agent_stats/check_status scripts.");
                         }
@@ -1807,7 +1924,9 @@ fn main() {
             // Includes shadow for continuous dual-run fidelity (hooks / post_process / harness / services)
             let health = serde_json::json!({
                 "timestamp": chrono::Utc::now().to_rfc3339(),
-                "source": "agentforge-runner continuous (COMPLETE pure-Rust autonomy meta-loop + shadow)",
+                "engine": "rust-agentforge-runner",
+                "provenance": "rust-agentforge-runner",
+                "source": "rust-agentforge-runner continuous (COMPLETE pure-Rust autonomy meta-loop + shadow)",
                 "dry_run": dry_run,
                 "top_n": top_n,
                 "shadow": shadow,
