@@ -243,16 +243,22 @@ async fn live_create_task(
     preferred_agent: Option<&str>,
     tags: Vec<String>,
     repo: Option<&str>,
+    parent_id: Option<&str>,
 ) -> Result<serde_json::Value, String> {
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "title": title,
         "description": description,
         "priority": priority.unwrap_or("medium"),
         "complexity": complexity.unwrap_or("medium"),
         "preferred_agent": preferred_agent.unwrap_or("auto"),
         "tags": tags,
-        "repo": repo,
     });
+    if let Some(r) = repo {
+        payload["repo"] = serde_json::json!(r);
+    }
+    if let Some(p) = parent_id {
+        payload["parent_id"] = serde_json::json!(p);
+    }
     let url = format!("{}/api/tasks", base.trim_end_matches('/'));
     let resp = client
         .post(&url)
@@ -346,6 +352,25 @@ async fn live_dispatch_task(
     resp.json::<serde_json::Value>()
         .await
         .map_err(|e| format!("decode dispatch: {}", e))
+}
+
+async fn live_get_task(
+    client: &reqwest::Client,
+    base: &str,
+    id: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/tasks/{}", base.trim_end_matches('/'), id);
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("GET task failed: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("get failed: {}", resp.status()));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode get: {}", e))
 }
 
 fn main() {
@@ -482,7 +507,7 @@ fn main() {
                                             let tags: Vec<String> = t.get("tags").and_then(|v| v.as_array())
                                                 .map(|a| a.iter().filter_map(|x| x.as_str().map(|s|s.to_string())).collect()).unwrap_or_default();
                                             let repo = t.get("repo").and_then(|v| v.as_str());
-                                            match live_create_task(c, &api_base, &title, &desc, prio, comp, agent, tags, repo).await {
+                                            match live_create_task(c, &api_base, &title, &desc, prio, comp, agent, tags, repo, t.get("parent_id").and_then(|v| v.as_str())).await {
                                                 Ok(r) => {
                                                     if let Some(id) = r.get("id").and_then(|v| v.as_str()) { created_ids.push(id.to_string()); }
                                                     if !json_mode { println!("✅ created: {}", r.get("id").unwrap_or(&serde_json::json!("?"))); }
@@ -502,9 +527,10 @@ fn main() {
                             return;
                         }
 
-                        // Single create (flags or positional)
+                        // Single create (flags or positional) — robust locate "create" then first non-flag positional (supports "task create MyTitle" and flags before title)
+                        let create_idx = args.iter().position(|x| x == "create").unwrap_or(2);
                         let title = find_flag_value(&args, &["--title", "-t"])
-                            .or_else(|| args.get(3).cloned())
+                            .or_else(|| find_positional_after(&args, create_idx))
                             .unwrap_or_else(|| "Untitled task".to_string());
 
                         let description = find_flag_value(&args, &["--description", "--desc", "-d"])
@@ -517,9 +543,11 @@ fn main() {
                             .map(|s| s.split(',').map(|x| x.trim().to_string()).collect())
                             .unwrap_or_default();
                         let repo = find_flag_value(&args, &["--repo"]);
+                        let parent = find_flag_value(&args, &["--parent", "--parent-id"]);
 
                         if let Some(ref c) = client {
-                            match live_create_task(c, &api_base, &title, &description, prio.as_deref(), comp.as_deref(), agent.as_deref(), tags, repo.as_deref()).await {
+                            // For live, extend the payload builder for richer py compat (parent etc). from-file already json-dumps extras indirectly if we update the fn; here we forward common ones.
+                            match live_create_task(c, &api_base, &title, &description, prio.as_deref(), comp.as_deref(), agent.as_deref(), tags, repo.as_deref(), parent.as_deref()).await {
                                 Ok(created) => {
                                     if json_mode {
                                         println!("{}", serde_json::to_string_pretty(&created).unwrap());
@@ -586,14 +614,9 @@ fn main() {
                         let id = find_positional_after(&args, sub_idx).or_else(|| find_flag_value(&args, &["--id"]));
                         if let Some(id) = id {
                             if let Some(ref c) = client {
-                                // Reuse list or add a get fn; for now simple: list and filter (or extend later)
-                                match live_list_tasks(c, &api_base, None).await {
-                                    Ok(list) => {
-                                        if let Some(found) = list.into_iter().find(|t| t.get("id").and_then(|v|v.as_str()) == Some(id.as_str())) {
-                                            if json_mode { println!("{}", serde_json::to_string_pretty(&found).unwrap()); } else { println!("{}", serde_json::to_string_pretty(&found).unwrap()); }
-                                        } else {
-                                            eprintln!("not found");
-                                        }
+                                match live_get_task(c, &api_base, &id).await {
+                                    Ok(found) => {
+                                        if json_mode { println!("{}", serde_json::to_string_pretty(&found).unwrap()); } else { println!("{}", serde_json::to_string_pretty(&found).unwrap()); }
                                     }
                                     Err(e) => eprintln!("{}", e),
                                 }
