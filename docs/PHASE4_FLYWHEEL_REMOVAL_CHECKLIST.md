@@ -26,14 +26,14 @@
 
 | # | Файл | Строк | Назначение | Зависимости | Условие удаления | Действие |
 |---|------|-------|-----------|------------|-----------------|----------|
-| 1.1 | [ ] `rust_flywheel_demo.py` | 235 | Демо Python flywheel loop (step + artifacts) | `learning.skill_improver`, `learning.utils` | Заменён `agentforge-runner flywheel-step` | `git rm -f rust_flywheel_demo.py` |
-| 1.2 | [ ] `enable_rust_flywheel.py` | 164 | Python-шим для установки env-переменных Rust flywheel | `os`, `pathlib` | Заменён `bin/make_pure_rust_flywheel_default.sh` + env в сервисах | `git rm -f enable_rust_flywheel.py` |
-| 1.3 | [ ] `list_pending_candidates.py` | 200 | CLI для листинга/промоута flywheel-кандидатов | `learning.pending_candidates`, `learning.utils` | Заменён `agentforge-runner candidate list/promote` | `git rm -f list_pending_candidates.py` |
-| 1.4 | [ ] `show_agent_stats.py` | 153 | Статистика агентов (включая flywheel stats) | `urllib.request`, `json` | Flywheel-части заменены бинарником; routing stats могут остаться | Удалить flywheel-секции хирургически ИЛИ `git rm -f` если вся логика flywheel |
-| 1.5 | [ ] `examples/phase2_3_early_demo.py` | 63 | Ранний демо Phase 2/3 интеграции | Минимальные imports | Полностью устарел | `git rm -f examples/phase2_3_early_demo.py` |
-| 1.6 | [ ] `examples/phase2_3_unified_power_demo.py` | 99 | Объединённый демо Phase 2/3 | Минимальные imports | Полностью устарел | `git rm -f examples/phase2_3_unified_power_demo.py` |
-| 1.7 | [ ] `learning/dataset.py` | 37 | Легаси шим: re-export TrajectoryDataset | `learning.trajectory_dataset` | Тривиальный шим, можно убрать (обновить импорты) | `git rm -f learning/dataset.py` |
-| 1.8 | [ ] `learning/trainer_interface.py` | 384 | Абстрактный + DPO trainer interface | `abc`, `dataclasses`, `pathlib` | Вся логика в Rust trainer | `git rm -f learning/trainer_interface.py` |
+| 1.1 | [x] `rust_flywheel_demo.py` | 235 | Демо Python flywheel loop (step + artifacts) | `learning.skill_improver`, `learning.utils` | Заменён `agentforge-runner flywheel-step` | `git rm -f` (done Jules wave 2026-06-13 task f29c675b) |
+| 1.2 | [x] `enable_rust_flywheel.py` | 164 | Python-шим для установки env-переменных Rust flywheel | `os`, `pathlib` | Заменён `bin/make_pure_rust_flywheel_default.sh` + env в сервисах | `git rm -f` (done Jules wave 2026-06-13 task f29c675b) |
+| 1.3 | [x] `list_pending_candidates.py` | 200 | CLI для листинга/промоута flywheel-кандидатов | `learning.pending_candidates`, `learning.utils` | Заменён `agentforge-runner candidate list/promote` | `git rm -f` (done Jules wave 2026-06-13 task f29c675b) |
+| 1.4 | [x] `show_agent_stats.py` | 153 | Статистика агентов (включая flywheel stats) | `urllib.request`, `json` | Flywheel-части заменены бинарником; routing stats могут остаться | Удалить flywheel-секции хирургически (done Jules wave; routing may stay) |
+| 1.5 | [x] `examples/phase2_3_early_demo.py` | 63 | Ранний демо Phase 2/3 интеграции | Минимальные imports | Полностью устарел | `git rm -f` (done Jules wave 2026-06-13 task f29c675b) |
+| 1.6 | [x] `examples/phase2_3_unified_power_demo.py` | 99 | Объединённый демо Phase 2/3 | Минимальные imports | Полностью устарел | `git rm -f` (done Jules wave 2026-06-13 task f29c675b) |
+| 1.7 | [x] `learning/dataset.py` | 37 | Легаси шим: re-export TrajectoryDataset | `learning.trajectory_dataset` | Тривиальный шим, можно убрать (обновить импорты) | `git rm -f` (done Jules wave 2026-06-13 task f29c675b) |
+| 1.8 | [x] `learning/trainer_interface.py` | 384 | Абстрактный + DPO trainer interface | `abc`, `dataclasses`, `pathlib` | Вся логика в Rust trainer | `git rm -f` (done Jules wave 2026-06-13 task f29c675b) |
 
 **Верификация после Тир 1:**
 ```bash

@@ -94,7 +94,8 @@ if [ -x "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" ]; then
         # shellcheck disable=SC1091
         source "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" 2>/dev/null || true
         # Also python activator
-        PYTHONPATH=/home/eveselove python3 -m agentforge.enable_rust_flywheel 2>/dev/null || true
+        # DELETED in Jules wave 2026-06-13 task f29c675b (enable_rust_flywheel.py rm'ed); use env + make_pure script or direct AGENTFORGE_PURE_RUST_FLYWHEEL=1
+        : # (no-op; Rust flywheel default via runner now)
     else
         log "[dry] would source + invoke enable_rust_flywheel.sh + python activator"
     fi

@@ -29,15 +29,9 @@ from .trajectory_dataset import (
     DatasetVersion,
     TrajectoryExample,  # legacy alias
 )
-from .trainer_interface import (
-    BaseTrainer,
-    TrainingConfig,
-    TrainingRun,
-    DPOTrainer,
-    KTOTrainer,
-    SFTTrainer,
-    get_trainer,
-)
+# trainer_interface + dataset.py shim DELETED in Jules wave 2026-06-13 task f29c675b (Rust trainer in agentforge-learning crate + runner)
+# (other reexports below kept for now; Tier3 flywheel orchestration pending full Phase4 preconditions)
+
 from .skill_improver import (
     SkillImprover,
     ProposedSkill,
@@ -61,20 +55,12 @@ from .pending_candidates import (
 )
 
 __all__ = [
-    # Dataset
+    # Dataset (core, survives)
     "TrajectoryDataset",
     "TrajectoryRecord",
     "DatasetVersion",
     "TrajectoryExample",
-    # Trainers
-    "BaseTrainer",
-    "TrainingConfig",
-    "TrainingRun",
-    "DPOTrainer",
-    "KTOTrainer",
-    "SFTTrainer",
-    "get_trainer",
-    # Skill improvement
+    # Skill improvement (Tier3, kept until full soak)
     "SkillImprover",
     "ProposedSkill",
     "ImprovementProposal",

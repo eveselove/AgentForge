@@ -125,8 +125,8 @@ mcp (Rust MCP SDK).
 
 | Категория | Файлов | Операции | Приоритет | Статус миграции |
 |-----------|--------|----------|-----------|-----------------|
-| Массовое создание задач | 5 | POST (create) | 🔴 P0 | ✅ 2026-06: agentforge-runner task create --from-file (live); ready to git rm py scripts |
-| Утилиты управления | 5 | GET + PATCH | 🟡 P1 | ✅ 2026-06: task update/reassign/approve/reset-fakes/stats + claim/dispatch |
+| Массовое создание задач | 5 | POST (create) | 🔴 P0 | ✅ 2026-06 + Jules wave 2026-06-13 task f29c675b: 5 create_*.py + core/agentforge_create_task.py + bin/turbo fully rm'ed (git rm); runner task --from-file live replaces |
+| Утилиты управления | 5 | GET + PATCH | 🟡 P1 | ✅ 2026-06 + Jules: fix_*, reassign, reset, approve, check, show fully rm'ed; runner equivalents |
 | Мониторинг | 2 | GET | 🟢 P2 | ✅ via task list/stats (and /metrics in gateway) |
 | MCP-сервер | 1 | Все CRUD | 🟡 P1 | ⏳ Thin proxy ok for now; points at gateway |
 | Core API | 1 | Full CRUD + бизнес-логика | 🔴 P0 | ✅ DONE (gateway/ + core TaskStore) — task_queue.py deleted |

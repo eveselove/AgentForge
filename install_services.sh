@@ -99,7 +99,7 @@ echo ""
 echo "После рефакторинга routing (2026-06):"
 echo "   • Большинство задач теперь идёт на Grok автоматически"
 echo "   • Antigravity получает только явно предназначенные задачи"
-echo "   • Используй: python agentforge/fix_antigravity_tasks.py --dry-run"
+echo "   • Используй: agentforge-runner task reassign --from antigravity --to grok --dry-run  (or equivalent; old py deleted in Jules wave 2026-06-13 task f29c675b)"
 
 # ============================================
 # AUTONOMY TIMER PRODUCTION ROLLOUT (2026-05-31)
@@ -169,7 +169,7 @@ echo "   Ops commands: cat $AGENTFORGE_DIR/ENABLE_RUST_FLYWHEEL.md"
 echo "   New symmetric disable helper: bash $AGENTFORGE_DIR/bin/disable_rust_flywheel.sh"
 echo ""
 echo "   This install already wires the continuous timer that drives the meta autonomy loop."
-echo "   Watch live candidates: python -m agentforge.list_pending_candidates"
+echo "   Watch live candidates: agentforge-runner candidate list --top 5 --sort value --json  (old py deleted in Jules wave 2026-06-13 task f29c675b)"
 echo "================================================"
 
 # === PURE RUST FLYWHEEL DEFAULT (injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00) ===

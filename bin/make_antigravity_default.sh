@@ -107,7 +107,7 @@ if [ $DRY_RUN -eq 0 ]; then
         bash "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" 2>&1 | tail -20 || log "enable_rust non-fatal"
     else
         log "WARNING: enable_rust_flywheel.sh not executable — falling back to python activator"
-        PYTHONPATH=/home/eveselove python3 -m agentforge.enable_rust_flywheel 2>/dev/null || true
+        # DELETED Jules wave: enable_rust_flywheel.py (task f29c675b); Rust default active via .pure or env
     fi
 
     if [ $NO_TIMER -eq 0 ]; then
