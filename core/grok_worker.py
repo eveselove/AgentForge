@@ -412,7 +412,7 @@ def run_pipeline(
                 agent=current.get("assigned_agent") or "grok-worker",
                 task_id=task_id,
             )
-            print(f"[{task_id}] 💾 Saved summary to shared knowledge (id={kid}) in tasks.db")
+            print(f"[{task_id}] 💾 Saved summary to shared knowledge (id={kid}) via gw/checkpoints.db (WAVE4 primary; py tasks.db deprecated)")
         except Exception as _e:
             print(f"[{task_id}] WARN: failed to save knowledge summary: {_e}")
 
@@ -586,7 +586,7 @@ def main() -> int:
             summary += " (repo taken from gateway task; A2A review will trigger if a2a_reviewer set on task)"
         submit_completion_to_gateway(gateway_base, task_id, diff=diff, summary=summary, status="ai_done")
 
-        # Also persist the gateway-provided summary into shared knowledge (tasks.db)
+        # Also persist the gateway-provided summary into shared knowledge (gw/checkpoints.db primary, WAVE4)
         if save_knowledge:
             try:
                 save_knowledge(

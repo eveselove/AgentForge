@@ -22,10 +22,13 @@ pkill -f "uvicorn task_queue" 2>/dev/null || true
 pkill -f "agentforge-gateway" 2>/dev/null || true
 sleep 2
 
-# Копируем юниты (Phase 4: gateway primary)
+# Копируем юниты (WAVE4: gateway primary; legacy api only for rollback/compat, guarded)
 sudo cp "$AGENTFORGE_DIR/agentforge-gateway.service" /etc/systemd/system/ || true
 sudo cp "$AGENTFORGE_DIR/agentforge-worker.service" /etc/systemd/system/
-# legacy api (rollback only)
+sudo cp "$AGENTFORGE_DIR/agentforge-antigravity.service" /etc/systemd/system/ || true
+sudo cp "$AGENTFORGE_DIR/agentforge-watchdog.service" /etc/systemd/system/ || true
+sudo cp "$AGENTFORGE_DIR/agentforge-flywheel.service" /etc/systemd/system/ || true
+# legacy api.service (rollback only, non-fatal)
 sudo cp "$AGENTFORGE_DIR/agentforge-api.service" /etc/systemd/system/ 2>/dev/null || true
 
 # Перезагружаем systemd
@@ -33,7 +36,10 @@ sudo systemctl daemon-reload
 
 # Активируем автозапуск (gateway primary)
 sudo systemctl enable agentforge-gateway || true
-sudo systemctl enable agentforge-worker
+sudo systemctl enable agentforge-worker || true
+sudo systemctl enable agentforge-antigravity || true
+sudo systemctl enable agentforge-watchdog || true
+sudo systemctl enable agentforge-flywheel || true
 sudo systemctl enable agentforge-api 2>/dev/null || true
 
 # Запускаем

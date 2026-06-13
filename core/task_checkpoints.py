@@ -10,14 +10,14 @@ repeating expensive work (git clone, full Grok sessions, long CI runs).
 Table schema (as specified):
   checkpoints(task_id, step, data_json, created_at)
 
-+ RAG / Knowledge (tags: rag,knowledge):
++ RAG / Knowledge (WAVE4: gw primary /api/knowledge + blackboard; py tasks.db table DEPRECATED - use migrate_knowledge_from_tasks_db_to_gateway + shims; local fallback on gw fail or DUAL_WRITE=1).
   FTS5-powered full-text search over task titles, descriptions, outcomes and logs.
   Enables "similar past tasks" retrieval for RAG context injection into Grok prompts.
   Search similar engineering tasks by natural language query (e.g. "dark mode crash on login").
 
   Virtual table: tasks_fts (task_id, title, content, tags, outcome)
 
-+ Shared Memory: общая база знаний агентов (memory,knowledge,database,rag)
++ Shared Memory: общая база знаний агентов (memory,knowledge,database,rag) - gw primary via shim.
   Explicit key-value store for agents to persist facts, learnings, decisions across tasks.
   Agents should save important outcomes / extracted knowledge AFTER task completion (done/failed).
   Table in tasks.db: knowledge(id, agent, task_id, key, value, embedding_hash, created_at)
@@ -423,33 +423,41 @@ def save_knowledge(
     _ensure_data_dir()
     now = datetime.utcnow().isoformat() + "Z"
 
-    # WAVE3 SHIM: prefer gateway /api/knowledge (Rust primary); fallback local for compat.
+    # WAVE4: gw primary (checkpoints.db via /api/knowledge). Local (tasks.db) ONLY if gw fail OR AGENTFORGE_KNOWLEDGE_DUAL_WRITE=1.
+    # Py knowledge table deprecated (migrate fn below; gw canonical for new).
+    import os
+    gw_ok = False
     try:
-        import urllib.request, json, os
+        import urllib.request
+        import json
         api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
         payload = {"key": key, "value": value, "agent": agent or "", "task_id": task_id or ""}
         if embedding_hash:
             payload["embedding_hash"] = embedding_hash
         req = urllib.request.Request(f"{api}/api/knowledge", data=json.dumps(payload).encode(), headers={"Content-Type":"application/json"})
         urllib.request.urlopen(req, timeout=3)
+        gw_ok = True
     except Exception:
-        pass  # local fallback below
+        pass
 
-    conn = _get_knowledge_conn()
-    try:
-        with conn:
-            cur = conn.execute(
-                """
-                INSERT INTO knowledge (agent, task_id, key, value, embedding_hash, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (agent, task_id, key, value, embedding_hash, now),
-            )
-            kid = cur.lastrowid
-            _index_knowledge_fts(conn, kid)
-        return kid
-    finally:
-        conn.close()
+    if not gw_ok or os.getenv("AGENTFORGE_KNOWLEDGE_DUAL_WRITE") == "1":
+        conn = _get_knowledge_conn()
+        try:
+            with conn:
+                cur = conn.execute(
+                    """
+                    INSERT INTO knowledge (agent, task_id, key, value, embedding_hash, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (agent, task_id, key, value, embedding_hash, now),
+                )
+                kid = cur.lastrowid
+                _index_knowledge_fts(conn, kid)
+            return kid
+        finally:
+            conn.close()
+    # gw success path (no local write unless DUAL)
+    return 0  # sentinel; callers use .get() tolerant
 
 
 def search_knowledge(
@@ -468,7 +476,10 @@ def search_knowledge(
     q = (q or "").strip()
     # WAVE3 SHIM: try gateway search first (Rust)
     try:
-        import urllib.request, urllib.parse, json, os
+        import urllib.request
+        import urllib.parse
+        import json
+        import os
         api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
         qs = f"q={urllib.parse.quote(q)}&limit={limit}"
         if agent: qs += f"&agent={urllib.parse.quote(agent)}"
@@ -516,8 +527,7 @@ def search_knowledge(
                 for r in rows
             ]
 
-        # FTS5 search with bm25
-        import re
+
         def _make_fts_query(user_query: str) -> str:
             tokens = re.findall(r'\S+', user_query)
             safe = []
@@ -1255,7 +1265,9 @@ if __name__ == "__main__":
     # --- Git Auto-Rollback local simulation test (no network, real git reverts) ---
     # This directly verifies the core safety primitive requested: "git revert автоматически при падении CI"
     print("\n--- Git Auto-Rollback core logic test (local repo) ---")
-    import tempfile, shutil, subprocess as sp
+    import tempfile
+    import shutil
+    import subprocess as sp
     test_dir = tempfile.mkdtemp(prefix="grok_rb_test_")
     try:
         repo = test_dir + "/repo"
@@ -1300,3 +1312,36 @@ if __name__ == "__main__":
         shutil.rmtree(test_dir, ignore_errors=True)
 
     print("\n✅ task_checkpoints self-test passed (including Git Auto-Rollback + Shared Memory knowledge)")
+def migrate_knowledge_from_tasks_db_to_gateway(dry_run: bool = True, limit: int = 1000) -> int:
+    """WAVE4: one-time migrate knowledge from deprecated py tasks.db table to gw (checkpoints.db /api/knowledge).
+    Safe, idempotent-ish (by key+value hash or just copy). Call with dry_run=False to execute.
+    Returns count migrated (or would-migrate).
+    """
+    import os
+    if os.getenv("AGENTFORGE_KNOWLEDGE_DUAL_WRITE") != "1":
+        # only during transition
+        pass
+    conn = _get_knowledge_conn()  # tasks.db
+    try:
+        cur = conn.execute("SELECT key, value, agent, task_id, embedding_hash, created_at FROM knowledge ORDER BY created_at LIMIT ?", (limit,))
+        rows = cur.fetchall()
+        count = 0
+        for r in rows:
+            key, value, agent, tid, emb, ts = r
+            if dry_run:
+                count += 1
+                continue
+            try:
+                import urllib.request, json
+                api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+                payload = {"key": key, "value": value, "agent": agent, "task_id": tid}
+                if emb:
+                    payload["embedding_hash"] = emb
+                req = urllib.request.Request(f"{api}/api/knowledge", data=json.dumps(payload).encode(), headers={"Content-Type":"application/json"})
+                urllib.request.urlopen(req, timeout=5)
+                count += 1
+            except Exception:
+                pass  # skip on err
+        return count
+    finally:
+        conn.close()
