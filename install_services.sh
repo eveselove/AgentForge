@@ -29,6 +29,7 @@ sudo cp "$AGENTFORGE_DIR/agentforge-antigravity.service" /etc/systemd/system/ ||
 sudo cp "$AGENTFORGE_DIR/agentforge-watchdog.service" /etc/systemd/system/ || true
 sudo cp "$AGENTFORGE_DIR/agentforge-flywheel.service" /etc/systemd/system/ || true
 # legacy api.service (rollback only, non-fatal)
+# legacy api.service (rollback only; gateway is primary)
 sudo cp "$AGENTFORGE_DIR/agentforge-api.service" /etc/systemd/system/ 2>/dev/null || true
 
 # Перезагружаем systemd
@@ -40,17 +41,17 @@ sudo systemctl enable agentforge-worker || true
 sudo systemctl enable agentforge-antigravity || true
 sudo systemctl enable agentforge-watchdog || true
 sudo systemctl enable agentforge-flywheel || true
-sudo systemctl enable agentforge-api 2>/dev/null || true
+sudo systemctl enable agentforge-api 2>/dev/null || true  # legacy/rollback only
 
 # Запускаем
-sudo systemctl start agentforge-api
+sudo systemctl start agentforge-api || true  # legacy; gateway primary now
 sleep 3
 sudo systemctl start agentforge-worker
 
 # Проверяем статус
 echo ""
 echo "📊 Статус сервисов:"
-sudo systemctl status agentforge-api --no-pager -l | head -10
+sudo systemctl status agentforge-api --no-pager -l | head -10 || true  # legacy; use gateway status
 echo "---"
 sudo systemctl status agentforge-worker --no-pager -l | head -10
 
@@ -100,11 +101,13 @@ echo "   • При падении — автоматический переза
 echo "   • Watchdog каждые 5 минут эскалирует зависшие задачи"
 echo "   • Ноутбук можно закрывать — Erbox работает 24/7"
 echo ""
-echo "Команды управления:"
-echo "   sudo systemctl status agentforge-api"
+echo "Команды управления (WAVE4: gateway primary):"
+echo "   sudo systemctl status agentforge-gateway"
 echo "   sudo systemctl status agentforge-worker"
 echo "   sudo systemctl restart agentforge-worker"
 echo "   journalctl -u agentforge-worker -f   # live логи"
+echo "   # Legacy api (rollback only):"
+echo "   sudo systemctl status agentforge-api 2>/dev/null || true  # legacy/rollback; prefer gateway"
 echo ""
 echo "После рефакторинга routing (2026-06):"
 echo "   • Большинство задач теперь идёт на Grok автоматически"

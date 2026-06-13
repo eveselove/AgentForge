@@ -603,3 +603,72 @@ This review performed full cross-check of query focus (services/checkpoints/sh/d
 Handoff/docs + ~/.grok/handoffs/3a5271a/ updated with this independent review of commit 3a5271a (WAVE4 gw primary checkpoints + services polish + sh cleanup) + full dodelyvay context per query + task-5af0e350 + task-1b9f78d6.
 
 
+## Regression fix for WAVE4 search FTS (57e03e2, 2026-06-13)
+- core/task_checkpoints.py: added `import re` inside the local _make_fts_query fallback in search_knowledge (was causing NameError on gw fail path, per final review of 3a5271a).
+- Commit 57e03e2.
+- Addresses high-priority regression noted in independent review (jules-review-3a5271a.md etc.).
+
+## Independent Review of 57e03e2 (WAVE4 regression fix for re in search FTS) + full dodelyvay context (task-5af0e350)
+**Date**: 2026-06-13  
+**Reviewer**: Grok (Build subagent delegated per user query for independent review; strict independent persona per AGENTS.md mandatory post-work agent-review)  
+**Commits reviewed**: 57e03e2 (fix(checkpoints): WAVE4 re import in local FTS path of search (regression from edit; task-5af0e350)) + 3a5271a (WAVE4 gw primary + migrate + deprecate + services polish) + full dodelyvay wave (b67f058, fc489a6, ed73e58, c3fcd1a, bd61e8e, 80ce653, 8b040e4 + py tiers 5a3e43a/23e9a8d etc.)  
+**Handoff record**: Full auditable package under `~/.grok/handoffs/57e03e2/` (diff.patch=git show 57e03e2, context.md, metadata.json with origin_task "task-5af0e350" + secondary "task-1b9f78d6", REVIEW_INSTRUCTIONS.md, jules-review-57e03e2.md); primary detailed trace appended to this JULES_PY_REMOVAL_HANDOFF_f29c675b.md (this section). Prior `~/.grok/handoffs/3a5271a/` + fc489a6/ ed73e58e/ c3fcd1a/ 80ce653e/ cover the wave + the review that surfaced the regression.  
+**Scope**: Verify NameError regression (from 3a5271a review) fixed; overall wave now APPROVE clean? Exhaustive re-check of prior notes (focus on 3a issues list) + runtime forced-fallback test of search FTS local path + diff audit of 57e03e2 + linter + REVIEW_CHECKLIST equiv + full dodelyvay context. Cross-refs: task_checkpoints.py (gw-first search_knowledge + _make_fts_query + self-tests), grok_worker.py callers, gateway main.rs knowledge search, AUDIT-5, prior jules-reviews in handoffs, git history.  
+**Self-check equiv (REVIEW_CHECKLIST.md + prior defects + wave reviews)**: small focused fix (1-line import restore inside nested fn + comment + brief doc note); explicit traceability (57e03e2 commit refs task-5af0e350 + handoff + "Addresses regression noted in independent review of 3a5271a"); no stdout/sed-json; cargo untouched; py ruff (re-undef bug gone; preexist E501s + E401 in migrate + E701s remain); black reformat (preexist); sh n/a; diff audit clean (precise addition of `import re  # ...` in local FTS block of search_knowledge + matching comment in search_similar_tasks + doc append; no mangled); handoff + this doc updated/packaged; dogfood (direct python -c forced-fallback + gw /api/knowledge exercised); no bypass. Independent.
+
+### Summary
+57e03e2 specifically and successfully fixes the high-priority NameError regression introduced in 3a5271a (missing `import re` for FTS tokenization in search_knowledge local fallback when gw /api/knowledge/search returns empty or unreachable). 
+
+- Verified in code: `import re  # local FTS tokenization (WAVE4)` now inside `def _make_fts_query` (search_knowledge local path after gw shim try/except).
+- Runtime: AGENTFORGE_API=bad forces fallback; search_knowledge("test query with hyphen-ci") exercises re.findall/re.search + FTS MATCH without NameError (returns list safely).
+- The FTS quoting (for special chars like - : in "ci-failed" etc.) is restored exactly as needed for resilience.
+- 57e03e2 also updated the handoff doc with initial regression note (this review expands it).
+- Commit msg has minor authoring defect ("- Added  inside..." truncated) but refs + intent clear.
+
+Full dodelyvay wave + 3a + this fix advances task-5af0e350: WAVE4 gw primary for knowledge (conditional duals thin, migrate, deprecate py table), services After= standardized, emb roundtrip, shims complete + now regression-free fallback.
+
+**Overall wave APPROVE clean?** The re regression is clean. Overall: APPROVE (WITH NOTES) — prior 3a review's APPROVE WITH NOTES is upgraded on the bug but other polish items (detailed below) carry over as expected for narrow fix. Happy path + fallback now solid. Safe for consume/PR/task closure.
+
+### Issues (focus on prior notes from 3a review + 1 from fix commit)
+- [defect - commit authoring] 57e03e2: commit body "- Added  inside _make_fts_query..." incomplete (text dropped during authoring; should describe the `import re`). Title/refs good. Low impact.
+- [bug - FIXED] core/task_checkpoints.py:531: NameError 're' (in search_knowledge local FTS). **CLOSED/VERIFIED** (see summary + test; repro blocked).
+- [style - open] core/task_checkpoints.py:1336 (migrate): E401 one-line import; E701/E702; 100+ E501 (preexist + some in WAVE4 shims/headers). 57e03e2 introduced none new for re.
+- [partial - open] install_services.sh: legacy agentforge-api in start/status/echo/enables/launch block (no explicit gateway start); per prior recs still not fully cleaned for gw primary.
+- [inaccuracy/drift - open] task_checkpoints.py headers/docstrings: "checkpoints.db" / "tasks.db knowledge table" inaccurate (gw uses knowledge.json; py table deprecated; blackboard py-only).
+- [partial/carryover] agentforge-antigravity.service User/wd mismatch (AUDIT-5).
+- [carryover] agents/grok_runner.sh: no --shadow in direct flywheel; bin/rust_flywheel_after_task.sh outdated comment.
+- [partial] migrate fn: noop-ish DUAL, no dedup/delete-local/logs/error counts (safe but incomplete).
+- [nit] save_knowledge gw-ok returns 0 sentinel.
+- [lints - open] black --check fails (reformat); ruff errors (preexist); no pre-commit run post-57e03e2 (3a had noted bypass + cleanup task db946cbb).
+- [drift - open] docs still have 8080/tasks.db refs; short regression note was appended by 57e03e2 (this expands).
+- [suggestion - open] No blackboard shim; gw search LIKE only (no FTS/score); emb conditional.
+- Other AUDIT-5/wave: unit source/runtime divergence, no WatchdogSec, dual split, Tier3/4 later, preexist cargo warns.
+
+No critical new from 57e03e2. Wave incremental/safe/traceable/dogfood-aligned.
+
+### Prior notes addressed? (from 3a review + b67/fc/ed embedded)
+- re NameError: **YES FULLY CLOSED** (this commit + verified).
+- install_services full legacy drop + gw launch: NO (unchanged).
+- lints/pre-commit/black/ruff: NO (preexist; not fixed in fix commit).
+- migrate robustness + docs accuracy + blackboard + runner --shadow + unify polish: NO (carryovers; re fix is the fallback part of shim).
+- Others (emb, shim core, After=, duals thin, deprecate, migrate fn existence, logs): already closed pre-this; remain closed.
+- Consume/handoff/CI evidence: **this step**.
+
+### APPROVE?
+**APPROVE** (WITH NOTES) (57e03e2 + 3a5271a + full dodelyvay wave safe/ready; NameError regression from 3a review is fixed and the local FTS fallback path in search_knowledge is now fully functional and tested under gw-fail conditions; overall WAVE4 knowledge gw-primary + migrate/deprecate + services After= complete without the previous high-sev fallback blocker; strong traceability to task-5af0e350; dogfood + runtime verified. Commit has minor msg authoring nit. Remaining items are preexist/polish/carryover (install clean, lints, migrate polish, doc drift, blackboard etc.) not in scope of this regression fix — address in follow-up or accept as wave partials. No high-sev preventing further progress/consume/PR. Record `~/.grok/handoffs/57e03e2/` + this section + JULES_PY... + commits + task-5af0e350 per AGENTS.md + for CI agent-review-link gate.)
+
+**APPROVE** (see details above for WITH NOTES)
+
+Full trace: commits 57e03e2 + 3a5271a + b67f058 + fc489a6 + ed73e58 + c3fcd1a + bd61e8e + 80ce653 + 8b040e4 (etc.), task-5af0e350 + task-1b9f78d6, this handoff section in docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md (append) + `~/.grok/handoffs/57e03e2/` (jules-review-57e03e2.md + full package) + prior `~/.grok/handoffs/3a5271a/` (jules-review-3a5271a.md), docs/audits/AUDIT-5-systemd-services.md, docs/REMAINING_PYTHON_TO_RUST_MIGRATION_2026-06.md , docs/PHASE4_FLYWHEEL_REMOVAL_CHECKLIST.md , REVIEW_CHECKLIST.md, AGENTS.md.
+
+This review performed full cross-check of query (regression fixed? wave APPROVE clean?) + prior notes + runtime tests (forced FTS fallback OK) + linter + diff audit + equiv self-verif per REVIEW_CHECKLIST.md + AGENTS.md. Independent (separate context from impl).
+
+**Next per AGENTS.md**: (post this) run consume (dry then selective --apply on 57e03e2 + 3a etc); ensure task queue reflects (links to `~/.grok/handoffs/57e03e2/` + JULES_PY + 57e03e2 + 3a5271a + task-5af0e350); use evidence e.g. "57e03e2 re regression fix + 3a5271a agent-review ~/.grok/handoffs/57e03e2/ ~/.grok/handoffs/3a5271a/ JULES_PY_REMOVAL_HANDOFF_f29c675b.md task-5af0e350" in any PR title/body for CI gate; local pre-commit + follow fixes; only then mark complete. (If agent-review skill, invoke for future packaging.)
+
+Handoff/docs + `~/.grok/handoffs/57e03e2/` updated with this independent review of commit 57e03e2 (WAVE4 regression fix for re in search FTS) + full dodelyvay context per query + task-5af0e350 + task-1b9f78d6.
+
+## Lint compliance step (2eb7a68, 2026-06-13)
+- black + ruff --fix on core/task_checkpoints.py + core/grok_worker.py (reformat + F841 fix for unused res in submit-completion).
+- Commit includes large style diff (expected for black on long files).
+- Pre-commit step for the wave.
+
