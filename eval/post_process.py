@@ -1,84 +1,46 @@
 #!/usr/bin/env python3
 """
-DEPRECATED — Full Rust Migration (2026-05-31)
-This post_process + flywheel trigger logic is legacy.
-Prefer direct calls to:
-  agentforge-runner flywheel-step --real-data --ingest --shadow
+eval/post_process.py — PRM + trajectory enrichment + sidecar/mapping (core kept).
 
-See RUST_ONLY_MIGRATION_PLAN.md
-Non-PRM parts of trajectory processing may stay longer.
-"""
+FLYWHEEL ORCHESTRATION TRIGGER (run_rust_flywheel_step, shadow harness, etc.) EXCISED
+in Tier 2 surgical (Jules continuation 2026-06-13, task f29c675b + доделывай).
 
-"""
-eval/post_process.py — Minimal Phase 1 post-processing hook + flywheel trigger (Legacy).
+Direct canonical surface:
+  agentforge-runner flywheel-step --real-data --ingest [--shadow]
+  agentforge-runner continuous --top-n 2 [--shadow]
+  agentforge-runner candidate list/promote ...
 
-!!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
-!!! FLYWHEEL ORCHESTRATION / TRIGGER GLUE DEPRECATED — PHASE 4 REMOVAL TARGET !!!
-The Python flywheel trigger logic (calls into rust_flywheel_step/phase2_3) is deprecated.
-USE DIRECT: agentforge-runner flywheel-step --real-data --output-dir DIR --ingest
-
-Guard with hardened central ONLY:
-  from agentforge.learning.utils import is_pure_rust_flywheel, is_rust_flywheel_disabled
-
-Core PRM/trajectory post_process stays valuable (non-flywheel parts).
-Python flywheel path only for !pure (non-breaking).
-
-See learning/utils.py (Phase 4 strengthened guards)
-See PHASE4_REMOVAL_PLAN.md
-
-Minimal Phase 1 post-processing hook.
-
-After a real task completes (via runner or grok_runner), call this (or import the function)
-with a task_id to:
-- Locate the trajectory (using robust loader)
-- Compute PRM
-- Enrich and persist (update mapping + optionally write a sidecar result)
-
-This is the "automatic after-task" glue for observability + learning data.
+See docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md (Tier 2 section) and PHASE4 checklist.
+Non-breaking for !pure paths (they should call runner directly in hooks/workers now).
 """
 
 from pathlib import Path
 from typing import Optional, Dict, Any
 import json
-import subprocess
-
-from .trajectory import load_trajectory, find_trajectory_file
-from .prm import ProcessRewardModel
 import os
 import warnings
 
-# PHASE 3/4: ONLY hardened central guards (is_pure + is_disabled). No local logic.
+from .trajectory import load_trajectory, find_trajectory_file
+from .prm import ProcessRewardModel
+
+# Central guard (hardened)
 try:
-    from agentforge.learning.utils import (
-        is_pure_rust_flywheel,
-        is_rust_flywheel_disabled,
-        get_rust_runner_path,
-    )
+    from agentforge.learning.utils import is_pure_rust_flywheel, is_rust_flywheel_disabled
 except Exception:
     try:
-        from learning.utils import (
-            is_pure_rust_flywheel,
-            is_rust_flywheel_disabled,
-            get_rust_runner_path,
-        )  # safe fallback
+        from learning.utils import is_pure_rust_flywheel, is_rust_flywheel_disabled
     except Exception:
-        from learning.utils import is_pure_rust_flywheel, is_rust_flywheel_disabled  # safe fallback
-        get_rust_runner_path = None  # type: ignore
-
-
+        def is_pure_rust_flywheel(): return True
+        def is_rust_flywheel_disabled(): return False
 
 def post_process_task(task_id: str, trajectories_dir: Optional[Path] = None, use_llm_judge: Optional[bool] = None) -> Dict[str, Any]:
-    """
-    Main entry point for post-run enrichment.
-
-    Returns a dict with trajectory_path, prm_result, and any persisted info.
-    use_llm_judge: if True (or via AGENTFORGE_PRM_USE_LLM_JUDGE=1) activates real LLM judge inside PRM.
+    """Core post-run: load trajectory, compute PRM, enrich, write sidecar, update mapping.
+    Flywheel trigger removed - call agentforge-runner directly from after-task hooks.
     """
     if use_llm_judge is None:
         envv = os.getenv("AGENTFORGE_PRM_USE_LLM_JUDGE", os.getenv("AGENTFORGE_PRM_LLM_JUDGE", "0"))
         use_llm_judge = str(envv).lower() in ("1", "true", "yes", "on")
 
-    # Force PRM recompute with judge flag via direct construction + score (bypass cached loader path for flag)
     raw_traj = load_trajectory(task_id, include_prm=False, trajectories_dir=trajectories_dir)
     try:
         prm = ProcessRewardModel(use_llm_judge=bool(use_llm_judge))
@@ -88,7 +50,6 @@ def post_process_task(task_id: str, trajectories_dir: Optional[Path] = None, use
         if getattr(prm, "_llm_judge_used", False):
             prm_result["_llm_judge_used"] = True
     except Exception:
-        # Fallback to loader path
         traj = load_trajectory(task_id, include_prm=True, trajectories_dir=trajectories_dir)
         prm_result = traj.get("prm_result") or {}
     traj = raw_traj
@@ -105,12 +66,24 @@ def post_process_task(task_id: str, trajectories_dir: Optional[Path] = None, use
         "events_count": len(traj.get("events", [])),
     }
 
-    # Flywheel trigger + shadow harness EXCISED (Tier 2 surgical, Jules continuation 2026-06-13 task f29c675b)
-    # All Python flywheel orchestration removed. Use agentforge-runner flywheel-step / continuous directly.
-    pure_rust = is_pure_rust_flywheel() if \"is_pure_rust_flywheel\" in globals() else True
-    shadow_mode = str(os.getenv(\"AGENTFORGE_RUST_FLYWHEEL_SHADOW\", \"0\")).lower() in (\"1\", \"true\", \"yes\", \"on\")
+    # NOTE: All previous flywheel trigger / shadow / run_rust_flywheel_step logic excised (Tier 2).
+    # Pure Rust flywheel is now always direct via agentforge-runner (wired in after_task, workers, continuous).
+    # Shadow fidelity (if needed) via runner --shadow + parity harness (if still present for tests).
+    pure_rust = is_pure_rust_flywheel()
+    shadow_mode = str(os.getenv("AGENTFORGE_RUST_FLYWHEEL_SHADOW", "0")).lower() in ("1", "true", "yes", "on")
 
-    # (core PRM/trajectory enrichment above; sidecar/mapping/continuous runner tick below)
+    if pure_rust or shadow_mode:
+        # Direct runner continuous tick (canonical autonomy closer + health)
+        try:
+            runner = os.getenv("AGENTFORGE_RUST_RUNNER") or "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
+            if os.path.isfile(runner):
+                import subprocess
+                subprocess.Popen([runner, "--json", "continuous", "--top-n", "2"] + (["--shadow"] if shadow_mode else []), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                result["rust_continuous_ticked"] = True
+                result["rust_continuous_shadow"] = shadow_mode
+                result["flywheel_health_path"] = "/tmp/agentforge_rust_flywheel/flywheel_health.json"
+        except Exception as _e:
+            result["rust_continuous_error"] = str(_e)[:100]
 
     # Write PRM sidecar (very useful for later analysis / training)
     if actual_path and prm_result:
@@ -131,31 +104,12 @@ def post_process_task(task_id: str, trajectories_dir: Optional[Path] = None, use
     try:
         from .mappings import update_status
         update_status(task_id, "processed", extra={
-            "prm_overall_score": result["prm_overall_score"],
-            "trajectory_path": result["trajectory_path"],
+            "prm_overall_score": result.get("prm_overall_score"),
+            "trajectory_path": result.get("trajectory_path"),
         })
         result["mapping_updated"] = True
     except Exception:
         result["mapping_updated"] = False
-
-    # === PRODUCTION POLISH: continuous tick inside post_process (remaining integration point) ===
-    # Under pure or shadow: non-blocking direct runner continuous (autonomy closer + health + shadow fidelity).
-    # Mirrors exactly what rust_flywheel_after_task.sh + timer now do. Makes continuous fully wired into post_process path.
-    # Promote remains the obvious next (via candidate promote after list in review).
-    if pure_rust or shadow_mode:
-        # direct runner continuous (already the target surface)
-        try:
-            runner = os.getenv("AGENTFORGE_RUST_RUNNER") or "/home/eveselove/agentforge/rust/target/release/agentforge-runner"
-            if os.path.isfile(runner):
-                import subprocess
-                subprocess.Popen([runner, "--json", "continuous", "--top-n", "2"] + (["--shadow"] if shadow_mode else []), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                result["rust_continuous_ticked"] = True
-        except Exception as _e:
-            result["rust_continuous_error"] = str(_e)[:100]
-                # Also surface promote UX note for farm observers
-                result["next_promote"] = "agentforge-runner candidate list --top 5 ; candidate promote <id> --copy-to-skills"
-        except Exception as _ce:
-            result["rust_continuous_error"] = str(_ce)[:120]
 
     return result
 
@@ -165,6 +119,5 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python -m agentforge.eval.post_process <task_id>")
         sys.exit(1)
-
     res = post_process_task(sys.argv[1])
     print(json.dumps(res, indent=2, ensure_ascii=False))
