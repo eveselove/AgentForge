@@ -529,6 +529,7 @@ def search_knowledge(
 
 
         def _make_fts_query(user_query: str) -> str:
+            import re  # local FTS tokenization (WAVE4)
             tokens = re.findall(r'\S+', user_query)
             safe = []
             for tok in tokens:
@@ -813,7 +814,7 @@ def search_similar_tasks(query: str, limit: int = 6) -> List[Dict[str, Any]]:
         # - Quote tokens containing special characters (hyphen, colon, etc.)
         # - This supports both "dark mode" and "ci-failed" / "auto-rollback" style searches
         def _make_fts_query(user_query: str) -> str:
-            import re
+            import re  # local FTS tokenization
             tokens = re.findall(r'\S+', user_query)
             safe_tokens = []
             for tok in tokens:
