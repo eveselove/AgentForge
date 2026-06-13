@@ -43,7 +43,7 @@ sudo systemctl enable agentforge-watchdog || true
 sudo systemctl enable agentforge-flywheel || true
 # api enable REMOVED (legacy drop)
 
-# task-5af0e350: enforce .pure_rust_flywheel marker + provenance for pure default (14d soak)
+# task-5af0e350 + ff2e2174: enforce .pure_rust_flywheel marker + provenance for pure default (14d REMOVED, immediate launch per user)
 touch "$AGENTFORGE_DIR/.pure_rust_flywheel" || true
 echo "PURE RUST FLYWHEEL DEFAULT ENABLED - task-5af0e350 - $(date -Iseconds)" >> "$AGENTFORGE_DIR/.pure_rust_flywheel" || true
 # also ensure rust_flywheel.env is sourced in workers if not (idempotent append check left to callers)

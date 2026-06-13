@@ -18,7 +18,7 @@ HEALTH_JSON="/tmp/agentforge_rust_flywheel/flywheel_health.json"
 LOGS_DIR="${AGENTFORGE_DIR}/logs"
 SOAK_REPORTS_DIR="${LOGS_DIR}/soak_reports"
 PENDING_DIR="${AGENTFORGE_DIR}/pending_candidates"
-SOAK_DURATION=14  # дней в soak period
+SOAK_DURATION=0  # 14d bypassed per user directive, immediate launch 2026-06-13 task-ff2e2174
 SOAK_START_FILE="${AGENTFORGE_DIR}/soak_start.txt"
 CONTINUOUS_LOG="${LOGS_DIR}/continuous_flywheel.log"
 
@@ -290,7 +290,7 @@ main() {
     echo -e "${BOLD}${CYAN}"
     echo "╔═══════════════════════════════════════════════════════╗"
     echo "║     🔬 SOAK-MONITOR — Ежедневный отчёт              ║"
-    echo "║     Pure-Rust Flywheel 14-дневный soak period        ║"
+    echo "║     Pure-Rust Flywheel IMMEDIATE LAUNCH (14d removed) ║"
     echo "╚═══════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 

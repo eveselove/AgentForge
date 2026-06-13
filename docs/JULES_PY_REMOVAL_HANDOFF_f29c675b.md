@@ -1024,3 +1024,13 @@ Victory per "продолжаем" and "возьми всех ... добей".
 - Handoff append, trace.
 **All remains from audit finished for core. 100% core Python->Rust. Farm/PR next.**
 Refs: 23 terminals, task-2cec828e + aa1cc2bc etc, commits, tests.
+
+## IMMEDIATE LAUNCH: 14d soak test REMOVED (user "убираем 14 дневный тест запускаемся сразу" 2026-06-13, task-ff2e2174)
+**Date**: 2026-06-13
+**Action**: Bypassed 14d gate per explicit directive. Updated PHASE4_FLYWHEEL_REMOVAL_CHECKLIST.md (preconds now immediate, Tier3/4 marked ready now, no 14d). Updated scripts/soak_daily_report.sh (SOAK_DURATION=0, banners immediate). install_services.sh comment updated. REMAINING doc updated to immediate launch 100% core. 14d refs cleaned from active paths (legacy archive untouched). 
+
+**Launch now**: Pure default active, .pure_rust_flywheel present, services point to runner/gw direct, audit PASS, no Python flywheel in critical. Tier3 stubs already deleted in prior 20g+3a wave. Proceed to full rm of any remaining py flywheel refs immediately.
+
+**Trace**: task-ff2e2174 (created via runner), task-5af0e350, task-2cec828e (20g+3a). Commit with ref. Per AGENTS (pre-commit, no bypass without followup task).
+
+**Status**: 14d test gone. Launching pure Rust immediately.
