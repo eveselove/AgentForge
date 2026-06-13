@@ -160,3 +160,30 @@ Handoff updated. Ready for review/consume.
 Refs: task-5af0e350, prior waves, reviewer blockers addressed (services, syntax, missing committed gateway.service).
 Handoff updated. Services now match "direct runner" + proper gateway surface.
 
+## Follow-up Independent Review (80ce653 + 8b040e4, per AGENTS.md)
+**Handoff package**: `~/.grok/handoffs/80ce653e/` (diff.patch of the two commits, context.md, metadata.json, REVIEW_INSTRUCTIONS.md, jules-review-80ce653e.md)
+**Date**: 2026-06-13
+**Reviewer**: independent Grok subagent (strict persona, full source+runtime+caller cross-check + shellcheck + REVIEW_CHECKLIST-equivalent self-verif)
+**Commits reviewed**: 8b040e4 (final thin to Rust runner for flywheel) + 80ce653 (gateway.service committed + robust ExecStart + After= + syntax fix + handoff)
+**Blockers checked**: services, gateway committed, syntax, ExecStart robustness, After=, missed callers partially (from prior review notes in this handoff + hardening).
+
+### Summary from review
+Blockers substantially addressed (gateway now source-controlled; ExecStart robust w/ fallback; syntax bash -n clean; services source updated + After= batch attempted; install/grok_worker cleaned). Progress real in доделывай migration. However, partials remain (see Issues). No critical breakage for current paths (gateway runs healthy on 9090 post-stray-clean; pure runner paths preferred). APPROVE WITH NOTES.
+
+### Key Issues (excerpt; full in jules-review-80ce653e.md)
+- [bug] agentforge-worker.service:7: duplicate "agentforge-gateway.service" in After= + lingering legacy api.
+- [bug] agentforge-antigravity.service:3: After= still legacy (network + agentforge.service); missed in batch (also in installed unit).
+- [bug] install_services.sh:40+: still starts/checks non-existent "agentforge-api"; no start for gateway (only enable); legacy cp kept.
+- [bug] bin/rust_flywheel_after_task.sh:208: legacy else still has mangled active lines (not fully commented; shellcheck "bad line break" + will cmd-not-found if hit). bash -n ok but incomplete fix.
+- [suggestion] source vs installed divergence (gateway.service committed is agx/system style; runtime user units hardened/different cwd/limits; antigravity etc mismatch). agentforge.service still has uvicorn Exec.
+- [suggestion] flywheel After= mixes legacy; no gateway start/status in install "Запускаем" section.
+- [nit] docs drift (AGENTS.md etc still cite 8080); gateway panic on bind (no graceful in source service).
+- [suggestion] for final remaining: eval/ (post_process now minimal PRM, good); checkpoints (gateway owns primary db, legacy api split risk); workers full thin (py exec workers intentional, orchestration now runner); duals (shadow wired in after_task + runner + v5 health, continue soak).
+
+### Final Status from review
+APPROVE WITH NOTES (safe incremental; address nits/bugs in small polish or accept as migration partials; reference handoff 80ce653e + jules-review-80ce653e.md + task-5af0e350 in any PR/consume). Full report + package at ~/.grok/handoffs/80ce653e/jules-review-80ce653e.md .
+
+**Next per AGENTS**: python3 bin/consume-handoff-reviews.py --dry-run --verbose --handoff-id 80ce653e ; --apply if ok; append this to task result; use in PR title/body for CI agent-review-link gate.
+
+Handoff updated with follow-up review record.
+
