@@ -1037,8 +1037,9 @@ fn main() {
                             }
 
                             // 3. Create git worktree
-                            let wt_path = format!("/tmp/agentforge-work/task-{}", id);
-                            let branch_name = format!("agent/task-{}", id);
+                            // id from gateway already contains "task-" prefix (e.g. "task-7894af1c")
+                            let wt_path = format!("/tmp/agentforge-work/{}", id);
+                            let branch_name = format!("agent/{}", id);
 
                             // Clean up any stale worktree dir if it exists
                             let _ = std::process::Command::new("git")
@@ -1069,9 +1070,29 @@ fn main() {
                                             .trim_start_matches('/')
                                             .replace("home/eveselove/agentforge/", "")
                                             .replace("home/eveselove/agentforge", "");
-                                        let joined = std::path::Path::new(&wt_path).join(&clean);
-                                        if joined.exists() {
-                                            run_dir = joined.to_string_lossy().to_string();
+                                        // Security: reject path traversal attempts
+                                        let clean_path = std::path::Path::new(&clean);
+                                        let has_traversal = clean_path.components().any(|c| {
+                                            matches!(c, std::path::Component::ParentDir)
+                                        }) || clean_path.is_absolute();
+                                        if has_traversal {
+                                            eprintln!("⚠️ Rejected unsafe dir from task metadata: {}", dir_str);
+                                        } else {
+                                            let joined = std::path::Path::new(&wt_path).join(&clean);
+                                            // Verify the resolved path is strictly under wt_path
+                                            if let (Ok(canon_joined), Ok(canon_wt)) = (std::fs::canonicalize(&joined), std::fs::canonicalize(&wt_path)) {
+                                                if canon_joined.starts_with(&canon_wt) {
+                                                    run_dir = canon_joined.to_string_lossy().to_string();
+                                                } else {
+                                                    eprintln!("⚠️ Dir resolved outside worktree, ignoring: {}", dir_str);
+                                                }
+                                            } else if joined.exists() {
+                                                // canonicalize failed but path exists — extra cautious check
+                                                let joined_str = joined.to_string_lossy().to_string();
+                                                if joined_str.starts_with(&wt_path) && !joined_str.contains("..") {
+                                                    run_dir = joined_str;
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1122,8 +1143,8 @@ fn main() {
                                 format!(
                                     r#"#!/bin/bash
 # Auto-generated task launcher for AgentForge Antigravity (Gemini 3.1 Pro)
-set -uo pipefail
-cd "{}"
+set -euo pipefail
+cd "{}" || {{ echo 1 > "{}"; exit 1; }}
 export SSH_TTY=/dev/pts/0
 PROMPT=$(cat << 'EOF'
 {}
@@ -1133,20 +1154,22 @@ EOF
 echo $? > "{}"
 "#,
                                     run_dir,
+                                    exit_file,
                                     prompt_content,
-                                    wt_path,
+                                    run_dir,
                                     exit_file
                                 )
                             } else {
                                 format!(
                                     r#"#!/bin/bash
 # Auto-generated task launcher for AgentForge Grok
-set -uo pipefail
-cd "{}"
+set -euo pipefail
+cd "{}" || {{ echo 1 > "{}"; exit 1; }}
 grok {} {} --no-alt-screen --prompt-file "{}"
 echo $? > "{}"
 "#,
                                     run_dir,
+                                    exit_file,
                                     if always_approve { "--always-approve" } else { "" },
                                     if no_plan { "--no-plan" } else { "" },
                                     prompt_path,
@@ -1156,6 +1179,14 @@ echo $? > "{}"
 
                             if let Err(e) = std::fs::write(&launcher_path, &launcher_content) {
                                 eprintln!("❌ Failed to write launcher script: {}", e);
+                                // Cleanup partial setup before retrying
+                                let _ = std::fs::remove_file(&prompt_path);
+                                let _ = std::process::Command::new("git")
+                                    .args(["worktree", "remove", "--force", &wt_path])
+                                    .status();
+                                let _ = std::process::Command::new("git")
+                                    .args(["branch", "-D", &branch_name])
+                                    .status();
                                 continue;
                             }
                             let _ = std::process::Command::new("chmod")
@@ -1163,7 +1194,8 @@ echo $? > "{}"
                                 .status();
 
                             // 5. Spawn tmux window running launcher script
-                            let window_name = format!("task-{}", id);
+                            // id already has "task-" prefix, use directly
+                            let window_name = id.clone();
                             let tmux_cmd = format!("bash {}", launcher_path);
 
                             println!("📺 Spawning tmux window '{}'...", window_name);
@@ -1193,7 +1225,16 @@ echo $? > "{}"
                                     let windows = String::from_utf8_lossy(&out.stdout);
                                     let exists = windows.lines().any(|l| l == window_name);
                                     if !exists {
-                                        println!("⚠️ Tmux window was closed manually.");
+                                        // Check exit file one last time (agent may have just finished)
+                                        if let Ok(content) = std::fs::read_to_string(&exit_file) {
+                                            if let Ok(code) = content.trim().parse::<i32>() {
+                                                exit_code = Some(code);
+                                            }
+                                        }
+                                        if exit_code.is_none() {
+                                            println!("⚠️ Tmux window disappeared without exit code — treating as FAILED.");
+                                            exit_code = Some(1);
+                                        }
                                         break;
                                     }
                                 }
@@ -1201,7 +1242,7 @@ echo $? > "{}"
                                 std::thread::sleep(std::time::Duration::from_secs(1));
                             }
 
-                            let code = exit_code.unwrap_or(0);
+                            let code = exit_code.unwrap_or(1); // default to failed if unknown
                             let status = if code == 0 { "done" } else { "failed" };
                             let result = format!("{} exited with code {} in tmux session", agent_name, code);
 
@@ -1210,10 +1251,16 @@ echo $? > "{}"
                             // 7. Update task in database
                             let _ = live_update_task(c, &api_base, &id, Some(status), Some(&result), Some(&agent_name)).await;
 
-                            // 8. Clean up worktree and temp files
+                            // 8. Clean up worktree, branch, tmux window, and temp files
                             println!("🧹 Cleaning up worktree and scripts...");
+                            let _ = std::process::Command::new("tmux")
+                                .args(["kill-window", "-t", &format!("agents:{}", window_name)])
+                                .status();
                             let _ = std::process::Command::new("git")
                                 .args(["worktree", "remove", "--force", &wt_path])
+                                .status();
+                            let _ = std::process::Command::new("git")
+                                .args(["branch", "-D", &branch_name])
                                 .status();
                             let _ = std::fs::remove_file(&prompt_path);
                             let _ = std::fs::remove_file(&exit_file);
