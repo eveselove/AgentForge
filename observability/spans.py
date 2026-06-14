@@ -11,7 +11,7 @@ Production-usable:
 See replay.py for trajectory -> spans conversion with automatic PRM attachment.
 """
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Union
 import uuid
@@ -44,11 +44,13 @@ class Span:
     status: str = "unset"  # unset, ok, error
 
     def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None):
-        self.events.append({
-            "name": name,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "attributes": attributes or {}
-        })
+        self.events.append(
+            {
+                "name": name,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "attributes": attributes or {},
+            }
+        )
 
     def set_attribute(self, key: str, value: Any):
         self.attributes[key] = value
@@ -68,7 +70,8 @@ class Span:
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "duration_ms": (
                 (self.end_time - self.start_time).total_seconds() * 1000
-                if self.end_time else None
+                if self.end_time
+                else None
             ),
             "attributes": self.attributes,
             "events": self.events,
@@ -83,7 +86,11 @@ class Span:
             span_id=data.get("span_id", uuid.uuid4().hex[:16]),
             parent_span_id=data.get("parent_span_id"),
         )
-        start = datetime.fromisoformat(data["start_time"]) if data.get("start_time") else datetime.now(timezone.utc)
+        start = (
+            datetime.fromisoformat(data["start_time"])
+            if data.get("start_time")
+            else datetime.now(timezone.utc)
+        )
         end = datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None
         span = cls(
             name=data.get("name", "unknown"),
@@ -105,7 +112,9 @@ def create_span(name: str, parent: Optional[Span] = None) -> Span:
 
     span = Span(
         name=name,
-        context=SpanContext(trace_id=trace_id, span_id=span_id, parent_span_id=parent_span_id)
+        context=SpanContext(
+            trace_id=trace_id, span_id=span_id, parent_span_id=parent_span_id
+        ),
     )
     return span
 
@@ -135,7 +144,9 @@ def start_as_current_span(name: str, parent: Optional[Span] = None):
     except Exception as exc:
         span.set_attribute("error.type", type(exc).__name__)
         span.set_attribute("error.message", str(exc)[:500])
-        span.add_event("exception", {"type": type(exc).__name__, "message": str(exc)[:200]})
+        span.add_event(
+            "exception", {"type": type(exc).__name__, "message": str(exc)[:200]}
+        )
         span.end("error")
         raise
     else:
@@ -167,13 +178,22 @@ def export_spans_to_json(
                 {
                     "resource": {
                         "attributes": [
-                            {"key": "service.name", "value": {"stringValue": "agentforge"}},
-                            {"key": "service.version", "value": {"stringValue": "phase1"}},
+                            {
+                                "key": "service.name",
+                                "value": {"stringValue": "agentforge"},
+                            },
+                            {
+                                "key": "service.version",
+                                "value": {"stringValue": "phase1"},
+                            },
                         ]
                     },
                     "scopeSpans": [
                         {
-                            "scope": {"name": "agentforge.observability", "version": "0.1.0"},
+                            "scope": {
+                                "name": "agentforge.observability",
+                                "version": "0.1.0",
+                            },
                             "spans": [s.to_dict() for s in spans],
                         }
                     ],
@@ -198,6 +218,10 @@ def spans_from_json(json_str: str) -> List[Span]:
     raw = json.loads(json_str)
     if isinstance(raw, dict) and "resourceSpans" in raw:
         # unwrap OTEL form
-        scope_spans = raw["resourceSpans"][0]["scopeSpans"][0]["spans"] if raw.get("resourceSpans") else []
+        scope_spans = (
+            raw["resourceSpans"][0]["scopeSpans"][0]["spans"]
+            if raw.get("resourceSpans")
+            else []
+        )
         raw = scope_spans
     return [Span.from_dict(item) for item in raw] if isinstance(raw, list) else []

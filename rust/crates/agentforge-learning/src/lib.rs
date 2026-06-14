@@ -10,13 +10,13 @@
 //! for maximum flywheel-step emission quality (richer proposals + candidate_skill.yaml).
 
 pub mod dataset;
+pub mod improver;
 pub mod trainer;
 pub mod types;
-pub mod improver;
 
+pub use agentforge_core::ParseOutcomeError;
 pub use dataset::TrajectoryDataset;
 pub use trainer::{BaseTrainer, DPOTrainer, KTOTrainer, SFTTrainer, TrainingConfig, TrainingRun};
-pub use types::{TrajectoryRecord, Outcome, PRMStepLabel, CoreOutcome};
-pub use agentforge_core::ParseOutcomeError;
+pub use types::{CoreOutcome, Outcome, PRMStepLabel, TrajectoryRecord};
 // Re-export the clean SPLIT basic LLM critique path (AGENTFORGE_LLM_CMD integration) + SkillImprover for flywheel emission quality.
-pub use improver::{SkillImprover, ProposedSkill, try_llm_critique_stub};
+pub use improver::{try_llm_critique_stub, ProposedSkill, SkillImprover};

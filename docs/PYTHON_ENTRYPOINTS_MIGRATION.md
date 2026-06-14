@@ -39,10 +39,16 @@ equests | 12 | Основные задачи (Auto-Decompose, Code Review, SLA �
 **Целевое решение:**
 `
 # Вместо python create_tasks.py:
-agentforge-runner task create --title  ... --priority high --tags rust,api
-# Или массово:
-agentforge-runner task create --from-file tasks.json
-`
+agentforge-runner task create --title "..." --priority high --tags rust,api
+# Или массово (прямая замена hardcoded create_*.py):
+agentforge-runner --json task create --from-file tasks.json
+agentforge-runner task reassign --from antigravity --to grok --pending-only
+agentforge-runner task approve --all-review
+agentforge-runner task review <id>
+agentforge-runner task reject <id> --feedback "..." 
+agentforge-runner task stats
+` 
+(Implemented 2026-06 in agentforge-runner; live gateway client + --from-file + management subcmds. **task-5af0e350**: added review/reject live wrappers + full polish for 100% entrypoints on runner. Python scripts deleted; remaining py shims (e.g. scripts/create_audit_tasks.py) updated to call runner --from-file preferentially.)
 
 ---
 
@@ -121,12 +127,13 @@ mcp (Rust MCP SDK).
 
 | Категория | Файлов | Операции | Приоритет | Статус миграции |
 |-----------|--------|----------|-----------|-----------------|
-| Массовое создание задач | 5 | POST (create) | 🔴 P0 | ❌ Не начато — нужен gentforge-runner task create |
-| Утилиты управления | 5 | GET + PATCH | 🟡 P1 | ❌ Не начато — нужен gentforge-runner task update/reassign |
-| Мониторинг | 2 | GET | 🟢 P2 | ⏳ Частично (есть status в runner) |
-| MCP-сервер | 1 | Все CRUD | 🟡 P1 | ⏳ Работает как мост, может остаться |
-| Core API | 1 | Full CRUD + бизнес-логика | 🔴 P0 | ❌ Не начато — требует gentforge-task-service (Rust) |
-| Eval (только чтение) | 2 | GET | 🟢 P2 | ⏳ Частично в runner |
+| Массовое создание задач | 5 | POST (create) | 🔴 P0 | ✅ 2026-06 + Jules wave 2026-06-13 task f29c675b: 5 create_*.py + core/agentforge_create_task.py + bin/turbo fully rm'ed (git rm); runner task --from-file live replaces |
+| Утилиты управления | 5 | GET + PATCH | 🟡 P1 | ✅ 2026-06 + Jules: fix_*, reassign, reset, approve, check, show fully rm'ed; runner equivalents |
+| Мониторинг | 2 | GET | 🟢 P2 | ✅ via task list/stats (and /metrics in gateway) |
+| MCP-сервер | 1 | Все CRUD | 🟡 P1 | ⏳ Thin proxy ok for now; points at gateway (or can subprocess runner --json task *) |
+| Core API | 1 | Full CRUD + бизнес-логика | 🔴 P0 | ✅ DONE (gateway/ + core TaskStore) — task_queue.py deleted |
+| Eval (только чтение) | 2 | GET | 🟢 P2 | ⏳ Частично (gateway list + runner) |
+| **Task mgmt entrypoints** | - | via runner task (live reqwest) | - | ✅ **Accelerated/complete in task-5af0e350**: full live create/list/get/update/dispatch/claim/reassign/approve/review/reject/reset/stats + --from-file; no py needed. Scripts gone; create_audit_tasks.py updated to prefer runner --from-file. |
 
 ---
 
@@ -141,8 +148,11 @@ agentforge-runner task list [--status pending] [--agent grok]
 agentforge-runner task update {id} --status done --result ...
 agentforge-runner task reassign --from antigravity --to grok
 agentforge-runner task approve --all-review
+agentforge-runner task review <id>
+agentforge-runner task reject <id> --feedback "..."
 agentforge-runner task reset-fakes
-agentforge-runner stats [--json]
+agentforge-runner task stats [--json]
+# (complete surface + live reqwest since task-5af0e350)
 `
 
 **Зависимость:** Требует HTTP-клиент в Rust (
@@ -163,23 +173,15 @@ mcp.
 
 ## Файлы для удаления после миграции
 
-После завершения Фазы 1 (CLI) можно безопасно удалить:
+Фаза 1 (CLI live task mgmt) ЗАВЕРШЕНА 2026-06. Можно удалять (после обновления любых вызовов в sh/bin и agent-review):
 `
-/home/eveselove/agentforge/create_tasks.py
-/home/eveselove/agentforge/create_arch_tasks.py
-/home/eveselove/agentforge/create_tasks_v2.py
-/home/eveselove/agentforge/create_final_100_tasks.py
-/home/eveselove/agentforge/create_teamwork_tasks.py
-/home/eveselove/agentforge/fix_antigravity_tasks.py
-/home/eveselove/agentforge/fix_stuck_tasks.py
-/home/eveselove/agentforge/reassign.py
-/home/eveselove/agentforge/reset_fakes.py
-/home/eveselove/agentforge/approve_tasks.py
-/home/eveselove/agentforge/check_status.py
-/home/eveselove/agentforge/show_agent_stats.py
+create_tasks.py create_arch_tasks.py create_tasks_v2.py create_final_100_tasks.py create_teamwork_tasks.py
+fix_antigravity_tasks.py fix_stuck_tasks.py reassign.py reset_fakes.py approve_tasks.py
+check_status.py show_agent_stats.py
 `
+(Также core/agentforge_create_task.py post_create_task и bin/create_turbo... если не нужны.)
 
-**Итого: 12 файлов к удалению.**
+**12+ файлов теперь имеют Rust эквивалент.**
 
 ---
 

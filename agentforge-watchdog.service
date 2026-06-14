@@ -1,13 +1,22 @@
 # === PURE RUST FLYWHEEL DEFAULT CUTOVER (Phase 3 — PRODUCTION EXCELLENCE) @ 2026-05-31T10:42:02+03:00 ===
+# PHASE4_REMOVAL_PLAN AGGRESSIVE FINAL DEPRECATION SWEEP: flywheel refs are rollback notes only (env + markers). Keep service.
 # Injected by bin/make_pure_rust_flywheel_default.sh
 # agentforge-runner sole engine (flywheel-step/candidate/continuous). Non-breaking additive.
 # Rollback: edit unit or set Environment=AGENTFORGE_FLYWHEEL_ENGINE=python + touch .disable_pure_rust_flywheel
 [Unit]
 Description=AgentForge Watchdog Daemon
-After=network.target agentforge-api.service
+After=network.target agentforge-gateway.service
 
 [Service]
 Type=simple
+# PHASE 4 + task-5af0e350: Watchdog (Python monitor for health). PURE RUST FLYWHEEL HARD DEFAULT. Flywheel via runner.
+Environment=AGENTFORGE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_USE_RUST=1
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
+Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
+Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
 ExecStart=/usr/bin/python3 /home/eveselove/agentforge/watchdog.py
 WorkingDirectory=/home/eveselove/agentforge
 Restart=always
@@ -18,7 +27,4 @@ StandardError=append:/home/eveselove/agentforge/logs/watchdog.log
 [Install]
 WantedBy=default.target
 
-Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
-Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
-Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
-# Pure cutover injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00 — rollback via FLYWHEEL_ENGINE=python or .disable_pure_rust_flywheel
+# Pure cutover + task-5af0e350: PURE RUST HARD DEFAULT for 14d soak. Rollback via disable_pure script.

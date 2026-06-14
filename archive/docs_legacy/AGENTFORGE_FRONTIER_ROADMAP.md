@@ -102,7 +102,7 @@ See: `ANTIGRAVITY_DEFAULT.md`, `ENABLE_RUST_FLYWHEEL.md`, `PENDING_CANDIDATES.md
 **Proof bullets (evidence only):**
 - 236 real pending candidate dirs (exceeding 200+) auto-generated from live Grok/Jules farm trajectories via Rust `flywheel-export` (rich manifests: `rust_rich_flywheel_export.json`, learning_value, PRM, stats).
 - Production release binary at `rust/target/release/agentforge-runner` (860kB, full subcommands including rich `flywheel-export`, `improve-skill`, planning/safety/obs integration).
-- All workers patched: `jules_worker.sh`, `grok_worker.sh`, `agents/grok_runner.sh`, `dispatcher.sh` + `bin/rust_flywheel_after_task.sh` + `bin/rust_post_process_hook.py` respect `ENABLE_RUST_FLYWHEEL` marker + env; call post_process + canonical step.
+- All workers patched: `jules_worker.sh`, `grok_worker.sh`, `agents/grok_runner.sh`, `dispatcher.sh` + `bin/rust_flywheel_after_task.sh` + `DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)` respect `ENABLE_RUST_FLYWHEEL` marker + env; call post_process + canonical step.
 - 3 candidates promoted (safe timestamped .promoted.*.yaml copies to skills/ + full A/B prep): general-refactor variants from 20260531_* dirs.
 - Full A/B skeleton executed & recorded via `LearningEvaluator` + `promote-and-ab` (3x simulated A/Bs on promoted: all "tie" with detailed ABResult persisted in ab_results.json + candidate_meta updates + promotions.jsonl + skills/promotion_history.json).
 - `LearningEvaluator` real/sim paths + `promote_candidate` + auto A/B artifact gen (ab_test_config.json, run_ab_after_promote.py, suggested commands) fully wired and exercised.

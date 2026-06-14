@@ -12,14 +12,16 @@
 # - Sets canonical env (prefers release binary).
 # - Rate-limited: at most once per 5 minutes (global, via timestamp + flock lock).
 # - Idempotent + safe: never blocks, never fails the caller, graceful degrade.
-# - Invokes the *canonical* step: python -m agentforge.rust_flywheel_step --real-data --use-rust
-#   (this loads real trajectories/.prm, runs Rust bridge, produces proposal,
-#    writes artifacts, and *auto-drops* to pending_candidates/ via ingest).
+# - Under pure (default): invokes agentforge-runner --json flywheel-step --real-data --ingest directly (no py).
+#   (produces trajectories/artifacts/ingest to candidates; also ticks continuous for autonomy).
+#   Optional: --shadow when AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 for dual fidelity.
+# - Legacy ( ! pure ): still falls back (deprecated).
 # - Logs to logs/rust_flywheel_after_*.log
+# - task-5af0e350: ensures 100% "rust-agentforge-runner" provenance in logs/health/manifests.
 #
 # Enable permanently:
-#   - touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
-#   - or export AGENTFORGE_RUST_FLYWHEEL=1 in workers + source bin/rust_flywheel.env
+#   - touch .pure_rust_flywheel  (HARD DEFAULT)
+#   - or export AGENTFORGE_RUST_FLYWHEEL=1 + AGENTFORGE_PURE_RUST_FLYWHEEL=1 in workers + source bin/rust_flywheel.env
 #   - Workers will then call this after real post_process.
 #
 # Usage (manual test):
@@ -195,31 +197,22 @@ if [ "$_PURE_RUST_FW" = "1" ] || [ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]
     log "continuous tick exercised under pure (autonomy meta-loop + health JSON + shadow ready)"
     # v5 continuous dual support + richer fidelity integration: when shadow, refresh aggregate (streak/trend/health) + log key gate values for immediate farm observability (cron/watchdog friendly)
     if [ "$SHADOW_ACTIVE" = "1" ]; then
-        (cd "$AGENTFORGE_ROOT" 2>/dev/null || true; PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness --shadow-aggregate --json 2>&1 | tail -5 ) >> "$LOG_FILE" 2>&1 || true
-        log "v5 shadow aggregate refreshed for continuous dual health (fidelity_grade + streak/trend now updated)"
-        # Extra: extract and log concise health line for grepping in worker logs (real farm usability)
-        (cd "$AGENTFORGE_ROOT" 2>/dev/null || true; PYTHONPATH=. python -m agentforge.learning.flywheel_parity.parity_harness --shadow-aggregate --json 2>/dev/null | python3 -c '
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    agg = data.get("aggregate", data) if isinstance(data, dict) else {}
-    print("[shadow-v5-health] health=" + str(agg.get("fidelity_health","?")) + " avg=" + str(agg.get("avg_composite","?")) + " pass_rate=" + str(agg.get("pass_rate","?")) + " streak=" + str(agg.get("recent_pass_streak","?")) + " trend=" + str(agg.get("trend","?")))
-except Exception as e: print("[shadow-v5-health] parse-skip:", str(e)[:40])
-' ) 2>/dev/null | tee -a "$LOG_FILE" || true
-    fi
+        # Shadow fidelity via runner (direct, no Python parity harness - DELETED Tier2)
+        "$RUNNER" --json flywheel-step --real-data --shadow --ingest --limit 20 >> "$LOG_FILE" 2>&1 || true
+        log "shadow step + continuous via direct runner (fidelity via --shadow; aggregate/health in /tmp/.../flywheel_health.json)"
     fi
     log "Pure runner after-task complete (step + continuous + v5 shadow fidelity). Next for promote: agentforge-runner candidate list --top 5 ; candidate promote <id> --copy-to-skills (or --dry-run). source=rust stamped in history."
 else
     log "[LEGACY] Python orchestration path (set pure env for direct agentforge-runner flywheel-step --ingest --shadow)"
-    # Run the canonical production step (legacy)
+    # Run the canonical production step (legacy - DEPRECATED per Tier 3; set pure env)
     (
       cd "$AGENTFORGE_ROOT" 2>/dev/null || true
-      python3 -m agentforge.rust_flywheel_step \
-        --real-data \
-        --use-rust \
-        --limit 60 \
-        --since-days 45 \
-        2>&1 | tail -100
+      # Prefer runner (direct) even in legacy path if binary present
+      if [ -x "$AGENTFORGE_RUST_RUNNER" ]; then
+        "$AGENTFORGE_RUST_RUNNER" --json flywheel-step --real-data --limit 60 2>&1 | tail -100
+      else
+        echo "legacy Python step would run here (set AGENTFORGE_RUST_FLYWHEEL=1 for direct)"
+      fi
     ) >> "$LOG_FILE" 2>&1 || log "canonical step exited non-zero (non-fatal, see log)"
 fi
 
@@ -235,7 +228,7 @@ echo "[AgentForge] Rust flywheel after-task hook finished for $TASK_REF (pure ru
 # Engine provenance in new manifests + health JSON + fidelity aggregate for daily audit.
 # Greppable: [SOAK-MONITOR] lines in $LOG_FILE (and worker logs via tee).
 # Run manually anytime: bash bin/rust_flywheel_after_task.sh (or let hooks/timer do it).
-# Also: cat /tmp/agentforge_rust_flywheel/flywheel_health.json ; python -m agentforge.learning.flywheel_parity.parity_harness --shadow-aggregate --json
+# Also: cat /tmp/agentforge_rust_flywheel/flywheel_health.json ;  # DELETED Tier2 - parity removed; use runner direct for fidelity if needed --shadow-aggregate --json
 ( 
   echo "[SOAK-MONITOR] $(date -Iseconds) engine_provenance_scan"
   HEALTH="/tmp/agentforge_rust_flywheel/flywheel_health.json"

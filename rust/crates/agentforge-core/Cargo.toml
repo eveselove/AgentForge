@@ -13,7 +13,16 @@ async-trait = { workspace = true }
 # LanceDB is optional because of heavy transitive dependencies (lance + AWS stuff)
 # that often cause resolution problems with certain crates.io mirrors.
 # Enable with: cargo build -p agentforge-core --features lancedb
-lancedb = { version = "0.4", optional = true }
+# LanceDB: upgraded from 0.4 to 0.15 to fix arrow-arith v51 chrono::quarter() conflict
+lancedb = { version = "0.15", optional = true }
+arrow-array = { version = "53", optional = true }
+arrow-schema = { version = "53", optional = true }
+futures = { version = "0.3", optional = true }
+anyhow = { workspace = true }
 
 [features]
-lancedb = ["dep:lancedb"]  # Enables LanceDB-backed TaskStore
+lancedb = ["dep:lancedb", "dep:arrow-array", "dep:arrow-schema", "dep:futures"]
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+

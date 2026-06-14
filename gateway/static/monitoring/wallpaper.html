@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matching Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0e1a; --surface: #111827; --surface2: #1f2937;
+  --border: #374151; --text: #f3f4f6; --muted: #9ca3af;
+  --green: #10b981; --yellow: #f59e0b; --red: #ef4444;
+  --blue: #3b82f6; --purple: #8b5cf6; --cyan: #06b6d4;
+  --gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+}
+body {
+  font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12));
+  border-bottom: 1px solid var(--border);
+  padding: 20px 32px; display: flex; align-items: center; gap: 16px;
+}
+.header h1 { font-size: 22px; font-weight: 700; }
+.header h1 span { background: var(--gradient); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.badge.green { background: var(--green); color: #000; }
+.badge.blue { background: var(--blue); color: #fff; }
+.back-link { color: var(--muted); text-decoration: none; font-size: 13px; margin-left: auto; }
+.back-link:hover { color: var(--text); }
+
+/* KPI row */
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; padding: 20px 32px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; text-align: center; }
+.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.kpi-value { font-size: 32px; font-weight: 700; margin-top: 6px; }
+.kpi-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* Filters */
+.filters {
+  padding: 12px 32px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+}
+.filter-btn {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;
+  transition: all 0.2s;
+}
+.filter-btn:hover { border-color: var(--blue); }
+.filter-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+.search-box {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 14px; border-radius: 8px; font-size: 13px; width: 250px; margin-left: auto;
+}
+.search-box::placeholder { color: var(--muted); }
+.cat-select {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 14px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 30px;
+}
+.cat-select:hover { border-color: var(--blue); }
+.cat-select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
+
+/* Table */
+.table-wrap { padding: 0 32px 80px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+thead th {
+  position: sticky; top: 0; background: var(--bg);
+  text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 1px; padding: 12px 8px; border-bottom: 2px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+thead th:hover { color: var(--text); }
+tbody tr {
+  border-bottom: 1px solid rgba(55,65,81,0.4);
+  transition: background 0.15s;
+}
+tbody tr:hover { background: rgba(59,130,246,0.06); }
+td { padding: 10px 8px; font-size: 13px; vertical-align: middle; }
+
+/* Product cell */
+.prod { display: flex; gap: 10px; align-items: center; }
+.prod-img {
+  width: 48px; height: 48px; border-radius: 8px; object-fit: cover;
+  background: var(--surface2); border: 1px solid var(--border); flex-shrink: 0;
+}
+.prod-name { font-size: 12px; line-height: 1.35; max-width: 200px; }
+.prod-article { font-size: 11px; color: var(--cyan); font-weight: 600; margin-top: 2px; }
+.prod-price { font-size: 11px; color: var(--muted); }
+
+/* Score bars */
+.score-cell { width: 120px; }
+.score-bar-wrap { margin-bottom: 3px; }
+.score-label { font-size: 10px; color: var(--muted); display: flex; justify-content: space-between; }
+.score-bar { height: 6px; border-radius: 3px; background: var(--surface2); overflow: hidden; }
+.score-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.score-fill.text { background: linear-gradient(90deg, #3b82f6, #06b6d4); }
+.score-fill.image { background: linear-gradient(90deg, #8b5cf6, #ec4899); }
+.score-fill.total { background: linear-gradient(90deg, #10b981, #34d399); }
+
+/* Verdict badge */
+.verdict {
+  display: inline-block; padding: 3px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+}
+.verdict.exact { background: rgba(16,185,129,0.2); color: var(--green); }
+.verdict.likely_match { background: rgba(59,130,246,0.2); color: var(--blue); }
+.verdict.no_match { background: rgba(239,68,68,0.15); color: var(--red); }
+.verdict.uncertain { background: rgba(245,158,11,0.15); color: var(--yellow); }
+.verdict.analog { background: rgba(139,92,246,0.2); color: var(--purple); }
+
+.tier-tag { font-size: 10px; color: var(--muted); }
+.article-match { color: var(--green); font-size: 10px; }
+.article-diff { color: var(--red); font-size: 10px; }
+
+/* Pagination */
+.pagination {
+  display: flex; gap: 8px; padding: 16px 32px; justify-content: center; align-items: center;
+}
+.page-btn {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+}
+.page-btn:hover { border-color: var(--blue); }
+.page-btn.active { background: var(--blue); border-color: var(--blue); }
+.page-info { color: var(--muted); font-size: 13px; }
+
+@media (max-width: 900px) {
+  .kpi-row { grid-template-columns: repeat(3, 1fr); }
+  .filters { flex-direction: column; }
+  .search-box { width: 100%; margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 <span id="pageTitle">Matching Results</span></h1>
+  <select class="cat-select" id="categorySelect" onchange="switchCategory(this.value)">
+    <option value="wallpaper" selected>🏠 Обои</option>
+    <option value="paint">🎨 Краски и лаки</option>
+    <option value="mix">🧱 Сухие смеси</option>
+    <option value="tools">🔧 Инструменты</option>
+    <option value="plumbing">🚿 Сантехника</option>
+    <option value="electric">⚡ Электрика</option>
+    <option value="flooring">🪵 Напольные покрытия</option>
+    <option value="all">📦 Все категории</option>
+  </select>
+  <div class="badge green" id="statusBadge">Loading...</div>
+  <a href="/monitoring/" class="back-link">← Dashboard</a>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="kpi-label">Товаров Аксон</div>
+    <div class="kpi-value blue" id="kpiTotal">—</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Exact Match</div>
+    <div class="kpi-value" style="color:var(--green)" id="kpiExact">—</div>
+    <div class="kpi-sub" id="kpiExactPct"></div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Likely Match</div>
+    <div class="kpi-value" style="color:var(--blue)" id="kpiLikely">—</div>
+    <div class="kpi-sub" id="kpiLikelyPct"></div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">No Match</div>
+    <div class="kpi-value" style="color:var(--red)" id="kpiNoMatch">—</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Uncertain</div>
+    <div class="kpi-value" style="color:var(--yellow)" id="kpiUncertain">—</div>
+    <div class="kpi-sub">→ нужен LLM Judge</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <button class="filter-btn active" onclick="setFilter('all',this)">Все</button>
+  <button class="filter-btn" onclick="setFilter('exact',this)">✅ Exact</button>
+  <button class="filter-btn" onclick="setFilter('likely_match',this)">🔵 Likely</button>
+  <button class="filter-btn" onclick="setFilter('uncertain',this)">🟡 Uncertain</button>
+  <button class="filter-btn" onclick="setFilter('no_match',this)">❌ No Match</button>
+  <input class="search-box" type="text" placeholder="Поиск по названию / артикулу..."
+         oninput="searchFilter(this.value)" id="searchInput">
+</div>
+
+<!-- Results Table -->
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th onclick="sortBy('src_name')">Аксон</th>
+      <th onclick="sortBy('tgt_name')">Стройландия</th>
+      <th onclick="sortBy('text_score')">Текст ↓</th>
+      <th onclick="sortBy('image_score')">Картинка</th>
+      <th onclick="sortBy('total_score')">Итого</th>
+      <th onclick="sortBy('verdict')">Вердикт</th>
+    </tr>
+  </thead>
+  <tbody id="resultsBody"></tbody>
+</table>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<script>
+let DATA = null;
+let filtered = [];
+let currentFilter = 'all';
+let currentSearch = '';
+let currentSort = 'total_score';
+let sortDesc = true;
+let page = 0;
+const PAGE_SIZE = 50;
+let currentCategory = 'wallpaper';
+
+const CATEGORY_FILES = {
+  wallpaper: 'wallpaper_matches.json',
+  paint: 'paint_matches.json',
+  mix: 'mix_matches.json',
+  tools: 'tools_matches.json',
+  plumbing: 'plumbing_matches.json',
+  electric: 'electric_matches.json',
+  flooring: 'flooring_matches.json',
+  all: 'all_matches.json',
+};
+
+const CATEGORY_LABELS = {
+  wallpaper: 'Обои', paint: 'Краски и лаки', mix: 'Сухие смеси',
+  tools: 'Инструменты', plumbing: 'Сантехника', electric: 'Электрика',
+  flooring: 'Напольные покрытия', all: 'Все категории',
+};
+
+function switchCategory(cat) {
+  currentCategory = cat;
+  currentFilter = 'all';
+  currentSearch = '';
+  page = 0;
+  document.getElementById('searchInput').value = '';
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.filter-btn').classList.add('active');
+  document.getElementById('pageTitle').textContent = (CATEGORY_LABELS[cat] || cat) + ' — Matching Results';
+  document.title = (CATEGORY_LABELS[cat] || cat) + ' — Matching Results';
+  loadData();
+}
+
+async function loadData() {
+  const file = CATEGORY_FILES[currentCategory] || 'wallpaper_matches.json';
+  document.getElementById('statusBadge').textContent = 'Loading...';
+  document.getElementById('statusBadge').className = 'badge blue';
+  try {
+    const r = await fetch('/monitoring/' + file);
+    if (!r.ok) throw new Error(CATEGORY_LABELS[currentCategory] + ': данные ещё не сгенерированы. Запустите batch_match для этой категории.');
+    DATA = await r.json();
+    
+    // Update KPIs
+    document.getElementById('kpiTotal').textContent = DATA.total_axon_products.toLocaleString();
+    document.getElementById('kpiExact').textContent = DATA.stats.exact.toLocaleString();
+    document.getElementById('kpiExactPct').textContent =
+      Math.round(DATA.stats.exact / DATA.total_axon_products * 100) + '% товаров';
+    document.getElementById('kpiLikely').textContent = DATA.stats.likely_match.toLocaleString();
+    document.getElementById('kpiLikelyPct').textContent =
+      Math.round(DATA.stats.likely_match / DATA.total_axon_products * 100) + '% товаров';
+    document.getElementById('kpiNoMatch').textContent = DATA.stats.no_match.toLocaleString();
+    document.getElementById('kpiUncertain').textContent = DATA.stats.uncertain.toLocaleString();
+    document.getElementById('statusBadge').textContent = DATA.generated;
+    document.getElementById('statusBadge').className = 'badge green';
+    
+    // Use best_matches for display (1 per source product)
+    filtered = DATA.best_matches;
+    applyFilters();
+  } catch(e) {
+    document.getElementById('statusBadge').textContent = 'Error: ' + e.message;
+    document.getElementById('statusBadge').className = 'badge';
+    document.getElementById('statusBadge').style.background = 'var(--red)';
+  }
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  page = 0;
+  applyFilters();
+}
+
+function searchFilter(q) {
+  currentSearch = q.toLowerCase();
+  page = 0;
+  applyFilters();
+}
+
+function sortBy(field) {
+  if (currentSort === field) { sortDesc = !sortDesc; }
+  else { currentSort = field; sortDesc = true; }
+  applyFilters();
+}
+
+function applyFilters() {
+  if (!DATA) return;
+  let items = DATA.best_matches;
+  
+  // Filter by verdict
+  if (currentFilter !== 'all') {
+    items = items.filter(p => p.verdict === currentFilter);
+  }
+  
+  // Search
+  if (currentSearch) {
+    items = items.filter(p =>
+      (p.src_name || '').toLowerCase().includes(currentSearch) ||
+      (p.tgt_name || '').toLowerCase().includes(currentSearch) ||
+      (p.src_article || '').toLowerCase().includes(currentSearch) ||
+      (p.tgt_article || '').toLowerCase().includes(currentSearch)
+    );
+  }
+  
+  // Sort
+  items.sort((a, b) => {
+    let va = a[currentSort] || '', vb = b[currentSort] || '';
+    if (typeof va === 'number') return sortDesc ? vb - va : va - vb;
+    return sortDesc ? String(vb).localeCompare(String(va)) : String(va).localeCompare(String(vb));
+  });
+  
+  filtered = items;
+  renderPage();
+}
+
+function scoreBar(label, value, cls) {
+  const pct = Math.round(value * 100);
+  const display = value > 0 ? (value * 100).toFixed(1) + '%' : '—';
+  return `<div class="score-bar-wrap">
+    <div class="score-label"><span>${label}</span><span>${display}</span></div>
+    <div class="score-bar"><div class="score-fill ${cls}" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
+function imgSrc(url) {
+  if (!url) return '';
+  // Proxy via Gateway
+  return '/api/image?url=' + encodeURIComponent(url);
+}
+
+function renderPage() {
+  const start = page * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, filtered.length);
+  const visible = filtered.slice(start, end);
+  
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = visible.map(p => {
+    const textVal = p.rerank_prob !== null ? p.rerank_prob : p.text_score;
+    const imgVal = p.image_score || 0;
+    const totalVal = p.total_score || 0;
+    
+    const articleInfo = p.article_match === true
+      ? `<div class="article-match">✅ ${p.src_article}</div>`
+      : p.article_match === false
+      ? `<div class="article-diff">❌ ${p.src_article} ≠ ${p.tgt_article}</div>`
+      : '';
+    
+    return `<tr>
+      <td>
+        <div class="prod">
+          ${p.src_photo ? `<img class="prod-img" src="${imgSrc(p.src_photo)}" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <div>
+            <div class="prod-name">${esc(p.src_name)}</div>
+            ${p.src_article ? `<div class="prod-article">${esc(p.src_article)}</div>` : ''}
+            <div class="prod-price">${p.src_price ? p.src_price.toLocaleString() + ' ₽' : ''}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="prod">
+          ${p.tgt_photo ? `<img class="prod-img" src="${imgSrc(p.tgt_photo)}" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <div>
+            <div class="prod-name">${esc(p.tgt_name)}</div>
+            ${p.tgt_article ? `<div class="prod-article">${esc(p.tgt_article)}</div>` : ''}
+            <div class="prod-price">${p.tgt_price ? p.tgt_price.toLocaleString() + ' ₽' : ''}</div>
+          </div>
+        </div>
+      </td>
+      <td class="score-cell">
+        ${scoreBar('Текст', textVal, 'text')}
+      </td>
+      <td class="score-cell">
+        ${scoreBar('Картинка', imgVal, 'image')}
+      </td>
+      <td class="score-cell">
+        ${scoreBar('Итого', totalVal, 'total')}
+      </td>
+      <td>
+        <div class="verdict ${p.verdict}">${verdictLabel(p.verdict)}</div>
+        <div class="tier-tag">${p.tier}</div>
+        ${articleInfo}
+      </td>
+    </tr>`;
+  }).join('');
+  
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pag = document.getElementById('pagination');
+  let html = `<span class="page-info">${filtered.length.toLocaleString()} результатов</span>`;
+  if (totalPages > 1) {
+    html += `<button class="page-btn" onclick="goPage(0)" ${page === 0 ? 'disabled' : ''}>&laquo;</button>`;
+    html += `<button class="page-btn" onclick="goPage(${page - 1})" ${page === 0 ? 'disabled' : ''}>&lsaquo;</button>`;
+    html += `<span class="page-info">${page + 1} / ${totalPages}</span>`;
+    html += `<button class="page-btn" onclick="goPage(${page + 1})" ${page >= totalPages - 1 ? 'disabled' : ''}>&rsaquo;</button>`;
+    html += `<button class="page-btn" onclick="goPage(${totalPages - 1})" ${page >= totalPages - 1 ? 'disabled' : ''}>&raquo;</button>`;
+  }
+  pag.innerHTML = html;
+}
+
+function goPage(p) {
+  page = Math.max(0, Math.min(p, Math.ceil(filtered.length / PAGE_SIZE) - 1));
+  renderPage();
+  window.scrollTo(0, 0);
+}
+
+function verdictLabel(v) {
+  return { exact: 'Exact Match', likely_match: 'Likely Match', no_match: 'No Match', uncertain: 'Uncertain' }[v] || v;
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Load initial category from URL hash or default to wallpaper
+const hash = location.hash.replace('#', '');
+if (hash && CATEGORY_FILES[hash]) {
+  currentCategory = hash;
+  document.getElementById('categorySelect').value = hash;
+}
+document.getElementById('pageTitle').textContent = (CATEGORY_LABELS[currentCategory] || '') + ' — Matching Results';
+loadData();
+</script>
+</body>
+</html>

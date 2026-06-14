@@ -77,7 +77,12 @@ else
 
     export AGENTFORGE_RUST_FLYWHEEL=1
     export AGENTFORGE_USE_RUST=1
+    export AGENTFORGE_PURE_RUST_FLYWHEEL=1
+    export AGENTFORGE_FLYWHEEL_ENGINE=rust
     export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$RUST_BIN_DEFAULT}"
+    export FLYWHEEL_PROVENANCE=rust-agentforge-runner
+    export AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
+    touch "$AGENTFORGE_DIR/.pure_rust_flywheel" 2>/dev/null || true
 fi
 
 # Generate always-sourceable snippet for worker startup injection
@@ -94,6 +99,8 @@ if [[ "${DISABLE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ -f "$_DISABLE_FILE" ]]; then
 else
     export AGENTFORGE_RUST_FLYWHEEL=1
     export AGENTFORGE_USE_RUST=1
+    export AGENTFORGE_PURE_RUST_FLYWHEEL=1
+    export AGENTFORGE_FLYWHEEL_ENGINE=rust
     # Prefers release binary everywhere (prod default)
     if [[ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]]; then
       _DEF_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
@@ -103,6 +110,9 @@ else
     export AGENTFORGE_RUST_RUNNER="${AGENTFORGE_RUST_RUNNER:-$_DEF_RUNNER}"
     # Rate-limit preserved (every N post_process calls)
     export AGENTFORGE_RUST_FLYWHEEL_EVERY_N="${AGENTFORGE_RUST_FLYWHEEL_EVERY_N:-5}"
+    export FLYWHEEL_PROVENANCE=rust-agentforge-runner
+    export AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
+    touch "/home/eveselove/agentforge/.pure_rust_flywheel" 2>/dev/null || true
 fi
 SNIP_EOF
 chmod 644 "$SNIPPET" 2>/dev/null || true

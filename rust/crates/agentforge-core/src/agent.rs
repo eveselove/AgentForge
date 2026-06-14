@@ -23,7 +23,11 @@ mod tests {
     #[test]
     fn agent_id_and_struct() {
         let id = AgentId::new("grok");
-        let a = Agent { id: id.clone(), name: "Grok".into(), capabilities: vec!["code".into()] };
+        let a = Agent {
+            id: id.clone(),
+            name: "Grok".into(),
+            capabilities: vec!["code".into()],
+        };
         assert_eq!(a.id.0, "grok");
         assert!(a.capabilities.contains(&"code".to_string()));
     }

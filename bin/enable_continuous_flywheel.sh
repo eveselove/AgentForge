@@ -87,18 +87,13 @@ if [ ! -f "$AGENTFORGE_ROOT/ENABLE_RUST_FLYWHEEL" ]; then
     fi
 fi
 
-# Source / invoke existing rust enable (idempotent, full reuse)
-if [ -x "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" ]; then
-    log "Invoking existing enable_rust_flywheel.sh for env + snippet + post_process patch..."
-    if [ $DRY_RUN -eq 0 ]; then
-        # shellcheck disable=SC1091
-        source "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" 2>/dev/null || true
-        # Also python activator
-        PYTHONPATH=/home/eveselove python3 -m agentforge.enable_rust_flywheel 2>/dev/null || true
-    else
-        log "[dry] would source + invoke enable_rust_flywheel.sh + python activator"
-    fi
+# Ensure pure Rust flywheel env is active
+if [ -f "$AGENTFORGE_ROOT/bin/rust_flywheel.env" ]; then
+    log "Sourcing rust_flywheel.env..."
+    # shellcheck disable=SC1091
+    source "$AGENTFORGE_ROOT/bin/rust_flywheel.env" 2>/dev/null || true
 fi
+export AGENTFORGE_PURE_RUST_FLYWHEEL=1
 
 # === Prepare paths ===
 if [ "$MODE" = "system" ]; then
@@ -222,17 +217,7 @@ for f in /tmp/agentforge_rust_flywheel/flywheel_health.json /tmp/agentforge_rust
     fi
 done
 
-# Quick python health probe (reuses same logic)
-PYTHONPATH=/home/eveselove python3 -c '
-import json
-from pathlib import Path
-p = Path("/tmp/agentforge_rust_flywheel/watchdog_flywheel_status.json")
-if p.exists():
-    try:
-        s = json.loads(p.read_text())
-        print("  watchdog_flywheel_status:", {k:s.get(k) for k in ["ts","flywheel_candidates_last_hour","timer_active","timer_next","timer_mode"] if k in s})
-    except: pass
-' 2>/dev/null || true
+# Health probe removed. Check watchdog_flywheel_status.json manually if needed.
 
 # Journal example (always printed for copy-paste)
 log "Journal live tail example (run in another shell):"
@@ -290,7 +275,7 @@ done
 
 # === 5. After any farm change: re-verify everywhere ===
 #   bash /home/eveselove/agentforge/healthcheck.sh
-#   PYTHONPATH=/home/eveselove ENABLE_RUST_FLYWHEEL=1 python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run
+#   /home/eveselove/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run
 #   journalctl --user -u agentforge-flywheel.service --since "10 min ago" | tail -20
 
 FARM_EOF
@@ -301,8 +286,8 @@ log "All paths reuse ENABLE_RUST_FLYWHEEL exactly — zero breakage risk."
 
 # Final safe manual one-shot dry test (always safe)
 if [ $DRY_RUN -eq 0 ]; then
-    log "Final safe dry test invocation (reuses all paths)..."
-    env PYTHONPATH=/home/eveselove ENABLE_RUST_FLYWHEEL=1 timeout 25s python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run 2>&1 | tail -15 || true
+    log "Final safe dry test invocation (uses runner)..."
+    env ENABLE_RUST_FLYWHEEL=1 timeout 25s /home/eveselove/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run 2>&1 | tail -15 || true
 fi
 
 exit 0

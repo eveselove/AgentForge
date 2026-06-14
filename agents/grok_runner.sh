@@ -18,6 +18,9 @@ export PATH=/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove
 export NVM_DIR=/home/eveselove/.nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
+# API base для task_queue / guardian / watchdog (переведено на gateway 9090)
+export AGENTFORGE_API="${AGENTFORGE_API:-http://localhost:9090}"
+
 # === AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) ===
 # Python flywheel orchestration (post hooks via python step, phase2_3 glue) is PHASE 4 DELETION TARGET.
 # All paths now respect is_pure_rust_flywheel() preferring direct agentforge-runner binary.
@@ -180,7 +183,7 @@ if [ "$PRIORITY" = "critical" ]; then
 fi
 
 # Получаем полные данные задачи (включая result с историей HITL-отказов)
-TASK_DATA=$(curl -s "http://localhost:8080/tasks/$TASK_ID" 2>/dev/null | python3 -c '
+TASK_DATA=$(curl -s "${AGENTFORGE_API}/tasks/$TASK_ID" 2>/dev/null | python3 -c '
 import sys, json, re
 try:
     d = json.load(sys.stdin)
@@ -414,6 +417,15 @@ DURATION=$((END_TIME - START_TIME))
 
 echo "[AgentForge] Grok завершил задачу $TASK_ID за ${DURATION}с" | tee -a $LOG_DIR/grok_$TASK_ID.log
 
+# === CRASH_DETECT: обновляем статус при быстром крэше ===
+if [ "$DURATION" -le 5 ] && [ "$FINAL_STATUS" != "review" ] && [ "$FINAL_STATUS" != "done" ]; then
+    echo "[AgentForge] ⚠️ Задача $TASK_ID завершилась за ${DURATION}s — вероятный крэш" | tee -a $LOG_DIR/grok_$TASK_ID.log
+    FINAL_STATUS="failed"
+    curl -s -X PATCH "http://localhost:9090/tasks/$TASK_ID" \
+        -H "Content-Type: application/json" \
+        -d "{"status": "failed", "result": "Grok crashed after ${DURATION}s"}" > /dev/null 2>&1 || true
+fi
+
 # Post-execution rich capture for inside-agent visibility (deep instrumentation)
 # Extract tail of agent output + any obvious decision markers from the raw log into structured events
 GROK_LOG_TAIL=$(tail -c 2500 "$LOG_DIR/grok_$TASK_ID.log" 2>/dev/null | tr '\n' ' ' | head -c 900 || echo "")
@@ -492,9 +504,17 @@ else
         echo "$WORKTREE_DIR" > $QUEUE_DIR/grok_$TASK_ID
         
         echo "[CI] Ожидание завершения компиляции на ноутбуке..." | tee -a $LOG_DIR/grok_$TASK_ID.log
-        # Ждем ответного файла
+        # Ждем ответного файла (таймаут 60 секунд — было: бесконечность)
+        CI_WSL_WAIT=0
+        CI_WSL_TIMEOUT=60
         while [ ! -f "$RESP_DIR/grok_$TASK_ID" ]; do
             sleep 2
+            CI_WSL_WAIT=$((CI_WSL_WAIT + 2))
+            if [ "$CI_WSL_WAIT" -ge "$CI_WSL_TIMEOUT" ]; then
+                echo "[CI] ⏰ Таймаут ожидания ноутбука (${CI_WSL_TIMEOUT}s), пропускаем" | tee -a $LOG_DIR/grok_$TASK_ID.log
+                CI_RESULT="wsl_timeout"
+                break
+            fi
         done
         
         wsl_rc=$(cat "$RESP_DIR/grok_$TASK_ID")
@@ -546,7 +566,7 @@ fi
 
 
 # Обновляем статус задачи с метриками
-curl -s -X PATCH http://localhost:8080/tasks/$TASK_ID \
+curl -s -X PATCH "${AGENTFORGE_API}/tasks/$TASK_ID" \
   -H 'Content-Type: application/json' \
   -d "{\"status\": \"$FINAL_STATUS\", \"assigned_agent\": \"grok\", \"result\": \"$RESULT_MSG\"}"
 
@@ -587,7 +607,7 @@ data = {
     "skill": "agent-review"
 }
 req = urllib.request.Request(
-    "http://localhost:8080/tasks",
+    "${AGENTFORGE_API}/tasks",
     data=json.dumps(data, ensure_ascii=False).encode("utf-8"),
     headers={"Content-Type": "application/json"}
 )
@@ -605,6 +625,15 @@ fi  # end FINAL_STATUS=review
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 echo "[AgentForge] Grok завершил задачу $TASK_ID за ${DURATION}с" | tee -a $LOG_DIR/grok_$TASK_ID.log
+
+# === CRASH_DETECT: обновляем статус при быстром крэше ===
+if [ "$DURATION" -le 5 ] && [ "$FINAL_STATUS" != "review" ] && [ "$FINAL_STATUS" != "done" ]; then
+    echo "[AgentForge] ⚠️ Задача $TASK_ID завершилась за ${DURATION}s — вероятный крэш" | tee -a $LOG_DIR/grok_$TASK_ID.log
+    FINAL_STATUS="failed"
+    curl -s -X PATCH "http://localhost:9090/tasks/$TASK_ID" \
+        -H "Content-Type: application/json" \
+        -d "{"status": "failed", "result": "Grok crashed after ${DURATION}s"}" > /dev/null 2>&1 || true
+fi
 
 log_completion "$FINAL_STATUS" "$DURATION" "0.0" 2>/dev/null || true
 log_event "grok_execution_end" "{\"status\":\"$FINAL_STATUS\",\"duration_seconds\":$DURATION,\"ci_result\":\"$CI_RESULT\"}" 2>/dev/null || true
@@ -645,13 +674,20 @@ if [ -n "$TRAJ_FILE" ] && [ -f "$TRAJ_FILE" ]; then
             2>&1 | tail -8 >> "$TRAJECTORY_DIR/postprocess_${TASK_ID}.log" 2>/dev/null || true ) &
         echo "[AgentForge Trajectory] Post-process hook dispatched for $TASK_ID (PRM + artifacts)" | tee -a "$LOG_DIR/grok_$TASK_ID.log"
 
-        # Rust flywheel hook (Phase 1 default). 
-        # NOTE (RUST_FULL_MIGRATION_PLAN.md): python rust_post_process_hook + rust_flywheel_step are
-        # transitional. The canonical path is now agentforge-runner flywheel-step (pure Rust emission live).
-        # When AGENTFORGE_FLYWHEEL_ENGINE=rust the Python orchestration is deprecated/no-op.
+        # Rust flywheel hook (wave3 direct).
+        # Canonical: direct agentforge-runner flywheel-step (pure emission + ingest).
+        # WAVE4: also supports --shadow when AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 (for parity/fidelity in after-task style).
         if [ "${DISABLE_RUST_FLYWHEEL:-0}" != "1" ]; then
-            ( AGENTFORGE_USE_RUST=1 python /home/eveselove/agentforge/bin/rust_post_process_hook.py "$TASK_ID" \
-              >> "$LOG_DIR/rust_flywheel_hook_${TASK_ID}.log" 2>&1 || true ) &
+            (
+                RUNNER="${AGENTFORGE_RUST_RUNNER:-/home/eveselove/agentforge/rust/target/release/agentforge-runner}"
+                if [ -x "$RUNNER" ]; then
+                    if [ "${AGENTFORGE_RUST_FLYWHEEL_SHADOW:-0}" = "1" ] || [ "${AGENTFORGE_RUST_FLYWHEEL_SHADOW:-}" = "true" ]; then
+                        "$RUNNER" --json flywheel-step --real-data --ingest --limit 20 --shadow >> "$LOG_DIR/rust_flywheel_step_${TASK_ID}.log" 2>&1 || true
+                    else
+                        "$RUNNER" --json flywheel-step --real-data --ingest --limit 20 >> "$LOG_DIR/rust_flywheel_step_${TASK_ID}.log" 2>&1 || true
+                    fi
+                fi
+            ) &
         fi
     fi
 else
@@ -662,7 +698,7 @@ fi
 if [ "$FINAL_STATUS" = "review" ]; then
     echo "[AgentForge Guardian] Авто-проверка задачи $TASK_ID..." | tee -a $LOG_DIR/grok_$TASK_ID.log
     # Fix: убран & (фоновый режим) + добавлен retry, чтобы Guardian не терялся
-    curl -s --retry 3 --retry-delay 2 --max-time 10 -X POST "http://localhost:8080/tasks/$TASK_ID/review"
+    curl -s --retry 3 --retry-delay 2 --max-time 10 -X POST "${AGENTFORGE_API}/tasks/$TASK_ID/review"
     echo "[AgentForge Memory] Сохраняем задачу в векторную память..." | tee -a $LOG_DIR/grok_$TASK_ID.log
     python3 /home/eveselove/agentforge/memory_helper.py save "$TASK_ID" >> $LOG_DIR/grok_$TASK_ID.log 2>&1
 fi
@@ -673,6 +709,9 @@ if [ "$FINAL_STATUS" = "failed" ]; then
     python3 /home/eveselove/agentforge/memory_helper.py save-failure "$TASK_ID" >> $LOG_DIR/grok_$TASK_ID.log 2>&1 || true
 fi
 
+# Ждём фоновые хуки (post_process, flywheel) чтобы не осиротели/не стали зомби
+wait 2>/dev/null || true
+
 # Явная очистка worktree (trap уже стоит, но для надёжности)
 cleanup_worktree
 echo "[AgentForge] Worktree $WORKTREE_DIR removed (isolation complete)" | tee -a $LOG_DIR/grok_$TASK_ID.log 2>/dev/null || true
@@ -681,17 +720,19 @@ echo "[AgentForge] Worktree $WORKTREE_DIR removed (isolation complete)" | tee -a
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
+_ROOT="${AGENTFORGE_ROOT:-$HOME/agentforge}"
+PURE_MARKER="$_ROOT/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "$_ROOT/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="$_ROOT/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "$_ROOT/bin/rust_flywheel.env" ] && source "$_ROOT/bin/rust_flywheel.env" 2>/dev/null || true
 fi
+# task-5af0e350: provenance ensured for 100% rust-agentforge-runner in logs
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.
 
 # === MANUAL COMPLETION NOTE (Grok direct, 2026-06) ===

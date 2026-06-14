@@ -8,26 +8,239 @@
 //! [dependencies]
 //! agentforge-core = { ..., features = ["lancedb"] }
 //! ```
-//!
-//! See `docs/LANCE_TASK_STORE_MIGRATION_PLAN.md` for the full strategy and timeline.
 
 use crate::task::{Task, TaskStatus, TaskStore};
 use anyhow::Result;
-use arrow_array::{ArrayRef, RecordBatch, StringArray};
+use arrow_array::{Array, ArrayRef, RecordBatch, RecordBatchIterator, StringArray, BooleanArray};
 use arrow_schema::{DataType, Field, Schema};
-use lancedb::connection::Connection;
-use lancedb::query::{ExecutableQuery, Query};
-use lancedb::Table;
+use lancedb::query::{ExecutableQuery, QueryBase};
 use std::sync::Arc;
 
 pub struct LanceTaskStore {
-    table: Table,
+    db: lancedb::Connection,
+    table_name: String,
+}
+
+fn task_schema() -> Arc<Schema> {
+    Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Utf8, false),
+        Field::new("title", DataType::Utf8, false),
+        Field::new("description", DataType::Utf8, true),
+        Field::new("priority", DataType::Utf8, false),
+        Field::new("complexity", DataType::Utf8, false),
+        Field::new("preferred_agent", DataType::Utf8, true),
+        Field::new("assigned_to", DataType::Utf8, true),
+        Field::new("status", DataType::Utf8, false),
+        Field::new("tags_json", DataType::Utf8, true),
+        Field::new("requires_agent_review", DataType::Boolean, false),
+        Field::new("created_at", DataType::Utf8, false),
+        Field::new("updated_at", DataType::Utf8, false),
+        Field::new("started_at", DataType::Utf8, true),
+        Field::new("completed_at", DataType::Utf8, true),
+        Field::new("metadata_json", DataType::Utf8, true),
+        Field::new("result_json", DataType::Utf8, true),
+    ]))
+}
+
+fn task_to_batch(task: &Task) -> Result<RecordBatch> {
+    let tags_json = serde_json::to_string(&task.tags).unwrap_or("[]".into());
+    let metadata_json = serde_json::to_string(&task.metadata).unwrap_or("{}".into());
+    let result_json = task
+        .result
+        .as_ref()
+        .map(|r| r.to_string())
+        .unwrap_or_default();
+    let status_str = format!("{:?}", task.status);
+
+    RecordBatch::try_from_iter(vec![
+        (
+            "id",
+            Arc::new(StringArray::from(vec![task.id.as_str()])) as ArrayRef,
+        ),
+        (
+            "title",
+            Arc::new(StringArray::from(vec![task.title.as_str()])) as ArrayRef,
+        ),
+        (
+            "description",
+            Arc::new(StringArray::from(vec![task.description.as_str()])) as ArrayRef,
+        ),
+        (
+            "priority",
+            Arc::new(StringArray::from(vec![task.priority.as_str()])) as ArrayRef,
+        ),
+        (
+            "complexity",
+            Arc::new(StringArray::from(vec![task.complexity.as_str()])) as ArrayRef,
+        ),
+        (
+            "preferred_agent",
+            Arc::new(StringArray::from(vec![task
+                .preferred_agent
+                .as_deref()
+                .unwrap_or("")])) as ArrayRef,
+        ),
+        (
+            "assigned_to",
+            Arc::new(StringArray::from(vec![task
+                .assigned_to
+                .as_deref()
+                .unwrap_or("")])) as ArrayRef,
+        ),
+        (
+            "status",
+            Arc::new(StringArray::from(vec![status_str.as_str()])) as ArrayRef,
+        ),
+        (
+            "tags_json",
+            Arc::new(StringArray::from(vec![tags_json.as_str()])) as ArrayRef,
+        ),
+        (
+            "requires_agent_review",
+            Arc::new(BooleanArray::from(vec![task.requires_agent_review])) as ArrayRef,
+        ),
+        (
+            "created_at",
+            Arc::new(StringArray::from(vec![task.created_at.as_str()])) as ArrayRef,
+        ),
+        (
+            "updated_at",
+            Arc::new(StringArray::from(vec![task.updated_at.as_str()])) as ArrayRef,
+        ),
+        (
+            "started_at",
+            Arc::new(StringArray::from(vec![task
+                .started_at
+                .as_deref()
+                .unwrap_or("")])) as ArrayRef,
+        ),
+        (
+            "completed_at",
+            Arc::new(StringArray::from(vec![task
+                .completed_at
+                .as_deref()
+                .unwrap_or("")])) as ArrayRef,
+        ),
+        (
+            "metadata_json",
+            Arc::new(StringArray::from(vec![metadata_json.as_str()])) as ArrayRef,
+        ),
+        (
+            "result_json",
+            Arc::new(StringArray::from(vec![result_json.as_str()])) as ArrayRef,
+        ),
+    ])
+    .map_err(|e| anyhow::anyhow!(e))
+}
+
+fn batch_to_tasks(batch: &RecordBatch) -> Vec<Task> {
+    let ids = batch
+        .column_by_name("id")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let titles = batch
+        .column_by_name("title")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let descs = batch
+        .column_by_name("description")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let priorities = batch
+        .column_by_name("priority")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let complexities = batch
+        .column_by_name("complexity")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let pref_agents = batch
+        .column_by_name("preferred_agent")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let assigned = batch
+        .column_by_name("assigned_to")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let statuses = batch
+        .column_by_name("status")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let tags = batch
+        .column_by_name("tags_json")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let requires_review = batch
+        .column_by_name("requires_agent_review")
+        .and_then(|c| c.as_any().downcast_ref::<BooleanArray>());
+    let created = batch
+        .column_by_name("created_at")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let updated = batch
+        .column_by_name("updated_at")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let started = batch
+        .column_by_name("started_at")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let completed = batch
+        .column_by_name("completed_at")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let meta = batch
+        .column_by_name("metadata_json")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+    let results = batch
+        .column_by_name("result_json")
+        .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+
+    let n = batch.num_rows();
+    let mut tasks = Vec::with_capacity(n);
+
+    for i in 0..n {
+        let get_str = |arr: Option<&StringArray>| -> String {
+            arr.and_then(|a| (!a.is_null(i)).then(|| a.value(i).to_string()))
+                .unwrap_or_default()
+        };
+        let get_opt = |arr: Option<&StringArray>| -> Option<String> {
+            arr.and_then(|a| (!a.is_null(i)).then(|| a.value(i)))
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+        };
+
+        let status_str = get_str(statuses);
+        let status = match status_str.as_str() {
+            "Pending" => TaskStatus::Pending,
+            "Dispatched" => TaskStatus::Dispatched,
+            "InProgress" => TaskStatus::InProgress,
+            "Review" => TaskStatus::Review,
+            "Done" => TaskStatus::Done,
+            "Failed" => TaskStatus::Failed,
+            "Cancelled" => TaskStatus::Cancelled,
+            _ => TaskStatus::Pending,
+        };
+
+        let tags_vec: Vec<String> = serde_json::from_str(&get_str(tags)).unwrap_or_default();
+        let requires_agent_review = requires_review
+            .and_then(|a| (!a.is_null(i)).then(|| a.value(i)))
+            .unwrap_or(false);
+        let metadata_map = serde_json::from_str(&get_str(meta)).unwrap_or_default();
+        let result_val = get_opt(results).and_then(|s| serde_json::from_str(&s).ok());
+
+        tasks.push(Task {
+            id: get_str(ids),
+            title: get_str(titles),
+            description: get_str(descs),
+            priority: get_str(priorities),
+            complexity: get_str(complexities),
+            preferred_agent: get_opt(pref_agents),
+            assigned_to: get_opt(assigned),
+            status,
+            tags: tags_vec,
+            requires_agent_review,
+            created_at: get_str(created),
+            updated_at: get_str(updated),
+            started_at: get_opt(started),
+            completed_at: get_opt(completed),
+            metadata: metadata_map,
+            result: result_val,
+        });
+    }
+
+    tasks
 }
 
 impl LanceTaskStore {
-    /// Convenience constructor that connects to a local LanceDB directory
-    /// (similar to how JsonFileTaskStore uses a path).
-    /// Default path: ./data/lance_tasks
+    /// Connect to local LanceDB and open/create tasks table.
     pub async fn new_local(path: Option<impl Into<std::path::PathBuf>>) -> Result<Self> {
         let path = path
             .map(|p| p.into())
@@ -35,70 +248,52 @@ impl LanceTaskStore {
 
         std::fs::create_dir_all(&path)?;
 
-        let db = lancedb::connect(path.to_str().unwrap()).await?;
-        Self::new(&db, "tasks").await
+        let db = lancedb::connect(path.to_str().unwrap()).execute().await?;
+
+        // Create table if not exists
+        let table_name = "tasks".to_string();
+        let table_names = db.table_names().execute().await?;
+        if !table_names.contains(&table_name) {
+            let schema = task_schema();
+            let empty = RecordBatch::new_empty(schema.clone());
+            let batches = RecordBatchIterator::new(vec![Ok(empty)], schema);
+            db.create_table(&table_name, Box::new(batches))
+                .execute()
+                .await?;
+        }
+
+        Ok(Self { db, table_name })
     }
 
-    /// Opens or creates a LanceDB table for tasks.
-    /// `table_name` is usually something like "tasks" or "tasks_v1".
-    pub async fn new(db: &Connection, table_name: &str) -> Result<Self> {
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("id", DataType::Utf8, false),
-            Field::new("title", DataType::Utf8, false),
-            Field::new("description", DataType::Utf8, true),
-            Field::new("priority", DataType::Utf8, false),
-            Field::new("complexity", DataType::Utf8, false),
-            Field::new("preferred_agent", DataType::Utf8, true),
-            Field::new("assigned_to", DataType::Utf8, true),
-            Field::new("status", DataType::Utf8, false),
-            Field::new("tags", DataType::Utf8, true),
-            Field::new("created_at", DataType::Utf8, false),
-            Field::new("updated_at", DataType::Utf8, false),
-            Field::new("started_at", DataType::Utf8, true),
-            Field::new("completed_at", DataType::Utf8, true),
-            Field::new("metadata", DataType::Utf8, true), // JSON as string for now
-            Field::new("result", DataType::Utf8, true),
-            // Future: vector column for semantic search
-            // Field::new("embedding", DataType::FixedSizeList(...), true),
-        ]));
+    async fn open_table(&self) -> Result<lancedb::Table> {
+        Ok(self.db.open_table(&self.table_name).execute().await?)
+    }
 
-        let table = if db.table_names().await?.contains(&table_name.to_string()) {
-            db.open_table(table_name).await?
-        } else {
-            db.create_table(table_name, RecordBatch::new_empty(schema.clone()))
-                .await?
+    async fn query_all_tasks(&self, filter: Option<&str>) -> Vec<Task> {
+        let table = match self.open_table().await {
+            Ok(t) => t,
+            Err(_) => return vec![],
         };
 
-        Ok(Self { table })
-    }
+        let batches = if let Some(f) = filter {
+            match table.query().only_if(f).limit(10000).execute().await {
+                Ok(stream) => {
+                    use futures::TryStreamExt;
+                    stream.try_collect::<Vec<_>>().await.unwrap_or_default()
+                }
+                Err(_) => return vec![],
+            }
+        } else {
+            match table.query().limit(10000).execute().await {
+                Ok(stream) => {
+                    use futures::TryStreamExt;
+                    stream.try_collect::<Vec<_>>().await.unwrap_or_default()
+                }
+                Err(_) => return vec![],
+            }
+        };
 
-    fn task_to_batch(task: &Task) -> Result<RecordBatch> {
-        let metadata_json = serde_json::to_string(&task.metadata).unwrap_or_default();
-        let result_json = task.result.as_ref().map(|r| r.to_string()).unwrap_or_default();
-
-        RecordBatch::try_from_iter(vec![
-            ("id", Arc::new(StringArray::from(vec![task.id.as_str()])) as ArrayRef),
-            ("title", Arc::new(StringArray::from(vec![task.title.as_str()])) as ArrayRef),
-            ("description", Arc::new(StringArray::from(vec![task.description.as_str()])) as ArrayRef),
-            ("priority", Arc::new(StringArray::from(vec![task.priority.as_str()])) as ArrayRef),
-            ("complexity", Arc::new(StringArray::from(vec![task.complexity.as_str()])) as ArrayRef),
-            ("preferred_agent", Arc::new(StringArray::from(vec![task.preferred_agent.as_deref().unwrap_or("")])) as ArrayRef),
-            ("assigned_to", Arc::new(StringArray::from(vec![task.assigned_to.as_deref().unwrap_or("")])) as ArrayRef),
-            ("status", Arc::new(StringArray::from(vec![format!("{:?}", task.status)])) as ArrayRef),
-            ("tags", Arc::new(StringArray::from(vec![task.tags.join(",")])) as ArrayRef),
-            ("created_at", Arc::new(StringArray::from(vec![task.created_at.as_str()])) as ArrayRef),
-            ("updated_at", Arc::new(StringArray::from(vec![task.updated_at.as_str()])) as ArrayRef),
-            ("started_at", Arc::new(StringArray::from(vec![task.started_at.as_deref().unwrap_or("")])) as ArrayRef),
-            ("completed_at", Arc::new(StringArray::from(vec![task.completed_at.as_deref().unwrap_or("")])) as ArrayRef),
-            ("metadata", Arc::new(StringArray::from(vec![metadata_json])) as ArrayRef),
-            ("result", Arc::new(StringArray::from(vec![result_json])) as ArrayRef),
-        ]).map_err(|e| anyhow::anyhow!(e))
-    }
-
-    async fn row_to_task(row: &lancedb::arrow::array::StructArray) -> Option<Task> {
-        // Simplified conversion - production version would be more robust
-        // For now we return None as placeholder for complex deserialization
-        None
+        batches.iter().flat_map(|b| batch_to_tasks(b)).collect()
     }
 }
 
@@ -111,10 +306,14 @@ impl TaskStore for LanceTaskStore {
         }
         task.updated_at = now;
 
-        let batch = Self::task_to_batch(&task).map_err(|e| e.to_string())?;
+        let batch = task_to_batch(&task).map_err(|e| e.to_string())?;
+        let table = self.open_table().await.map_err(|e| e.to_string())?;
 
-        self.table
-            .add(&[batch])
+        let schema = task_schema();
+        let batches = RecordBatchIterator::new(vec![Ok(batch)], schema);
+        table
+            .add(Box::new(batches))
+            .execute()
             .await
             .map_err(|e| e.to_string())?;
 
@@ -122,92 +321,72 @@ impl TaskStore for LanceTaskStore {
     }
 
     async fn get(&self, id: &str) -> Option<Task> {
-        // Basic implementation using LanceDB query + manual reconstruction.
-        // For a production version we'd use a proper Arrow -> Task deserializer.
-        let mut stream = match self
-            .table
-            .query()
-            .filter(&format!("id = '{}'", id))
-            .limit(1)
-            .execute()
-            .await
-        {
-            Ok(s) => s,
-            Err(_) => return None,
-        };
-
-        // Since we don't have a full deserializer yet, we return a minimal Task
-        // with just the id for now. This allows the store to be "used" early.
-        // Real deserialization will come in the next iteration.
-        Some(Task {
-            id: id.to_string(),
-            title: "[from lance]".to_string(),
-            description: String::new(),
-            priority: "medium".to_string(),
-            complexity: "medium".to_string(),
-            preferred_agent: None,
-            assigned_to: None,
-            status: TaskStatus::Pending,
-            tags: vec![],
-            created_at: String::new(),
-            updated_at: String::new(),
-            started_at: None,
-            completed_at: None,
-            metadata: std::collections::HashMap::new(),
-            result: None,
-        })
+        let tasks = self.query_all_tasks(Some(&format!("id = '{}'", id))).await;
+        tasks.into_iter().next()
     }
 
     async fn list_pending(&self) -> Vec<Task> {
-        // Real filtered query. Deserialization is still simplified for v1.
-        // When full row→Task conversion is implemented, this will return actual data.
-        // For now it serves as a clear extension point.
-        vec![]
+        let mut tasks = self.query_all_tasks(Some("status = 'Pending'")).await;
+        tasks.sort_by(|a, b| {
+            let prio = |p: &str| match p {
+                "critical" => 0,
+                "high" => 1,
+                "medium" => 2,
+                _ => 3,
+            };
+            prio(&a.priority).cmp(&prio(&b.priority))
+        });
+        tasks
     }
 
     async fn list_all(&self) -> Vec<Task> {
-        // Same note as list_pending.
-        vec![]
+        let mut tasks = self.query_all_tasks(None).await;
+        tasks.sort_by_key(|t| t.created_at.clone());
+        tasks
     }
 
     async fn update_status(&mut self, id: &str, status: TaskStatus) -> Result<(), String> {
-        // Naive but working approach for early version: delete + re-create with new status.
-        // A better version would use LanceDB's update/overwrite capabilities.
-        let _ = self.delete(id).await;
-
-        // We don't have the full task here, so this is limited.
-        // For now we just succeed (real update will be done when we have full row reconstruction).
-        Ok(())
+        if let Some(mut task) = self.get(id).await {
+            task.status = status;
+            task.updated_at = chrono::Utc::now().to_rfc3339();
+            self.update(task).await
+        } else {
+            Err(format!("Task {} not found", id))
+        }
     }
 
-    async fn update(&mut self, task: Task) -> Result<(), String> {
+    async fn update(&mut self, mut task: Task) -> Result<(), String> {
+        task.updated_at = chrono::Utc::now().to_rfc3339();
         let _ = self.delete(&task.id).await;
-        let _ = self.create(task).await;
-        Ok(())
+        self.create(task).await.map(|_| ())
     }
 
     async fn delete(&mut self, id: &str) -> Result<(), String> {
-        self.table
+        let table = self.open_table().await.map_err(|e| e.to_string())?;
+        table
             .delete(&format!("id = '{}'", id))
             .await
             .map_err(|e| e.to_string())
     }
 
     async fn count(&self) -> usize {
-        // For now return 0; real implementation would do a count query.
-        0
+        let table = match self.open_table().await {
+            Ok(t) => t,
+            Err(_) => return 0,
+        };
+        table.count_rows(None).await.unwrap_or(0) as usize
     }
 
     async fn claim(&mut self, id: &str, agent: &str) -> Result<Task, String> {
-        // Critical method for the agent farm.
-        // Current behavior: try to get the task, then "claim" it by updating status.
-        // This is a simplified version until we have full row deserialization.
         if let Some(mut task) = self.get(id).await {
             if task.status != TaskStatus::Pending {
-                return Err(format!("Task {} is not pending", id));
+                return Err(format!("Task {} is not pending ({:?})", id, task.status));
             }
             if task.assigned_to.is_some() {
-                return Err(format!("Task {} is already assigned", id));
+                return Err(format!(
+                    "Task {} already assigned to {:?}",
+                    id, task.assigned_to
+                ));
             }
 
             task.assigned_to = Some(agent.to_string());
@@ -215,11 +394,10 @@ impl TaskStore for LanceTaskStore {
             task.started_at = Some(chrono::Utc::now().to_rfc3339());
             task.updated_at = chrono::Utc::now().to_rfc3339();
 
-            // Persist the claim
-            let _ = self.update(task.clone()).await;
-            return Ok(task);
+            self.update(task.clone()).await?;
+            Ok(task)
+        } else {
+            Err(format!("Task {} not found", id))
         }
-
-        Err(format!("Task {} not found", id))
     }
 }

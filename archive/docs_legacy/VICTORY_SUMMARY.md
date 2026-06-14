@@ -32,7 +32,7 @@
 - `/home/eveselove/agentforge/learning/evaluator.py` — LearningEvaluator + ABTestConfig + ab_test_skill_versions + recorder (sim + real paths)
 - `/home/eveselove/agentforge/list_pending_candidates.py` — CLI (promote, promote-and-ab, list --sort value --high-value-only)
 - `/home/eveselove/agentforge/bin/rust_flywheel_after_task.sh` — robust rate-limited (5min flock) hook for every real task completion
-- `/home/eveselove/agentforge/bin/rust_post_process_hook.py` — Python post_process integration
+- `/home/eveselove/agentforge/DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)` — Python post_process integration
 - `/home/eveselove/agentforge/bin/enable_rust_flywheel.sh` + `/home/eveselove/agentforge/bin/rust_flywheel.env`
 - `/home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL` (marker file containing "1") + `ENABLE_RUST_FLYWHEEL.md`
 

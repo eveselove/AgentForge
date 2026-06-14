@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PLANLYTASK — Аналитика уровня сервиса</title>
+  <script src="echarts.min.js"></script>
+  <style>
+    /* fonts: system fallback */
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#f3f4f6;--surface:#ffffff;--surface2:#f9fafb;--surface3:#f0f0f0;
+      --border:#e5e7eb;--text:#1f2937;--text-muted:#6b7280;
+      --primary:#6366f1;--primary-bg:rgba(99,102,241,0.1);
+      --danger:#dc2626;--danger-bg:rgba(220,38,38,0.08);
+      --success:#16a34a;--success-bg:rgba(22,163,74,0.08);
+      --warning:#d97706;--warning-bg:rgba(217,119,6,0.08);
+      --radius:12px;
+      --glow:0 2px 12px rgba(0,0,0,0.08);
+    }
+    body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    ::selection{background:var(--primary);color:#fff}
+
+    .header{
+      background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);
+      border-bottom:1px solid var(--border);padding:16px 32px;
+      display:flex;align-items:center;justify-content:space-between;
+      position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);
+    }
+    .header h1{
+      font-size:20px;font-weight:700;
+      background:linear-gradient(135deg,#6366f1,#8b5cf6,#a855f7);
+      -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    }
+    .header .nav-links{display:flex;gap:16px;align-items:center}
+    .header a{color:var(--text-muted);text-decoration:none;font-size:13px;transition:color 0.2s;padding:6px 12px;border-radius:6px}
+    .header a:hover{color:var(--text);background:var(--surface2)}
+    .header a.active{color:var(--primary);background:var(--primary-bg)}
+    .container{max-width:1440px;margin:0 auto;padding:24px 32px}
+
+    /* Filters */
+    .filters{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;align-items:flex-end}
+    .filter-group{display:flex;flex-direction:column;gap:4px}
+    .filter-group label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:600}
+    .filter-group select{
+      background:var(--surface2);color:var(--text);border:1px solid var(--border);
+      border-radius:8px;padding:8px 32px 8px 12px;font-size:13px;font-family:inherit;cursor:pointer;
+      appearance:none;min-width:170px;transition:border-color 0.2s,box-shadow 0.2s;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b90a0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 10px center;
+    }
+    .filter-group select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(129,140,248,0.15)}
+    .filter-group input{
+      background:var(--surface2);color:var(--text);border:1px solid var(--border);
+      border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;
+      min-width:120px;transition:border-color 0.2s;
+    }
+    .filter-group input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(129,140,248,0.15)}
+    .filter-group input::placeholder{color:var(--text-muted)}
+
+    /* KPI Cards */
+    .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+    .kpi-card{
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+      padding:20px 24px;transition:transform 0.25s,border-color 0.25s,box-shadow 0.25s;
+      position:relative;overflow:hidden;
+    }
+    .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius) var(--radius) 0 0}
+    .kpi-card:hover{transform:translateY(-3px);box-shadow:var(--glow)}
+    .kpi-card .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:8px}
+    .kpi-card .value{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+    .kpi-card .sub{font-size:11px;color:var(--text-muted);margin-top:4px}
+    .kpi-card.danger::before{background:linear-gradient(90deg,#f87171,#ef4444)}.kpi-card.danger .value{color:var(--danger)}
+    .kpi-card.success::before{background:linear-gradient(90deg,#34d399,#10b981)}.kpi-card.success .value{color:var(--success)}
+    .kpi-card.primary::before{background:linear-gradient(90deg,#818cf8,#6366f1)}.kpi-card.primary .value{color:var(--primary)}
+    .kpi-card.warning::before{background:linear-gradient(90deg,#fbbf24,#f59e0b)}.kpi-card.warning .value{color:var(--warning)}
+
+    /* Panels */
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;transition:box-shadow 0.3s}
+    .panel:hover{box-shadow:var(--glow)}
+    .panel-title{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .panel-title .dot{width:8px;height:8px;border-radius:50%;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+    /* Table */
+    .data-table{width:100%;border-collapse:collapse;font-size:13px}
+    .data-table thead th{
+      text-align:left;padding:10px 12px;color:var(--text-muted);font-weight:600;font-size:11px;
+      text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);
+      cursor:pointer;user-select:none;white-space:nowrap;transition:color 0.2s;
+    }
+    .data-table thead th:hover{color:var(--primary)}
+    .data-table tbody td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+    .data-table tbody tr{transition:background 0.15s}
+    .data-table tbody tr:hover{background:var(--surface2)}
+    .data-table .num{text-align:right;font-variant-numeric:tabular-nums}
+    .abc-badge{padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;display:inline-block}
+    .abc-A{background:rgba(52,211,153,0.15);color:#34d399}
+    .abc-B{background:rgba(129,140,248,0.15);color:#818cf8}
+    .abc-C{background:rgba(139,144,160,0.15);color:#8b90a0}
+
+    .chart-toggle{display:flex;gap:4px;background:var(--surface2);border-radius:8px;padding:3px;margin-left:auto}
+    .chart-toggle button{
+      background:none;border:none;color:var(--text-muted);padding:6px 14px;border-radius:6px;
+      cursor:pointer;font-family:inherit;font-size:12px;transition:all 0.2s;
+    }
+    .chart-toggle button.active{background:var(--primary);color:white}
+
+    .loading{display:flex;align-items:center;justify-content:center;height:200px;color:var(--text-muted);font-size:14px}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+    .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-bottom:24px}
+    @media(max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    .toolbar-btn{
+      background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);
+      border-radius:8px;padding:7px 14px;font-size:12px;font-family:inherit;
+      cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;
+    }
+    .toolbar-btn:hover{border-color:var(--primary);color:var(--text)}
+    .toolbar-btn.active{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
+    .toolbar-btn svg{width:14px;height:14px;fill:currentColor}
+    .refresh-timer{font-size:11px;color:var(--text-muted);min-width:90px;text-align:center}
+    .refresh-dot{width:6px;height:6px;border-radius:50%;background:var(--success);animation:blink 1s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+    .toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+
+    /* Fullscreen overlay */
+    .fs-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:var(--bg);padding:16px;display:none;flex-direction:column}
+    .fs-overlay.active{display:flex}
+    .fs-overlay .fs-chart{flex:1;width:100%;min-height:0}
+    .fs-close{position:absolute;top:12px;right:16px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit;font-size:13px;z-index:10000}
+
+    /* Panel fullscreen button */
+    .panel-fs{margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;border-radius:4px;transition:color 0.2s}
+    .panel-fs:hover{color:var(--primary)}
+
+    /* Keyboard hints */
+    .kbd{display:inline-block;background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:10px;font-family:monospace;color:var(--text-muted);margin-left:4px;vertical-align:middle}
+
+    @media print{.header,.toolbar,.filters,.chart-toggle,.panel-fs,.show-more-btn,.fs-overlay{display:none!important}.panel{break-inside:avoid;page-break-inside:avoid;box-shadow:none!important;border:1px solid #ccc!important}}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 PLANLYTASK Аналитика</h1>
+    <div class="nav-links">
+      <a href="/analytics/index.html" class="active">Уровень сервиса</a>
+      <a href="/analytics/revenue.html">Продажи / Выручка</a>
+      <a href="/analytics/departments.html">Продажи по отделам</a>
+      <a href="/monitoring/index.html">Мониторинг</a>
+      <a href="/merchandising/index.html">Мерчандайзинг</a>
+      <a href="/parsing/index.html">Парсинг</a>
+      <a href="/">← Приложение</a>
+    </div>
+  </div>
+
+  <div class="container" style="padding-bottom:0;margin-bottom:-8px">
+    <div class="toolbar">
+      <button class="toolbar-btn" onclick="exportCSV()" title="Экспорт CSV (E)">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-3-7v4h-2v-4h-2l3-3 3 3h-2z"/></svg>
+        CSV<kbd class="kbd">E</kbd>
+      </button>
+      <button class="toolbar-btn" onclick="exportPDF()" title="Печать/PDF (P)">
+        <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+        PDF<kbd class="kbd">P</kbd>
+      </button>
+      <div class="toolbar-sep"></div>
+      <span style="font-size:11px;color:var(--text-muted)">Авто:</span>
+      <button class="toolbar-btn active" onclick="setRefresh(0,this)" id="rfOff">Выкл</button>
+      <button class="toolbar-btn" onclick="setRefresh(60,this)">1м</button>
+      <button class="toolbar-btn" onclick="setRefresh(120,this)">2м</button>
+      <button class="toolbar-btn" onclick="setRefresh(300,this)">5м</button>
+      <span class="refresh-timer" id="refreshTimer"></span>
+      <div class="toolbar-sep"></div>
+      <span style="font-size:10px;color:var(--text-muted)">R=обновить F=полный экран</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Filters -->
+    <div class="filters">
+      <div class="filter-group">
+        <label>Филиал</label>
+        <select id="filterCity"><option value="">Все филиалы</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Отдел</label>
+        <select id="filterDept"><option value="">Все отделы</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Поставщик</label>
+        <select id="filterSupplier"><option value="">Все поставщики</option></select>
+      </div>
+      <div class="filter-group">
+        <label>ABC</label>
+        <select id="filterAbc">
+          <option value="">Все</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>SKU код</label>
+        <input id="filterSku" type="text" placeholder="Введите SKU...">
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi-card danger"><div class="label">Упущенная выручка</div><div class="value" id="kpiLost">—</div><div class="sub" id="kpiLostSub"></div></div>
+      <div class="kpi-card success"><div class="label">Продажи</div><div class="value" id="kpiSales">—</div><div class="sub" id="kpiSalesSub"></div></div>
+      <div class="kpi-card primary"><div class="label">SKU в анализе</div><div class="value" id="kpiSku">—</div><div class="sub" id="kpiSkuSub"></div></div>
+      <div class="kpi-card warning"><div class="label">Средний OOS</div><div class="value" id="kpiOos">—</div><div class="sub" id="kpiOosSub">дней без товара</div></div>
+    </div>
+
+    <!-- Row 1: Gauge + ABC Pie -->
+    <div class="grid-3">
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title"><span class="dot" style="background:var(--success)"></span>Уровень сервиса</div>
+        <div id="chartGauge" style="width:100%;height:260px"></div>
+      </div>
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title"><span class="dot" style="background:var(--warning)"></span>ABC классификация</div>
+        <div id="chartAbc" style="width:100%;height:260px"></div>
+      </div>
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title"><span class="dot" style="background:var(--primary)"></span>Потери по отделам</div>
+        <div id="chartDept" style="width:100%;height:260px"></div>
+      </div>
+    </div>
+
+    <!-- Row 2: Time Series with DataZoom -->
+    <div class="panel">
+      <div class="panel-title">
+        <span class="dot" style="background:var(--danger)"></span>
+        Упущенная выручка — Тренд
+        <div class="chart-toggle">
+          <button class="active" onclick="setChartMode('daily',this)">По дням</button>
+          <button onclick="setChartMode('weekly',this)">По неделям</button>
+        </div>
+      </div>
+      <div id="chartTs" style="width:100%;height:380px"></div>
+    </div>
+
+    <!-- Row 3: Heatmap -->
+    <div class="panel">
+      <div class="panel-title"><span class="dot" style="background:var(--warning)"></span>Тепловая карта OOS по филиалам<button class="panel-fs" onclick="openFullscreen('chartHeatmap')" title="Полный экран">⛶</button></div>
+      <div id="chartHeatmap" style="width:100%;height:320px"></div>
+    </div>
+
+    <!-- Row 4: Treemap -->
+    <div class="panel">
+      <div class="panel-title"><span class="dot" style="background:var(--primary)"></span>Drill-Down потерь: Отдел → SKU<button class="panel-fs" onclick="openFullscreen('chartTreemap')" title="Полный экран">⛶</button></div>
+      <div id="chartTreemap" style="width:100%;height:400px"></div>
+    </div>
+
+    <!-- Table -->
+    <div class="panel">
+      <div class="panel-title"><span class="dot" style="background:var(--danger)"></span>Топ SKU по упущенной выручке</div>
+      <div id="tableContainer"><div class="loading">Загрузка данных...</div></div>
+    </div>
+
+  <!-- Fullscreen overlay -->
+  <div class="fs-overlay" id="fsOverlay">
+    <button class="fs-close" onclick="closeFullscreen()">✕ Закрыть (Esc)</button>
+    <div class="fs-chart" id="fsChart"></div>
+  </div>
+  </div>
+
+  <script>
+    const API='';
+    let chartTs,chartAbc,chartDept,chartGauge,chartHeatmap,chartTreemap;
+    let currentMode='daily',tsData={},sortCol='lost_rub',sortAsc=false,_tableRows=[];
+    let fsChart=null;
+    const THEME={backgroundColor:'transparent',textStyle:{color:'#1f2937'},tooltip:{backgroundColor:'#fff',borderColor:'#e5e7eb',textStyle:{color:'#1f2937'}}};
+
+    function fmtRub(v){return v>=1e6?(v/1e6).toFixed(1)+'M ₽':v>=1e3?(v/1e3).toFixed(0)+'K ₽':v.toFixed(0)+' ₽'}
+    function fmtNum(v){return new Intl.NumberFormat('ru-RU').format(Math.round(v))}
+
+    function initCharts(){
+      const opts={renderer:'canvas'};
+      chartGauge=echarts.init(document.getElementById('chartGauge'),null,opts);
+      chartAbc=echarts.init(document.getElementById('chartAbc'),null,opts);
+      chartDept=echarts.init(document.getElementById('chartDept'),null,opts);
+      chartTs=echarts.init(document.getElementById('chartTs'),null,opts);
+      chartHeatmap=echarts.init(document.getElementById('chartHeatmap'),null,opts);
+      chartTreemap=echarts.init(document.getElementById('chartTreemap'),null,opts);
+
+      echarts.connect([chartTs,chartHeatmap]);
+      const all=[chartGauge,chartAbc,chartDept,chartTs,chartHeatmap,chartTreemap];
+      window.addEventListener('resize',()=>all.forEach(c=>c.resize()));
+    }
+
+    function getFilterParams(){
+      const p=new URLSearchParams();
+      const c=document.getElementById('filterCity').value;
+      const d=document.getElementById('filterDept').value;
+      const s=document.getElementById('filterSupplier').value;
+      const a=document.getElementById('filterAbc').value;
+      const sku=document.getElementById('filterSku').value.trim();
+      if(c)p.set('city',c);if(d)p.set('dept',d);if(s)p.set('supplier',s);if(a)p.set('abc',a);if(sku)p.set('sku',sku);
+      return p.toString();
+    }
+
+    async function loadFilters(){
+      try{
+        const res=await fetch(API+'/api/analytics/service_level');
+        const data=await res.json();
+        if(data.filters){
+          fillSelect('filterCity',data.filters.cities||[]);
+          fillSelect('filterDept',data.filters.departments||[]);
+          fillSelect('filterSupplier',data.filters.suppliers||[]);
+        }
+      }catch(e){console.error('Filters:',e)}
+    }
+
+    function fillSelect(id,items){
+      const sel=document.getElementById(id);const cur=sel.value;
+      while(sel.options.length>1)sel.remove(1);
+      items.forEach(i=>{const o=document.createElement('option');o.value=i;o.textContent=i;sel.appendChild(o)});
+      sel.value=cur;
+    }
+
+    async function loadMainData(){
+      const qs=getFilterParams();
+      try{
+        const res=await fetch(API+'/api/analytics/service_level'+(qs?'?'+qs:''));
+        const data=await res.json();
+
+        // KPIs with count-up animation
+        animateValue('kpiLost',data.total_lost_rub||0,fmtRub);
+        animateValue('kpiSales',data.total_sales_rub||0,fmtRub);
+        animateValue('kpiSku',data.total_rows||0,fmtNum);
+        document.getElementById('kpiLostSub').textContent=fmtNum(data.total_lost_pcs||0)+' шт упущено';
+        document.getElementById('kpiSalesSub').textContent=fmtNum(data.total_sales_pcs||0)+' шт продано';
+        document.getElementById('kpiSkuSub').textContent='период: '+(data.period||'');
+
+        if(data.rows&&data.rows.length>0){
+          const avgOos=data.rows.reduce((s,r)=>s+(r.oos_days||0),0)/data.rows.length;
+          animateValue('kpiOos',avgOos,v=>v.toFixed(1));
+          renderBreakdownCharts(data.rows);
+          renderHeatmap(data.rows);
+          renderTreemap(data.rows);
+        }
+        renderTable(data.rows||[]);
+      }catch(e){console.error('Main:',e)}
+    }
+
+    // Smooth count-up animation
+    function animateValue(id,target,fmt){
+      const el=document.getElementById(id);
+      const duration=800;const start=performance.now();
+      const startVal=0;
+      function step(now){
+        const t=Math.min((now-start)/duration,1);
+        const ease=1-Math.pow(1-t,3); // easeOutCubic
+        el.textContent=fmt(startVal+(target-startVal)*ease);
+        if(t<1)requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function renderBreakdownCharts(rows){
+      // Service Level Gauge
+      const totalSales=rows.reduce((s,r)=>s+(r.sales_rub||0),0);
+      const totalLost=rows.reduce((s,r)=>s+(r.lost_rub||0),0);
+      const slPct=totalSales>0?totalSales/(totalSales+totalLost)*100:0;
+      chartGauge.setOption({
+        ...THEME,
+        series:[{
+          type:'gauge',radius:'85%',center:['50%','60%'],
+          startAngle:200,endAngle:-20,min:0,max:100,
+          splitNumber:10,
+          axisLine:{lineStyle:{width:15,color:[[0.7,'#dc2626'],[0.85,'#d97706'],[1,'#16a34a']]}},
+          pointer:{itemStyle:{color:'auto'},width:4,length:'60%'},
+          axisTick:{distance:-15,length:6,lineStyle:{color:'#6b7280',width:1}},
+          splitLine:{distance:-18,length:12,lineStyle:{color:'#6b7280',width:2}},
+          axisLabel:{color:'#6b7280',distance:22,fontSize:11},
+          detail:{
+            valueAnimation:true,formatter:v=>v.toFixed(1)+'%',
+            color:'#1f2937',fontSize:22,fontWeight:'bold',offsetCenter:[0,'70%']
+          },
+          title:{show:true,offsetCenter:[0,'90%'],fontSize:12,color:'#6b7280'},
+          data:[{value:slPct,name:'Уровень сервиса'}]
+        }],
+        animationDuration:1500,animationEasingUpdate:'bounceOut'
+      });
+
+      // ABC Pie
+      let abcMap={};
+      rows.forEach(r=>{let a=(r.abc||'').trim()||'N/A';abcMap[a]=(abcMap[a]||0)+(r.lost_rub||0)});
+      const abcData=Object.entries(abcMap).map(([k,v])=>({name:k,value:v})).filter(d=>d.value>0).sort((a,b)=>b.value-a.value);
+      chartAbc.setOption({
+        ...THEME,
+        tooltip:{...THEME.tooltip,trigger:'item',formatter:'{b}: {c} ₽ ({d}%)'},
+        legend:{bottom:0,left:'center',icon:'circle',textStyle:{color:'#6b7280',fontSize:11}},
+        color:['#34d399','#fbbf24','#f87171','#6b7280'],
+        series:[{
+          type:'pie',radius:['42%','72%'],center:['50%','45%'],
+          avoidLabelOverlap:false,
+          itemStyle:{borderRadius:6,borderColor:'#fff',borderWidth:2},
+          label:{show:false},
+          emphasis:{
+            label:{show:true,fontSize:16,fontWeight:'bold',formatter:'{b}\n{d}%',color:'#1f2937'},
+            itemStyle:{shadowBlur:20,shadowColor:'rgba(0,0,0,0.5)'}
+          },
+          labelLine:{show:false},
+          data:abcData,
+          animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*80
+        }]
+      });
+
+      // Dept Bar
+      let deptMap={};
+      rows.forEach(r=>{let d=(r.dept||'').trim()||'Без отдела';deptMap[d]=(deptMap[d]||0)+(r.lost_rub||0)});
+      const deptData=Object.entries(deptMap).map(([k,v])=>({name:k,value:v})).sort((a,b)=>b.value-a.value).slice(0,6).reverse();
+      chartDept.setOption({
+        ...THEME,
+        tooltip:{...THEME.tooltip,trigger:'axis',axisPointer:{type:'shadow'}},
+        grid:{left:'3%',right:'4%',bottom:'3%',top:'3%',containLabel:true},
+        xAxis:{type:'value',show:false},
+        yAxis:{
+          type:'category',data:deptData.map(d=>d.name.length>18?d.name.slice(0,16)+'…':d.name),
+          axisLabel:{color:'#6b7280',fontSize:11},axisLine:{show:false},axisTick:{show:false}
+        },
+        series:[{
+          type:'bar',data:deptData.map(d=>d.value),
+          label:{show:true,position:'right',formatter:p=>fmtRub(p.value),color:'#1f2937',fontSize:11},
+          itemStyle:{
+            color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#6366f1'},{offset:1,color:'#818cf8'}]),
+            borderRadius:[0,4,4,0]
+          },
+          animationDelay:i=>i*120
+        }],
+        animationEasing:'elasticOut'
+      });
+    }
+
+    // Heatmap: city × OOS intensity
+    function renderHeatmap(rows){
+      const cityMap={};
+      rows.forEach(r=>{
+        const city=r.city||'N/A';
+        const dept=(r.dept||'').trim()||'Другое';
+        if(!cityMap[city])cityMap[city]={};
+        cityMap[city][dept]=(cityMap[city][dept]||0)+(r.oos_days||0);
+      });
+      const cities=Object.keys(cityMap).sort();
+      const allDepts=new Set();
+      Object.values(cityMap).forEach(dm=>Object.keys(dm).forEach(d=>allDepts.add(d)));
+      // Top 8 depts by total OOS
+      const deptTotals={};
+      allDepts.forEach(d=>{deptTotals[d]=0;cities.forEach(c=>{deptTotals[d]+=(cityMap[c]?.[d]||0)})});
+      const topDepts=Object.entries(deptTotals).sort((a,b)=>b[1]-a[1]).slice(0,8).map(e=>e[0]);
+
+      const heatData=[];
+      cities.forEach((c,ci)=>{topDepts.forEach((d,di)=>{heatData.push([di,ci,cityMap[c]?.[d]||0])})});
+      const maxVal=Math.max(...heatData.map(d=>d[2]),1);
+
+      chartHeatmap.setOption({
+        ...THEME,
+        tooltip:{...THEME.tooltip,formatter:p=>`${cities[p.value[1]]} × ${topDepts[p.value[0]]}<br/>OOS дней: <b>${p.value[2]}</b>`},
+        grid:{left:'3%',right:'8%',bottom:'15%',top:'3%',containLabel:true},
+        xAxis:{type:'category',data:topDepts.map(d=>d.length>14?d.slice(0,12)+'…':d),axisLabel:{color:'#6b7280',fontSize:10,rotate:25},splitArea:{show:false}},
+        yAxis:{type:'category',data:cities,axisLabel:{color:'#6b7280',fontSize:11},splitArea:{show:false}},
+        visualMap:{
+          min:0,max:maxVal,calculable:true,orient:'vertical',right:0,top:'center',
+          inRange:{color:['#f3f4f6','#e0e7ff','#c7d2fe','#a5b4fc','#818cf8','#6366f1','#4f46e5','#4338ca']},
+          textStyle:{color:'#6b7280',fontSize:10}
+        },
+        series:[{
+          type:'heatmap',data:heatData,
+          label:{show:true,formatter:p=>p.value[2]>0?p.value[2]:'',color:'#1f2937',fontSize:10},
+          emphasis:{itemStyle:{shadowBlur:10,shadowColor:'rgba(0,0,0,0.5)'}},
+          itemStyle:{borderColor:'#fff',borderWidth:2,borderRadius:3},
+          progressive:500,animation:true
+        }]
+      });
+    }
+
+    // Time Series with DataZoom and Toolbox
+    async function loadTsData(){
+      const qs=getFilterParams();
+      try{const res=await fetch(API+'/api/analytics/service_level/ts'+(qs?'?'+qs:''));tsData=await res.json();renderChart()}catch(e){console.error('TS:',e)}
+    }
+
+    function renderChart(){
+      const series=tsData[currentMode]||[];
+      const dates=series.map(d=>d.date);
+      const lostRub=series.map(d=>d.lost_rub||0);
+      const oosCount=series.map(d=>d.oos_count||0);
+
+      chartTs.setOption({
+        ...THEME,
+        tooltip:{
+          ...THEME.tooltip,trigger:'axis',
+          axisPointer:{type:'cross',lineStyle:{color:'#818cf8',opacity:0.3},crossStyle:{color:'#818cf8'}},
+          formatter:params=>{
+            const d=params[0];
+            return `<b>${d.name}</b><br/>Упущено: <span style="color:#f87171;font-weight:600">${fmtRub(d.value)}</span><br/>OOS позиций: ${fmtNum(oosCount[d.dataIndex])}`;
+          }
+        },
+        toolbox:{
+          right:20,top:5,
+          feature:{
+            saveAsImage:{title:'Сохранить PNG',pixelRatio:2,iconStyle:{borderColor:'#6b7280'}},
+            dataView:{title:'Данные',readOnly:true,lang:['Данные','Закрыть',''],iconStyle:{borderColor:'#6b7280'},
+              textareaColor:'#fff',textareaBorderColor:'#e5e7eb',textColor:'#1f2937'},
+            magicType:{title:{line:'Линия',bar:'Столбцы'},type:['line','bar'],iconStyle:{borderColor:'#6b7280'}},
+            restore:{title:'Сброс',iconStyle:{borderColor:'#6b7280'}}
+          }
+        },
+        grid:{left:60,right:20,top:50,bottom:80},
+        dataZoom:[
+          {type:'slider',start:0,end:100,bottom:10,height:28,
+            borderColor:'#e5e7eb',backgroundColor:'#fff',
+            fillerColor:'rgba(99,102,241,0.15)',handleStyle:{color:'#6366f1',borderColor:'#6366f1'},
+            textStyle:{color:'#6b7280'},dataBackground:{lineStyle:{color:'#a5b4fc'},areaStyle:{color:'rgba(99,102,241,0.08)'}},
+            selectedDataBackground:{lineStyle:{color:'#818cf8'},areaStyle:{color:'rgba(129,140,248,0.2)'}}
+          },
+          {type:'inside',start:0,end:100}
+        ],
+        xAxis:{
+          type:'category',data:dates,boundaryGap:false,
+          axisLabel:{color:'#6b7280',fontSize:11},
+          axisLine:{lineStyle:{color:'#e5e7eb'}},splitLine:{show:false}
+        },
+        yAxis:{
+          type:'value',
+          axisLabel:{color:'#8b90a0',fontSize:11,formatter:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v},
+          splitLine:{lineStyle:{color:'#e5e7eb',type:'dashed'}}
+        },
+        series:[{
+          type:'line',data:lostRub,smooth:true,symbol:'circle',symbolSize:4,showSymbol:false,
+          lineStyle:{color:'#f87171',width:2.5,shadowBlur:8,shadowColor:'rgba(248,113,113,0.3)'},
+          areaStyle:{
+            color:new echarts.graphic.LinearGradient(0,0,0,1,[
+              {offset:0,color:'rgba(248,113,113,0.25)'},{offset:1,color:'rgba(248,113,113,0.01)'}
+            ])
+          },
+          emphasis:{focus:'series',itemStyle:{borderWidth:2,borderColor:'#fff',shadowBlur:10,shadowColor:'rgba(248,113,113,0.5)'}},
+          markLine:{silent:true,data:[{type:'average',name:'Среднее'}],lineStyle:{color:'#818cf8',type:'dashed',opacity:0.5},label:{color:'#818cf8',fontSize:10,formatter:p=>fmtRub(p.value)}},
+          animationDuration:1500,animationEasing:'cubicOut'
+        }]
+      },true);
+    }
+
+    function setChartMode(mode,btn){
+      currentMode=mode;
+      document.querySelectorAll('.chart-toggle button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');renderChart();
+    }
+
+    // Table
+    function renderTable(rows){
+      _tableRows=rows;
+      rows.sort((a,b)=>{const va=a[sortCol]||0,vb=b[sortCol]||0;return sortAsc?(va>vb?1:-1):(va<vb?1:-1)});
+      const cols=[
+        {key:'city',label:'Филиал',cls:''},{key:'sku',label:'Код',cls:''},{key:'name',label:'Название',cls:''},
+        {key:'dept',label:'Отдел',cls:''},{key:'abc',label:'ABC',cls:''},{key:'supplier',label:'Поставщик',cls:''},
+        {key:'oos_days',label:'OOS дн',cls:'num'},{key:'lost_rub',label:'Упущено ₽',cls:'num'},{key:'sales_rub',label:'Продажи ₽',cls:'num'}
+      ];
+      let html='<table class="data-table"><thead><tr>';
+      cols.forEach(c=>{const arr=sortCol===c.key?(sortAsc?' ↑':' ↓'):'';html+=`<th class="${c.cls}" onclick="sortTable('${c.key}')">${c.label}${arr}</th>`});
+      html+='</tr></thead><tbody>';
+      rows.slice(0,100).forEach(r=>{
+        html+='<tr>';
+        cols.forEach(c=>{
+          let val=r[c.key]??'';
+          if(c.key==='lost_rub'||c.key==='sales_rub')val=fmtNum(val);
+          if(c.key==='abc'&&val)val=`<span class="abc-badge abc-${val}">${val}</span>`;
+          if(c.key==='name'&&typeof val==='string'&&val.length>45)val=val.slice(0,42)+'…';
+          if(c.key==='supplier'&&typeof val==='string'&&val.length>25)val=val.slice(0,22)+'…';
+          html+=`<td class="${c.cls}">${val}</td>`;
+        });
+        html+='</tr>';
+      });
+      html+='</tbody></table>';
+      if(rows.length>100)html+=`<div style="color:var(--text-muted);font-size:12px;padding:12px">Показано 100 из ${rows.length}</div>`;
+      document.getElementById('tableContainer').innerHTML=html;
+    }
+
+    function sortTable(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=false}renderTable(_tableRows)}
+
+    function onFilterChange(){loadMainData();loadTsData()}
+
+    // === Auto-refresh ===
+    let refreshInterval=0,refreshCountdown=0,refreshTimerId=null,countdownId=null;
+    function setRefresh(sec,btn){
+      document.querySelectorAll('.toolbar .toolbar-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      clearInterval(refreshTimerId);clearInterval(countdownId);
+      refreshInterval=sec;refreshCountdown=sec;
+      const el=document.getElementById('refreshTimer');
+      if(!sec){el.innerHTML='';return}
+      function tick(){refreshCountdown--;if(refreshCountdown<=0){refreshCountdown=refreshInterval;onFilterChange()}
+        const m=Math.floor(refreshCountdown/60),s=refreshCountdown%60;
+        el.innerHTML=`<span class="refresh-dot"></span> ${m}:${s.toString().padStart(2,'0')}`;
+      }
+      tick();countdownId=setInterval(tick,1000);
+    }
+
+    // === CSV Export ===
+    function exportCSV(){
+      if(!_tableRows.length){alert('Нет данных');return}
+      const cols=['city','sku','name','dept','abc','supplier','oos_days','lost_rub','sales_rub','p_sale','lost_pcs','sales_pcs','price','has_dc'];
+      const labels=['Филиал','Код','Название','Отдел','ABC','Поставщик','OOS дней','Упущено ₽','Продажи ₽','P(sale)','Упущено шт','Продажи шт','Цена','РЦ'];
+      let csv='\uFEFF'+labels.join(';')+'\n';
+      _tableRows.forEach(r=>{csv+=cols.map(c=>{let v=r[c]??'';if(typeof v==='string')v='"'+v.replace(/"/g,'""')+'"';return v}).join(';')+'\n'});
+      const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download='analytics_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+    }
+
+    // === Treemap ===
+    function renderTreemap(rows){
+      const deptMap={};
+      rows.forEach(r=>{
+        const dept=(r.dept||'').trim()||'Без отдела';
+        if(!deptMap[dept])deptMap[dept]={};
+        const name=(r.name||r.sku||'N/A').slice(0,40);
+        const key=r.sku+'_'+name;
+        deptMap[dept][key]=(deptMap[dept][key]||0)+(r.lost_rub||0);
+      });
+      const treeData=Object.entries(deptMap).map(([dept,skus])=>({
+        name:dept,value:Object.values(skus).reduce((a,b)=>a+b,0),
+        children:Object.entries(skus).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,20).map(([k,v])=>({name:k.split('_')[1]||k,value:v}))
+      })).filter(d=>d.value>0).sort((a,b)=>b.value-a.value).slice(0,12);
+      chartTreemap.setOption({
+        ...THEME,
+        tooltip:{...THEME.tooltip,trigger:'item',formatter:p=>p.data.children?`<b>${p.name}</b><br/>Итого: ${fmtRub(p.value)}`:`${p.name}<br/>Потери: <b style="color:#dc2626">${fmtRub(p.value)}</b>`},
+        series:[{
+          type:'treemap',width:'100%',height:'100%',
+          roam:false,nodeClick:'zoomToNode',
+          breadcrumb:{show:true,bottom:5,itemStyle:{color:'#e5e7eb',borderColor:'transparent',textStyle:{color:'#1f2937'}},emphasis:{itemStyle:{color:'#d1d5db'}}},
+          levels:[{
+            itemStyle:{borderColor:'#f3f4f6',borderWidth:3,gapWidth:3},
+            upperLabel:{show:true,height:28,color:'#1f2937',fontSize:12,fontWeight:600,backgroundColor:'transparent'}
+          },{
+            itemStyle:{borderColor:'#fff',borderWidth:2,gapWidth:2},
+            colorSaturation:[0.35,0.6]
+          }],
+          label:{show:true,formatter:'{b}',fontSize:11,color:'#1f2937'},
+          upperLabel:{show:true,height:24},
+          itemStyle:{borderRadius:3},
+          data:treeData,
+          color:['#6366f1','#818cf8','#a78bfa','#c084fc','#f472b6','#fb7185','#f87171','#fbbf24','#34d399','#22d3ee','#38bdf8','#60a5fa'],
+          animationDuration:800,animationEasing:'cubicOut'
+        }]
+      });
+    }
+
+
+    // === Fullscreen ===
+    function openFullscreen(chartId){
+      const src=echarts.getInstanceByDom(document.getElementById(chartId));
+      if(!src)return;
+      const overlay=document.getElementById('fsOverlay');
+      overlay.classList.add('active');
+      fsChart=echarts.init(document.getElementById('fsChart'),null,{renderer:'canvas'});
+      fsChart.setOption(src.getOption());
+      setTimeout(()=>fsChart.resize(),50);
+    }
+    function closeFullscreen(){
+      document.getElementById('fsOverlay').classList.remove('active');
+      if(fsChart){fsChart.dispose();fsChart=null}
+    }
+
+    // === PDF Export ===
+    function exportPDF(){window.print()}
+
+    // === Keyboard Shortcuts ===
+    document.addEventListener('keydown',e=>{
+      if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA')return;
+      switch(e.key.toLowerCase()){
+        case 'r':onFilterChange();break;
+        case 'e':exportCSV();break;
+        case 'p':exportPDF();break;
+        case 'f':{
+          const panels=document.querySelectorAll('.panel [id^=chart]');
+          if(panels.length)openFullscreen(panels[0].id);break;
+        }
+        case 'escape':closeFullscreen();break;
+      }
+    });
+
+    // SKU filter with debounce
+    let skuTimer;
+    document.addEventListener('DOMContentLoaded',async()=>{
+      initCharts();
+      await loadFilters();
+      await Promise.all([loadMainData(),loadTsData()]);
+      ['filterCity','filterDept','filterSupplier','filterAbc'].forEach(id=>{
+        document.getElementById(id).addEventListener('change',onFilterChange);
+      });
+      document.getElementById('filterSku').addEventListener('input',()=>{
+        clearTimeout(skuTimer);skuTimer=setTimeout(onFilterChange,400);
+      });
+    });
+  </script>
+</body>
+</html>

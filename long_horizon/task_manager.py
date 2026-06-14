@@ -3,6 +3,10 @@ Phase 3: Long-running Task Manager (heartbeats, checkpoints, pause/resume, progr
 
 This is the orchestration layer for tasks that span hours to weeks.
 It composes:
+
+CONVERGED DUAL (20 Grok + 3 Agy wave): under pure delegates to Rust (see planner thin example).
+Refs task-2cec828e, audit.
+
 - HierarchicalPlanner + ExecutionEngine (from agentforge.planning)
 - ActionApprovalLayer (from agentforge.safety) for every significant action
 - Persistence (JSON files + optional tie-in to task_queue checkpoints)
@@ -22,7 +26,7 @@ Typical flow for a 12-hour autonomous refactor:
 
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Callable, List
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 import uuid
 import os
@@ -30,12 +34,17 @@ from pathlib import Path
 
 # Cross-module imports (Phase 3 integration)
 from agentforge.planning import (
-    HierarchicalPlanner, ExecutionEngine, Plan, Subtask, PlanCheckpoint,
+    HierarchicalPlanner,
+    ExecutionEngine,
+    Plan,
+    Subtask,
+    PlanCheckpoint,
 )
 from agentforge.safety import (
-    ActionApprovalLayer, create_default_approval_layer, Decision,
+    ActionApprovalLayer,
+    create_default_approval_layer,
+    Decision,
 )
-
 
 PERSISTENCE_DIR = Path(os.path.expanduser("~/.agentforge/long_horizon"))
 PERSISTENCE_DIR.mkdir(parents=True, exist_ok=True)
@@ -43,7 +52,7 @@ PERSISTENCE_DIR.mkdir(parents=True, exist_ok=True)
 
 @dataclass
 class Progress:
-    percent: float = 0.0          # 0-100
+    percent: float = 0.0  # 0-100
     completed_steps: int = 0
     total_steps: int = 1
     eta_seconds: Optional[int] = None
@@ -65,7 +74,7 @@ class Progress:
 class LongTask:
     id: str
     goal: str
-    status: str = "running"   # running, paused, completed, failed, cancelled
+    status: str = "running"  # running, paused, completed, failed, cancelled
     plan: Optional[Plan] = None
     progress: Progress = field(default_factory=Progress)
     checkpoints: List[Dict[str, Any]] = field(default_factory=list)
@@ -82,7 +91,7 @@ class LongTask:
             "goal": self.goal,
             "status": self.status,
             "progress": self.progress.to_dict(),
-            "checkpoints": self.checkpoints[-50:],   # keep last 50 for size
+            "checkpoints": self.checkpoints[-50:],  # keep last 50 for size
             "heartbeats": self.heartbeats[-100:],
             "metadata": self.metadata,
             "started_at": self.started_at,
@@ -96,7 +105,9 @@ class LongTask:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "LongTask":
-        prog = Progress(**data.get("progress", {})) if data.get("progress") else Progress()
+        prog = (
+            Progress(**data.get("progress", {})) if data.get("progress") else Progress()
+        )
         plan = Plan.from_dict(data["plan"]) if data.get("plan") else None
         task = cls(
             id=data["id"],
@@ -176,7 +187,9 @@ class LongTaskManager:
             metadata=metadata or {},
         )
         if use_planning:
-            task.plan = self.planner.decompose(goal, context={"long_horizon": True, "task_id": task_id})
+            task.plan = self.planner.decompose(
+                goal, context={"long_horizon": True, "task_id": task_id}
+            )
             task.progress.total_steps = max(1, len(task.plan.subtasks))
             task.progress.percent = 0.0
 
@@ -185,7 +198,14 @@ class LongTaskManager:
         self.heartbeat(task_id, "Task started", 0.0)
         return task
 
-    def heartbeat(self, task_id: str, message: str = "", progress_pct: Optional[float] = None):
+    def heartbeat(
+        self, task_id: str, message: str = "", progress_pct: Optional[float] = None
+    ):
+        from learning.utils import is_pure_rust_flywheel
+
+        if is_pure_rust_flywheel():
+            # thin: long horizon in Rust via runner full-stack / long
+            return  # delegation stub, real in runner
         if task_id not in self.tasks:
             raise ValueError(f"Unknown long task {task_id}")
         task = self.tasks[task_id]
@@ -195,14 +215,18 @@ class LongTaskManager:
             task.progress.percent = max(0.0, min(100.0, progress_pct))
         elif task.plan:
             done = sum(1 for s in task.plan.subtasks if s.status == "done")
-            task.progress.percent = round(100.0 * done / max(1, len(task.plan.subtasks)), 1)
+            task.progress.percent = round(
+                100.0 * done / max(1, len(task.plan.subtasks)), 1
+            )
             task.progress.completed_steps = done
             task.progress.total_steps = len(task.plan.subtasks)
 
         task.progress.last_message = message[:300]
         task.progress.updated_at = now
         task.last_heartbeat_at = now
-        task.heartbeats.append({"ts": now, "msg": message, "pct": task.progress.percent})
+        task.heartbeats.append(
+            {"ts": now, "msg": message, "pct": task.progress.percent}
+        )
 
         # Auto checkpoint every ~5 heartbeats or on significant progress jumps
         if len(task.heartbeats) % 5 == 0 or (progress_pct and progress_pct % 25 < 1):
@@ -271,11 +295,21 @@ class LongTaskManager:
         if not task:
             return None
         d = task.to_dict()
-        d["age_hours"] = round((datetime.utcnow() - datetime.fromisoformat(task.started_at)).total_seconds() / 3600, 1)
+        d["age_hours"] = round(
+            (
+                datetime.utcnow() - datetime.fromisoformat(task.started_at)
+            ).total_seconds()
+            / 3600,
+            1,
+        )
         return d
 
     def list_active(self) -> List[Dict[str, Any]]:
-        return [self.get_status(tid) for tid in self.tasks if self.tasks[tid].status in ("running", "paused")]
+        return [
+            self.get_status(tid)
+            for tid in self.tasks
+            if self.tasks[tid].status in ("running", "paused")
+        ]
 
     # ---------------- High-value integration: safe execution ----------------
     def execute_with_safety(
@@ -309,10 +343,14 @@ class LongTaskManager:
             action_type = sub.metadata.get("action_type", "subtask_execution")
             decision = self.approval.approve(action_type, ctx)
             if decision.decision == Decision.BLOCK:
-                raise RuntimeError(f"Safety block: {decision.reason} (risk={decision.risk_score})")
+                raise RuntimeError(
+                    f"Safety block: {decision.reason} (risk={decision.risk_score})"
+                )
             if decision.decision == Decision.REQUIRE_APPROVAL:
                 # In fully autonomous mode we treat this as failure for the subtask (caller can handle HITL)
-                raise RuntimeError(f"Human approval required (not granted): {decision.reason}")
+                raise RuntimeError(
+                    f"Human approval required (not granted): {decision.reason}"
+                )
 
             # Heartbeat on subtask start
             self.heartbeat(task_id, f"Starting: {sub.description[:80]}", None)

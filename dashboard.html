@@ -32,7 +32,6 @@
 
             /* Цвета агентов */
             --agent-grok: #a855f7;
-            --agent-jules: #22c55e;
             --agent-antigravity: #3b82f6;
 
             /* Цвета приоритетов */
@@ -436,11 +435,7 @@
             border: 1px solid rgba(168, 85, 247, 0.25);
         }
 
-        .agent-badge.jules {
-            background: rgba(34, 197, 94, 0.15);
-            color: var(--agent-jules);
-            border: 1px solid rgba(34, 197, 94, 0.25);
-        }
+
 
         .agent-badge.antigravity {
             background: rgba(59, 130, 246, 0.15);
@@ -1099,7 +1094,7 @@
         // Автоопределение API с fallback по нескольким адресам
         // ФИКС ДЛЯ PORT 9090: используем относительный URL ('') по умолчанию.
         // Это решает "Fetch Error Failed to fetch / signal timed out at fetchTasks"
-        // при доступе через SSH-туннель (localhost:9090 → внутренний :8080).
+        // при доступе через SSH-туннель (localhost:9090 → Rust gateway → Python API).
         // Относительные fetch('/tasks') автоматически используют origin страницы.
         // Для случая открытия HTML как file:// сохраняем автоопределение + candidates.
         let API_BASE = window.location.protocol === 'file:'
@@ -1110,8 +1105,7 @@
         // Список адресов для автоматического перебора (только file:// протокол)
         const API_CANDIDATES = [
             'http://127.0.0.1:9090',     // SSH-туннель на порт 9090
-            'http://127.0.0.1:8080',     // Прямой проброс
-            'http://146.120.89.199:8080', // Прямой IP Erbox
+            'http://146.120.89.199:9090', // Прямой IP Erbox
         ];
 
         /**
@@ -1354,7 +1348,7 @@
             container.innerHTML = tasks.map((task, index) => {
                 // Определяем агента для бейджа
                 const agent = task.assigned_agent || task.preferred_agent || 'auto';
-                const agentClass = ['grok', 'jules', 'antigravity'].includes(agent) ? agent : 'auto';
+                const agentClass = ['grok', 'antigravity'].includes(agent) ? agent : 'auto';
                 // Имя агента без нумерации
                 const agentName = agent === 'auto' ? 'АВТО' : agent.toUpperCase();
 

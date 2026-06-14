@@ -41,3 +41,8 @@ env/
 # Temp
 /tmp/
 scratch/
+
+# Rust (full crates + bins, not committed; built per env)
+rust/target/
+target/
+

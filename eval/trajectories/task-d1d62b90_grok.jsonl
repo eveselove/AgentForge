@@ -1,0 +1,4 @@
+{"ts":"2026-06-12T19:33:10.026Z","type":"task_start","task_id":"task-d1d62b90","agent":"grok","data":{"raw":"{\"title\":\"Тестовый таск для аудита API\",\"priority\":\"high\",\"tags\":\"\"}}"}}
+{"ts":"2026-06-12T19:33:10.177Z","type":"worktree_created","task_id":"task-d1d62b90","agent":"grok","data":{"raw":"{\"path\":\"/tmp/agentforge/task-d1d62b90\"}}"}}
+{"ts":"2026-06-12T19:33:10.227Z","type":"infra_step","task_id":"task-d1d62b90","agent":"grok","data":{"raw":"{\"step\":\"cargo_optimization\"}}"}}
+{"ts":"2026-06-12T19:33:10.284Z","type":"infra_step","task_id":"task-d1d62b90","agent":"grok","data":{"raw":"{\"step\":\"mold_linker\"}}"}}

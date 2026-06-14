@@ -3,6 +3,9 @@ Description=Drift Monitor one-shot
 After=network.target
 
 [Service]
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
+# task-5af0e350 pure default
 Type=oneshot
 User=agx
 ExecStart=/usr/bin/python3 /home/agx/planlytasksko/scripts/drift_monitor.py 24

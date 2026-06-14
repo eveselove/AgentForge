@@ -26,6 +26,12 @@ pub struct Plan {
 
 pub struct HierarchicalPlanner;
 
+impl Default for HierarchicalPlanner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HierarchicalPlanner {
     pub fn new() -> Self {
         Self

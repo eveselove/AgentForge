@@ -23,6 +23,12 @@ pub struct PolicyEngine {
     rules: Vec<PolicyRule>,
 }
 
+impl Default for PolicyEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PolicyEngine {
     pub fn new() -> Self {
         Self { rules: Vec::new() }
@@ -49,11 +55,17 @@ impl PolicyEngine {
     }
 
     // Built-in policies
-    pub fn no_dangerous_commands(action_type: &str, context: &HashMap<String, String>) -> Option<ActionDecision> {
+    pub fn no_dangerous_commands(
+        action_type: &str,
+        context: &HashMap<String, String>,
+    ) -> Option<ActionDecision> {
         if action_type == "shell_command" {
             if let Some(cmd) = context.get("command") {
                 let cmd_lower = cmd.to_lowercase();
-                if cmd_lower.contains("rm -rf /") || cmd_lower.contains("format") || cmd_lower.contains("dd if=") {
+                if cmd_lower.contains("rm -rf /")
+                    || cmd_lower.contains("format")
+                    || cmd_lower.contains("dd if=")
+                {
                     return Some(ActionDecision {
                         decision: Decision::Block,
                         reason: format!("Dangerous command blocked: {}", cmd),
@@ -67,7 +79,10 @@ impl PolicyEngine {
         None
     }
 
-    pub fn require_approval_for_network(action_type: &str, _context: &HashMap<String, String>) -> Option<ActionDecision> {
+    pub fn require_approval_for_network(
+        action_type: &str,
+        _context: &HashMap<String, String>,
+    ) -> Option<ActionDecision> {
         if action_type == "network_request" || action_type == "http_request" {
             return Some(ActionDecision {
                 decision: Decision::RequireApproval,
@@ -80,7 +95,10 @@ impl PolicyEngine {
         None
     }
 
-    pub fn block_write_outside_worktree(action_type: &str, context: &HashMap<String, String>) -> Option<ActionDecision> {
+    pub fn block_write_outside_worktree(
+        action_type: &str,
+        context: &HashMap<String, String>,
+    ) -> Option<ActionDecision> {
         if action_type == "file_write" {
             if let Some(path) = context.get("path") {
                 if !path.contains("agentforge-") && !path.contains("/tmp/") {

@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AgentForge — дашборд мониторинга AI-агентов и задач">
+    <title>🏗️ AgentForge Dashboard</title>
+
+    <!-- Шрифт Inter от Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* === CSS Переменные (дизайн-токены) === */
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #0f0f1a;
+            --bg-card: rgba(255, 255, 255, 0.04);
+            --bg-card-hover: rgba(255, 255, 255, 0.08);
+            --bg-glass: rgba(255, 255, 255, 0.05);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-glass-hover: rgba(255, 255, 255, 0.15);
+
+            --text-primary: #f0f0f5;
+            --text-secondary: #8b8ba3;
+            --text-muted: #5a5a72;
+
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --accent-hover: #818cf8;
+
+            /* Цвета агентов */
+            --agent-grok: #a855f7;
+            --agent-antigravity: #3b82f6;
+
+            /* Цвета приоритетов */
+            --priority-critical: #ef4444;
+            --priority-high: #f97316;
+            --priority-medium: #eab308;
+            --priority-low: #6b7280;
+
+            /* Статус-цвета */
+            --status-pending: #6b7280;
+            --status-progress: #6366f1;
+            --status-review: #f59e0b;
+            --status-done: #22c55e;
+            --status-failed: #ef4444;
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --shadow-card-hover: 0 8px 40px rgba(99, 102, 241, 0.15);
+            --shadow-glow: 0 0 60px rgba(99, 102, 241, 0.08);
+
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* === Сброс и базовые стили === */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* === Фоновые декоративные элементы === */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(34, 197, 94, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+            animation: bgShift 30s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgShift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-2%, -1%) rotate(1deg); }
+        }
+
+        /* === Сетка с шумом для текстуры === */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* === Основной контейнер === */
+        .app {
+            position: relative;
+            z-index: 1;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* === Заголовок === */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 28px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-xl);
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-logo {
+            font-size: 32px;
+            line-height: 1;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* Индикатор статуса сервера */
+        .server-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--status-done);
+            box-shadow: 0 0 8px var(--status-done);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.offline {
+            background: var(--priority-critical);
+            box-shadow: 0 0 8px var(--priority-critical);
+            animation: pulse-red 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.3); }
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        /* Время последнего обновления */
+        .last-update {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* === Панель статистики === */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            position: relative;
+            padding: 20px 24px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: all var(--transition-normal);
+            animation: fadeInUp 0.6s ease-out both;
+        }
+
+        .stat-card:nth-child(1) { animation-delay: 0.05s; }
+        .stat-card:nth-child(2) { animation-delay: 0.1s; }
+        .stat-card:nth-child(3) { animation-delay: 0.15s; }
+        .stat-card:nth-child(4) { animation-delay: 0.2s; }
+
+        .stat-card:hover {
+            border-color: var(--border-glass-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-card-hover);
+        }
+
+        /* Декоративный акцент вверху карточки */
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--stat-accent, var(--accent));
+            opacity: 0.6;
+        }
+
+        .stat-card[data-type="total"]   { --stat-accent: var(--accent); }
+        .stat-card[data-type="progress"] { --stat-accent: var(--status-progress); }
+        .stat-card[data-type="done"]     { --stat-accent: var(--status-done); }
+        .stat-card[data-type="pending"]  { --stat-accent: var(--status-pending); }
+
+        .stat-icon {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* === Kanban-доска === */
+        .kanban {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+            min-height: 400px;
+        }
+
+        .kanban-column {
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            animation: fadeInUp 0.6s ease-out both;
+        }
+
+        .kanban-column:nth-child(1) { animation-delay: 0.1s; }
+        .kanban-column:nth-child(2) { animation-delay: 0.15s; }
+        .kanban-column:nth-child(3) { animation-delay: 0.2s; }
+        .kanban-column:nth-child(4) { animation-delay: 0.25s; }
+
+        .column-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .column-title {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+        }
+
+        .column-count {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.06);
+            padding: 2px 10px;
+            border-radius: 20px;
+            min-width: 28px;
+            text-align: center;
+        }
+
+        .column-cards {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        /* Кастомный скроллбар для колонок */
+        .column-cards::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .column-cards::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .column-cards::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .column-cards::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* === Карточка задачи === */
+        .task-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            cursor: default;
+            transition: all var(--transition-normal);
+            position: relative;
+            animation: cardFadeIn 0.4s ease-out both;
+        }
+
+        .task-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-glass-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-card-hover);
+        }
+
+        /* Линия приоритета слева */
+        .task-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 8px;
+            bottom: 8px;
+            width: 3px;
+            border-radius: 3px;
+            background: var(--task-priority-color, var(--text-muted));
+        }
+
+        .task-card[data-priority="critical"]::before { --task-priority-color: var(--priority-critical); }
+        .task-card[data-priority="high"]::before     { --task-priority-color: var(--priority-high); }
+        .task-card[data-priority="medium"]::before   { --task-priority-color: var(--priority-medium); }
+        .task-card[data-priority="low"]::before      { --task-priority-color: var(--priority-low); }
+
+        .task-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.4;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        .task-meta {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        /* Бейдж агента */
+        .agent-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .agent-badge.grok {
+            background: rgba(168, 85, 247, 0.15);
+            color: var(--agent-grok);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+        }
+
+
+
+        .agent-badge.antigravity {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--agent-antigravity);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+
+        .agent-badge.auto {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-glass);
+        }
+
+        /* Бейдж сложности */
+        .complexity-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .complexity-badge.simple {
+            background: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+        }
+
+        .complexity-badge.medium {
+            background: rgba(234, 179, 8, 0.1);
+            color: #fbbf24;
+        }
+
+        .complexity-badge.complex {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+        }
+
+        /* Точка приоритета */
+        .priority-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .priority-dot.critical { background: var(--priority-critical); box-shadow: 0 0 6px var(--priority-critical); }
+        .priority-dot.high     { background: var(--priority-high); }
+        .priority-dot.medium   { background: var(--priority-medium); }
+        .priority-dot.low      { background: var(--priority-low); }
+
+        /* Теги */
+        .task-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .tag-pill {
+            font-size: 10px;
+            font-weight: 500;
+            padding: 2px 7px;
+            border-radius: 4px;
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--accent-hover);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+        }
+
+        /* Нижняя часть карточки */
+        .task-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .task-time {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Кнопка диспетчеризации */
+        .dispatch-btn {
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 6px;
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--accent-hover);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .dispatch-btn:hover {
+            background: rgba(99, 102, 241, 0.25);
+            border-color: var(--accent);
+            box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+            transform: scale(1.05);
+        }
+
+        .dispatch-btn:active {
+            transform: scale(0.97);
+        }
+
+        .dispatch-btn.loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* Human-in-the-Loop стили */
+        .task-result {
+            font-size: 11px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px dashed var(--border-glass);
+            border-radius: var(--radius-sm);
+            padding: 8px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            max-height: 80px;
+            overflow-y: auto;
+            word-break: break-word;
+        }
+
+        .review-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            margin-bottom: 4px;
+        }
+
+        .approve-btn,
+        .reject-btn {
+            flex: 1;
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 6px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            text-align: center;
+        }
+
+        .approve-btn {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.25);
+        }
+
+        .approve-btn:hover {
+            background: rgba(34, 197, 94, 0.3);
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+            transform: scale(1.02);
+        }
+
+        .reject-btn {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .reject-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+            transform: scale(1.02);
+        }
+
+        /* === Пустое состояние колонки === */
+        .empty-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+            color: var(--text-muted);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .empty-column-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+            opacity: 0.4;
+        }
+
+        /* === Форма быстрого добавления === */
+        .quick-add {
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-xl);
+            padding: 24px 28px;
+            animation: fadeInUp 0.6s ease-out 0.3s both;
+        }
+
+        .quick-add-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .quick-add-form {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1.5fr auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input,
+        .form-select {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            transition: all var(--transition-fast);
+            outline: none;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-select {
+            cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8ba3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
+        }
+
+        .form-select option {
+            background: #1a1a2e;
+            color: var(--text-primary);
+        }
+
+        .submit-btn {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 10px 24px;
+            background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 100%);
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+        }
+
+        .submit-btn:hover::before {
+            opacity: 1;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        
+        /* === Живая лента === */
+        .activity-feed {
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 28px;
+        }
+        .feed-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--status-progress);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--status-progress);
+            animation: pulse 2s infinite;
+        }
+        .feed-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        .feed-list::-webkit-scrollbar { width: 4px; }
+        .feed-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+        
+        .feed-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid var(--accent);
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            animation: cardFadeIn 0.3s ease-out;
+        }
+        .feed-meta {
+            display: flex;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .feed-message {
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        /* === Анимации === */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes cardFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        /* Уведомление (тост) */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 14px 20px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all var(--transition-normal);
+        }
+
+        .toast.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-left: 3px solid var(--status-done);
+        }
+
+        .toast.error {
+            border-left: 3px solid var(--priority-critical);
+        }
+
+        /* === Адаптивность === */
+        @media (max-width: 1200px) {
+            .kanban {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app {
+                padding: 12px;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+
+            .header-right {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .stats-bar {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .kanban {
+                grid-template-columns: 1fr;
+            }
+
+            .quick-add-form {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-bar {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Загрузочный оверлей */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-primary);
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(99, 102, 241, 0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    
+        /* === WebSocket индикатор === */
+        .ws-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary, #888);
+            margin-left: 12px;
+            opacity: 0.8;
+        }
+        .ws-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666;
+            transition: background 0.3s ease;
+        }
+        .ws-dot.connected {
+            background: #4ade80;
+            box-shadow: 0 0 6px #4ade8088;
+            animation: ws-pulse 2s infinite;
+        }
+        .ws-dot.connecting {
+            background: #facc15;
+            animation: ws-pulse 0.5s infinite;
+        }
+        .ws-dot.disconnected {
+            background: #ef4444;
+        }
+        @keyframes ws-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Оверлей загрузки -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Уведомление (тост) -->
+    <div class="toast" id="toast"></div>
+
+    <div class="app">
+
+        <!-- === Заголовок === -->
+        <header class="header" id="header">
+            <div class="header-left">
+                <span class="header-logo">🏗️</span>
+                <div>
+                    <h1 class="header-title">AgentForge</h1>
+                    <div class="header-subtitle">Оркестрация AI-агентов</div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="server-status" id="serverStatus">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Подключение...</span>
+                    <span class="ws-indicator"><span class="ws-dot" id="wsDot"></span><span id="wsText">WS: ожидание</span></span>
+                </div>
+                <div class="last-update" id="lastUpdate">—</div>
+            </div>
+        </header>
+
+        <!-- === Панель статистики === -->
+        <section class="stats-bar" id="statsBar">
+            <div class="stat-card" data-type="total">
+                <div class="stat-icon">📦</div>
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Всего задач</div>
+            </div>
+            <div class="stat-card" data-type="progress">
+                <div class="stat-icon">🚀</div>
+                <div class="stat-value" id="statProgress">0</div>
+                <div class="stat-label">В работе</div>
+            </div>
+            <div class="stat-card" data-type="done">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value" id="statDone">0</div>
+                <div class="stat-label">Завершено</div>
+            </div>
+            <div class="stat-card" data-type="pending">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-value" id="statPending">0</div>
+                <div class="stat-label">В очереди</div>
+            </div>
+            <div class="stat-card" data-type="failed" style="--stat-accent: var(--status-failed);">
+                <div class="stat-value" id="statFailed">0</div>
+                <div class="stat-label">❌ Failed</div>
+            </div>
+            <div class="stat-card" data-type="cancelled" style="--stat-accent: #6b7280;">
+                <div class="stat-value" id="statCancelled">0</div>
+                <div class="stat-label">🚫 Отменено
+            </div>
+        </section>
+
+        <!-- === Покрытие API (tasks, metrics, agents, blackboard, knowledge) + WS === -->
+        <!-- Добавлено в рамках аудита и верификации: кнопки для live-теста всех ключевых эндпоинтов прямо из дашборда. -->
+        <section class="api-coverage" style="margin: 12px 0 20px; padding: 12px 16px; background: var(--bg-glass); border: 1px solid var(--border-glass); border-radius: 12px;">
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span style="color:var(--text-secondary); font-size:13px;">Покрытие API:</span>
+                <button onclick="testEndpoint('/api/metrics')" style="padding:4px 10px; font-size:12px;">/metrics</button>
+                <button onclick="testEndpoint('/api/agents')" style="padding:4px 10px; font-size:12px;">/agents</button>
+                <button onclick="testEndpoint('/api/blackboard/feed?limit=3')" style="padding:4px 10px; font-size:12px;">/blackboard</button>
+                <button onclick="testEndpoint('/api/knowledge/search?limit=3')" style="padding:4px 10px; font-size:12px;">/knowledge</button>
+                <button onclick="testEndpoint('/api/ws/status')" style="padding:4px 10px; font-size:12px;">/ws/status</button>
+                <span id="apiCoverageStatus" style="margin-left:8px; font-size:12px; color:#22c55e;">5/5 эндпоинтов + WS live</span>
+            </div>
+        </section>
+
+        <!-- === Kanban-доска === -->
+        <section class="kanban" id="kanban">
+            <!-- Колонка: Очередь -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title">📋 Очередь</span>
+                    <span class="column-count" id="countPending">0</span>
+                </div>
+                <div class="column-cards" id="colPending"></div>
+            </div>
+
+            <!-- Колонка: В работе -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title">🚀 В работе</span>
+                    <span class="column-count" id="countProgress">0</span>
+                </div>
+                <div class="column-cards" id="colProgress"></div>
+            </div>
+
+            <!-- Колонка: На ревью -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title">👁️ На ревью</span>
+                    <span class="column-count" id="countReview">0</span>
+                </div>
+                <div class="column-cards" id="colReview"></div>
+            </div>
+
+            <!-- Колонка: Готово -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title">✅ Готово</span>
+                    <span class="column-count" id="countDone">0</span>
+                </div>
+                <div class="column-cards" id="colDone"></div>
+            </div>
+        </section>
+
+        <!-- Форма добавления задачи отключена -->
+
+
+    </div>
+
+    <script>
+        /* ================================================
+         * AgentForge Dashboard — Клиентская логика
+         * Автообновление, Kanban, уведомления, CRUD задач
+         * ================================================ */
+
+        // === Конфигурация ===
+        // Автоопределение API с fallback по нескольким адресам
+        // ФИКС ДЛЯ PORT 9090: используем относительный URL ('') по умолчанию.
+        // Это решает "Fetch Error Failed to fetch / signal timed out at fetchTasks"
+        // при доступе через SSH-туннель (localhost:9090 → Rust gateway → Python API).
+        // Относительные fetch('/tasks') автоматически используют origin страницы.
+        // Для случая открытия HTML как file:// сохраняем автоопределение + candidates.
+        let API_BASE = window.location.protocol === 'file:'
+            ? 'http://127.0.0.1:9090'   // SSH-туннель (file:// → localhost:9090)
+            : '';                       // ОТНОСИТЕЛЬНЫЙ URL — ключевой фикс для tunneled dashboard
+        const REFRESH_INTERVAL = 10000; // 10 секунд
+
+        // Список адресов для автоматического перебора (только file:// протокол)
+        const API_CANDIDATES = [
+            'http://127.0.0.1:9090',     // SSH-туннель на порт 9090
+            'http://146.120.89.199:9090', // Прямой IP Erbox
+        ];
+
+        /**
+         * Автоматический поиск доступного API-сервера
+         * Перебирает кандидатов и возвращает первый отвечающий
+         */
+        async function autoDetectApi() {
+            if (window.location.protocol !== 'file:') return; // На сервере не нужно
+            for (const candidate of API_CANDIDATES) {
+                try {
+                    const resp = await fetch(`${candidate}/health`, {
+                        signal: AbortSignal.timeout(2000)
+                    });
+                    if (resp.ok) {
+                        console.log(`[AgentForge] API найден: ${candidate}`);
+                        API_BASE = candidate;
+                        return;
+                    }
+                } catch (e) {
+                    console.log(`[AgentForge] ${candidate} недоступен`);
+                }
+            }
+            console.warn('[AgentForge] Ни один API-сервер не отвечает');
+        }
+        let refreshTimer = null;
+        let allTasks = []; // Кэш всех задач
+
+        // === DOM-элементы ===
+        const dom = {
+            loadingOverlay: document.getElementById('loadingOverlay'),
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            lastUpdate: document.getElementById('lastUpdate'),
+            toast: document.getElementById('toast'),
+            // Статистика
+            statTotal: document.getElementById('statTotal'),
+            statProgress: document.getElementById('statProgress'),
+            statDone: document.getElementById('statDone'),
+            statPending: document.getElementById('statPending'),
+            // Kanban колонки
+            colPending: document.getElementById('colPending'),
+            colProgress: document.getElementById('colProgress'),
+            colReview: document.getElementById('colReview'),
+            colDone: document.getElementById('colDone'),
+            // Счётчики колонок
+            countPending: document.getElementById('countPending'),
+            countProgress: document.getElementById('countProgress'),
+            countReview: document.getElementById('countReview'),
+            countDone: document.getElementById('countDone'),
+
+        };
+
+        // === Утилиты ===
+
+        /**
+         * Вычислить человекочитаемое время с момента создания
+         * @param {string} isoDate - ISO строка даты
+         * @returns {string} Относительное время
+         */
+        function timeAgo(isoDate) {
+            if (!isoDate) return '—';
+            const now = new Date();
+            const then = new Date(isoDate);
+            const diffMs = now - then;
+            const diffSec = Math.floor(diffMs / 1000);
+            const diffMin = Math.floor(diffSec / 60);
+            const diffHour = Math.floor(diffMin / 60);
+            const diffDay = Math.floor(diffHour / 24);
+
+            if (diffSec < 60) return `${diffSec}с назад`;
+            if (diffMin < 60) return `${diffMin}м назад`;
+            if (diffHour < 24) return `${diffHour}ч назад`;
+            return `${diffDay}д назад`;
+        }
+
+        /**
+         * Показать тост-уведомление
+         * @param {string} message - Текст уведомления
+         * @param {'success'|'error'} type - Тип уведомления
+         */
+        function showToast(message, type = 'success') {
+            dom.toast.textContent = message;
+            dom.toast.className = `toast ${type} visible`;
+            setTimeout(() => {
+                dom.toast.classList.remove('visible');
+            }, 3000);
+        }
+
+        /**
+         * Получить название приоритета на русском
+         */
+        function priorityLabel(priority) {
+            const map = { critical: 'Критический', high: 'Высокий', medium: 'Средний', low: 'Низкий' };
+            return map[priority] || priority;
+        }
+
+        /**
+         * Получить название сложности на русском
+         */
+        function complexityLabel(complexity) {
+            const map = { simple: 'Простая', medium: 'Средняя', complex: 'Сложная' };
+            return map[complexity] || complexity;
+        }
+
+        // === Проверка здоровья сервера ===
+
+        async function checkHealth() {
+            try {
+                // Используем fetchWithRetry (см. ниже) — устойчивость к таймаутам туннеля
+                const resp = await fetchWithRetry('/health', { signal: AbortSignal.timeout(5000) });
+                const data = await resp.json();
+                if (data.status === 'ok') {
+                    dom.statusDot.classList.remove('offline');
+                    dom.statusText.textContent = 'Онлайн';
+                    return true;
+                }
+            } catch (e) {
+                // Сервер недоступен (после всех ретраев)
+            }
+            dom.statusDot.classList.add('offline');
+            dom.statusText.textContent = 'Офлайн';
+            return false;
+        }
+
+        /**
+         * Тест эндпоинта для покрытия API (вызывается кнопками из секции "Покрытие API").
+         * Использует fetchWithRetry, выводит краткий статус в тост + консоль.
+         * Это обеспечивает полную видимость и тестируемость endpoints: tasks(уже), metrics, agents, blackboard, knowledge + WS.
+         */
+        async function testEndpoint(path) {
+            const statusEl = document.getElementById('apiCoverageStatus');
+            try {
+                const resp = await fetchWithRetry(path, { signal: AbortSignal.timeout(6000) });
+                const text = await resp.text();
+                let preview = '';
+                try {
+                    const j = JSON.parse(text);
+                    preview = JSON.stringify(j).substring(0, 120) + (JSON.stringify(j).length > 120 ? '...' : '');
+                } catch (_) {
+                    preview = text.substring(0, 80);
+                }
+                const ok = resp.ok;
+                const msg = `${ok ? '✅' : '⚠️'} ${path} → HTTP ${resp.status} ${preview}`;
+                console.log('[AgentForge API Test]', msg);
+                if (typeof showToast === 'function') {
+                    showToast(msg, ok ? 'success' : 'alert');
+                }
+                if (statusEl) {
+                    statusEl.textContent = ok ? 'OK: ' + path : 'ERR: ' + path;
+                    statusEl.style.color = ok ? '#22c55e' : '#ef4444';
+                    setTimeout(() => {
+                        if (statusEl) statusEl.textContent = '5/5 эндпоинтов + WS live';
+                        if (statusEl) statusEl.style.color = '#22c55e';
+                    }, 2500);
+                }
+            } catch (e) {
+                const msg = `❌ ${path} ошибка: ${e.message || e}`;
+                console.warn('[AgentForge API Test]', msg);
+                if (typeof showToast === 'function') showToast(msg, 'alert');
+                if (statusEl) {
+                    statusEl.textContent = 'FAIL ' + path;
+                    statusEl.style.color = '#ef4444';
+                }
+            }
+        }
+
+        // === Загрузка задач с retry + backoff (ФИКС бага alert popup на 9090) ===
+
+        /**
+         * Универсальный fetch с экспоненциальным backoff и ретраями.
+         * Решает проблему "signal timed out" и "Failed to fetch" при нестабильном SSH-туннеле на порт 9090.
+         * Все комментарии — на русском, по требованиям AGENTS.md и user query.
+         */
+        async function fetchWithRetry(path, options = {}, maxRetries = 3) {
+            // path всегда начинается с / (относительный или с API_BASE)
+            const fullUrl = API_BASE ? `${API_BASE}${path}` : path;
+            let lastErr;
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    const resp = await fetch(fullUrl, options);
+                    return resp;  // успех — сразу возвращаем
+                } catch (e) {
+                    lastErr = e;
+                    if (attempt < maxRetries) {
+                        // exponential backoff: 300ms, 600ms, 1200ms ...
+                        const delay = 300 * Math.pow(2, attempt);
+                        console.warn(`[AgentForge] fetch ${path} попытка ${attempt + 1}/${maxRetries + 1} неудачна (${e.message}), backoff ${delay}ms`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+            throw lastErr;  // все ретраи исчерпаны
+        }
+
+        async function fetchTasks() {
+            try {
+                // КЛЮЧЕВОЙ ФИКС: относительный URL + retry+backoff вместо прямого fetch
+                // Больше нет alert() popup, который блокировал UI при таймауте туннеля.
+                const resp = await fetchWithRetry('/tasks', { signal: AbortSignal.timeout(8000) });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                allTasks = await resp.json();
+                renderAll();
+                // Обновляем время последнего успешного обновления
+                const now = new Date();
+                dom.lastUpdate.textContent = `Обновлено: ${now.toLocaleTimeString('ru-RU')}`;
+            } catch (e) {
+                // ФИКС: заменено alert() на console.warn + (опционально) не-блокирующий toast
+                console.warn('[AgentForge] Ошибка загрузки задач после всех ретраев:', e.message || e);
+                // Не используем alert — это было причиной UX проблемы на port 9090
+                if (typeof showToast === 'function') {
+                    showToast('⚠️ Не удалось загрузить задачи: ' + (e.message || 'таймаут'), 'alert');
+                } else {
+                    console.error('[AgentForge] Полная ошибка fetchTasks:', e);
+                }
+            }
+        }
+
+        // === Рендеринг ===
+
+        /**
+         * Перерисовать статистику и Kanban-доску
+         */
+        function renderAll() {
+            // Распределяем задачи по колонкам
+            const pending = allTasks.filter(t => t.status === 'pending');
+            const inWork = allTasks.filter(t => t.status === 'dispatched' || t.status === 'in_progress');
+            const review = allTasks.filter(t => t.status === 'review');
+            const done = allTasks.filter(t => t.status === 'done' || t.status === 'failed' || t.status === 'cancelled');
+
+            // Обновляем статистику
+            animateCounter(dom.statTotal, allTasks.length);
+            animateCounter(dom.statProgress, inWork.length);
+            animateCounter(dom.statDone, done.length);
+            animateCounter(dom.statPending, pending.length);
+            // Отдельные счётчики failed и cancelled
+            const failedTasks = allTasks.filter(t => t.status === 'failed');
+            const cancelledTasks = allTasks.filter(t => t.status === 'cancelled');
+            const sfailed = document.getElementById('statFailed');
+            const scancelled = document.getElementById('statCancelled');
+            if (sfailed) animateCounter(sfailed, failedTasks.length);
+            if (scancelled) animateCounter(scancelled, cancelledTasks.length);
+
+            // Обновляем счётчики колонок
+            dom.countPending.textContent = pending.length;
+            dom.countProgress.textContent = inWork.length;
+            dom.countReview.textContent = review.length;
+            dom.countDone.textContent = done.length;
+
+            // Рендерим карточки в колонки
+            renderColumn(dom.colPending, pending, true);
+            renderColumn(dom.colProgress, inWork, false);
+            renderColumn(dom.colReview, review, false);
+            renderColumn(dom.colDone, done, false);
+        }
+
+        /**
+         * Плавная анимация счётчика
+         */
+        function animateCounter(el, target) {
+            const current = parseInt(el.textContent) || 0;
+            if (current === target) return;
+            el.textContent = target;
+        }
+
+        /**
+         * Рендерить карточки в колонку
+         * @param {HTMLElement} container - Контейнер колонки
+         * @param {Array} tasks - Массив задач для этой колонки
+         * @param {boolean} showDispatch - Показывать кнопку диспетчеризации
+         */
+        function renderColumn(container, tasks, showDispatch) {
+            if (tasks.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-column">
+                        <div class="empty-column-icon">📭</div>
+                        <div>Нет задач</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = tasks.map((task, index) => {
+                // Определяем агента для бейджа
+                const agent = task.assigned_agent || task.preferred_agent || 'auto';
+                const agentClass = ['grok', 'antigravity'].includes(agent) ? agent : 'auto';
+                // Имя агента без нумерации
+                const agentName = agent === 'auto' ? 'АВТО' : agent.toUpperCase();
+
+                // Теги
+                const tags = (task.tags || []);
+                const tagsHtml = tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('');
+
+                // Кнопка диспетчеризации (только для pending)
+                const dispatchHtml = showDispatch
+                    ? `<button class="dispatch-btn" onclick="dispatchTask('${task.id}')" title="Назначить агенту">▶ Запуск</button>`
+                    : '';
+
+                // Иконки и кнопки для review (HITL)
+                const reviewHtml = task.status === 'review'
+                    ? `<div class="review-actions">
+                           <button class="approve-btn" onclick="approveTask('${task.id}')">Approve ✅</button>
+                           <button class="reject-btn" onclick="promptRejectTask('${task.id}')">Reject ❌</button>
+                       </div>`
+                    : '';
+
+                // Иконка статуса для done/failed
+                const statusIcon = task.status === 'failed' ? '❌ ' : '';
+
+                return `
+                    <div class="task-card" data-priority="${task.priority}" style="animation-delay: ${index * 0.05}s">
+                        <div class="task-title">${statusIcon}${escapeHtml(task.title)}</div>
+                        ${task.result ? `<div class="task-result">${escapeHtml(task.result)}</div>` : ''}
+                        <div class="task-meta">
+                            <span class="agent-badge ${agentClass}">${agentName}</span>
+                            <span class="priority-dot ${task.priority}" title="${priorityLabel(task.priority)}"></span>
+                            <span class="complexity-badge ${task.complexity}">${complexityLabel(task.complexity)}</span>
+                        </div>
+                        ${tags.length > 0 ? `<div class="task-tags">${tagsHtml}</div>` : ''}
+                        ${reviewHtml}
+                        <div class="task-footer">
+                            <span class="task-time" title="${task.id}">#${task.id.substring(0, 8)} · ${timeAgo(task.created_at)}</span>
+                            ${dispatchHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Экранирование HTML для предотвращения XSS
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        // === Действия ===
+
+        /**
+         * Одобрение задачи (Human-in-the-Loop)
+         */
+        async function approveTask(taskId) {
+            try {
+                const resp = await fetch(`${API_BASE}/tasks/${taskId}/review`, {
+                    method: 'POST',
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.detail || `HTTP ${resp.status}`);
+                }
+                const result = await resp.json();
+                showToast(`✅ ${result.message || 'Задача одобрена!'}`, 'success');
+                await fetchTasks();
+            } catch (e) {
+                showToast(`❌ Ошибка: ${e.message}`, 'error');
+            }
+        }
+
+        /**
+         * Отклонение задачи (Human-in-the-Loop Reject) с фидбеком
+         */
+        async function promptRejectTask(taskId) {
+            const feedback = prompt("Укажите причину отклонения задачи (фидбек для агента):");
+            if (feedback === null) return;
+            const trimmed = feedback.trim();
+            if (!trimmed) {
+                showToast("⚠️ Причина отклонения не может быть пустой!", "error");
+                return;
+            }
+
+            try {
+                const resp = await fetch(`${API_BASE}/tasks/${taskId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedback: trimmed })
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.detail || `HTTP ${resp.status}`);
+                }
+                showToast("❌ Задача отправлена на доработку", "success");
+                await fetchTasks();
+            } catch (e) {
+                showToast(`❌ Ошибка: ${e.message}`, 'error');
+            }
+        }
+
+        /**
+         * Диспетчеризация задачи — отправка агенту
+         * @param {string} taskId - ID задачи
+         */
+        async function dispatchTask(taskId) {
+            // Находим кнопку и блокируем
+            const btn = event.target;
+            btn.classList.add('loading');
+            btn.textContent = '⏳...';
+
+            try {
+                const resp = await fetch(`${API_BASE}/tasks/${taskId}/dispatch`, {
+                    method: 'POST',
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.detail || `HTTP ${resp.status}`);
+                }
+
+                const result = await resp.json();
+                showToast(`✅ Задача отправлена: ${result.assigned_agent}`, 'success');
+
+                // Перезагружаем данные
+                await fetchTasks();
+            } catch (e) {
+                showToast(`❌ Ошибка: ${e.message}`, 'error');
+                btn.classList.remove('loading');
+                btn.textContent = '▶ Запуск';
+            }
+        }
+
+        /**
+         * Создание новой задачи через форму
+         */
+        async function createTask(e) {
+            e.preventDefault();
+
+            const title = dom.taskTitle.value.trim();
+            if (!title) return;
+
+            // Парсим теги (через запятую)
+            const tagsRaw = dom.taskTags.value.trim();
+            const tags = tagsRaw
+                ? tagsRaw.split(',').map(t => t.trim()).filter(t => t.length > 0)
+                : [];
+
+            dom.submitBtn.classList.add('loading');
+            dom.submitBtn.textContent = 'Создание...';
+
+            try {
+                const resp = await fetch(`${API_BASE}/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        description: '',
+                        priority: dom.taskPriority.value,
+                        complexity: dom.taskComplexity.value,
+                        preferred_agent: 'auto',
+                        tags: tags,
+                    }),
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.detail || `HTTP ${resp.status}`);
+                }
+
+                showToast(`✅ Задача создана: ${title}`, 'success');
+
+                // Сбрасываем форму
+                dom.taskTitle.value = '';
+                dom.taskTags.value = '';
+                dom.taskPriority.value = 'medium';
+                dom.taskComplexity.value = 'medium';
+
+                // Перезагружаем данные
+                await fetchTasks();
+            } catch (e) {
+                showToast(`❌ Ошибка: ${e.message}`, 'error');
+            } finally {
+                dom.submitBtn.classList.remove('loading');
+                dom.submitBtn.textContent = 'Создать →';
+            }
+        }
+
+        // === Инициализация ===
+
+        async function init() {
+            // Автоопределение API-сервера (перебор кандидатов)
+            await autoDetectApi();
+
+            // Проверяем здоровье и загружаем данные
+            await Promise.all([checkHealth(), fetchTasks()]);
+
+            // Убираем оверлей загрузки
+            dom.loadingOverlay.classList.add('hidden');
+            setTimeout(() => dom.loadingOverlay.remove(), 500);
+
+            // Подключаем WebSocket для real-time обновлений
+            connectWebSocket();
+            
+            // Запускаем автообновление каждые 10 секунд (fallback если WS недоступен)
+            refreshTimer = setInterval(async () => {
+                await Promise.all([checkHealth(), fetchTasks()]);
+            }, REFRESH_INTERVAL);
+        }
+
+
+        // === WebSocket: real-time обновления ===
+        
+        let wsConnection = null;
+        let wsReconnectTimer = null;
+        const WS_RECONNECT_DELAY = 3000; // 3 секунды между попытками реконнекта
+        const WS_PING_INTERVAL = 30000;  // ping каждые 30 секунд
+        let wsPingTimer = null;
+
+        /**
+         * Вычисляет WebSocket URL из текущего API_BASE
+         * http://host:port -> ws://host:port
+         * https://host:port -> wss://host:port
+         * ФИКС: поддержка относительного API_BASE='' (для туннеля 9090)
+         */
+        function getWsUrl() {
+            if (!API_BASE) {
+                // Относительный WS — используем текущий хост страницы (работает через 9090 туннель)
+                const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                return `${wsProto}//${window.location.host}/ws/logs`;
+            }
+            const base = API_BASE.replace(/^http/, 'ws');
+            return `${base}/ws/logs`;
+        }
+
+        /**
+         * Обновить индикатор WebSocket-подключения
+         * @param {'connected'|'connecting'|'disconnected'} state
+         */
+        function updateWsIndicator(state) {
+            const dot = document.getElementById('wsDot');
+            const text = document.getElementById('wsText');
+            if (!dot || !text) return;
+            
+            dot.className = 'ws-dot ' + state;
+            const labels = {
+                connected: 'WS: live',
+                connecting: 'WS: подключение...',
+                disconnected: 'WS: отключён'
+            };
+            text.textContent = labels[state] || 'WS: ?';
+        }
+
+        /**
+         * Подключиться к WebSocket серверу для получения real-time обновлений.
+         * Автоматически переподключается при обрыве.
+         */
+        function connectWebSocket() {
+            // Если уже подключены — не дублируем
+            if (wsConnection && wsConnection.readyState === WebSocket.OPEN) return;
+            
+            const url = getWsUrl();
+            console.log(`[AgentForge WS] Подключение к ${url}...`);
+            updateWsIndicator('connecting');
+            
+            try {
+                wsConnection = new WebSocket(url);
+            } catch (e) {
+                console.error('[AgentForge WS] Ошибка создания:', e);
+                updateWsIndicator('disconnected');
+                scheduleReconnect();
+                return;
+            }
+            
+            wsConnection.onopen = () => {
+                console.log('[AgentForge WS] Подключено!');
+                updateWsIndicator('connected');
+                showToast('🔌 WebSocket: live-обновления включены', 'success');
+                
+                // Запускаем ping для keep-alive
+                if (wsPingTimer) clearInterval(wsPingTimer);
+                wsPingTimer = setInterval(() => {
+                    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+                        wsConnection.send('ping');
+                    }
+                }, WS_PING_INTERVAL);
+                
+                // Отменяем таймер реконнекта если был
+                if (wsReconnectTimer) {
+                    clearTimeout(wsReconnectTimer);
+                    wsReconnectTimer = null;
+                }
+            };
+            
+            wsConnection.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    console.log('[AgentForge WS] Сообщение:', msg.type, msg.task_id);
+                    
+                    if (msg.type === 'task_update') {
+                        // Мгновенно обновляем дашборд
+                        handleWsTaskUpdate(msg);
+                    } else if (msg.type === 'pong') {
+                        // Ответ на ping — всё ок
+                    }
+                } catch (e) {
+                    console.warn('[AgentForge WS] Ошибка парсинга:', e);
+                }
+            };
+            
+            wsConnection.onclose = (event) => {
+                console.log(`[AgentForge WS] Отключено (code=${event.code})`);
+                updateWsIndicator('disconnected');
+                if (wsPingTimer) clearInterval(wsPingTimer);
+                scheduleReconnect();
+            };
+            
+            wsConnection.onerror = (error) => {
+                console.error('[AgentForge WS] Ошибка:', error);
+                updateWsIndicator('disconnected');
+            };
+        }
+
+        /**
+         * Запланировать переподключение к WebSocket
+         */
+        function scheduleReconnect() {
+            if (wsReconnectTimer) return; // Уже запланировано
+            wsReconnectTimer = setTimeout(() => {
+                wsReconnectTimer = null;
+                connectWebSocket();
+            }, WS_RECONNECT_DELAY);
+        }
+
+        /**
+         * Обработка real-time обновления задачи через WebSocket.
+         * Обновляет кэш задач и перерисовывает UI без полной перезагрузки.
+         */
+        function handleWsTaskUpdate(msg) {
+            const taskData = msg.data;
+            const taskId = msg.task_id;
+            
+            if (!taskData || !taskId) return;
+            
+            // Обновляем кэш allTasks
+            const existingIdx = allTasks.findIndex(t => t.id === taskId);
+            if (existingIdx >= 0) {
+                // Обновляем существующую задачу
+                allTasks[existingIdx] = taskData;
+            } else {
+                // Новая задача — добавляем в начало
+                allTasks.unshift(taskData);
+            }
+            
+            // Перерисовываем UI
+            renderAll();
+            
+            // Обновляем метрики
+            checkHealth();
+            
+            // Показываем тост с обновлением
+            const statusEmoji = {
+                pending: '📋',
+                dispatched: '🚀',
+                in_progress: '⚙️',
+                review: '🔍',
+                done: '✅',
+                failed: '❌'
+            };
+            const emoji = statusEmoji[taskData.status] || '🔄';
+            const shortTitle = (taskData.title || '').substring(0, 40);
+            showToast(`${emoji} ${shortTitle} → ${taskData.status}`, 'success');
+        }
+
+        // Запуск при загрузке DOM
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

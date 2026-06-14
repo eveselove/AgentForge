@@ -1,25 +1,30 @@
 # === PURE RUST FLYWHEEL DEFAULT CUTOVER (Phase 3 — PRODUCTION EXCELLENCE) @ 2026-05-31T10:42:02+03:00 ===
+# PHASE4_REMOVAL_PLAN AGGRESSIVE FINAL DEPRECATION SWEEP: flywheel refs are rollback notes only (env + markers). Keep service.
 # Injected by bin/make_pure_rust_flywheel_default.sh
 # agentforge-runner sole engine (flywheel-step/candidate/continuous). Non-breaking additive.
 # Rollback: edit unit or set Environment=AGENTFORGE_FLYWHEEL_ENGINE=python + touch .disable_pure_rust_flywheel
 [Unit]
 Description=AgentForge Grok Worker (параллельный)
-After=agentforge-api.service
-Requires=agentforge-api.service
+After=network.target agentforge-gateway.service
+Requires=agentforge-gateway.service
 
 [Service]
 Type=simple
 User=agx
 Group=agx
-WorkingDirectory=/home/eveselove/planlytasksko
+WorkingDirectory=/home/eveselove/agentforge
 Environment=PATH=/home/eveselove/.local/bin:/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove/.nvm/versions/node/v20.20.1/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PROTOC=/home/eveselove/.local/bin/protoc
 Environment=HOME=/home/eveselove
 # Rust Flywheel live farm integration (Jules track): enable + runner path for post-task auto fire
-# 2026-06: Now DEFAULT for Antigravity. Prefers release binary for production speed.
+# 2026-06 + task-5af0e350: PURE RUST FLYWHEEL HARD DEFAULT for 14d soak. Prefers release binary for production speed.
 Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
 Environment=AGENTFORGE_RUST_RUNNER=/home/eveselove/agentforge/rust/target/release/agentforge-runner
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
+Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
 # To fully disable for this worker: Environment=DISABLE_RUST_FLYWHEEL=1 (and comment the three lines above)
 # Optional rate: Environment=AGENTFORGE_RUST_FLYWHEEL_EVERY_N=5
 ExecStart=/bin/bash /home/eveselove/agentforge/grok_worker.sh
@@ -35,7 +40,4 @@ StartLimitBurst=20
 [Install]
 WantedBy=multi-user.target
 
-Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
-Environment=AGENTFORGE_FLYWHEEL_ENGINE=rust
-Environment=AGENTFORGE_FLYWHEEL_PROVENANCE=rust-agentforge-runner
-# Pure cutover injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00 — rollback via FLYWHEEL_ENGINE=python or .disable_pure_rust_flywheel
+# Pure cutover + task-5af0e350: PURE RUST HARD DEFAULT for 14d soak. Rollback via disable_pure script.

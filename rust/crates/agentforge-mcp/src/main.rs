@@ -1,8 +1,7 @@
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
-use reqwest::Client;
-use std::env;
 
 #[derive(Deserialize, Debug)]
 struct RpcRequest {
@@ -23,20 +22,21 @@ struct RpcResponse {
     error: Option<Value>,
 }
 
-const API_BASE: &str = "http://127.0.0.1:8080";
-
 #[tokio::main]
 async fn main() {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
     let mut reader = BufReader::new(stdin).lines();
     let client = Client::new();
+    let api_base =
+        std::env::var("AGENTFORGE_API").unwrap_or_else(|_| "http://127.0.0.1:9090".to_string());
 
     while let Ok(Some(line)) = reader.next_line().await {
         let req: Result<RpcRequest, _> = serde_json::from_str(&line);
         if let Ok(request) = req {
             if let Some(id) = request.id.clone() {
-                let result = handle_request(&client, &request.method, request.params).await;
+                let result =
+                    handle_request(&client, &request.method, request.params, &api_base).await;
                 let response = match result {
                     Ok(res) => RpcResponse {
                         jsonrpc: "2.0".to_string(),
@@ -62,7 +62,12 @@ async fn main() {
     }
 }
 
-async fn handle_request(client: &Client, method: &str, params: Value) -> Result<Value, Box<dyn std::error::Error>> {
+async fn handle_request(
+    client: &Client,
+    method: &str,
+    params: Value,
+    api_base: &str,
+) -> Result<Value, Box<dyn std::error::Error>> {
     match method {
         "initialize" => Ok(json!({
             "protocolVersion": "2024-11-05",
@@ -151,59 +156,102 @@ async fn handle_request(client: &Client, method: &str, params: Value) -> Result<
         "tools/call" => {
             let tool_name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
-            
+
             let output = match tool_name {
                 "agentforge_list_tasks" => {
-                    let mut url = format!("{}/tasks", API_BASE);
+                    let mut url = format!("{}/tasks", api_base);
                     if let Some(status) = args.get("status").and_then(|s| s.as_str()) {
                         url = format!("{}?status={}", url, status);
                     }
                     let res = client.get(&url).send().await?.text().await?;
                     let parsed: Value = serde_json::from_str(&res).unwrap_or(json!({"error": res}));
-                    
+
                     let mut text = String::new();
                     if let Some(tasks) = parsed.get("tasks").and_then(|t| t.as_array()) {
                         text.push_str(&format!("📋 Найдено задач: {}\n\n", tasks.len()));
                         for task in tasks {
-                            let id = task.get("id").and_then(|i| i.as_str()).unwrap_or("")[0..8].to_string();
-                            let st = task.get("status").and_then(|s| s.as_str()).unwrap_or("unknown");
-                            let desc = task.get("description").and_then(|d| d.as_str()).unwrap_or("");
-                            let desc_short = desc.lines().next().unwrap_or("").chars().take(80).collect::<String>();
-                            let ag = task.get("assigned_agent").and_then(|a| a.as_str()).unwrap_or("None");
-                            text.push_str(&format!("- [{}] {}... | статус: {} | агент: {}\n", id, desc_short, st, ag));
+                            let id = task.get("id").and_then(|i| i.as_str()).unwrap_or("")[0..8]
+                                .to_string();
+                            let st = task
+                                .get("status")
+                                .and_then(|s| s.as_str())
+                                .unwrap_or("unknown");
+                            let desc = task
+                                .get("description")
+                                .and_then(|d| d.as_str())
+                                .unwrap_or("");
+                            let desc_short = desc
+                                .lines()
+                                .next()
+                                .unwrap_or("")
+                                .chars()
+                                .take(80)
+                                .collect::<String>();
+                            let ag = task
+                                .get("assigned_agent")
+                                .and_then(|a| a.as_str())
+                                .unwrap_or("None");
+                            text.push_str(&format!(
+                                "- [{}] {}... | статус: {} | агент: {}\n",
+                                id, desc_short, st, ag
+                            ));
                         }
                     } else {
                         text = res;
                     }
                     text
-                },
+                }
                 "agentforge_get_task" => {
                     let task_id = args.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
-                    client.get(&format!("{}/tasks/{}", API_BASE, task_id)).send().await?.text().await?
-                },
+                    client
+                        .get(&format!("{}/tasks/{}", api_base, task_id))
+                        .send()
+                        .await?
+                        .text()
+                        .await?
+                }
                 "agentforge_create_task" => {
-                    client.post(&format!("{}/tasks", API_BASE)).json(&args).send().await?.text().await?
-                },
+                    client
+                        .post(&format!("{}/tasks", api_base))
+                        .json(&args)
+                        .send()
+                        .await?
+                        .text()
+                        .await?
+                }
                 "agentforge_dispatch_task" => {
                     let task_id = args.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
                     let agent = args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
-                    client.post(&format!("{}/tasks/{}/dispatch", API_BASE, task_id))
+                    client
+                        .post(&format!("{}/tasks/{}/dispatch", api_base, task_id))
                         .json(&json!({"agent": agent}))
-                        .send().await?.text().await?
-                },
+                        .send()
+                        .await?
+                        .text()
+                        .await?
+                }
                 "agentforge_update_task" => {
                     let task_id = args.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
                     let mut payload = args.clone();
                     if let Some(obj) = payload.as_object_mut() {
                         obj.remove("task_id");
                     }
-                    client.patch(&format!("{}/tasks/{}", API_BASE, task_id))
+                    client
+                        .patch(&format!("{}/tasks/{}", api_base, task_id))
                         .json(&payload)
-                        .send().await?.text().await?
-                },
+                        .send()
+                        .await?
+                        .text()
+                        .await?
+                }
                 "agentforge_metrics" => {
-                    client.get(&format!("{}/metrics", API_BASE)).send().await?.text().await?
-                },
+                    client
+                        .get(&format!("{}/metrics", api_base))
+                        .send()
+                        .await?
+                        .text()
+                        .await?
+                }
                 _ => format!("Unknown tool: {}", tool_name),
             };
 
@@ -215,7 +263,7 @@ async fn handle_request(client: &Client, method: &str, params: Value) -> Result<
                     }
                 ]
             }))
-        },
-        _ => Err(format!("Method not found: {}", method).into())
+        }
+        _ => Err(format!("Method not found: {}", method).into()),
     }
 }

@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Leaderboard • Planly Metrics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #171a24;
+      --border: #252a38;
+      --text: #e6e8f0;
+      --muted: #8b92a8;
+      --accent: #6366f1;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --blue: #3b82f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', system_ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .header {
+      background: #11141c;
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header h1 {
+      margin: 0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .header .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .nav {
+      display: flex;
+      gap: 8px;
+    }
+    .nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      transition: all .15s;
+    }
+    .nav a:hover { color: var(--text); background: #1f2330; }
+    .container {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 20px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+    }
+    .stat .label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .stat .value {
+      font-size: 22px;
+      font-weight: 700;
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .search {
+      flex: 1;
+      min-width: 220px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      outline: none;
+    }
+    .search:focus { border-color: var(--accent); }
+    .btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 16px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn:hover { border-color: #3b4255; }
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .table-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: #11141c;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    th:hover { color: var(--text); }
+    th .sort { margin-left: 4px; opacity: .5; }
+    tr:last-child td { border-bottom: none; }
+    .rank {
+      font-weight: 700;
+      font-size: 15px;
+      width: 42px;
+    }
+    .rank-1 { color: #fde047; }
+    .rank-2 { color: #94a3b8; }
+    .rank-3 { color: #f59e0b; }
+    .agent {
+      font-weight: 600;
+    }
+    .agent-id {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: ui-monospace, monospace;
+    }
+    .metric {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+    .ci-bar {
+      height: 6px;
+      background: #1f2533;
+      border-radius: 999px;
+      margin-top: 4px;
+      overflow: hidden;
+      width: 92px;
+    }
+    .ci-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #86efac);
+      transition: width .3s;
+    }
+    .score {
+      font-size: 17px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .score-high { color: #4ade80; }
+    .score-mid { color: #facc15; }
+    .score-low { color: #f87171; }
+    .escalation {
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+    .esc-low { background: #052e16; color: #4ade80; }
+    .esc-med { background: #3f2a1f; color: #fcd34d; }
+    .esc-high { background: #3f1f1f; color: #fda4af; }
+    .last-active {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .empty {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .form-panel {
+      margin-top: 28px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .form-panel h3 {
+      margin: 0 0 14px;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .form-grid input, .form-grid select {
+      background: #11141c;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 11px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .form-grid input:focus { border-color: var(--accent); outline: none; }
+    .footer-note {
+      margin-top: 24px;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+    .medal { margin-right: 4px; }
+    .loading { opacity: .7; }
+    @media (max-width: 720px) {
+      table { font-size: 12px; }
+      th, td { padding: 9px 8px; }
+      .ci-bar { width: 64px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>🏆 Agent Leaderboard</h1>
+      <div class="subtitle">Рейтинг агентов • метрики скорости, качества и надёжности</div>
+    </div>
+    <div class="nav">
+      <a href="/dashboard">HITL Dashboard</a>
+      <a href="/api/health">Health</a>
+      <a href="/leaderboard" onclick="location.reload();return false">⟳ Refresh</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="stats" id="stats">
+      <div class="stat"><div class="label">Agents</div><div class="value" id="stat-total">—</div></div>
+      <div class="stat"><div class="label">Top Score</div><div class="value" id="stat-top">—</div><div class="sub" id="stat-top-name"></div></div>
+      <div class="stat"><div class="label">Avg CI Pass</div><div class="value" id="stat-avg-ci">—</div></div>
+      <div class="stat"><div class="label">Updated</div><div class="value" id="stat-updated" style="font-size:15px">—</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input id="search" type="text" class="search" placeholder="Поиск по имени или ID агента..." oninput="renderTable()">
+      <button class="btn" onclick="loadLeaderboard()">⟳ Обновить</button>
+      <button class="btn" onclick="toggleAutoRefresh()" id="auto-btn">Auto: ON</button>
+      <button class="btn btn-primary" onclick="document.getElementById('record-form').scrollIntoView({behavior:'smooth'})">+ Record Metric</button>
+    </div>
+
+    <div class="table-wrap">
+      <table id="leader-table">
+        <thead>
+          <tr>
+            <th onclick="sortBy('rank')">#</th>
+            <th onclick="sortBy('name')">Agent</th>
+            <th onclick="sortBy('speed')">Speed <span class="sort">↕</span></th>
+            <th onclick="sortBy('ci')">CI Pass</th>
+            <th onclick="sortBy('esc')">Escalations</th>
+            <th onclick="sortBy('tasks')">Tasks</th>
+            <th onclick="sortBy('score')">Score</th>
+            <th>Last Active</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="footer-note">
+      Scoring: <strong>55% CI pass rate</strong> + <strong>30% speed norm</strong> + <strong>15% low escalation</strong>.<br>
+      Higher score = better. Speed = tasks per unit time (higher better). Data persisted in <code>data/agent_leaderboard.json</code>.
+    </div>
+
+    <!-- Manual record form -->
+    <div class="form-panel" id="record-form">
+      <h3>📝 Record Agent Metric (POST /api/leaderboard/record)</h3>
+      <div class="form-grid">
+        <input id="rec-id" type="text" placeholder="agent_id (required)" value="grok">
+        <input id="rec-name" type="text" placeholder="Display name (optional)" value="Grok 3">
+        <input id="rec-speed" type="number" step="0.1" placeholder="Speed (e.g. 48.5)">
+        <input id="rec-ci" type="number" step="0.01" min="0" max="1" placeholder="CI pass 0.0-1.0">
+        <input id="rec-esc" type="number" step="1" placeholder="Escalation +Δ (e.g. 1)">
+        <input id="rec-tasks" type="number" step="1" placeholder="Tasks +Δ (e.g. 3)">
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="submitRecord()">Submit Record</button>
+        <button class="btn" onclick="quickSeedDemo()">Quick: +demo deltas</button>
+        <span id="record-status" style="align-self:center;color:var(--muted);font-size:12px"></span>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-top:8px">
+        Use deltas for counts (escalation/tasks). Speed &amp; CI are overwritten if provided. Idempotent upsert by agent_id.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let dataCache = null;
+    let sortKey = 'score';
+    let sortAsc = false;
+    let autoRefresh = true;
+    let refreshTimer = null;
+
+    function fmtTime(ts) {
+      if (!ts) return '—';
+      const d = new Date(ts);
+      const diff = (Date.now() - d.getTime()) / 1000;
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+      return d.toLocaleDateString('ru-RU', {month:'short', day:'numeric'}) + ' ' + d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+    }
+
+    function getScoreClass(s) {
+      if (s >= 82) return 'score-high';
+      if (s >= 68) return 'score-mid';
+      return 'score-low';
+    }
+
+    function getEscClass(n) {
+      if (n <= 5) return 'esc-low';
+      if (n <= 15) return 'esc-med';
+      return 'esc-high';
+    }
+
+    function renderStats(lb) {
+      const total = lb.length;
+      document.getElementById('stat-total').textContent = total;
+
+      if (total > 0) {
+        const top = lb[0];
+        document.getElementById('stat-top').textContent = top.score.toFixed(1);
+        document.getElementById('stat-top-name').textContent = top.name;
+        
+        const avgCi = lb.reduce((a, x) => a + (x.ci_pass_rate || 0), 0) / total;
+        document.getElementById('stat-avg-ci').textContent = (avgCi * 100).toFixed(0) + '%';
+      } else {
+        document.getElementById('stat-top').textContent = '—';
+        document.getElementById('stat-top-name').textContent = '';
+        document.getElementById('stat-avg-ci').textContent = '—';
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+      const q = (document.getElementById('search').value || '').toLowerCase().trim();
+      
+      if (!dataCache || !dataCache.leaderboard) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">No data</td></tr>';
+        return;
+      }
+
+      let rows = [...dataCache.leaderboard];
+
+      if (q) {
+        rows = rows.filter(r => 
+          (r.name || '').toLowerCase().includes(q) || 
+          (r.agent_id || '').toLowerCase().includes(q)
+        );
+      }
+
+      // sort
+      rows.sort((a, b) => {
+        let va, vb;
+        if (sortKey === 'rank') { va = a.rank; vb = b.rank; }
+        else if (sortKey === 'name') { va = (a.name||'').toLowerCase(); vb = (b.name||'').toLowerCase(); }
+        else if (sortKey === 'speed') { va = a.speed||0; vb = b.speed||0; }
+        else if (sortKey === 'ci') { va = a.ci_pass_rate||0; vb = b.ci_pass_rate||0; }
+        else if (sortKey === 'esc') { va = a.escalation_count||0; vb = b.escalation_count||0; }
+        else if (sortKey === 'tasks') { va = a.tasks_completed||0; vb = b.tasks_completed||0; }
+        else { va = a.score||0; vb = b.score||0; } // score default
+
+        if (va < vb) return sortAsc ? -1 : 1;
+        if (va > vb) return sortAsc ? 1 : -1;
+        return 0;
+      });
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">Ничего не найдено</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const medal = r.rank === 1 ? '🥇' : (r.rank === 2 ? '🥈' : (r.rank === 3 ? '🥉' : ''));
+        const ciPct = ((r.ci_pass_rate || 0) * 100).toFixed(0);
+        const scorePct = (r.score || 0).toFixed(1);
+        const esc = r.escalation_count || 0;
+        const speed = (r.speed || 0).toFixed(1);
+        const tasks = r.tasks_completed || 0;
+
+        return `
+          <tr>
+            <td class="rank rank-${r.rank}">${medal}${r.rank}</td>
+            <td>
+              <div class="agent">${r.name || r.agent_id}</div>
+              <div class="agent-id">${r.agent_id}</div>
+            </td>
+            <td class="metric">${speed}</td>
+            <td>
+              <div class="metric">${(r.ci_pass_rate||0).toFixed(2)} <span style="font-weight:400;color:#64748b">(${ciPct}%)</span></div>
+              <div class="ci-bar"><div class="ci-fill" style="width:${ciPct}%"></div></div>
+            </td>
+            <td><span class="escalation ${getEscClass(esc)}">${esc}</span></td>
+            <td class="metric">${tasks}</td>
+            <td><span class="score ${getScoreClass(r.score||0)}">${scorePct}</span></td>
+            <td class="last-active">${fmtTime(r.last_active)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function sortBy(key) {
+      if (sortKey === key) {
+        sortAsc = !sortAsc;
+      } else {
+        sortKey = key;
+        sortAsc = (key === 'name' || key === 'rank');
+      }
+      renderTable();
+    }
+
+    async function loadLeaderboard() {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '<tr><td colspan="8" class="empty loading">Загрузка рейтинга агентов…</td></tr>';
+
+      try {
+        const res = await fetch('/api/leaderboard');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        dataCache = data;
+
+        document.getElementById('stat-updated').textContent = 
+          new Date(data.updated_at).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+
+        renderStats(data.leaderboard || []);
+        renderTable();
+      } catch (e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="8" class="empty">Ошибка загрузки.<br>Убедитесь, что gateway запущен на :3000.<br><small>${e.message}</small></td></tr>`;
+      }
+    }
+
+    async function submitRecord() {
+      const statusEl = document.getElementById('record-status');
+      statusEl.textContent = 'Отправка...';
+
+      const payload = {
+        agent_id: document.getElementById('rec-id').value.trim(),
+        name: document.getElementById('rec-name').value.trim() || undefined,
+        speed: parseFloat(document.getElementById('rec-speed').value) || undefined,
+        ci_pass_rate: parseFloat(document.getElementById('rec-ci').value) || undefined,
+        escalation_delta: parseInt(document.getElementById('rec-esc').value) || undefined,
+        tasks_delta: parseInt(document.getElementById('rec-tasks').value) || undefined,
+      };
+
+      if (!payload.agent_id) {
+        statusEl.textContent = 'agent_id обязателен';
+        statusEl.style.color = '#f87171';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/leaderboard/record', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error(json.error || 'Failed');
+
+        statusEl.style.color = 'var(--green)';
+        statusEl.textContent = '✓ Записано для ' + (json.agent?.name || payload.agent_id);
+        
+        // clear deltas
+        document.getElementById('rec-esc').value = '';
+        document.getElementById('rec-tasks').value = '';
+
+        setTimeout(() => {
+          statusEl.textContent = '';
+          statusEl.style.color = 'var(--muted)';
+          loadLeaderboard();
+        }, 900);
+      } catch (e) {
+        statusEl.style.color = '#f87171';
+        statusEl.textContent = 'Ошибка: ' + e.message;
+      }
+    }
+
+    function quickSeedDemo() {
+      // Fill demo values for quick testing
+      const id = document.getElementById('rec-id');
+      if (!id.value) id.value = 'parse-grok';
+      document.getElementById('rec-name').value = 'Parse Agent (Grok)';
+      document.getElementById('rec-speed').value = (92 + Math.random()*12).toFixed(1);
+      document.getElementById('rec-ci').value = (0.79 + Math.random()*0.18).toFixed(2);
+      document.getElementById('rec-esc').value = Math.random() > 0.6 ? '1' : '0';
+      document.getElementById('rec-tasks').value = '4';
+      submitRecord();
+    }
+
+    function toggleAutoRefresh() {
+      autoRefresh = !autoRefresh;
+      const btn = document.getElementById('auto-btn');
+      btn.textContent = 'Auto: ' + (autoRefresh ? 'ON' : 'OFF');
+      btn.style.borderColor = autoRefresh ? 'var(--accent)' : 'var(--border)';
+
+      if (autoRefresh) {
+        startAutoRefresh();
+      } else if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+    }
+
+    function startAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(() => {
+        if (autoRefresh && document.visibilityState === 'visible') {
+          loadLeaderboard();
+        }
+      }, 18000);
+    }
+
+    // Keyboard: R to refresh, / focus search
+    document.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'r' && document.activeElement.tagName === 'BODY') {
+        loadLeaderboard();
+      }
+      if (e.key === '/' && document.activeElement.tagName === 'BODY') {
+        e.preventDefault();
+        document.getElementById('search').focus();
+      }
+    });
+
+    // Boot
+    window.onload = () => {
+      loadLeaderboard();
+      startAutoRefresh();
+
+      // seed a couple demo values first time (non-destructive)
+      setTimeout(() => {
+        if (!dataCache || dataCache.total === 0) {
+          // nothing
+        }
+      }, 1200);
+
+      // Allow Enter in form fields to submit
+      ['rec-id','rec-name','rec-speed','rec-ci','rec-esc','rec-tasks'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keypress', (ev) => {
+          if (ev.key === 'Enter') submitRecord();
+        });
+      });
+    };
+  </script>
+</body>
+</html>

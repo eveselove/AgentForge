@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PLANLYTASK — Управление парсингом</title>
+  <meta name="description" content="Управление парсерами сайтов строительных магазинов — запуск, остановка, мониторинг прогресса">
+  <style>
+    /* fonts: system fallback */
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#f3f4f6;--surface:#ffffff;--surface2:#f9fafb;--surface3:#f0f0f0;
+      --border:#e5e7eb;--text:#1f2937;--text-muted:#6b7280;
+      --primary:#6366f1;--primary-bg:rgba(99,102,241,0.1);
+      --danger:#dc2626;--danger-bg:rgba(220,38,38,0.08);
+      --success:#16a34a;--success-bg:rgba(22,163,74,0.08);
+      --warning:#d97706;--warning-bg:rgba(217,119,6,0.08);
+      --radius:12px;--glow:0 2px 12px rgba(0,0,0,0.08);
+    }
+    body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    ::selection{background:var(--primary);color:#fff}
+
+    .header{
+      background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);
+      border-bottom:1px solid var(--border);padding:16px 32px;
+      display:flex;align-items:center;justify-content:space-between;
+      position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);
+    }
+    .header h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,#6366f1,#8b5cf6,#a855f7);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .header .nav-links{display:flex;gap:16px;align-items:center}
+    .header a{color:var(--text-muted);text-decoration:none;font-size:13px;transition:color 0.2s;padding:6px 12px;border-radius:6px}
+    .header a:hover{color:var(--text);background:var(--surface2)}
+    .header a.active{color:var(--primary);background:var(--primary-bg)}
+    .container{max-width:1440px;margin:0 auto;padding:24px 32px}
+
+    .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+    .kpi-card{
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+      padding:20px 24px;transition:transform 0.25s,box-shadow 0.25s;position:relative;overflow:hidden;
+    }
+    .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius) var(--radius) 0 0}
+    .kpi-card:hover{transform:translateY(-3px);box-shadow:var(--glow)}
+    .kpi-card .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:8px}
+    .kpi-card .value{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+    .kpi-card .sub{font-size:11px;color:var(--text-muted);margin-top:4px}
+    .kpi-card.primary::before{background:linear-gradient(90deg,#818cf8,#6366f1)}.kpi-card.primary .value{color:var(--primary)}
+    .kpi-card.success::before{background:linear-gradient(90deg,#34d399,#10b981)}.kpi-card.success .value{color:var(--success)}
+    .kpi-card.danger::before{background:linear-gradient(90deg,#f87171,#ef4444)}.kpi-card.danger .value{color:var(--danger)}
+    .kpi-card.warning::before{background:linear-gradient(90deg,#fbbf24,#f59e0b)}.kpi-card.warning .value{color:var(--warning)}
+    .kpi-card.teal::before{background:linear-gradient(90deg,#2dd4bf,#14b8a6)}.kpi-card.teal .value{color:#14b8a6}
+
+    .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+    .toolbar-btn{
+      display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;
+      border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all 0.2s;
+    }
+    .toolbar-btn:hover{border-color:var(--primary);color:var(--primary);box-shadow:0 0 12px rgba(99,102,241,0.15)}
+    .toolbar-btn svg{width:14px;height:14px;fill:currentColor}
+    .toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+
+    /* Settings Panel */
+    .settings-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:24px}
+    .settings-title{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .settings-table{width:100%;border-collapse:collapse}
+    .settings-table th{text-align:left;font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;padding:10px 12px;border-bottom:2px solid var(--border)}
+    .settings-table td{padding:8px 12px;border-bottom:1px solid var(--surface3);font-size:13px}
+    .settings-table tr:hover td{background:var(--surface2)}
+    .scb{width:16px;height:16px;border-radius:4px;border:2px solid var(--border);cursor:pointer;appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;vertical-align:middle;margin:0}
+    .scb:checked{background:#6366f1;border-color:#6366f1}
+    .scb:checked::after{content:'\2713';color:#fff;font-size:11px;font-weight:700}
+    .scb:hover{border-color:rgba(99,102,241,0.5)}
+    .store-row td{background:rgba(99,102,241,0.03);font-weight:600}
+    .city-row td:first-child{padding-left:40px}
+    .collapse-arrow{cursor:pointer;display:inline-block;transition:transform 0.2s;font-size:10px;margin-right:6px;color:var(--text-muted);user-select:none}
+    .collapse-arrow.open{transform:rotate(90deg)}
+    .action-bar{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+    .toggle-switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:6px 12px;border-radius:8px;background:var(--surface2);transition:all 0.2s}
+    .toggle-switch:hover{background:var(--surface3,#374151)}
+    .toggle-switch input{display:none}
+    .toggle-slider{position:relative;width:36px;height:20px;background:#4b5563;border-radius:10px;transition:all 0.3s}
+    .toggle-slider::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:all 0.3s}
+    .toggle-switch input:checked+.toggle-slider{background:linear-gradient(135deg,#f59e0b,#d97706)}
+    .toggle-switch input:checked+.toggle-slider::after{left:18px}
+    .toggle-label{font-size:13px;color:var(--text-muted);font-weight:500}
+    .btn{
+      display:inline-flex;align-items:center;gap:6px;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;
+      border:none;cursor:pointer;transition:all 0.2s;
+    }
+    .btn-start{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+    .btn-start:hover{background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 4px 16px rgba(99,102,241,0.35);transform:translateY(-1px)}
+    .btn-stop{background:rgba(220,38,38,0.1);color:#dc2626;border:1px solid rgba(220,38,38,0.2)}
+    .btn-stop:hover{background:rgba(220,38,38,0.15)}
+    .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+    .selected-summary{font-size:12px;color:var(--text-muted);flex:1;text-align:right}
+
+    /* Live Progress Runner */
+    .runner{display:none;margin-bottom:16px}
+    .runner.active{display:block}
+    .runner-item{
+      background:linear-gradient(135deg,rgba(99,102,241,0.05),rgba(139,92,246,0.05));
+      border:1px solid rgba(99,102,241,0.2);border-radius:10px;padding:16px 20px;margin-bottom:10px;
+      position:relative;overflow:hidden;
+    }
+    .runner-item::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,#6366f1,#a855f7,#6366f1);background-size:200% 100%;
+      animation:shimmer 2s linear infinite;
+    }
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .runner-header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+    .runner-icon{font-size:24px}
+    .runner-store{font-size:15px;font-weight:700}
+    .runner-status{font-size:11px;color:var(--primary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:6px}
+    .runner-status::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--primary);animation:pulse 1.2s infinite}
+    .runner-bar{height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-bottom:8px}
+    .runner-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#6366f1,#a855f7);transition:width 0.6s ease;position:relative}
+    .runner-fill::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);animation:barShine 1.5s infinite}
+    @keyframes barShine{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+    .runner-stats{display:flex;gap:24px;font-size:12px;color:var(--text-muted)}
+    .runner-stats strong{color:var(--text);font-weight:600}
+    .runner-stats .runner-pct{color:var(--primary);font-weight:700;font-size:13px}
+    .mini-bar{display:inline-block;width:60px;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;vertical-align:middle;margin-right:6px}
+    .mini-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#6366f1,#a855f7);transition:width 0.4s ease}
+    .unaccounted td{color:var(--text-muted)!important;font-style:italic}
+
+    /* Panel */
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:24px}
+    .panel-title{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+    /* Journal table */
+    .stats-table{width:100%;border-collapse:collapse}
+    .stats-table th{text-align:left;font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;padding:10px 12px;border-bottom:2px solid var(--border)}
+    .stats-table td{padding:10px 12px;border-bottom:1px solid var(--surface3);font-size:13px}
+    .stats-table tr:hover td{background:var(--surface2)}
+    .stats-table .num{font-variant-numeric:tabular-nums;text-align:right}
+    .status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+    .status-ok{background:rgba(22,163,74,0.1);color:#16a34a}
+    .status-fail{background:rgba(220,38,38,0.1);color:#dc2626}
+    .status-partial{background:rgba(217,119,6,0.1);color:#d97706}
+    .cities-list{display:flex;flex-wrap:wrap;gap:4px}
+    .city-tag{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--text-muted);white-space:nowrap}
+    .city-tag .city-count{font-weight:600;color:var(--text)}
+    .duration-col{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--primary)}
+    .date-col{white-space:nowrap}
+    .date-col .date-main{font-weight:600;font-size:13px}
+    .date-col .date-time{font-size:11px;color:var(--text-muted)}
+
+    /* Journal Actions */
+    .journal-actions{display:flex;flex-direction:column;gap:4px}
+    .jbtn{
+      display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;
+      font-size:11px;font-weight:600;border:1px solid;cursor:pointer;transition:all 0.2s;
+      white-space:nowrap;background:transparent;
+    }
+    .jbtn:hover{transform:translateY(-1px)}
+    .jbtn-pause{color:#d97706;border-color:rgba(217,119,6,0.3)}
+    .jbtn-pause:hover{background:rgba(217,119,6,0.08)}
+    .jbtn-resume{color:#6366f1;border-color:rgba(99,102,241,0.3)}
+    .jbtn-resume:hover{background:rgba(99,102,241,0.08)}
+    .jbtn-cancel{color:#dc2626;border-color:rgba(220,38,38,0.3)}
+    .jbtn-cancel:hover{background:rgba(220,38,38,0.08)}
+    .status-running{background:rgba(22,163,74,0.1);color:#16a34a}
+    .status-paused{background:rgba(217,119,6,0.1);color:#d97706}
+
+    /* Responsive */
+    @media(max-width:768px){
+      .stores-grid{grid-template-columns:1fr}
+      .grid-2{grid-template-columns:1fr}
+      .kpi-row{grid-template-columns:repeat(2,1fr)}
+      .container{padding:16px}
+      .header{padding:12px 16px}
+    }
+
+    /* Print */
+    @media print{.header,.toolbar{display:none}.container{padding:0}}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⚙️ PLANLYTASK Парсинг</h1>
+    <div class="nav-links">
+      <a href="/analytics/index.html">Уровень сервиса</a>
+      <a href="/analytics/revenue.html">Продажи / Выручка</a>
+      <a href="/monitoring/index.html">Мониторинг</a>
+      <a href="/merchandising/index.html">Мерчандайзинг</a>
+      <a href="/parsing/index.html" class="active">Парсинг</a>
+      <a href="/">← Приложение</a>
+    </div>
+  </div>
+
+  <div class="container" style="padding-bottom:0;margin-bottom:-8px">
+    <div class="toolbar">
+      <button class="toolbar-btn" onclick="loadAll()" title="Обновить (R)">
+        <svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        Обновить
+      </button>
+      <div class="toolbar-sep"></div>
+      <span style="font-size:11px;color:var(--text-muted)" id="lastUpdated">Обновлено: —</span>
+      <div class="toolbar-sep"></div>
+      <span style="font-size:10px;color:var(--text-muted)">R=обн</span>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- Panel 1: Settings -->
+    <div class="settings-panel">
+      <div class="settings-title"><span class="dot" style="background:#6366f1"></span>Настройки парсинга</div>
+      <!-- Live Progress Runner -->
+      <div class="runner" id="progressRunner"></div>
+      <div style="overflow-x:auto">
+        <table class="settings-table" id="settingsTable">
+          <thead>
+            <tr>
+              <th style="width:30px"></th>
+              <th>Магазин / Город</th>
+              <th class="num">Факт / План</th>
+              <th class="num">В наличии</th>
+              <th>Статус</th>
+              <th class="num">Прогресс</th>
+              <th>Посл. парсинг</th>
+              <th class="num">Объем (МБ)</th>
+            </tr>
+          </thead>
+          <tbody id="settingsBody"></tbody>
+        </table>
+      </div>
+      <div class="action-bar">
+        <button class="btn btn-start" id="btnStartAll" onclick="startSelectedParsers()">▶ Запустить парсинг</button>
+        <button class="btn btn-stop" id="btnStopAll" onclick="stopAllParsers()" style="display:none">✕ Остановить всё</button>
+        <label class="toggle-switch" title="Только цены и остатки (без контента — быстрее)">
+          <input type="checkbox" id="pricesOnlyToggle" onchange="savePricesOnlyMode()">
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">💰 Только цены</span>
+        </label>
+        <div class="selected-summary" id="selectedSummary"></div>
+      </div>
+    </div>
+
+    <!-- Panel 2: Tracker — removed -->
+
+    <!-- Panel 3: Event Log -->
+    <div class="panel">
+      <div class="panel-title" style="justify-content:space-between">
+        <span><span class="dot" style="background:var(--warning)"></span>📋 Лог событий парсинга</span>
+        <button class="jbtn jbtn-cancel" onclick="clearAllLogs()" style="font-size:12px">🗑 Очистить</button>
+      </div>
+      <div id="eventLog" style="max-height:400px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--surface2);border-radius:8px;padding:12px;color:var(--text-muted)">
+        Загрузка...
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = location.origin;
+    const RU_MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+
+    const STORES = [
+      { key: 'akson',  name: 'Аксон',        icon: '<img src="logos/akson.png" style="width:20px;height:20px;vertical-align:middle;border-radius:3px">', cities: ['Вологда','Ярославль Громова','Ярославль Фрунзе','Кострома','Череповец','Иваново','Рыбинск','Владимир','Москва','Воронеж'] },
+      { key: 'lemana', name: 'ЛеманаПро',    icon: '<img src="logos/lemana.png" style="width:20px;height:20px;vertical-align:middle;border-radius:3px">', cities: ['Ярославль (Бор, п. Красный Бор)','Ярославль (Вернисаж, п. Нагорный)','Кострома','Иваново','Череповец','Воронеж (Солнечный, ул. Парковая 5)','Воронеж (Отрадное, ул. Автодорожная 11)'] },
+      { key: 'strl',   name: 'Стройландия',  icon: '<img src="logos/stroylandia.png" style="width:20px;height:20px;vertical-align:middle;border-radius:3px">', cities: ['Вологда'] },
+      { key: 'glavsnab', name: 'Главснаб', icon: '<img src="logos/glavsnab.png" style="width:20px;height:20px;vertical-align:middle;border-radius:3px">', cities: ['Кострома 100Метровка','Кострома Льняная','Кострома Галерея','Тутаев','Шуя'] }
+    ];
+
+    let storeState = {};
+    let selectedStores = new Set(STORES.map(s => s.key));
+    let selectedCities = {};
+    let collapsedStores = new Set();
+    STORES.forEach(s => { selectedCities[s.key] = new Set(s.cities); });
+
+    function toggleCollapse(key) {
+      if (collapsedStores.has(key)) collapsedStores.delete(key);
+      else collapsedStores.add(key);
+      renderSettings();
+      renderTracker(window._lastCounts||{}, window._lastCityByStore||{}, window._lastSessions||{});
+    }
+
+    // Plan storage helpers
+    function getSavedPlan() { try { return JSON.parse(localStorage.getItem('parserPlans')||'{}'); } catch(e) { return {}; } }
+    function savePlan(key, val) { const p=getSavedPlan(); p[key]=val; localStorage.setItem('parserPlans', JSON.stringify(p)); }
+    function acn(city) { return city.replace(/\s*\(.*\)/,'').trim(); }
+    function parseTS(s) { if (!s) return null; return new Date(s.replace(' ','T')); }
+    function fmtDur(sec) { if (sec<60) return sec+'с'; if (sec<3600) return Math.floor(sec/60)+'м '+(sec%60)+'с'; return Math.floor(sec/3600)+'ч '+Math.floor((sec%3600)/60)+'м'; }
+    function deltaHtml(plan, fact) {
+      const d = fact - plan;
+      if (d === 0 || plan === 0) return '';
+      if (d > 0) return ` <span style="color:var(--success);font-weight:600;font-size:11px">+${d.toLocaleString('ru')}</span>`;
+      return ` <span style="color:var(--danger);font-weight:600;font-size:11px">${d.toLocaleString('ru')}</span>`;
+    }
+
+    // === Load All ===
+    async function loadAll() {
+      try {
+        document.getElementById('lastUpdated').textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru');
+        // Stats must load FIRST — loadParsers uses window._lastCityByStore populated by loadStats
+        await loadStats();
+        await loadParsers();
+        loadPricesOnlyMode();
+      } catch (e) {
+        console.error('loadAll fatal:', e);
+        const c = document.querySelector('.container');
+        if (c) c.insertAdjacentHTML('afterbegin', '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:16px;margin-bottom:16px;color:#991b1b;font-size:13px">⚠️ Ошибка загрузки: ' + e.message + '</div>');
+      }
+    }
+
+    // === Load Parsers ===
+    async function loadParsers() {
+      const grid = document.getElementById('storesGrid');
+      let activeCount = 0, totalProducts = 0;
+      let wasRunning = STORES.some(s => (storeState[s.key] || {}).running);
+
+      // Fetch stats ONCE (shared across all stores)
+      let stats = {};
+      try {
+        stats = await fetch(API + '/api/parser/stats').then(r => r.json());
+      } catch(e) {}
+
+      for (const store of STORES) {
+        try {
+          const status = await fetch(API + '/api/parser/' + store.key + '/status').then(r => r.json()).catch(() => ({ running: false, paused: false, log: [], progress: 0, total: 0 }));
+
+          const storeCount = stats.store_counts || stats.storeCounts || {};
+          const count = storeCount[store.name] || 0;
+          const storeSizeMb = (stats.store_size_mb || {})[store.name] || 0;
+
+          storeState[store.key] = { ...store, ...status, productCount: count, db_size_mb: stats.db_size_mb || 0, store_size_mb: storeSizeMb };
+          if (status.running) activeCount++;
+          totalProducts += count;
+
+          // When parser is idle with completed data, update plan from DB stats (per-city counts)
+          if (!status.running && !status.paused && status.total > 0 && (status.cities || []).length > 0) {
+            const sp = getSavedPlan();
+            const parsedCities = status.cities;
+            let changed = false;
+            // Use per-city counts from stats API, NOT the global total
+            const cityStats = (window._lastCityByStore || {})[store.name] || {};
+            let storeTotal = 0;
+            for (const city of parsedCities) {
+              const planKey = `${store.key}:${acn(city)}`;
+              const cityCount = cityStats[city] || cityStats[acn(city)] || 0;
+              const planVal = cityCount > 0 ? cityCount : 0;
+              if (sp[planKey] !== planVal && planVal > 0) {
+                sp[planKey] = planVal;
+                changed = true;
+              }
+              storeTotal += (planVal > 0 ? planVal : (sp[planKey] || 0));
+            }
+            if (changed) {
+              sp[store.name] = storeTotal;
+              localStorage.setItem('parserPlans', JSON.stringify(sp));
+            }
+          }
+        } catch (e) {
+          storeState[store.key] = { ...store, running: false, paused: false, log: ['Ошибка подключения'], progress: 0, total: 0, productCount: 0 };
+        }
+      }
+
+      let isRunning = STORES.some(s => (storeState[s.key] || {}).running);
+      if (wasRunning && !isRunning) {
+        // Parser just finished! Load stats to update UI with fresh data.
+        await loadStats();
+      }
+
+      // Update KPIs (hidden, but keep vars)
+      // renderSettings
+      renderSettings();
+      renderProgressRunner();
+    }
+
+    // === Render Settings Panel ===
+    function renderSettings() {
+      const tbody = document.getElementById('settingsBody');
+      let rows = '';
+      const savedPlan = getSavedPlan();
+      const anyRunning = STORES.some(s => (storeState[s.key]||{}).running);
+
+      for (const store of STORES) {
+        const s = storeState[store.key] || store;
+        const isSelected = selectedStores.has(store.key);
+        const isRunning = s.running;
+        const isPaused = s.paused;
+        const isActive = isRunning || isPaused;
+        const cityByStore = (window._lastCityByStore || {})[store.name] || {};
+        const stockByStore = (window._lastStockByStore || {})[store.name] || {};
+        const storeCitySel = selectedCities[store.key] || new Set();
+
+        // Calculate store fact/plan from cities
+        const uniqueSkuCounts = window._lastUniqueSkuCounts || {};
+        const uniqueStockSkuCounts = window._lastUniqueStockSkuCounts || {};
+        let storeFact = 0, storePlan = 0, storeStock = 0;
+        for (const city of store.cities) {
+          const citySku = cityByStore[city] || cityByStore[acn(city)] || 0;
+          const cPlan = savedPlan[`${store.key}:${acn(city)}`] || 0;
+          // Prefer API data; only use plan as fallback when API has no data yet
+          storeFact += citySku;
+          storePlan += (citySku > 0 ? citySku : cPlan);
+          storeStock += (stockByStore[city] || stockByStore[acn(city)] || 0);
+        }
+        // Use unique SKU count at store level if available
+        const storeUniqueSku = uniqueSkuCounts[store.name] || 0;
+        if (storeUniqueSku > 0) {
+          storeFact = storeUniqueSku;
+          storePlan = storeUniqueSku;
+        } else if (storePlan === 0) {
+          storePlan = storeFact;
+        }
+
+        // Use unique STOCK SKU count at store level if available
+        const storeUniqueStockSku = uniqueStockSkuCounts[store.name] || 0;
+        if (storeUniqueStockSku > 0) {
+          storeStock = storeUniqueStockSku;
+        }
+
+        // Determine city parsing order and current index for active stores
+        const parsedCities = (s.cities || []);
+        const currentCityName = s.current_city || null;
+        const isAllCitiesMode = currentCityName === 'all';
+        let currentCityIdx = -1;
+        if (isActive && currentCityName && !isAllCitiesMode) {
+          currentCityIdx = parsedCities.findIndex(c => c === currentCityName || acn(c) === acn(currentCityName));
+        }
+
+        // ── Two-phase display logic ──
+        const isPhase1 = isActive && !isAllCitiesMode;
+        const isPhase2 = isActive && isAllCitiesMode;
+        const pct = (s.total > 0) ? Math.min(100, Math.round((s.progress || 0) / s.total * 100)) : 0;
+
+        // ── Store status badge ──
+        let statusBadge;
+        if (isPhase1) {
+          statusBadge = `<span class="status-badge status-running">📦 Загрузка каталога</span>`;
+        } else if (isPhase2) {
+          statusBadge = `<span class="status-badge status-running">🔄 Цены и остатки</span>`;
+        } else if (isPaused) {
+          statusBadge = '<span class="status-badge status-paused">⏸ Пауза</span>';
+        } else {
+          const cityStatuses = s.city_statuses || {};
+          const statValues = store.cities.map(c => cityStatuses[c] || cityStatuses[acn(c)] || '');
+          const allSuccess = statValues.length > 0 && statValues.every(v => v === 'success');
+          const hasError = statValues.some(v => v === 'error');
+          if (allSuccess) statusBadge = '<span class="status-badge status-ok">✅ Успешно</span>';
+          else if (hasError) statusBadge = '<span class="status-badge" style="background:rgba(239,68,68,0.08);color:#ef4444">❌ Ошибка</span>';
+          else if (storePlan > 0) statusBadge = '<span class="status-badge status-ok">✅ Успешно</span>';
+          else statusBadge = '<span class="status-badge" style="background:rgba(107,114,128,0.1);color:#6b7280">Остановлен</span>';
+        }
+
+        // ── Store ФАКТ/ПЛАН ──
+        let storeCountHtml;
+        if (isPhase1) {
+          storeCountHtml = `<span style="font-size:12px;color:var(--text-muted);font-style:italic">загрузка...</span>`;
+        } else if (isPhase2) {
+          // Unique SKU count from catalog (same for all cities)
+          const cp = s.city_progress || {};
+          const uniquePlan = cp['__plan__'] || 0;
+          // Store ФАКТ = unique SKUs (catalog), not sum of cities
+          storeCountHtml = `<span style="font-size:13px;font-weight:700"><span style="color:var(--text)">${uniquePlan > 0 ? uniquePlan.toLocaleString('ru') : '...'}</span></span>`;
+        } else {
+          const showVal = storePlan > 0 ? storePlan : storeFact;
+          storeCountHtml = `<span style="font-size:13px;font-weight:700"><span style="color:var(--text)">${showVal.toLocaleString('ru')}</span></span>`;
+        }
+
+        // ── Store progress bar ──
+        let progressHtml = '';
+        if (isActive) {
+          if (isPhase2) {
+            // Phase 2: average of per-city progress
+            const cp = s.city_progress || {};
+            const uniquePlan = cp['__plan__'] || 0;
+            if (uniquePlan > 0) {
+              let totalFact = 0;
+              let cityCount = 0;
+              for (const city of store.cities) {
+                totalFact += cp[city] || cp[acn(city)] || 0;
+                cityCount++;
+              }
+              const storePct = cityCount > 0 ? Math.min(100, Math.round(totalFact / (uniquePlan * cityCount) * 100)) : 0;
+              progressHtml = `<div class="mini-bar"><div class="mini-fill" style="width:${storePct}%"></div></div>${storePct}%`;
+            } else {
+              progressHtml = `<div class="mini-bar"><div class="mini-fill" style="width:${pct}%"></div></div>${pct}%`;
+            }
+          } else {
+            progressHtml = `<div class="mini-bar"><div class="mini-fill" style="width:${pct}%"></div></div>${pct}%`;
+          }
+        }
+
+        const disabledAttr = (anyRunning && !isActive) ? 'disabled' : '';
+        const rowStyle = (anyRunning && !isActive) ? 'opacity:0.4;pointer-events:none;' : '';
+        const checkboxDisplay = (anyRunning && !isActive) ? 'display:none;' : '';
+        const arrowCls = collapsedStores.has(store.key) ? 'collapse-arrow' : 'collapse-arrow open';
+
+        // Last parse info for store row
+        let lastParseHtml = '';
+        if (s.last_success_at) {
+          const durSec = s.last_success_duration_sec || 0;
+          const durMin = Math.floor(durSec / 60);
+          const durS = durSec % 60;
+          const durStr = durMin > 0 ? `${durMin}м${durS}с` : `${durSec}с`;
+          const cnt = (s.last_success_count || 0).toLocaleString('ru');
+          const timeStr = s.last_success_at.slice(11, 16);
+          const dateStr = s.last_success_at.slice(5, 10).replace('-', '.');
+          let deltaHtml = '';
+          if (s.prev_success_count > 0) {
+            const diff = s.last_success_count - s.prev_success_count;
+            const sign = diff >= 0 ? '+' : '';
+            const color = diff >= 0 ? 'var(--success)' : 'var(--danger)';
+            deltaHtml = ` <span style="font-size:10px;color:${color}">${sign}${diff.toLocaleString('ru')}</span>`;
+          }
+          lastParseHtml = `<span style="font-size:11px">${dateStr} ${timeStr}</span><br><span style="font-size:10px;color:var(--text-muted)">${cnt} шт, ${durStr}${deltaHtml}</span>`;
+        }
+
+        let sizeHtml = '';
+        if (s.store_size_mb > 0) {
+          sizeHtml = `<span style="font-size:12px">${s.store_size_mb.toFixed(1)}</span>`;
+        }
+
+        rows += `<tr class="store-row" style="${rowStyle}">
+          <td><input type="checkbox" class="scb" style="${checkboxDisplay}" ${isSelected ? 'checked' : ''} ${disabledAttr} onchange="toggleStore('${store.key}')"></td>
+          <td><span class="${arrowCls}" onclick="toggleCollapse('${store.key}')">&#9654;</span>${store.icon} <strong>${store.name}</strong></td>
+          <td class="num">${storeCountHtml}</td>
+          <td class="num"><span style="font-size:12px;color:var(--text-muted)">${storeStock > 0 ? storeStock.toLocaleString('ru') : ''}</span></td>
+          <td>${statusBadge}</td>
+          <td class="num">${progressHtml || ''}</td>
+          <td>${lastParseHtml}</td>
+          <td class="num">${sizeHtml}</td>
+        </tr>`;
+
+        if (!collapsedStores.has(store.key)) {
+          for (const city of store.cities) {
+            const cityChecked = storeCitySel.has(city);
+            const citySku = cityByStore[city] || cityByStore[acn(city)] || 0;
+            const cPlanRaw = savedPlan[`${store.key}:${acn(city)}`] || 0;
+            let cityPlan = citySku > 0 ? citySku : cPlanRaw;
+            const cityStock = stockByStore[city] || stockByStore[acn(city)] || 0;
+
+            let cityCountHtml, cityStatus = '', cityProgressHtml = '';
+
+            if (isPhase1) {
+              // Check if this city already has a status (Akson completes cities sequentially in phase1)
+              const cityStatuses = s.city_statuses || {};
+              const cst = cityStatuses[city] || cityStatuses[acn(city)] || '';
+              const currentCity = s.current_city || '';
+              const isCurrentCity = (currentCity === city || currentCity === acn(city));
+              const cityProgress = s.city_progress || {};
+              const cityDone = cityProgress[city] || cityProgress[acn(city)] || 0;
+
+              if (cst === 'success') {
+                const displayCount = cityDone > 0 ? cityDone : (cityPlan > 0 ? cityPlan : 0);
+                cityCountHtml = `<span style="font-size:12px;font-weight:600">${displayCount > 0 ? displayCount.toLocaleString('ru') : ''}</span>`;
+                cityStatus = '<span class="status-badge status-ok">✅ Успешно</span>';
+              } else if (cst === 'error' || cst === 'stopped') {
+                cityCountHtml = '';
+                cityStatus = `<span class="status-badge" style="background:rgba(239,68,68,0.08);color:#ef4444">❌ ${cst === 'stopped' ? 'Остановлен' : 'Ошибка'}</span>`;
+              } else if (cst === 'running' || isCurrentCity) {
+                const cityPctVal = s.total > 0 ? Math.min(100, Math.round(s.progress / s.total * 100)) : 0;
+                cityCountHtml = `<span style="font-size:12px;font-weight:600"><span style="color:var(--text)">${s.progress > 0 ? s.progress.toLocaleString('ru') : '...'}</span> <span style="color:var(--text-muted)">/ ${s.total > 0 ? s.total.toLocaleString('ru') : '...'}</span></span>`;
+                cityStatus = '<span class="status-badge status-running">▶ Парсинг</span>';
+                cityProgressHtml = `<div class="mini-bar"><div class="mini-fill" style="width:${cityPctVal}%"></div></div>${cityPctVal}%`;
+              } else {
+                cityCountHtml = '';
+                cityStatus = '<span class="status-badge" style="background:rgba(99,102,241,0.08);color:#6366f1">⏳ Ожидание</span>';
+              }
+            } else if (isPhase2) {
+              // Per-city progress from city_progress map (unique SKUs)
+              const cp = s.city_progress || {};
+              const uniquePlan = cp['__plan__'] || 0;
+              const branchPlan = cityPlan > 0 ? cityPlan : uniquePlan;
+              const cityFact = cp[city] || cp[acn(city)] || 0;
+              const cityPctVal = branchPlan > 0 ? Math.min(100, Math.round(cityFact / branchPlan * 100)) : 0;
+              cityCountHtml = `<span style="font-size:12px;font-weight:600"><span style="color:var(--text)">${cityFact > 0 ? cityFact.toLocaleString('ru') : '...'}</span>`;
+              if (branchPlan > 0 && cityFact > 0) {
+                cityCountHtml += ` <span style="color:var(--text-muted)">/ ${branchPlan.toLocaleString('ru')}</span>`;
+              }
+              cityCountHtml += `</span>`;
+              cityStatus = '<span class="status-badge status-running">▶ Парсинг</span>';
+              cityProgressHtml = `<div class="mini-bar"><div class="mini-fill" style="width:${cityPctVal}%"></div></div>${cityPctVal}%`;
+            } else if (isPaused) {
+              cityCountHtml = `<span style="font-size:12px;font-weight:600">${cityPlan.toLocaleString('ru')}</span>`;
+              cityStatus = '<span class="status-badge status-paused">⏸ Пауза</span>';
+            } else {
+              cityCountHtml = `<span style="font-size:12px;font-weight:600">${cityPlan > 0 ? cityPlan.toLocaleString('ru') : ''}</span>`;
+              const cityStatuses = s.city_statuses || {};
+              const cst = cityStatuses[city] || cityStatuses[acn(city)] || '';
+              if (cst === 'success') cityStatus = '<span class="status-badge status-ok">✅ Успешно</span>';
+              else if (cst === 'error') cityStatus = '<span class="status-badge" style="background:rgba(239,68,68,0.08);color:#ef4444">❌ Ошибка</span>';
+              else if (cityPlan > 0) cityStatus = '<span class="status-badge status-ok">✅ Успешно</span>';
+            }
+
+            const cityRowStyle = (anyRunning && !isActive) ? 'opacity:0.4;pointer-events:none;' : '';
+            const cityCheckboxDisplay = (anyRunning && !isActive) ? 'display:none;' : '';
+
+            rows += `<tr class="city-row" style="${cityRowStyle}">
+              <td><input type="checkbox" class="scb" style="${cityCheckboxDisplay}" ${cityChecked ? 'checked' : ''} onchange="toggleCity('${store.key}','${city}')"></td>
+              <td>${city}</td>
+              <td class="num">${cityCountHtml}</td>
+              <td class="num"><span style="font-size:11px;color:var(--text-muted)">${!isPhase1 && cityStock > 0 ? cityStock.toLocaleString('ru') : ''}</span></td>
+              <td>${cityStatus}</td>
+              <td class="num">${cityProgressHtml}</td>
+              <td></td>
+              <td></td>
+            </tr>`;
+          }
+        }
+      }
+
+      tbody.innerHTML = rows;
+      updateActionBar();
+    }
+
+    // === Toggle Store Selection ===
+    function toggleStore(key) {
+      const store = STORES.find(s => s.key === key);
+      const set = selectedCities[key] || new Set();
+      if (set.size === store.cities.length) {
+        // All selected -> deselect all
+        selectedCities[key] = new Set();
+        selectedStores.delete(key);
+      } else {
+        // Select all
+        selectedCities[key] = new Set(store.cities);
+        selectedStores.add(key);
+      }
+      renderSettings();
+    }
+
+    // === Toggle City Selection ===
+    function toggleCity(storeKey, city) {
+      const set = selectedCities[storeKey];
+      if (set.has(city)) set.delete(city); else set.add(city);
+      renderSettings();
+    }
+
+    function toggleAllCities(storeKey) {
+      const store = STORES.find(s => s.key === storeKey);
+      const set = selectedCities[storeKey];
+      if (set.size === store.cities.length) {
+        set.clear();
+      } else {
+        store.cities.forEach(c => set.add(c));
+      }
+      renderSettings();
+    }
+
+    // === Action Bar ===
+    function updateActionBar() {
+      const anyRunning = STORES.some(s => (storeState[s.key] || {}).running);
+      let storeCount = 0, cityCount = 0;
+      for (const store of STORES) {
+        const sc = (selectedCities[store.key] || new Set()).size;
+        if (sc > 0) storeCount++;
+        cityCount += sc;
+      }
+      document.getElementById('btnStartAll').style.display = anyRunning ? 'none' : '';
+      document.getElementById('btnStopAll').style.display = anyRunning ? '' : 'none';
+      document.getElementById('btnStartAll').disabled = cityCount === 0;
+      document.getElementById('selectedSummary').textContent = cityCount > 0
+        ? `Выбрано: ${storeCount} магазин(ов), ${cityCount} город(ов)`
+        : 'Выберите магазины для парсинга';
+    }
+
+    // === Parser Controls ===
+    function savePricesOnlyMode() {
+      const checked = document.getElementById('pricesOnlyToggle').checked;
+      localStorage.setItem('pricesOnlyMode', checked ? '1' : '0');
+    }
+    function loadPricesOnlyMode() {
+      const saved = localStorage.getItem('pricesOnlyMode');
+      if (saved === '1') {
+        document.getElementById('pricesOnlyToggle').checked = true;
+      }
+    }
+
+    async function startSelectedParsers() {
+      const sp = getSavedPlan();
+      const pricesOnly = document.getElementById('pricesOnlyToggle').checked;
+      for (const store of STORES) {
+        const cities = [...(selectedCities[store.key] || [])];
+        if (cities.length === 0) continue;
+        const cbs = (window._lastCityByStore || {})[store.name] || {};
+        let storeTotal = 0;
+        cities.forEach(c => { const f = cbs[c] || cbs[acn(c)] || 0; sp[`${store.key}:${acn(c)}`] = f; storeTotal += f; });
+        sp[store.name] = storeTotal;
+        try {
+          const body = { cities };
+          if (pricesOnly) body.mode = 'prices_only';
+          await fetch(API + '/api/parser/' + store.key + '/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+        } catch (e) {
+          console.error('Ошибка запуска ' + store.key + ':', e);
+        }
+      }
+      localStorage.setItem('parserPlans', JSON.stringify(sp));
+      setTimeout(loadParsers, 500);
+    }
+
+    async function stopParser(key) {
+      await fetch(API + '/api/parser/' + key + '/stop', { method: 'POST' });
+      setTimeout(loadParsers, 500);
+    }
+    async function pauseParser(key) {
+      await fetch(API + '/api/parser/' + key + '/pause', { method: 'POST' });
+      setTimeout(loadParsers, 500);
+    }
+    async function resumeParser(key) {
+      await fetch(API + '/api/parser/' + key + '/resume', { method: 'POST' });
+      setTimeout(loadParsers, 500);
+    }
+
+    async function stopAllParsers() {
+      for (const store of STORES) {
+        try {
+          await fetch(API + '/api/parser/' + store.key + '/stop', { method: 'POST' });
+        } catch (e) {}
+      }
+      setTimeout(loadParsers, 500);
+    }
+
+    // === Progress Runner ===
+    function renderProgressRunner() {
+      const runner = document.getElementById('progressRunner');
+      const active = STORES.filter(s => {
+        const st = storeState[s.key] || {};
+        return st.running || st.paused;
+      });
+
+      if (active.length === 0) {
+        runner.classList.remove('active');
+        runner.innerHTML = '';
+        return;
+      }
+
+      runner.classList.add('active');
+      runner.innerHTML = active.map(store => {
+        const s = storeState[store.key];
+        const progress = s.progress || 0;
+        const total = s.total || 0;
+        const pct = total > 0 ? Math.min(100, Math.round(progress / total * 100)) : 0;
+
+        let elapsed = '', etaHtml = '';
+        if (s.started_at) {
+          const e = Math.round((Date.now() - parseTS(s.started_at).getTime()) / 1000);
+          if (e > 0) elapsed = ' • ⏳ ' + fmtDur(e);
+          if (progress > 0 && progress < total) {
+            const etaSec = Math.round((e / progress) * (total - progress));
+            etaHtml = ` • Ост: ${fmtDur(etaSec)}`;
+          }
+        }
+
+        const cityLabel = s.current_city ? s.name + ' (' + s.current_city + ')' : s.name;
+        const statusLabel = s.paused ? '<span style="color:var(--danger)">Пауза</span>' : 'Парсинг идёт';
+
+        return `
+          <div class="runner-item">
+            <div class="runner-header">
+              <span class="runner-icon">${s.icon}</span>
+              <span class="runner-store">${cityLabel}</span>
+              <span class="runner-status">${statusLabel}</span>
+            </div>
+            <div class="runner-bar">
+              <div class="runner-fill" style="width:${total > 0 ? pct : 35}%"></div>
+            </div>
+            <div class="runner-stats">
+              ${total > 0 ? `
+                <span><strong>${progress.toLocaleString('ru')}</strong> из ${total.toLocaleString('ru')}</span>
+                <span class="runner-pct">${pct}%</span>
+              ` : `
+                <span><strong>${progress.toLocaleString('ru')}</strong> SKU собрано</span>
+              `}
+              <span>🏪 ${s.current_city ? s.name + ' — ' + s.current_city : s.name}${elapsed}${etaHtml}</span>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:10px;justify-content:flex-end">
+              ${s.paused
+                ? `<button class="jbtn jbtn-resume" onclick="resumeParser('${store.key}')">&#9654; Продолжить</button>`
+                : `<button class="jbtn jbtn-pause" onclick="pauseParser('${store.key}')">&#9208; Пауза</button>`
+              }
+              <button class="jbtn jbtn-cancel" onclick="stopParser('${store.key}')">&#9209; Стоп</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // === Load Stats — fills Tracker + Log ===
+    async function loadStats() {
+      try {
+        const res = await fetch(API + '/api/parser/stats');
+        const data = await res.json();
+        const counts = data.store_counts || data.storeCounts || {};
+        const cityByStore = data.city_by_store || {};
+        const stockByStore = data.stock_by_store || {};
+        const uniqueSkuCounts = data.unique_sku_counts || {};
+        const uniqueStockSkuCounts = data.unique_stock_sku_counts || {};
+        const sessions = data.parse_sessions || {};
+        window._lastCityByStore = cityByStore;
+        window._lastStockByStore = stockByStore;
+        window._lastUniqueSkuCounts = uniqueSkuCounts;
+        window._lastUniqueStockSkuCounts = uniqueStockSkuCounts;
+        window._lastCounts = counts;
+        window._lastSessions = sessions;
+
+        // Plan auto-update moved to loadParsers (uses parser state total, not stale DB stats)
+
+        renderTracker(counts, cityByStore, sessions);
+      } catch (e) {
+        console.error('loadStats error:', e);
+        const tb = document.getElementById('trackerBody');
+        if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px">Ошибка загрузки</td></tr>';
+      }
+      renderLog();
+      renderSettings();
+    }
+
+    // === Tracker Panel ===
+    const HIDDEN_CITIES = new Set(['Кострома Штрих']);
+    function renderTracker(counts, cityByStore, sessions) {
+      return; // Panel removed
+      const tbody = document.getElementById('trackerBody');
+      const savedPlan = getSavedPlan();
+      let rows = '';
+
+      for (const store of STORES) {
+        const st = storeState[store.key] || {};
+        const citiesData = cityByStore[store.name] || {};
+        let storeFact = 0, storePlan = 0;
+        let cityVals = [];
+
+        for (const city of store.cities) {
+          if (HIDDEN_CITIES.has(city)) continue;
+          const citySku = citiesData[city] || citiesData[acn(city)] || 0;
+          const cPlan = savedPlan[`${store.key}:${acn(city)}`] ?? citySku;
+          storeFact += citySku;
+          storePlan += (cPlan > 0 ? cPlan : citySku);
+
+          // Find session for this city
+          const sKey = store.name + ':' + city;
+          const sKeyAcn = store.name + ':' + acn(city);
+          const cs = sessions[sKey] || sessions[sKeyAcn] || [];
+          const lastS = cs.length > 0 ? cs[0] : null;
+
+          cityVals.push({ city, cFact: citySku, cPlan: cPlan > 0 ? cPlan : citySku, session: lastS });
+        }
+        // Add extra cities from DB not in STORES config (except hidden)
+        const knownCities = new Set(store.cities.map(c => c));
+        const knownAcn = new Set(store.cities.map(c => acn(c)));
+        for (const [dbCity, dbCount] of Object.entries(citiesData)) {
+          if (knownCities.has(dbCity) || knownAcn.has(dbCity) || HIDDEN_CITIES.has(dbCity)) continue;
+          storeFact += dbCount;
+          storePlan += dbCount;
+          const sKey = store.name + ':' + dbCity;
+          const cs = sessions[sKey] || [];
+          cityVals.push({ city: dbCity, cFact: dbCount, cPlan: dbCount, session: cs.length > 0 ? cs[0] : null });
+        }
+        if (storePlan === 0) storePlan = storeFact;
+
+        // Store row
+        const sDelta = storeFact - storePlan;
+        const sDeltaHtml = sDelta === 0 || storePlan === 0 ? '' : deltaHtml(storePlan, storeFact);
+        const tArrowCls = collapsedStores.has(store.key) ? 'collapse-arrow' : 'collapse-arrow open';
+        rows += `<tr class="store-row">
+          <td><span class="${tArrowCls}" onclick="toggleCollapse('${store.key}')">&#9654;</span>${store.icon} <strong>${store.name}</strong></td>
+          <td class="num" style="font-weight:700">${storeFact.toLocaleString('ru')} / ${storePlan.toLocaleString('ru')}</td>
+          <td class="num">${sDeltaHtml || '—'}</td>
+          <td></td><td></td><td></td><td></td><td></td>
+        </tr>`;
+
+        // City rows
+        if (!collapsedStores.has(store.key)) {
+          for (const cv of cityVals) {
+            const d = cv.cFact - cv.cPlan;
+            const dHtml = d === 0 || cv.cPlan === 0 ? '' : deltaHtml(cv.cPlan, cv.cFact);
+            const isCityParsing = (st.running || st.paused) && (st.current_city === cv.city || st.current_city === acn(cv.city));
+            let statusTxt = '';
+            if (isCityParsing && st.paused) statusTxt = '<span class="status-badge status-paused">⏸ Пауза</span>';
+            else if (isCityParsing) statusTxt = '<span class="status-badge status-running">▶ Работает</span>';
+            else if (cv.cFact > 0) statusTxt = '<span class="status-badge status-ok">✓ Есть</span>';
+
+            let dateHtml = '', skuSess = '', durHtml = '', speedHtml = '';
+            if (cv.session) {
+              const ls = cv.session;
+              if (ls.end_time) {
+                const dt = parseTS(ls.end_time);
+                if (dt) dateHtml = `<span class="date-col"><span class="date-main">${dt.getDate()} ${RU_MONTHS[dt.getMonth()]}</span> <span class="date-time">${dt.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})}</span></span>`;
+              }
+              skuSess = (ls.sku_count || 0).toLocaleString('ru');
+              const dur = ls.duration_secs || 0;
+              durHtml = dur > 0 ? `<span class="duration-col">${fmtDuration(dur)}</span>` : '';
+              if (dur > 0 && ls.sku_count > 0) {
+                speedHtml = Math.round(ls.sku_count / (dur / 60)).toLocaleString('ru') + ' /мин';
+              }
+            }
+
+            rows += `<tr class="city-row">
+              <td style="padding-left:32px">${cv.city}</td>
+              <td class="num">${cv.cFact.toLocaleString('ru')} / ${cv.cPlan.toLocaleString('ru')}</td>
+              <td class="num">${dHtml || '—'}</td>
+              <td>${statusTxt}</td>
+              <td>${dateHtml}</td>
+              <td class="num">${skuSess}</td>
+              <td class="num">${durHtml}</td>
+              <td class="num">${speedHtml}</td>
+            </tr>`;
+          }
+        }
+      }
+
+      tbody.innerHTML = rows || '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px">📭 Нет данных</td></tr>';
+    }
+
+    // === Event Log Panel ===
+    function renderLog() {
+      const el = document.getElementById('eventLog');
+      let lines = [];
+      for (const store of STORES) {
+        const s = storeState[store.key];
+        if (!s || !s.log || s.log.length === 0) continue;
+        for (const line of s.log) {
+          lines.push(`<span style="color:var(--primary);font-weight:600">${store.icon} ${store.name}</span> ${escHtml(line)}`);
+        }
+      }
+      if (lines.length === 0) {
+        el.innerHTML = '<span style="color:var(--text-muted)">Нет событий</span>';
+        return;
+      }
+      el.innerHTML = lines.map(l => `<div style="padding:2px 0;border-bottom:1px solid var(--surface3)">${l}</div>`).join('');
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // === Clear All Logs ===
+    async function clearAllLogs() {
+      for (const store of STORES) {
+        try { await fetch(API + '/api/parser/' + store.key + '/clear-log', { method: 'POST' }); } catch(e) {}
+      }
+      setTimeout(loadAll, 300);
+    }
+
+    function fmtDuration(sec) {
+      if (sec < 60) return sec + ' сек';
+      if (sec < 3600) return Math.floor(sec/60) + 'м ' + (sec%60) + 'с';
+      const h = Math.floor(sec/3600);
+      const m = Math.floor((sec%3600)/60);
+      return h + 'ч ' + m + 'м';
+    }
+
+    // === Journal Actions ===
+    async function journalPause(key) {
+      try {
+        await fetch(API + '/api/parser/' + key + '/pause', { method: 'POST' });
+        setTimeout(loadAll, 500);
+      } catch (e) { console.error('Ошибка паузы:', e); }
+    }
+    async function journalResume(key) {
+      try {
+        await fetch(API + '/api/parser/' + key + '/resume', { method: 'POST' });
+        setTimeout(loadAll, 500);
+      } catch (e) { console.error('Ошибка возобновления:', e); }
+    }
+    async function journalCancel(key) {
+      if (!confirm(`Отменить парсинг ${key}?`)) return;
+      try {
+        await fetch(API + '/api/parser/' + key + '/stop', { method: 'POST' });
+        setTimeout(loadAll, 500);
+      } catch (e) { console.error('Ошибка отмены:', e); }
+    }
+    async function journalRestart(key) {
+      try {
+        const cities = [...(selectedCities[key] || STORES.find(s => s.key === key)?.cities || [])];
+        await fetch(API + '/api/parser/' + key + '/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cities })
+        });
+        setTimeout(loadAll, 500);
+      } catch (e) { console.error('Ошибка перезапуска:', e); }
+    }
+
+    // === Helpers ===
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    // === Keyboard ===
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key.toLowerCase() === 'r') loadAll();
+    });
+
+    // === Auto-refresh every 30s for running parsers ===
+    setInterval(() => {
+      const anyActive = STORES.some(s => { const st=storeState[s.key]||{}; return st.running||st.paused; });
+      if (anyActive) loadParsers();
+    }, 15000);
+
+    document.addEventListener('DOMContentLoaded', () => { loadAll(); });
+  </script>
+</body>
+</html>

@@ -8,7 +8,7 @@
 #   Использует state-файл чтобы не дублировать задачи.
 #
 # Integration:
-#   - Работает с task_queue.py (FastAPI :8080)
+#   - Работает с gateway (Rust Axum :9090, replaces task_queue.py :8080)
 #   - Похож по стилю на watchdog.sh (inline python + bash logging)
 #   - Создаваемые задачи сразу попадают в dispatcher / resolve_agent
 #
@@ -20,13 +20,13 @@
 #
 # Config (env):
 #   GH_REPO     — репозиторий для мониторинга (по умолчанию agx/planlytasksko)
-#   API         — база API (по умолчанию http://localhost:8080)
+#   API         — база API (по умолчанию http://localhost:9090)
 #
 # Tags: github,automation,discovery
 
 set -euo pipefail
 
-API="${API:-http://localhost:8080}"
+API="${API:-http://localhost:9090}"
 LOG_DIR="/home/eveselove/agentforge/logs"
 DATA_DIR="/home/eveselove/agentforge/data"
 SEEN_FILE="$DATA_DIR/seen_agentforge_issues.txt"

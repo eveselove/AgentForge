@@ -5,12 +5,12 @@ Evaluation Runner for AgentForge (Phase 0 → Phase 1 transition).
 Goal: Reliable, repeatable execution of benchmark tasks with good signal.
 
 DEPRECATION NOTE (Phase 3/4 FINAL, RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md):
-    The flywheel orchestration layer (proposal/candidate/continuous/A/B glue) is AGGRESSIVELY DEPRECATED
-    in favor of pure Rust (agentforge-runner flywheel-step / continuous / candidate).
-    This runner participates indirectly via post_process (flywheel glue paths deprecated).
-    When is_pure_rust_flywheel() (Phase 4 EVEN STRONGER hardened guard from utils),
-    Python flywheel orchestration is short-circuited.
-    USE DIRECT: agentforge-runner flywheel-step --real-data --ingest
+    The DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) orchestration layer (proposal/candidate/continuous/A/B glue) is AGGRESSIVELY DEPRECATED
+    in favor of pure Rust (agentforge-runner DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)-step / continuous / candidate).
+    This runner participates indirectly via post_process (DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) glue paths deprecated).
+    When is_pure_rust_DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)() (Phase 4 EVEN STRONGER hardened guard from utils),
+    Python DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) orchestration is short-circuited.
+    USE DIRECT: agentforge-runner DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)-step --real-data --ingest
     See learning/utils.py (full list + strengthened guards) + PHASE4_REMOVAL_PLAN.md
 """
 import json
@@ -37,7 +37,7 @@ EVAL_RESULTS_DIR = Path(
 )
 EVAL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-AGENTFORGE_API = "http://localhost:8080"
+AGENTFORGE_API = "http://localhost:9090"
 
 
 def _wait_for_agentforge_task(real_task_id: str, timeout_minutes: int = 90, poll_interval: int = 20) -> Dict[str, Any]:
@@ -275,10 +275,10 @@ def run_benchmark_task(
         pass
 
     # TODO(Phase 1 Deprecation Expander): per RUST_FULL_MIGRATION_PLAN.md
-    # The post_process_task call above can trigger flywheel orchestration (Python path).
-    # When is_pure_rust_flywheel(), post_process already short-circuits some glue
+    # The post_process_task call above can trigger DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) orchestration (Python path).
+    # When is_pure_rust_DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)(), post_process already short-circuits some glue
     # (see eval/post_process.py + phase2_3_integration). Future expansions may
-    # add explicit deprecation warning here for flywheel-related benchmark runs.
+    # add explicit deprecation warning here for DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)-related benchmark runs.
     # eval/runner remains supported (hybrid) while orchestration layer migrates.
 
     return result

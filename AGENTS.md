@@ -21,7 +21,7 @@ This document describes how agents (Grok, Jules, Gemini, etc.) are expected to w
 | `bin/validate-commit-msg` + `.gitmessage` | Enforce Task ID / Jules session on every commit (hard gate in pre-commit) | Always |
 | `agent-review` skill (or `/agent-review --to-jules`) | Mandatory independent cross-agent code review + handoff packaging after any work, before PR (hard requirement, produces auditable `~/.grok/handoffs/` record) | After EVERY completed task / change set (see dedicated section below) |
 | `bin/consume-handoff-reviews.py` | **Post-100% Hardening (c48c5f56)**: Scans `~/.grok/handoffs/` for completed reviews (`jules-review-*.md`), bulk-approves via conservative heuristics, PATCHes originating task (from metadata) to `done` with full traceable notes + links. Idempotent, --dry-run safe by default, --stats/--list. | After review waves; manual or automated to clear "review" / post-handoff backlog |
-| Task Queue (localhost:8080) | Central source of work | Primary coordination mechanism |
+| Gateway (Rust task API, localhost:9090 /api/tasks etc) | Central source of work (replaces old task_queue.py:8080) | Primary coordination mechanism |
 | `docs/PHASE{1,2,3}_TASK_BREAKDOWN.md` | Current parallel attack surface for closing Code Mgmt Plan (pick tasks here) | During all-phases closure waves |
 | `docs/REVIEW_CHECKLIST.md` | Mandatory self-check + external agent-review steps before every PR (P2 B5) | Always for agent changes |
 | `jules remote list --session` | Inspect current Jules work | Reviewing what agents have done |
@@ -30,8 +30,8 @@ This document describes how agents (Grok, Jules, Gemini, etc.) are expected to w
 
 ### Starting Work
 ```bash
-# Check current tasks
-curl -s http://localhost:8080/tasks | jq '.[] | select(.status == "pending")'
+# Check current tasks (via gateway 9090)
+curl -s http://localhost:9090/api/tasks | jq '.[] | select(.status == "pending")'
 
 # Launch several agents on related tasks
 ./bin/launch-jules-parallel "task description" --count 3 --parallel 4
@@ -104,7 +104,8 @@ When `jules-watch.sh` creates an "Accept Jules session" task:
 
 This is the **judgment layer** that replaces traditional "required GitHub approvals" (see Branch Protection A7 decision). It is mandatory for all agent-generated changes before merge to `main`. 
 
-**Agent-review is now the default path**: Every agent (Grok, Antigravity, etc.) must run it after work and usually create a follow-up review task. This is the standard for the current closure waves.
+**Agent-review is now the mandatory default path**: Every agent (Grok, Antigravity, etc.) must run it after work and usually create a follow-up review task. This is the standard for the current closure waves. 
+Tasks created via the API or `agentforge-runner` can now include the `requires_agent_review: true` flag, which ensures that a follow-up review task is automatically created upon task completion.
 
 **Special rule for Antigravity**: See the dedicated [Antigravity Orchestration Protocol](docs/ANTIGRAVITY_ORCHESTRATION_PROTOCOL.md). Antigravity's primary output is **delegated work via the task queue**, not solo implementation. Heavy decomposition + parallel dispatch is mandatory for non-trivial initiatives.
 

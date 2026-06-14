@@ -23,7 +23,7 @@ echo "[AgentForge] Запуск Gemini Agent для задачи $TASK_ID" | tee
 gemini-agent "$TASK_DESC. ВАЖНО: Все твои ответы и комментарии должны быть написаны строго на РУССКОМ языке." 2>&1 | tee -a $LOG_DIR/gemini_$TASK_ID.log
 
 # Обновляем статус задачи
-curl -s -X PATCH http://localhost:8080/tasks/$TASK_ID \
+curl -s -X PATCH http://localhost:9090/tasks/$TASK_ID \
   -H 'Content-Type: application/json' \
   -d '{"status": "review", "assigned_agent": "gemini"}'
 

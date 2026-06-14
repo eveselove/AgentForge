@@ -5,14 +5,14 @@
 //! - Loads via TrajectoryDataset (real-data + trajectories + prm sidecars)
 //! - Runs heuristic BaseSkillImprover (port of Python logic) + SOLID LLM critique path (clean AGENTFORGE_LLM_CMD integration: direct-exec preferred, JSON+plain parsing, rich section-aware prompts; graceful rich fallback)
 //! - Emits SIGNIFICANTLY richer artifacts for max quality: 10+ proposal sections (core + planning_decomposition/state_management/self_reflection/observability_logging/efficiency_cost/example_selection + all prior), much richer candidate_skill.yaml (fuller proposal texts, expanded signals+meta, proper YAML structure)
-//!     candidate_skill.yaml, proposal.json, flywheel_manifest.json,
-//!     (optional) rust_rich_flywheel_export reference
+//! - candidate_skill.yaml, proposal.json, flywheel_manifest.json,
+//!   (optional) rust_rich_flywheel_export reference
 //! - --dry-run safe, --real-data loads farm trajectories, --output-dir writes files
 //! - Wired: solid SPLIT basic LLM critique path (AGENTFORGE_LLM_CMD direct preferred w/ --prompt/-p fallbacks + JSON/plain parse + rich structured fallback), heavily data-driven proposals when trajectories present
 //! - Tested on real farm data (trajectories + sidecars) for production emission quality lift.
 
-pub mod types;
 pub mod orchestrator;
+pub mod types;
 
 pub use types::{
     FlywheelConfig, FlywheelManifest, ImprovementProposal, ProposedSkill, SectionedPrompt,
@@ -73,14 +73,26 @@ impl FlywheelOrchestrator {
                             high_value_count += 1;
                         }
                     }
-                    avg_learning = if records_loaded > 0 { sum_lv / records_loaded as f64 } else { 0.0 };
-                    manifest.stats.insert("records_loaded".into(), serde_json::json!(records_loaded));
-                    manifest.stats.insert("prm_enriched".into(), serde_json::json!(p));
-                    manifest.stats.insert("results_loaded".into(), serde_json::json!(r));
+                    avg_learning = if records_loaded > 0 {
+                        sum_lv / records_loaded as f64
+                    } else {
+                        0.0
+                    };
+                    manifest
+                        .stats
+                        .insert("records_loaded".into(), serde_json::json!(records_loaded));
+                    manifest
+                        .stats
+                        .insert("prm_enriched".into(), serde_json::json!(p));
+                    manifest
+                        .stats
+                        .insert("results_loaded".into(), serde_json::json!(r));
                 }
                 Err(e) => {
                     // Still proceed with heuristic on empty (safe)
-                    manifest.stats.insert("load_warning".into(), serde_json::json!(e));
+                    manifest
+                        .stats
+                        .insert("load_warning".into(), serde_json::json!(e));
                 }
             }
         }
@@ -94,61 +106,159 @@ impl FlywheelOrchestrator {
         );
 
         // === Mine signals from loaded records for concrete, data-driven proposals (SIGNIFICANTLY EXPANDED for emission quality) ===
-        let num_failures = ds.records.iter().filter(|r| r.outcome != agentforge_learning::Outcome::Success).count();
-        let num_high_prm_success = ds.records.iter().filter(|r| {
-            r.outcome == agentforge_learning::Outcome::Success &&
-            r.prm_overall.unwrap_or(0.0) > 0.65
-        }).count();
-        let tool_signals = ds.records.iter().any(|r| r.tool_calls > 0 || r.error_message.as_deref().map_or(false, |e| e.to_lowercase().contains("tool")));
-        let low_prm_tool_steps = ds.records.iter().flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
-            .any(|l| l.score < 0.45 && (l.event_type.contains("tool") || l.event_type.contains("call")));
-        let recovery_signals = ds.records.iter().flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
-            .any(|l| l.event_type.contains("recover") || l.event_type.contains("retry")) ||
-            ds.records.iter().any(|r| r.error_message.as_deref().map_or(false, |e| e.to_lowercase().contains("recover")));
+        let num_failures = ds
+            .records
+            .iter()
+            .filter(|r| r.outcome != agentforge_learning::Outcome::Success)
+            .count();
+        let num_high_prm_success = ds
+            .records
+            .iter()
+            .filter(|r| {
+                r.outcome == agentforge_learning::Outcome::Success
+                    && r.prm_overall.unwrap_or(0.0) > 0.65
+            })
+            .count();
+        let tool_signals = ds.records.iter().any(|r| {
+            r.tool_calls > 0
+                || r.error_message
+                    .as_deref()
+                    .is_some_and(|e| e.to_lowercase().contains("tool"))
+        });
+        let low_prm_tool_steps = ds
+            .records
+            .iter()
+            .flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
+            .any(|l| {
+                l.score < 0.45 && (l.event_type.contains("tool") || l.event_type.contains("call"))
+            });
+        let recovery_signals = ds
+            .records
+            .iter()
+            .flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
+            .any(|l| l.event_type.contains("recover") || l.event_type.contains("retry"))
+            || ds.records.iter().any(|r| {
+                r.error_message
+                    .as_deref()
+                    .is_some_and(|e| e.to_lowercase().contains("recover"))
+            });
         let has_real_data = records_loaded > 0 || !ds.records.is_empty();
         // High-value data signals (drive conditional richer proposal sections)
-        let reasoning_low_prm = ds.records.iter().flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
-            .any(|l| l.score < 0.50 && (l.event_type.contains("reason") || l.event_type.contains("thought") || l.event_type.contains("decision") || l.event_type.contains("plan") || l.event_type.contains("llm")));
+        let reasoning_low_prm = ds
+            .records
+            .iter()
+            .flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
+            .any(|l| {
+                l.score < 0.50
+                    && (l.event_type.contains("reason")
+                        || l.event_type.contains("thought")
+                        || l.event_type.contains("decision")
+                        || l.event_type.contains("plan")
+                        || l.event_type.contains("llm"))
+            });
         let timeout_signals = ds.records.iter().any(|r| {
-            r.error_message.as_deref().map_or(false, |e| e.to_lowercase().contains("timeout") || e.to_lowercase().contains("slow") || e.to_lowercase().contains("deadline"))
-            || r.duration_seconds > 30.0
+            r.error_message.as_deref().is_some_and(|e| {
+                e.to_lowercase().contains("timeout")
+                    || e.to_lowercase().contains("slow")
+                    || e.to_lowercase().contains("deadline")
+            }) || r.duration_seconds > 30.0
         });
-        let long_horizon_steps = ds.records.iter().any(|r| r.steps_taken > 6 || r.steps_taken > (r.tool_calls as u32 + 3));
+        let long_horizon_steps = ds
+            .records
+            .iter()
+            .any(|r| r.steps_taken > 6 || r.steps_taken > (r.tool_calls + 3));
         let avg_duration = if records_loaded > 0 {
             ds.records.iter().map(|r| r.duration_seconds).sum::<f64>() / records_loaded as f64
-        } else { 0.0 };
-        let _avg_steps = if ds.records.is_empty() { 0.0 } else { ds.records.iter().map(|r| r.steps_taken as f64).sum::<f64>() / ds.records.len() as f64 };
+        } else {
+            0.0
+        };
+        let _avg_steps = if ds.records.is_empty() {
+            0.0
+        } else {
+            ds.records.iter().map(|r| r.steps_taken as f64).sum::<f64>() / ds.records.len() as f64
+        };
         let _high_step_or_complex = long_horizon_steps || _avg_steps > 6.0 || num_failures > 3;
         // NEW richer signals for even more proposal sections (maximum emission quality)
-        let planning_signals = ds.records.iter().flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
-            .any(|l| l.score < 0.55 && (l.event_type.contains("plan") || l.event_type.contains("decomp") || l.event_type.contains("goal")));
-        let state_signals = ds.records.iter().any(|r| r.steps_taken > 4 || r.error_message.as_deref().map_or(false, |e| e.to_lowercase().contains("state") || e.to_lowercase().contains("context") || e.to_lowercase().contains("checkpoint")));
-        let reflection_signals = reasoning_low_prm || ds.records.iter().flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
-            .any(|l| l.score < 0.5 && (l.event_type.contains("reflect") || l.event_type.contains("review") || l.event_type.contains("self")));
-        let logging_signals = ds.records.iter().any(|r| r.judge_notes.is_some() || r.error_message.is_some() || r.prm_suggestions.is_some());
-        let efficiency_signals = avg_duration > 18.0 || timeout_signals || ds.records.iter().any(|r| r.cost_usd > 0.05);
+        let planning_signals = ds
+            .records
+            .iter()
+            .flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
+            .any(|l| {
+                l.score < 0.55
+                    && (l.event_type.contains("plan")
+                        || l.event_type.contains("decomp")
+                        || l.event_type.contains("goal"))
+            });
+        let state_signals = ds.records.iter().any(|r| {
+            r.steps_taken > 4
+                || r.error_message.as_deref().is_some_and(|e| {
+                    e.to_lowercase().contains("state")
+                        || e.to_lowercase().contains("context")
+                        || e.to_lowercase().contains("checkpoint")
+                })
+        });
+        let reflection_signals = reasoning_low_prm
+            || ds
+                .records
+                .iter()
+                .flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
+                .any(|l| {
+                    l.score < 0.5
+                        && (l.event_type.contains("reflect")
+                            || l.event_type.contains("review")
+                            || l.event_type.contains("self"))
+                });
+        let logging_signals = ds.records.iter().any(|r| {
+            r.judge_notes.is_some() || r.error_message.is_some() || r.prm_suggestions.is_some()
+        });
+        let efficiency_signals =
+            avg_duration > 18.0 || timeout_signals || ds.records.iter().any(|r| r.cost_usd > 0.05);
         let complex_task = long_horizon_steps || num_failures > 3 || records_loaded > 8;
         // NEW richer data signals for additional high-value proposal sections (max emission quality)
-        let tool_selection_signals = tool_signals || low_prm_tool_steps || ds.records.iter().any(|r| r.tool_calls > 2 && r.prm_overall.unwrap_or(1.0) < 0.6);
-        let progress_signals = timeout_signals || long_horizon_steps || avg_duration > 15.0 || ds.records.iter().any(|r| r.duration_seconds > 25.0);
-        let error_taxonomy_signals = num_failures > 1 || ds.records.iter().any(|r| r.error_message.is_some() || r.outcome != agentforge_learning::Outcome::Success);
+        let tool_selection_signals = tool_signals
+            || low_prm_tool_steps
+            || ds
+                .records
+                .iter()
+                .any(|r| r.tool_calls > 2 && r.prm_overall.unwrap_or(1.0) < 0.6);
+        let progress_signals = timeout_signals
+            || long_horizon_steps
+            || avg_duration > 15.0
+            || ds.records.iter().any(|r| r.duration_seconds > 25.0);
+        let error_taxonomy_signals = num_failures > 1
+            || ds.records.iter().any(|r| {
+                r.error_message.is_some() || r.outcome != agentforge_learning::Outcome::Success
+            });
         let hypothesis_signals = reasoning_low_prm || reflection_signals || planning_signals;
-        let output_contract_signals = has_real_data || complex_task || ds.records.iter().any(|r| r.steps_taken > 3);
-        let verification_weak = ds.records.iter().flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
-            .any(|l| l.score < 0.48 && (l.event_type.contains("verif") || l.event_type.contains("result") || l.event_type.contains("check")));
-        let backoff_signals = timeout_signals || error_taxonomy_signals || ds.records.iter().any(|r| r.error_message.as_deref().map_or(false, |e| e.to_lowercase().contains("retry") || e.to_lowercase().contains("rate")));
+        let output_contract_signals =
+            has_real_data || complex_task || ds.records.iter().any(|r| r.steps_taken > 3);
+        let verification_weak = ds
+            .records
+            .iter()
+            .flat_map(|r| r.prm_step_labels.as_deref().unwrap_or(&[]))
+            .any(|l| {
+                l.score < 0.48
+                    && (l.event_type.contains("verif")
+                        || l.event_type.contains("result")
+                        || l.event_type.contains("check"))
+            });
+        let backoff_signals = timeout_signals
+            || error_taxonomy_signals
+            || ds.records.iter().any(|r| {
+                r.error_message.as_deref().is_some_and(|e| {
+                    e.to_lowercase().contains("retry") || e.to_lowercase().contains("rate")
+                })
+            });
 
         // Convert to our richer sectioned proposal types (real Phase 1 emission - SIGNIFICANTLY more concrete + MANY more sections for max quality)
-        let mut proposals: Vec<ImprovementProposal> = vec![
-            ImprovementProposal {
-                section: "system_prompt".to_string(),
-                rationale: base_prop.overall_rationale.clone(),
-                before: None,
-                after: base_prop.new_system_prompt.clone(),
-                confidence: Some(0.78),
-                estimated_delta: Some("+4-9pp success on error classes".into()),
-            },
-        ];
+        let mut proposals: Vec<ImprovementProposal> = vec![ImprovementProposal {
+            section: "system_prompt".to_string(),
+            rationale: base_prop.overall_rationale.clone(),
+            before: None,
+            after: base_prop.new_system_prompt.clone(),
+            confidence: Some(0.78),
+            estimated_delta: Some("+4-9pp success on error classes".into()),
+        }];
 
         // Always add outcome classification + recovery (core flywheel pattern, data-backed)
         proposals.push(ImprovementProposal {
@@ -379,13 +489,33 @@ impl FlywheelOrchestrator {
         // Apply the CLEAN SPLIT basic LLM critique path (AGENTFORGE_LLM_CMD + variants) - now separated in learning::improver.
         // Inline enrichment for emission quality; graceful when no LLM env (uses rich fallback from propose_with_llm_stub already applied upstream).
         let mut final_overall_rationale = base_prop.overall_rationale.clone();
-        let has_llm_env = std::env::var("AGENTFORGE_LLM_CMD").map(|v| !v.trim().is_empty()).unwrap_or(false)
-            || std::env::var("AGENTFORGE_LLM").map(|v| !v.trim().is_empty()).unwrap_or(false)
-            || std::env::var("LLM_CMD").map(|v| !v.trim().is_empty()).unwrap_or(false)
-            || std::env::var("GROK_CMD").map(|v| !v.trim().is_empty()).unwrap_or(false);
+        let has_llm_env = std::env::var("AGENTFORGE_LLM_CMD")
+            .map(|v| !v.trim().is_empty())
+            .unwrap_or(false)
+            || std::env::var("AGENTFORGE_LLM")
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false)
+            || std::env::var("LLM_CMD")
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false)
+            || std::env::var("GROK_CMD")
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false);
         if has_llm_env {
-            let crit = format!("refined: focus on high-signal recovery/tool/plan from '{}'", base_prop.overall_rationale.chars().take(40).collect::<String>());
-            final_overall_rationale = format!("{} | FLYWHEEL_LLM_CRITIQUE[{}]: {}", final_overall_rationale, chrono::Utc::now().format("%H:%M:%S"), crit);
+            let crit = format!(
+                "refined: focus on high-signal recovery/tool/plan from '{}'",
+                base_prop
+                    .overall_rationale
+                    .chars()
+                    .take(40)
+                    .collect::<String>()
+            );
+            final_overall_rationale = format!(
+                "{} | FLYWHEEL_LLM_CRITIQUE[{}]: {}",
+                final_overall_rationale,
+                chrono::Utc::now().format("%H:%M:%S"),
+                crit
+            );
             if let Some(p0) = proposals.get_mut(0) {
                 p0.rationale = format!("{} | LLM_CRITIQUE: {}", p0.rationale, crit);
             }
@@ -393,9 +523,15 @@ impl FlywheelOrchestrator {
 
         // Build the exact proposal dict shape expected by pending_candidates + evaluator
         // Now includes richer sectioned proposals + analysis for higher emission quality.
-        let llm_cmd_set = std::env::var("AGENTFORGE_LLM_CMD").map(|v| !v.trim().is_empty()).unwrap_or(false)
-            || std::env::var("AGENTFORGE_LLM").map(|v| !v.trim().is_empty()).unwrap_or(false)
-            || std::env::var("LLM_CMD").map(|v| !v.trim().is_empty()).unwrap_or(false);
+        let llm_cmd_set = std::env::var("AGENTFORGE_LLM_CMD")
+            .map(|v| !v.trim().is_empty())
+            .unwrap_or(false)
+            || std::env::var("AGENTFORGE_LLM")
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false)
+            || std::env::var("LLM_CMD")
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false);
         let analysis_summary = serde_json::json!({
             "num_failures": num_failures,
             "num_high_prm_successes": num_high_prm_success,
@@ -446,9 +582,18 @@ impl FlywheelOrchestrator {
         });
 
         manifest.proposals = proposals.clone();
-        manifest.stats.insert("high_learning_value_records".into(), serde_json::json!(high_value_count));
-        manifest.stats.insert("avg_learning_value".into(), serde_json::json!(avg_learning));
-        manifest.status = if config.dry_run { "phase1-dry-run".into() } else { "phase1-executed".into() };
+        manifest.stats.insert(
+            "high_learning_value_records".into(),
+            serde_json::json!(high_value_count),
+        );
+        manifest
+            .stats
+            .insert("avg_learning_value".into(), serde_json::json!(avg_learning));
+        manifest.status = if config.dry_run {
+            "phase1-dry-run".into()
+        } else {
+            "phase1-executed".into()
+        };
 
         // === Emit artifacts when we have an output dir and not dry-run ===
         if let Some(out_dir) = &config.output_dir {
@@ -456,28 +601,53 @@ impl FlywheelOrchestrator {
                 let _ = std::fs::create_dir_all(out_dir);
                 // 1. proposal.json (exact shape Python consumers expect)
                 let prop_path = out_dir.join("proposal.json");
-                let _ = std::fs::write(&prop_path, serde_json::to_string_pretty(&proposal_dict).unwrap_or_default());
+                let _ = std::fs::write(
+                    &prop_path,
+                    serde_json::to_string_pretty(&proposal_dict).unwrap_or_default(),
+                );
 
                 // 2. flywheel_manifest.json (minimal but compatible)
                 let mut m: HashMap<String, serde_json::Value> = HashMap::new();
-                m.insert("command".into(), serde_json::json!("agentforge-runner flywheel-step --real-data"));
+                m.insert(
+                    "command".into(),
+                    serde_json::json!("agentforge-runner flywheel-step --real-data"),
+                );
                 m.insert("engine".into(), serde_json::json!(&manifest.engine));
                 m.insert("records_loaded".into(), serde_json::json!(records_loaded));
-                m.insert("rust_pairs_used".into(), serde_json::json!(records_loaded.min(128)));
-                m.insert("timestamp".into(), serde_json::json!(chrono::Utc::now().to_rfc3339()));
-                m.insert("pending_candidates_ingest".into(), serde_json::json!("direct via agentforge-candidates (future) or post_process hook"));
+                m.insert(
+                    "rust_pairs_used".into(),
+                    serde_json::json!(records_loaded.min(128)),
+                );
+                m.insert(
+                    "timestamp".into(),
+                    serde_json::json!(chrono::Utc::now().to_rfc3339()),
+                );
+                m.insert(
+                    "pending_candidates_ingest".into(),
+                    serde_json::json!(
+                        "direct via agentforge-candidates (future) or post_process hook"
+                    ),
+                );
                 let man_path = out_dir.join("flywheel_manifest.json");
-                let _ = std::fs::write(&man_path, serde_json::to_string_pretty(&m).unwrap_or_default());
+                let _ = std::fs::write(
+                    &man_path,
+                    serde_json::to_string_pretty(&m).unwrap_or_default(),
+                );
 
                 // 3. candidate_skill.yaml (MUCH richer + closer to Python output for quality)
                 // Structure: name/desc/prompt + lists + full proposals + expansive _learning_meta
                 // (analysis, signals, full proposal details, LLM flag, parity with skill_improver.py)
                 let ts = chrono::Utc::now();
-                let proposed_name = format!("{}-flywheel-{}", config.skill_name, ts.format("%Y%m%d%H%M"));
+                let proposed_name =
+                    format!("{}-flywheel-{}", config.skill_name, ts.format("%Y%m%d%H%M"));
                 let sys_prompt = base_prop.new_system_prompt.as_deref()
                     .unwrap_or("You are an expert autonomous engineer. After every action explicitly classify outcome quality, attempt exactly one structured recovery on error, then proceed or escalate with clear rationale.")
                     .replace('\n', "\n  ");
-                let ci_lines: Vec<_> = base_prop.suggested_ci_checks.iter().map(|c| format!("- {}", c)).collect();
+                let ci_lines: Vec<_> = base_prop
+                    .suggested_ci_checks
+                    .iter()
+                    .map(|c| format!("- {}", c))
+                    .collect();
                 let ci_block = if ci_lines.is_empty() {
                     "- cargo check --offline\n- python -m pytest -k adaptive || true".to_string()
                 } else {
@@ -486,9 +656,20 @@ impl FlywheelOrchestrator {
                 let few_block = if base_prop.suggested_few_shots.is_empty() {
                     "[]  # (mined high-PRM successes available for population)"
                 } else {
-                    let items: Vec<_> = base_prop.suggested_few_shots.iter().map(|s| {
-                        format!("  - \"{}\"", s.replace('"', "'").replace('\n', " | ").chars().take(120).collect::<String>())
-                    }).collect();
+                    let items: Vec<_> = base_prop
+                        .suggested_few_shots
+                        .iter()
+                        .map(|s| {
+                            format!(
+                                "  - \"{}\"",
+                                s.replace('"', "'")
+                                    .replace('\n', " | ")
+                                    .chars()
+                                    .take(120)
+                                    .collect::<String>()
+                            )
+                        })
+                        .collect();
                     &format!("\n{}", items.join("\n"))
                 };
                 let prop_block = if proposals.is_empty() {
@@ -514,21 +695,39 @@ impl FlywheelOrchestrator {
                 let llm_flag = std::env::var("AGENTFORGE_LLM_CMD")
                     .map(|v| !v.trim().is_empty())
                     .unwrap_or(false)
-                    || std::env::var("AGENTFORGE_LLM").map(|v| !v.trim().is_empty()).unwrap_or(false)
-                    || std::env::var("LLM_CMD").map(|v| !v.trim().is_empty()).unwrap_or(false)
-                    || std::env::var("GROK_CMD").map(|v| !v.trim().is_empty()).unwrap_or(false);
+                    || std::env::var("AGENTFORGE_LLM")
+                        .map(|v| !v.trim().is_empty())
+                        .unwrap_or(false)
+                    || std::env::var("LLM_CMD")
+                        .map(|v| !v.trim().is_empty())
+                        .unwrap_or(false)
+                    || std::env::var("GROK_CMD")
+                        .map(|v| !v.trim().is_empty())
+                        .unwrap_or(false);
                 // ULTRA rich analysis + breakdown + emitted list + critique_source (for max quality + Python consumers)
-                let top_err = final_overall_rationale.split('.').next().unwrap_or("mixed patterns").replace('\n', " ").chars().take(135).collect::<String>();
-                let emitted_list: Vec<String> = proposals.iter().map(|p| p.section.clone()).collect();
+                let top_err = final_overall_rationale
+                    .split('.')
+                    .next()
+                    .unwrap_or("mixed patterns")
+                    .replace('\n', " ")
+                    .chars()
+                    .take(135)
+                    .collect::<String>();
+                let emitted_list: Vec<String> =
+                    proposals.iter().map(|p| p.section.clone()).collect();
                 let emitted_str = emitted_list.join(",");
-                let critique_src = if llm_flag { "AGENTFORGE_LLM_CMD_or_variant" } else { "structured_fallback_split_basic_llm_path" };
+                let critique_src = if llm_flag {
+                    "AGENTFORGE_LLM_CMD_or_variant"
+                } else {
+                    "structured_fallback_split_basic_llm_path"
+                };
                 let signal_breakdown = format!(
                     "tool_sel={},progress={},err_tax={},hypo={},out_contract={},backoff={},verif_weak={}",
                     tool_selection_signals, progress_signals, error_taxonomy_signals, hypothesis_signals, output_contract_signals, backoff_signals, verification_weak
                 );
                 let signals_list = "core:recovery_strategy,tool_use,few_shots,verification,error_handling + cond:reasoning_structure,timeout_handling,checkpointing,planning_decomposition,state_management,self_reflection,observability_logging,efficiency_cost,example_selection,tool_selection,progress_heartbeat,error_taxonomy,hypothesis_tracking,output_contracts,retry_backoff_policy";
                 let yaml = format!(
-r#"# candidate_skill.yaml - Pure Rust flywheel (MAXIMUM upgraded emission quality: 15+ proposal sections, ultra-rich full after texts (1280c), expanded _learning_meta w/ signal_breakdown + emitted_sections list + critique_source)
+                    r#"# candidate_skill.yaml - Pure Rust flywheel (MAXIMUM upgraded emission quality: 15+ proposal sections, ultra-rich full after texts (1280c), expanded _learning_meta w/ signal_breakdown + emitted_sections list + critique_source)
 # Generated by agentforge-runner flywheel-step --real-data
 # Far richer than Python learning/skill_improver.py (full parity + 6+ new high-value sections + split LLM path)
 name: {name}-improved-rust
@@ -603,8 +802,16 @@ _learning_meta:
                     n_fails = num_failures,
                     n_high = num_high_prm_success,
                     top_err = top_err,
-                    fail_rate = if records_loaded > 0 { num_failures as f64 / records_loaded as f64 } else { 0.0 },
-                    success_rate = if records_loaded > 0 { 1.0 - (num_failures as f64 / records_loaded as f64) } else { 0.0 },
+                    fail_rate = if records_loaded > 0 {
+                        num_failures as f64 / records_loaded as f64
+                    } else {
+                        0.0
+                    },
+                    success_rate = if records_loaded > 0 {
+                        1.0 - (num_failures as f64 / records_loaded as f64)
+                    } else {
+                        0.0
+                    },
                     avg_dur = avg_duration,
                     reason_low = reasoning_low_prm,
                     complex_task = complex_task,
@@ -627,9 +834,20 @@ _learning_meta:
                 );
                 let _ = std::fs::write(out_dir.join("README.md"), readme);
 
-                manifest.artifact_paths.insert("proposal.json".into(), prop_path.to_string_lossy().into());
-                manifest.artifact_paths.insert("candidate_skill.yaml".into(), out_dir.join("candidate_skill.yaml").to_string_lossy().into());
-                manifest.artifact_paths.insert("flywheel_manifest.json".into(), man_path.to_string_lossy().into());
+                manifest
+                    .artifact_paths
+                    .insert("proposal.json".into(), prop_path.to_string_lossy().into());
+                manifest.artifact_paths.insert(
+                    "candidate_skill.yaml".into(),
+                    out_dir
+                        .join("candidate_skill.yaml")
+                        .to_string_lossy()
+                        .into(),
+                );
+                manifest.artifact_paths.insert(
+                    "flywheel_manifest.json".into(),
+                    man_path.to_string_lossy().into(),
+                );
             }
         }
 
@@ -640,12 +858,18 @@ _learning_meta:
     }
 }
 
+impl Default for FlywheelOrchestrator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
     use std::fs;
     use std::path::PathBuf;
-    use proptest::prelude::*;
 
     #[test]
     fn flywheel_orchestrator_run_step_dry_run_emits_manifest_and_proposals() {
@@ -662,7 +886,10 @@ mod tests {
         assert!(m.engine.contains("rust-agentforge-runner"));
         assert!(m.status.contains("dry-run") || m.status.contains("phase1"));
         // Always emits proposals (core emission)
-        assert!(!m.proposals.is_empty(), "flywheel emission must produce at least recovery + system proposals");
+        assert!(
+            !m.proposals.is_empty(),
+            "flywheel emission must produce at least recovery + system proposals"
+        );
         assert!(m.proposals.iter().any(|p| p.section == "recovery_strategy"));
         // rich export for runner JSON
         assert!(m.rich_flywheel_export.is_some());
@@ -672,7 +899,10 @@ mod tests {
     #[test]
     fn flywheel_orchestrator_emits_full_artifacts_on_real_run_to_temp_dir() {
         let orch = FlywheelOrchestrator::new();
-        let tmp = std::env::temp_dir().join(format!("agentforge_flywheel_emit_test_{}", std::process::id()));
+        let tmp = std::env::temp_dir().join(format!(
+            "agentforge_flywheel_emit_test_{}",
+            std::process::id()
+        ));
         let _ = fs::create_dir_all(&tmp);
         // Use a subdir for this test's artifacts
         let out_dir = tmp.join("emission_test_out");
@@ -685,7 +915,9 @@ mod tests {
             output_dir: Some(out_dir.clone()),
             ..Default::default()
         };
-        let m = orch.run_step(&cfg).expect("real emission run_step must succeed");
+        let m = orch
+            .run_step(&cfg)
+            .expect("real emission run_step must succeed");
 
         assert!(!m.dry_run);
         assert!(m.artifact_paths.contains_key("proposal.json"));
@@ -695,14 +927,20 @@ mod tests {
         // Verify files actually written with expected content
         let prop = fs::read_to_string(out_dir.join("proposal.json")).expect("proposal.json");
         assert!(prop.contains("emit-test") || prop.contains("\"skill\""));
-        assert!(prop.contains("proposals") || prop.contains("overall_rationale") || prop.contains("skill"));
+        assert!(
+            prop.contains("proposals")
+                || prop.contains("overall_rationale")
+                || prop.contains("skill")
+        );
 
-        let yaml = fs::read_to_string(out_dir.join("candidate_skill.yaml")).expect("candidate_skill.yaml");
+        let yaml =
+            fs::read_to_string(out_dir.join("candidate_skill.yaml")).expect("candidate_skill.yaml");
         assert!(yaml.contains("name: emit-test-improved-rust"));
         assert!(yaml.contains("_learning_meta:"));
         assert!(yaml.contains("recovery_strategy") || yaml.contains("Pure Rust flywheel"));
 
-        let man = fs::read_to_string(out_dir.join("flywheel_manifest.json")).expect("flywheel_manifest.json");
+        let man = fs::read_to_string(out_dir.join("flywheel_manifest.json"))
+            .expect("flywheel_manifest.json");
         assert!(man.contains("engine") && man.contains("records_loaded"));
 
         // README also emitted for humans
@@ -750,8 +988,12 @@ mod tests {
             real_data: true,
             limit: Some(5),
             output_dir: Some(PathBuf::from("/tmp/fw")),
-            trajectories_dir: Some(PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
-            prm_dir: Some(PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
+            trajectories_dir: Some(PathBuf::from(
+                "/home/eveselove/agentforge/eval/trajectories",
+            )),
+            prm_dir: Some(PathBuf::from(
+                "/home/eveselove/agentforge/eval/trajectories",
+            )),
             min_prm: Some(0.4),
             ..Default::default()
         };
@@ -766,14 +1008,17 @@ mod tests {
     fn flywheel_run_step_improved_emission_has_analysis_and_sectioned_proposals() {
         // Specifically exercises the richer improved emission logic (analysis_summary, multiple proposals, _learning_meta fields)
         let orch = FlywheelOrchestrator::new();
-        let tmp = std::env::temp_dir().join(format!("agentforge_flywheel_improved_{}", std::process::id()));
+        let tmp = std::env::temp_dir().join(format!(
+            "agentforge_flywheel_improved_{}",
+            std::process::id()
+        ));
         let out_dir = tmp.join("out");
         let _ = fs::create_dir_all(&out_dir);
 
         let cfg = FlywheelConfig {
             skill_name: "analysis-skill".into(),
             dry_run: false,
-            real_data: false,  // fast path; real_data would also populate more signals but slower
+            real_data: false, // fast path; real_data would also populate more signals but slower
             output_dir: Some(out_dir.clone()),
             ..Default::default()
         };
@@ -786,16 +1031,26 @@ mod tests {
         let has_analysis = rich.get("analysis_summary").is_some()
             || rich.to_string().contains("num_failures")
             || rich.to_string().contains("tool_signals");
-        assert!(has_analysis, "improved emission must include analysis signals");
+        assert!(
+            has_analysis,
+            "improved emission must include analysis signals"
+        );
 
         // At least system + recovery (or fewshot) in sectioned
         assert!(m.proposals.len() >= 2);
-        assert!(m.proposals.iter().any(|p| p.section.contains("system") || p.section.contains("recovery")));
+        assert!(m
+            .proposals
+            .iter()
+            .any(|p| p.section.contains("system") || p.section.contains("recovery")));
 
         // artifacts include richer yaml with _learning_meta expanded keys
         let yaml = fs::read_to_string(out_dir.join("candidate_skill.yaml")).unwrap_or_default();
         assert!(yaml.contains("_learning_meta:"));
-        assert!(yaml.contains("analysis:") || yaml.contains("num_proposals_emitted") || yaml.contains("recovery_signals"));
+        assert!(
+            yaml.contains("analysis:")
+                || yaml.contains("num_proposals_emitted")
+                || yaml.contains("recovery_signals")
+        );
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -803,7 +1058,12 @@ mod tests {
     #[test]
     fn flywheel_emission_always_produces_core_recovery_and_verification_quality() {
         let orch = FlywheelOrchestrator::new();
-        let cfg = FlywheelConfig { skill_name: "core-emit".into(), dry_run: true, real_data: false, ..Default::default() };
+        let cfg = FlywheelConfig {
+            skill_name: "core-emit".into(),
+            dry_run: true,
+            real_data: false,
+            ..Default::default()
+        };
         let m = orch.run_step(&cfg).expect("core emission");
         assert!(m.proposals.iter().any(|p| p.section == "recovery_strategy"));
         // improved emission quality: recovery always present as core flywheel pattern
@@ -819,12 +1079,18 @@ mod tests {
             skill_name: "real-data-emit".into(),
             dry_run: true,
             real_data: true,
-            trajectories_dir: Some(std::path::PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
-            prm_dir: Some(std::path::PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
+            trajectories_dir: Some(std::path::PathBuf::from(
+                "/home/eveselove/agentforge/eval/trajectories",
+            )),
+            prm_dir: Some(std::path::PathBuf::from(
+                "/home/eveselove/agentforge/eval/trajectories",
+            )),
             limit: Some(10),
             ..Default::default()
         };
-        let m = orch.run_step(&cfg).expect("real data flywheel must not panic");
+        let m = orch
+            .run_step(&cfg)
+            .expect("real data flywheel must not panic");
         assert_eq!(m.skill, "real-data-emit");
         // stats may have records_loaded or load_warning
         assert!(m.stats.contains_key("records_loaded") || m.stats.contains_key("load_warning"));
@@ -835,7 +1101,11 @@ mod tests {
     #[test]
     fn flywheel_proposal_dict_has_improved_fields_for_pending_candidates_parity() {
         let orch = FlywheelOrchestrator::new();
-        let cfg = FlywheelConfig { skill_name: "parity-emit".into(), dry_run: true, ..Default::default() };
+        let cfg = FlywheelConfig {
+            skill_name: "parity-emit".into(),
+            dry_run: true,
+            ..Default::default()
+        };
         let m = orch.run_step(&cfg).unwrap();
         let rich = m.rich_flywheel_export.unwrap();
         assert_eq!(rich["skill"], "parity-emit");
@@ -843,14 +1113,22 @@ mod tests {
         assert!(rich.get("proposals").is_some());
         assert!(rich.get("high_learning_value_records").is_some());
         // source tags rust for migration
-        assert!(rich.to_string().contains("rust-agentforge-runner") || rich.to_string().contains("pure Rust"));
+        assert!(
+            rich.to_string().contains("rust-agentforge-runner")
+                || rich.to_string().contains("pure Rust")
+        );
     }
 
     #[test]
     fn flywheel_improved_emission_conditional_sections_on_empty_vs_signals() {
         // Covers improved emission quality: core always + conditional sections when signals (tool/recovery etc)
         let orch = FlywheelOrchestrator::new();
-        let cfg = FlywheelConfig { skill_name: "cond-emit".into(), dry_run: true, real_data: false, ..Default::default() };
+        let cfg = FlywheelConfig {
+            skill_name: "cond-emit".into(),
+            dry_run: true,
+            real_data: false,
+            ..Default::default()
+        };
         let m = orch.run_step(&cfg).expect("cond emission");
         // Always at least system + recovery (core flywheel pattern)
         assert!(m.proposals.len() >= 2);
@@ -876,12 +1154,20 @@ mod tests {
             output_dir: Some(out.clone()),
             ..Default::default()
         };
-        let m = FlywheelOrchestrator::new().run_step(&cfg).expect("llm stub path");
+        let m = FlywheelOrchestrator::new()
+            .run_step(&cfg)
+            .expect("llm stub path");
         std::env::remove_var("LLM_CMD");
         let rich = m.rich_flywheel_export.as_ref().expect("rich");
         let rationale = rich["overall_rationale"].as_str().unwrap_or("");
         // Either real stub or (split) structured_fallback applied -> enriched (basic LLM critique path)
-        assert!(rationale.contains("CRITIQUE") || rationale.contains("structured_fallback") || rationale.contains("CRITIQUE-DERIVED") || rich.to_string().contains("CRITIQUE"), "LLM stub/fallback must enrich for emission");
+        assert!(
+            rationale.contains("CRITIQUE")
+                || rationale.contains("structured_fallback")
+                || rationale.contains("CRITIQUE-DERIVED")
+                || rich.to_string().contains("CRITIQUE"),
+            "LLM stub/fallback must enrich for emission"
+        );
         let yaml = std::fs::read_to_string(out.join("candidate_skill.yaml")).unwrap_or_default();
         assert!(yaml.contains("_learning_meta") && yaml.contains("llm_critique_used"));
         let _ = std::fs::remove_dir_all(&tmp);
@@ -894,14 +1180,19 @@ mod tests {
             skill_name: "shadow-disable".into(),
             dry_run: true,
             real_data: false,
-            limit: Some(0),  // "disable" heavy load
+            limit: Some(0), // "disable" heavy load
             ..Default::default()
         };
         cfg.json_mode = true; // runner passes this for shadow/continuous
-        let m = FlywheelOrchestrator::new().run_step(&cfg).expect("shadow/disable cfg");
+        let m = FlywheelOrchestrator::new()
+            .run_step(&cfg)
+            .expect("shadow/disable cfg");
         assert!(m.dry_run);
         assert!(m.proposals.len() >= 2); // still emits core improved quality
-        assert!(m.stats.get("records_loaded").map_or(true, |v| v.as_u64().unwrap_or(0) == 0));
+        assert!(m
+            .stats
+            .get("records_loaded")
+            .map_or(true, |v| v.as_u64().unwrap_or(0) == 0));
         // Manifest serde for shadow health emission
         let man_json = serde_json::to_string(&m).unwrap();
         assert!(man_json.contains("dry_run") && man_json.contains("proposals"));
@@ -916,14 +1207,22 @@ mod tests {
             dry_run: true,
             real_data: true,
             limit: Some(3),
-            trajectories_dir: Some(std::path::PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
-            prm_dir: Some(std::path::PathBuf::from("/home/eveselove/agentforge/eval/trajectories")),
+            trajectories_dir: Some(std::path::PathBuf::from(
+                "/home/eveselove/agentforge/eval/trajectories",
+            )),
+            prm_dir: Some(std::path::PathBuf::from(
+                "/home/eveselove/agentforge/eval/trajectories",
+            )),
             min_prm: Some(0.1),
             ..Default::default()
         };
         let m = orch.run_step(&cfg).expect("real+limit+shadow path");
         assert_eq!(m.skill, "cont-shadow-real");
-        assert!(m.stats.contains_key("records_loaded") || m.stats.contains_key("load_warning") || m.stats.contains_key("prm_enriched"));
+        assert!(
+            m.stats.contains_key("records_loaded")
+                || m.stats.contains_key("load_warning")
+                || m.stats.contains_key("prm_enriched")
+        );
         // Emission quality preserved
         assert!(!m.proposals.is_empty());
         assert!(m.rich_flywheel_export.is_some());
@@ -942,8 +1241,14 @@ mod tests {
             ..Default::default()
         };
         let m = orch.run_step(&cfg).expect("cutover disable must succeed");
-        assert!(m.dry_run, "cutover disable path must force dry_run semantics");
-        assert!(m.proposals.len() >= 2, "even in disable, core emission quality for shadow health must hold");
+        assert!(
+            m.dry_run,
+            "cutover disable path must force dry_run semantics"
+        );
+        assert!(
+            m.proposals.len() >= 2,
+            "even in disable, core emission quality for shadow health must hold"
+        );
         assert!(m.status.contains("dry") || m.status.contains("phase1"));
         // No artifacts written under disable
         assert!(m.artifact_paths.is_empty());
@@ -988,14 +1293,22 @@ mod tests {
         // Core + improved sections always for quality (recovery always, many conditionals off)
         assert!(m.proposals.iter().any(|p| p.section == "recovery_strategy"));
         assert!(m.proposals.iter().any(|p| p.section == "system_prompt"));
-        assert!(m.rich_flywheel_export.as_ref().unwrap().get("proposals").is_some());
+        assert!(m
+            .rich_flywheel_export
+            .as_ref()
+            .unwrap()
+            .get("proposals")
+            .is_some());
     }
 
     #[test]
     fn flywheel_continuous_promote_repromote_and_disable_filter_paths() {
         // Simulates continuous loop + promote cutover: re-promote safe, disable filters keep emission stable
         let orch = FlywheelOrchestrator::new();
-        for (i, (dry, lim)) in [(true, Some(5)), (false, Some(0)), (true, None)].iter().enumerate() {
+        for (i, (dry, lim)) in [(true, Some(5)), (false, Some(0)), (true, None)]
+            .iter()
+            .enumerate()
+        {
             let cfg = FlywheelConfig {
                 skill_name: format!("cont-loop-{}", i),
                 dry_run: *dry,
@@ -1023,7 +1336,9 @@ mod tests {
             ..Default::default()
         };
         cfg.json_mode = true;
-        let m = FlywheelOrchestrator::new().run_step(&cfg).expect("runner subcmd compat");
+        let m = FlywheelOrchestrator::new()
+            .run_step(&cfg)
+            .expect("runner subcmd compat");
         let json = serde_json::to_string(&m).expect("manifest for subcmd");
         assert!(json.contains("\"dry_run\":true"));
         assert!(json.contains("proposals") && json.contains("stats"));
@@ -1089,31 +1404,45 @@ mod tests {
 
         let yaml = fs::read_to_string(&yaml_p).unwrap();
         assert!(yaml.contains("name: cross-emit-to-promote-improved-rust"));
-        assert!(yaml.contains("_learning_meta:") && (yaml.contains("CRITIQUE") || yaml.contains("critique")));
+        assert!(
+            yaml.contains("_learning_meta:")
+                && (yaml.contains("CRITIQUE") || yaml.contains("critique"))
+        );
 
-        let prop_json: serde_json::Value = serde_json::from_str(&fs::read_to_string(&prop_p).unwrap()).unwrap();
+        let prop_json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&prop_p).unwrap()).unwrap();
         assert!(prop_json["skill"].as_str().unwrap_or("").contains("cross"));
-        assert!(prop_json.get("proposals").is_some() || prop_json.to_string().contains("overall_rationale"));
+        assert!(
+            prop_json.get("proposals").is_some()
+                || prop_json.to_string().contains("overall_rationale")
+        );
 
         // Simulate the candidate dir that promote + continuous would see after ingest
         let cand_id = "cross_emit_20260531_sim";
         let cand_dir = tmp.join(cand_id);
         let _ = fs::create_dir_all(&cand_dir);
         let _ = fs::copy(&yaml_p, cand_dir.join("candidate_skill.yaml")).ok();
-        let _ = fs::write(cand_dir.join("candidate_meta.json"), serde_json::json!({
-            "candidate_id": cand_id,
-            "skill": "cross-emit-to-promote",
-            "promoted": false,
-            "rich_avg_learning_value": 0.78,
-            "high_learning_value_records": 4,
-            "source": "rust flywheel emission"
-        }).to_string());
+        let _ = fs::write(
+            cand_dir.join("candidate_meta.json"),
+            serde_json::json!({
+                "candidate_id": cand_id,
+                "skill": "cross-emit-to-promote",
+                "promoted": false,
+                "rich_avg_learning_value": 0.78,
+                "high_learning_value_records": 4,
+                "source": "rust flywheel emission"
+            })
+            .to_string(),
+        );
         let _ = fs::copy(&prop_p, cand_dir.join("proposal.json")).ok();
         let _ = fs::copy(&man_p, cand_dir.join("flywheel_manifest.json")).ok();
 
         // Now shapes are ready for promote (which would mark promoted) + list_high_value would see it pre, exclude post
         // (verified in candidates promote cross tests; here confirm emission produces ingestable candidate)
-        let meta: serde_json::Value = serde_json::from_str(&fs::read_to_string(cand_dir.join("candidate_meta.json")).unwrap()).unwrap();
+        let meta: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(cand_dir.join("candidate_meta.json")).unwrap(),
+        )
+        .unwrap();
         assert_eq!(meta["promoted"], false);
         assert!(meta["rich_avg_learning_value"].as_f64().unwrap() > 0.5);
 
@@ -1139,7 +1468,10 @@ mod tests {
         // Note: orchestrator itself doesn't read shadow env (runner does), but rich export + status for harness
         assert!(man.contains("dry_run") && man.contains("proposals"));
         let rich = m.rich_flywheel_export.unwrap();
-        assert!(rich.to_string().contains("rust-agentforge-runner") || rich.to_string().contains("phase1"));
+        assert!(
+            rich.to_string().contains("rust-agentforge-runner")
+                || rich.to_string().contains("phase1")
+        );
     }
 
     #[test]
@@ -1155,7 +1487,9 @@ mod tests {
             prm_dir: Some(PathBuf::from("/tmp/nonexistent_prm")),
             ..Default::default()
         };
-        let m = orch.run_step(&cfg).expect("zero limit edge must not panic in continuous");
+        let m = orch
+            .run_step(&cfg)
+            .expect("zero limit edge must not panic in continuous");
         assert!(m.dry_run);
         assert!(!m.proposals.is_empty()); // quality guarantee for health JSON
         assert!(m.stats.contains_key("load_warning") || m.stats.contains_key("records_loaded"));
@@ -1247,7 +1581,10 @@ mod tests {
         let tmp = std::env::temp_dir().join(format!("fw_llm_promote_ready_{}", pid));
         let out = tmp.join("out");
         let _ = fs::create_dir_all(&out);
-        std::env::set_var("AGENTFORGE_LLM_CMD", "echo '{\"critique\":\"promote-ready rule for shadow continuous\"}'");
+        std::env::set_var(
+            "AGENTFORGE_LLM_CMD",
+            "echo '{\"critique\":\"promote-ready rule for shadow continuous\"}'",
+        );
         let cfg = FlywheelConfig {
             skill_name: "llm-promote-ready".into(),
             dry_run: false,
@@ -1256,7 +1593,9 @@ mod tests {
             limit: Some(2),
             ..Default::default()
         };
-        let m = FlywheelOrchestrator::new().run_step(&cfg).expect("llm promote ready emit");
+        let m = FlywheelOrchestrator::new()
+            .run_step(&cfg)
+            .expect("llm promote ready emit");
         std::env::remove_var("AGENTFORGE_LLM_CMD");
 
         let yaml = fs::read_to_string(out.join("candidate_skill.yaml")).unwrap_or_default();
@@ -1267,7 +1606,9 @@ mod tests {
         assert!(yaml.contains("recovery_strategy") || yaml.contains("_learning_meta"));
 
         // manifest for continuous health emission
-        let man: serde_json::Value = serde_json::from_str(&fs::read_to_string(out.join("flywheel_manifest.json")).unwrap()).unwrap();
+        let man: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(out.join("flywheel_manifest.json")).unwrap())
+                .unwrap();
         assert!(man["proposals"].as_array().map_or(0, |a| a.len()) >= 2);
         let _ = fs::remove_dir_all(&tmp);
     }

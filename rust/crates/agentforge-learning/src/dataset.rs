@@ -1,4 +1,4 @@
-use crate::types::{Outcome, TrajectoryRecord, PRMStepLabel};
+use crate::types::{Outcome, PRMStepLabel, TrajectoryRecord};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -70,13 +70,31 @@ impl TrajectoryDataset {
     }
 
     pub fn filter_by_agent(&self, agent: &str) -> Self {
-        let filtered: Vec<_> = self.records.iter().filter(|r| r.agent == agent).cloned().collect();
-        Self { name: format!("{}_agent_{}", self.name, agent), records: filtered, created_at: chrono::Utc::now().to_rfc3339() }
+        let filtered: Vec<_> = self
+            .records
+            .iter()
+            .filter(|r| r.agent == agent)
+            .cloned()
+            .collect();
+        Self {
+            name: format!("{}_agent_{}", self.name, agent),
+            records: filtered,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        }
     }
 
     pub fn filter_real_only(&self) -> Self {
-        let filtered: Vec<_> = self.records.iter().filter(|r| r.real_task_id.is_some()).cloned().collect();
-        Self { name: format!("{}_real", self.name), records: filtered, created_at: chrono::Utc::now().to_rfc3339() }
+        let filtered: Vec<_> = self
+            .records
+            .iter()
+            .filter(|r| r.real_task_id.is_some())
+            .cloned()
+            .collect();
+        Self {
+            name: format!("{}_real", self.name),
+            records: filtered,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        }
     }
 
     /// Compute learning value score (mirrors Python heuristic: high PRM + success + informative errors + recovery).
@@ -89,7 +107,9 @@ impl TrajectoryDataset {
             if let Some(p) = rec.prm_overall {
                 score += (p - 0.5).max(0.0) * 0.8;
             }
-            if rec.prm_low_quality_steps.unwrap_or(0) > 0 && rec.prm_high_quality_steps.unwrap_or(0) > 2 {
+            if rec.prm_low_quality_steps.unwrap_or(0) > 0
+                && rec.prm_high_quality_steps.unwrap_or(0) > 2
+            {
                 score += 0.15; // informative contrast
             }
             if rec.error_message.is_some() && rec.outcome == Outcome::Success {
@@ -105,21 +125,42 @@ impl TrajectoryDataset {
     pub fn export_preference_pairs(&self) -> Vec<serde_json::Value> {
         let mut by_bench: HashMap<String, Vec<&TrajectoryRecord>> = HashMap::new();
         for rec in &self.records {
-            by_bench.entry(rec.benchmark_id.clone()).or_default().push(rec);
+            by_bench
+                .entry(rec.benchmark_id.clone())
+                .or_default()
+                .push(rec);
         }
 
         let mut pairs = Vec::new();
         for (bench, recs) in by_bench {
-            let successes: Vec<_> = recs.iter().filter(|r| r.outcome == Outcome::Success).collect();
-            let failures: Vec<_> = recs.iter().filter(|r| r.outcome != Outcome::Success).collect();
-            if successes.is_empty() || failures.is_empty() { continue; }
+            let successes: Vec<_> = recs
+                .iter()
+                .filter(|r| r.outcome == Outcome::Success)
+                .collect();
+            let failures: Vec<_> = recs
+                .iter()
+                .filter(|r| r.outcome != Outcome::Success)
+                .collect();
+            if successes.is_empty() || failures.is_empty() {
+                continue;
+            }
 
-            let best_success = successes.iter().max_by(|a, b| {
-                a.prm_overall.partial_cmp(&b.prm_overall).unwrap_or(std::cmp::Ordering::Equal)
-            }).unwrap();
-            let worst_failure = failures.iter().max_by(|a, b| {
-                a.prm_overall.partial_cmp(&b.prm_overall).unwrap_or(std::cmp::Ordering::Equal)
-            }).unwrap();
+            let best_success = successes
+                .iter()
+                .max_by(|a, b| {
+                    a.prm_overall
+                        .partial_cmp(&b.prm_overall)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .unwrap();
+            let worst_failure = failures
+                .iter()
+                .max_by(|a, b| {
+                    a.prm_overall
+                        .partial_cmp(&b.prm_overall)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .unwrap();
 
             pairs.push(serde_json::json!({
                 "benchmark_id": bench,
@@ -150,15 +191,18 @@ impl TrajectoryDataset {
 
     /// Export clean step-level PRM labels for critic training.
     pub fn export_prm_step_labels(&self) -> Vec<serde_json::Value> {
-        self.records.iter().filter_map(|rec| {
-            rec.prm_step_labels.as_ref().map(|labels| {
-                serde_json::json!({
-                    "task_id": rec.task_id, "benchmark_id": rec.benchmark_id,
-                    "outcome": rec.outcome, "overall_prm": rec.prm_overall,
-                    "step_labels": labels,
+        self.records
+            .iter()
+            .filter_map(|rec| {
+                rec.prm_step_labels.as_ref().map(|labels| {
+                    serde_json::json!({
+                        "task_id": rec.task_id, "benchmark_id": rec.benchmark_id,
+                        "outcome": rec.outcome, "overall_prm": rec.prm_overall,
+                        "step_labels": labels,
+                    })
                 })
             })
-        }).collect()
+            .collect()
     }
 
     /// Production rich flywheel export bundle.
@@ -172,24 +216,30 @@ impl TrajectoryDataset {
         let success_rate = stats.get("success_rate").copied().unwrap_or(0.0);
         let avg_prm = stats.get("avg_prm").copied().unwrap_or(0.0);
 
-        let per_record: Vec<serde_json::Value> = self.records.iter().map(|r| {
-            serde_json::json!({
-                "task_id": r.task_id,
-                "benchmark_id": r.benchmark_id,
-                "agent": r.agent,
-                "outcome": format!("{:?}", r.outcome),
-                "prm_overall": r.prm_overall,
-                "learning_value": r.learning_value_score,
-                "high_quality": r.is_high_quality(min_prm.unwrap_or(0.6)),
-                "has_prm_sidecar": r.metadata.contains_key("prm_sidecar"),
-                "trajectory_path": r.trajectory_path,
-                "duration_seconds": r.duration_seconds,
-                "steps_taken": r.steps_taken,
+        let per_record: Vec<serde_json::Value> = self
+            .records
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "task_id": r.task_id,
+                    "benchmark_id": r.benchmark_id,
+                    "agent": r.agent,
+                    "outcome": format!("{:?}", r.outcome),
+                    "prm_overall": r.prm_overall,
+                    "learning_value": r.learning_value_score,
+                    "high_quality": r.is_high_quality(min_prm.unwrap_or(0.6)),
+                    "has_prm_sidecar": r.metadata.contains_key("prm_sidecar"),
+                    "trajectory_path": r.trajectory_path,
+                    "duration_seconds": r.duration_seconds,
+                    "steps_taken": r.steps_taken,
+                })
             })
-        }).collect();
+            .collect();
 
         let min_prm_f = min_prm.unwrap_or(0.6);
-        let high_value_count = self.records.iter()
+        let high_value_count = self
+            .records
+            .iter()
             .filter(|r| r.learning_value_score >= 0.55 || r.is_high_quality(min_prm_f))
             .count();
 
@@ -213,7 +263,10 @@ impl TrajectoryDataset {
     }
 
     /// Versioned export (saves records + manifest). Mirrors Python save_versioned.
-    pub fn save_versioned(&self, base_dir: impl AsRef<std::path::Path>) -> Result<DatasetVersion, String> {
+    pub fn save_versioned(
+        &self,
+        base_dir: impl AsRef<std::path::Path>,
+    ) -> Result<DatasetVersion, String> {
         let dir = base_dir.as_ref();
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         let ver = format!("v{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
@@ -233,23 +286,37 @@ impl TrajectoryDataset {
             created_at: chrono::Utc::now().to_rfc3339(),
             filters: HashMap::new(),
             record_count: self.records.len(),
-            stats: stats.into_iter().map(|(k,v)| (k, serde_json::json!(v))).collect(),
+            stats: stats
+                .into_iter()
+                .map(|(k, v)| (k, serde_json::json!(v)))
+                .collect(),
             source_hashes: HashMap::new(),
             path: data_path.to_string_lossy().to_string(),
         };
         let mut mf = std::fs::File::create(manifest_path).map_err(|e| e.to_string())?;
         use std::io::Write;
-        writeln!(mf, "{}", serde_json::to_string_pretty(&version).unwrap()).map_err(|e| e.to_string())?;
+        writeln!(mf, "{}", serde_json::to_string_pretty(&version).unwrap())
+            .map_err(|e| e.to_string())?;
         Ok(version)
     }
 
     pub fn basic_stats(&self) -> HashMap<String, f64> {
         let mut m = HashMap::new();
         let total = self.records.len() as f64;
-        if total == 0.0 { return m; }
-        let successes = self.records.iter().filter(|r| r.outcome == Outcome::Success).count() as f64;
+        if total == 0.0 {
+            return m;
+        }
+        let successes = self
+            .records
+            .iter()
+            .filter(|r| r.outcome == Outcome::Success)
+            .count() as f64;
         let prm_vals: Vec<f64> = self.records.iter().filter_map(|r| r.prm_overall).collect();
-        let avg_prm: f64 = if prm_vals.is_empty() { 0.0 } else { prm_vals.iter().sum::<f64>() / prm_vals.len() as f64 };
+        let avg_prm: f64 = if prm_vals.is_empty() {
+            0.0
+        } else {
+            prm_vals.iter().sum::<f64>() / prm_vals.len() as f64
+        };
         m.insert("success_rate".into(), successes / total);
         m.insert("avg_prm".into(), avg_prm);
         m.insert("count".into(), total);
@@ -257,8 +324,12 @@ impl TrajectoryDataset {
         m
     }
 
-    pub fn len(&self) -> usize { self.records.len() }
-    pub fn is_empty(&self) -> bool { self.records.is_empty() }
+    pub fn len(&self) -> usize {
+        self.records.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.records.is_empty()
+    }
 
     // ------------------------------------------------------------------
     // FLYWHEEL + PRM SIDECAR LOADING (rich support for trajectories/*.jsonl + *.prm.json)
@@ -267,36 +338,64 @@ impl TrajectoryDataset {
     /// Parse a .prm.json sidecar file (flexible keys for real farm data).
     /// Returns (overall, hq_steps, lq_steps, step_labels, suggestions).
     /// Never panics; returns None on any read/parse error (graceful).
-    fn parse_prm_sidecar(path: &std::path::Path) -> Option<(Option<f64>, Option<u32>, Option<u32>, Option<Vec<PRMStepLabel>>, Option<Vec<String>>)> {
+    #[allow(clippy::type_complexity)]
+    fn parse_prm_sidecar(
+        path: &std::path::Path,
+    ) -> Option<(
+        Option<f64>,
+        Option<u32>,
+        Option<u32>,
+        Option<Vec<PRMStepLabel>>,
+        Option<Vec<String>>,
+    )> {
         let content = std::fs::read_to_string(path).ok()?;
         let v: serde_json::Value = serde_json::from_str(&content).ok()?;
         let get_f64 = |keys: &[&str]| -> Option<f64> {
             for k in keys {
-                if let Some(x) = v.get(k).and_then(|vv| vv.as_f64()) { return Some(x); }
+                if let Some(x) = v.get(k).and_then(|vv| vv.as_f64()) {
+                    return Some(x);
+                }
                 if let Some(s) = v.get(k).and_then(|vv| vv.as_str()) {
-                    if let Ok(f) = s.parse::<f64>() { return Some(f); }
+                    if let Ok(f) = s.parse::<f64>() {
+                        return Some(f);
+                    }
                 }
             }
             None
         };
-        let overall = get_f64(&["overall", "overall_score", "prm_overall", "prm", "score", "prm_overall_score"]);
-        let hq = v.get("high_quality_steps")
+        let overall = get_f64(&[
+            "overall",
+            "overall_score",
+            "prm_overall",
+            "prm",
+            "score",
+            "prm_overall_score",
+        ]);
+        let hq = v
+            .get("high_quality_steps")
             .or_else(|| v.get("prm_high_quality_steps"))
             .and_then(|x| x.as_u64())
             .map(|n| n as u32)
             .or_else(|| get_f64(&["high_quality_steps", "hq_steps"]).map(|f| f as u32));
-        let lq = v.get("low_quality_steps")
+        let lq = v
+            .get("low_quality_steps")
             .or_else(|| v.get("prm_low_quality_steps"))
             .and_then(|x| x.as_u64())
             .map(|n| n as u32)
             .or_else(|| get_f64(&["low_quality_steps", "lq_steps"]).map(|f| f as u32));
-        let suggestions: Option<Vec<String>> = v.get("suggestions")
+        let suggestions: Option<Vec<String>> = v
+            .get("suggestions")
             .or_else(|| v.get("prm_suggestions"))
             .and_then(|x| x.as_array())
-            .map(|arr| arr.iter().filter_map(|a| a.as_str().map(|s| s.to_owned())).collect());
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|a| a.as_str().map(|s| s.to_owned()))
+                    .collect()
+            });
         let step_labels: Option<Vec<PRMStepLabel>> = {
             // Support flat top-level + real farm nested under prm_raw.step_scores / prm_raw.steps etc.
-            let arr = v.get("step_labels")
+            let arr = v
+                .get("step_labels")
                 .or_else(|| v.get("steps"))
                 .or_else(|| v.get("prm_steps"))
                 .or_else(|| v.get("prm_step_labels"))
@@ -305,21 +404,38 @@ impl TrajectoryDataset {
                 .or_else(|| v.get("prm_raw").and_then(|pr| pr.get("prm_step_labels")))
                 .and_then(|x| x.as_array());
             arr.map(|arr| {
-                arr.iter().enumerate().map(|(i, s)| {
-                    PRMStepLabel {
-                        index: s.get("index").and_then(|x| x.as_u64())
+                arr.iter()
+                    .enumerate()
+                    .map(|(i, s)| PRMStepLabel {
+                        index: s
+                            .get("index")
+                            .and_then(|x| x.as_u64())
                             .or_else(|| s.get("step_index").and_then(|x| x.as_u64()))
                             .unwrap_or(i as u64) as usize,
-                        event_type: s.get("event_type").or_else(|| s.get("type")).and_then(|x| x.as_str()).unwrap_or("event").to_string(),
-                        score: s.get("score").and_then(|x| x.as_f64())
+                        event_type: s
+                            .get("event_type")
+                            .or_else(|| s.get("type"))
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("event")
+                            .to_string(),
+                        score: s
+                            .get("score")
+                            .and_then(|x| x.as_f64())
                             .or_else(|| s.get("prm").and_then(|x| x.as_f64()))
                             .unwrap_or(0.5),
-                        reasons: s.get("reasons").or_else(|| s.get("reason")).and_then(|x| x.as_array())
-                            .map(|a| a.iter().filter_map(|r| r.as_str().map(|t| t.to_string())).collect())
+                        reasons: s
+                            .get("reasons")
+                            .or_else(|| s.get("reason"))
+                            .and_then(|x| x.as_array())
+                            .map(|a| {
+                                a.iter()
+                                    .filter_map(|r| r.as_str().map(|t| t.to_string()))
+                                    .collect()
+                            })
                             .unwrap_or_default(),
                         confidence: s.get("confidence").and_then(|x| x.as_f64()),
-                    }
-                }).collect()
+                    })
+                    .collect()
             })
         };
         Some((overall, hq, lq, step_labels, suggestions))
@@ -327,13 +443,16 @@ impl TrajectoryDataset {
 
     /// Enrich existing records with PRM data from *.prm.json sidecars in the given directory.
     /// Matches by:
-    ///  - stem of `trajectory_path` (e.g. "abc123_grok.jsonl" -> "abc123_grok.prm.json")
-    ///  - task_id, real_task_id, or benchmark_id as key
+    ///   - stem of `trajectory_path` (e.g. "abc123_grok.jsonl" -> "abc123_grok.prm.json")
+    ///   - task_id, real_task_id, or benchmark_id as key
+    ///
     /// Production-robust: skips unreadable/missing sidecars silently (counts only successes).
     /// Call after loading trajectories JSONL.
     pub fn enrich_from_prm_sidecars(&mut self, sidecar_dir: impl AsRef<std::path::Path>) -> usize {
         let dir = sidecar_dir.as_ref();
-        if !dir.exists() || !dir.is_dir() { return 0; }
+        if !dir.exists() || !dir.is_dir() {
+            return 0;
+        }
         let mut sidecar_map: HashMap<String, std::path::PathBuf> = HashMap::new();
         if let Ok(rd) = std::fs::read_dir(dir) {
             for e in rd.flatten() {
@@ -346,7 +465,7 @@ impl TrajectoryDataset {
                         if let Some(prefix) = stem.split('_').next() {
                             sidecar_map.entry(prefix.to_string()).or_insert(p.clone());
                         }
-                        if let Some(sans) = stem.rsplit_once('_').map(|(a,_)| a) {
+                        if let Some(sans) = stem.rsplit_once('_').map(|(a, _)| a) {
                             sidecar_map.entry(sans.to_string()).or_insert(p.clone());
                         }
                     }
@@ -357,12 +476,19 @@ impl TrajectoryDataset {
         for rec in &mut self.records {
             let mut matched: Option<std::path::PathBuf> = None;
             if let Some(tp) = &rec.trajectory_path {
-                let stem = std::path::Path::new(tp).file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                let stem = std::path::Path::new(tp)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("");
                 if let Some(pth) = sidecar_map.get(stem) {
                     matched = Some(pth.clone());
                 }
             }
-            for key in [&rec.task_id, rec.real_task_id.as_deref().unwrap_or(""), &rec.benchmark_id] {
+            for key in [
+                &rec.task_id,
+                rec.real_task_id.as_deref().unwrap_or(""),
+                &rec.benchmark_id,
+            ] {
                 if !key.is_empty() {
                     if let Some(pth) = sidecar_map.get(key) {
                         matched = Some(pth.clone());
@@ -372,12 +498,25 @@ impl TrajectoryDataset {
             }
             if let Some(prm_p) = matched {
                 if let Some((ov, hq, lq, steps, sugg)) = Self::parse_prm_sidecar(&prm_p) {
-                    if rec.prm_overall.is_none() { rec.prm_overall = ov; }
-                    if rec.prm_high_quality_steps.is_none() { rec.prm_high_quality_steps = hq; }
-                    if rec.prm_low_quality_steps.is_none() { rec.prm_low_quality_steps = lq; }
-                    if rec.prm_step_labels.is_none() { rec.prm_step_labels = steps; }
-                    if rec.prm_suggestions.is_none() { rec.prm_suggestions = sugg; }
-                    rec.metadata.insert("prm_sidecar".into(), serde_json::json!(prm_p.to_string_lossy()));
+                    if rec.prm_overall.is_none() {
+                        rec.prm_overall = ov;
+                    }
+                    if rec.prm_high_quality_steps.is_none() {
+                        rec.prm_high_quality_steps = hq;
+                    }
+                    if rec.prm_low_quality_steps.is_none() {
+                        rec.prm_low_quality_steps = lq;
+                    }
+                    if rec.prm_step_labels.is_none() {
+                        rec.prm_step_labels = steps;
+                    }
+                    if rec.prm_suggestions.is_none() {
+                        rec.prm_suggestions = sugg;
+                    }
+                    rec.metadata.insert(
+                        "prm_sidecar".into(),
+                        serde_json::json!(prm_p.to_string_lossy()),
+                    );
                     enriched += 1;
                 }
             }
@@ -387,7 +526,10 @@ impl TrajectoryDataset {
 
     /// Load all *.jsonl files from a trajectories directory (raw event streams typical in farm).
     /// Uses the jsonl loader (supports event fallback + full records).
-    pub fn load_from_trajectories_dir(&mut self, dir: impl AsRef<std::path::Path>) -> Result<usize, String> {
+    pub fn load_from_trajectories_dir(
+        &mut self,
+        dir: impl AsRef<std::path::Path>,
+    ) -> Result<usize, String> {
         let dir = dir.as_ref();
         if !dir.exists() || !dir.is_dir() {
             return Err(format!("Trajectories dir not found: {}", dir.display()));
@@ -504,7 +646,10 @@ impl TrajectoryDataset {
 
     /// Load records from a directory of eval results JSON files (mirrors Python load_from_eval_results minimally).
     /// Populates with available fields; events left empty (attach via add_trajectory if full trajs wanted later).
-    pub fn load_from_eval_results_dir(&mut self, dir: impl AsRef<std::path::Path>) -> Result<usize, String> {
+    pub fn load_from_eval_results_dir(
+        &mut self,
+        dir: impl AsRef<std::path::Path>,
+    ) -> Result<usize, String> {
         let dir = dir.as_ref();
         if !dir.exists() || !dir.is_dir() {
             return Err(format!("Eval results dir not found: {}", dir.display()));
@@ -513,41 +658,84 @@ impl TrajectoryDataset {
         for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) != Some("json") { continue; }
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
             let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
             let v: serde_json::Value = match serde_json::from_str(&content) {
                 Ok(v) => v,
                 Err(_) => continue,
             };
-            let task_id = v.get("task_id").and_then(|x| x.as_str()).unwrap_or("unknown").to_string();
+            let task_id = v
+                .get("task_id")
+                .and_then(|x| x.as_str())
+                .unwrap_or("unknown")
+                .to_string();
             let benchmark_id = task_id.clone();
-            let agent = v.get("agent").and_then(|x| x.as_str()).unwrap_or("unknown").to_string();
-            let outcome = Self::parse_outcome(v.get("outcome").and_then(|x| x.as_str()).unwrap_or("failed"));
+            let agent = v
+                .get("agent")
+                .and_then(|x| x.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let outcome = Self::parse_outcome(
+                v.get("outcome")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("failed"),
+            );
             let rec = TrajectoryRecord {
                 task_id: task_id.clone(),
                 benchmark_id,
                 agent,
                 outcome,
-                real_task_id: v.get("real_task_id").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                real_task_id: v
+                    .get("real_task_id")
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string()),
                 prm_overall: v.get("prm_overall_score").and_then(|x| x.as_f64()),
-                prm_high_quality_steps: v.get("prm_high_quality_steps").and_then(|x| x.as_u64()).map(|n| n as u32),
-                prm_low_quality_steps: v.get("prm_low_quality_steps").and_then(|x| x.as_u64()).map(|n| n as u32),
+                prm_high_quality_steps: v
+                    .get("prm_high_quality_steps")
+                    .and_then(|x| x.as_u64())
+                    .map(|n| n as u32),
+                prm_low_quality_steps: v
+                    .get("prm_low_quality_steps")
+                    .and_then(|x| x.as_u64())
+                    .map(|n| n as u32),
                 prm_step_labels: None,
                 prm_suggestions: None,
-                duration_seconds: v.get("duration_seconds").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                duration_seconds: v
+                    .get("duration_seconds")
+                    .and_then(|x| x.as_f64())
+                    .unwrap_or(0.0),
                 steps_taken: v.get("steps_taken").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
                 tool_calls: v.get("tool_calls").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
                 cost_usd: v.get("cost_usd").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                error_message: v.get("error_message").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                error_message: v
+                    .get("error_message")
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string()),
                 events: vec![],
-                judge_notes: v.get("judge_notes").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                judge_notes: v
+                    .get("judge_notes")
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string()),
                 quality_score: v.get("quality_score").and_then(|x| x.as_f64()),
-                learning_value_score: v.get("learning_value_score").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                trajectory_path: v.get("trajectory_path").and_then(|x| x.as_str()).map(|s| s.to_string()),
-                evaluated_at: v.get("evaluated_at").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                learning_value_score: v
+                    .get("learning_value_score")
+                    .and_then(|x| x.as_f64())
+                    .unwrap_or(0.0),
+                trajectory_path: v
+                    .get("trajectory_path")
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string()),
+                evaluated_at: v
+                    .get("evaluated_at")
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string()),
                 metadata: {
                     let mut m = HashMap::new();
-                    if let Some(src) = path.to_str() { m.insert("source_file".into(), serde_json::json!(src)); }
+                    if let Some(src) = path.to_str() {
+                        m.insert("source_file".into(), serde_json::json!(src));
+                    }
                     m
                 },
             };
@@ -571,7 +759,9 @@ impl TrajectoryDataset {
 
         for line in content.lines() {
             let line = line.trim();
-            if line.is_empty() { continue; }
+            if line.is_empty() {
+                continue;
+            }
             let v: serde_json::Value = match serde_json::from_str(line) {
                 Ok(v) => v,
                 Err(_) => continue,
@@ -587,39 +777,95 @@ impl TrajectoryDataset {
 
             // Eval-style or learning dataset flat
             if v.get("task_id").is_some() || v.get("benchmark_id").is_some() {
-                let task_id = v.get("task_id").and_then(|x| x.as_str())
+                let task_id = v
+                    .get("task_id")
+                    .and_then(|x| x.as_str())
                     .or_else(|| v.get("benchmark_id").and_then(|x| x.as_str()))
-                    .unwrap_or("unknown").to_string();
-                let benchmark_id = v.get("benchmark_id").and_then(|x| x.as_str()).unwrap_or(&task_id).to_string();
-                let agent = v.get("agent").and_then(|x| x.as_str()).unwrap_or("unknown").to_string();
-                let outcome_str = v.get("outcome").and_then(|x| x.as_str()).unwrap_or("failed");
+                    .unwrap_or("unknown")
+                    .to_string();
+                let benchmark_id = v
+                    .get("benchmark_id")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or(&task_id)
+                    .to_string();
+                let agent = v
+                    .get("agent")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let outcome_str = v
+                    .get("outcome")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("failed");
                 let outcome = Self::parse_outcome(outcome_str);
                 let rec = TrajectoryRecord {
                     task_id: task_id.clone(),
                     benchmark_id,
                     agent,
                     outcome,
-                    real_task_id: v.get("real_task_id").and_then(|x| x.as_str()).map(|s| s.to_string()),
-                    prm_overall: v.get("prm_overall").and_then(|x| x.as_f64()).or_else(|| v.get("prm_overall_score").and_then(|x| x.as_f64())),
-                    prm_high_quality_steps: v.get("prm_high_quality_steps").and_then(|x| x.as_u64()).map(|n| n as u32),
-                    prm_low_quality_steps: v.get("prm_low_quality_steps").and_then(|x| x.as_u64()).map(|n| n as u32),
+                    real_task_id: v
+                        .get("real_task_id")
+                        .and_then(|x| x.as_str())
+                        .map(|s| s.to_string()),
+                    prm_overall: v
+                        .get("prm_overall")
+                        .and_then(|x| x.as_f64())
+                        .or_else(|| v.get("prm_overall_score").and_then(|x| x.as_f64())),
+                    prm_high_quality_steps: v
+                        .get("prm_high_quality_steps")
+                        .and_then(|x| x.as_u64())
+                        .map(|n| n as u32),
+                    prm_low_quality_steps: v
+                        .get("prm_low_quality_steps")
+                        .and_then(|x| x.as_u64())
+                        .map(|n| n as u32),
                     prm_step_labels: None,
-                    prm_suggestions: v.get("prm_suggestions").and_then(|x| x.as_array()).map(|arr| arr.iter().filter_map(|a| a.as_str().map(|s| s.to_string())).collect()),
-                    duration_seconds: v.get("duration_seconds").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                    prm_suggestions: v.get("prm_suggestions").and_then(|x| x.as_array()).map(
+                        |arr| {
+                            arr.iter()
+                                .filter_map(|a| a.as_str().map(|s| s.to_string()))
+                                .collect()
+                        },
+                    ),
+                    duration_seconds: v
+                        .get("duration_seconds")
+                        .and_then(|x| x.as_f64())
+                        .unwrap_or(0.0),
                     steps_taken: v.get("steps_taken").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
                     tool_calls: v.get("tool_calls").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
                     cost_usd: v.get("cost_usd").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                    error_message: v.get("error_message").and_then(|x| x.as_str()).map(|s| s.to_string()),
-                    events: v.get("events").and_then(|x| x.as_array()).map(|a| a.clone()).unwrap_or_default(),
-                    judge_notes: v.get("judge_notes").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                    error_message: v
+                        .get("error_message")
+                        .and_then(|x| x.as_str())
+                        .map(|s| s.to_string()),
+                    events: v
+                        .get("events")
+                        .and_then(|x| x.as_array())
+                        .cloned()
+                        .unwrap_or_default(),
+                    judge_notes: v
+                        .get("judge_notes")
+                        .and_then(|x| x.as_str())
+                        .map(|s| s.to_string()),
                     quality_score: v.get("quality_score").and_then(|x| x.as_f64()),
-                    learning_value_score: v.get("learning_value_score").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                    trajectory_path: v.get("trajectory_path").and_then(|x| x.as_str()).map(|s| s.to_string()),
-                    evaluated_at: v.get("evaluated_at").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                    learning_value_score: v
+                        .get("learning_value_score")
+                        .and_then(|x| x.as_f64())
+                        .unwrap_or(0.0),
+                    trajectory_path: v
+                        .get("trajectory_path")
+                        .and_then(|x| x.as_str())
+                        .map(|s| s.to_string()),
+                    evaluated_at: v
+                        .get("evaluated_at")
+                        .and_then(|x| x.as_str())
+                        .map(|s| s.to_string()),
                     metadata: {
                         let mut m = HashMap::new();
                         m.insert("source".into(), serde_json::json!("jsonl"));
-                        if let Some(p) = path.to_str() { m.insert("path".into(), serde_json::json!(p)); }
+                        if let Some(p) = path.to_str() {
+                            m.insert("path".into(), serde_json::json!(p));
+                        }
                         m
                     },
                 };
@@ -633,7 +879,11 @@ impl TrajectoryDataset {
                 // add minimal for both sides
                 for (side, lab) in [("chosen", "success"), ("rejected", "failed")] {
                     if let Some(side_v) = v.get(side) {
-                        let bid = v.get("benchmark_id").and_then(|x| x.as_str()).unwrap_or("pair").to_string();
+                        let bid = v
+                            .get("benchmark_id")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("pair")
+                            .to_string();
                         let rec = TrajectoryRecord {
                             task_id: format!("{}-{}", bid, side),
                             benchmark_id: bid.clone(),
@@ -649,11 +899,21 @@ impl TrajectoryDataset {
                             steps_taken: 0,
                             tool_calls: 0,
                             cost_usd: 0.0,
-                            error_message: side_v.get("error_message").and_then(|x| x.as_str()).map(|s|s.to_string()),
-                            events: side_v.get("events").and_then(|x| x.as_array()).cloned().unwrap_or_default(),
+                            error_message: side_v
+                                .get("error_message")
+                                .and_then(|x| x.as_str())
+                                .map(|s| s.to_string()),
+                            events: side_v
+                                .get("events")
+                                .and_then(|x| x.as_array())
+                                .cloned()
+                                .unwrap_or_default(),
                             judge_notes: None,
                             quality_score: None,
-                            learning_value_score: side_v.get("learning_value").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                            learning_value_score: side_v
+                                .get("learning_value")
+                                .and_then(|x| x.as_f64())
+                                .unwrap_or(0.0),
                             trajectory_path: None,
                             evaluated_at: None,
                             metadata: HashMap::new(),
@@ -674,7 +934,11 @@ impl TrajectoryDataset {
 
         if loaded == 0 && has_events && !events_fallback.is_empty() {
             // Synthesize one record from the events JSONL (common for raw trajectories)
-            let task_id = path.file_stem().and_then(|s| s.to_str()).unwrap_or("traj").to_string();
+            let task_id = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("traj")
+                .to_string();
             let rec = TrajectoryRecord {
                 task_id: task_id.clone(),
                 benchmark_id: task_id.clone(),
@@ -699,7 +963,10 @@ impl TrajectoryDataset {
                 evaluated_at: None,
                 metadata: {
                     let mut m = HashMap::new();
-                    m.insert("source".into(), serde_json::json!("trajectory_jsonl_fallback"));
+                    m.insert(
+                        "source".into(),
+                        serde_json::json!("trajectory_jsonl_fallback"),
+                    );
                     m
                 },
             };
@@ -712,7 +979,10 @@ impl TrajectoryDataset {
 
     /// Unified real input loader: auto-detects if path is file (jsonl) or dir (eval results *or* trajectories with *.jsonl + optional *.prm.json sidecars).
     /// Returns number of records loaded. Robust for flywheel use.
-    pub fn load_from_real_input(&mut self, input: impl AsRef<std::path::Path>) -> Result<usize, String> {
+    pub fn load_from_real_input(
+        &mut self,
+        input: impl AsRef<std::path::Path>,
+    ) -> Result<usize, String> {
         let p = input.as_ref();
         if p.is_dir() {
             // Prefer eval results (classic *.json)
@@ -825,7 +1095,10 @@ mod tests {
         let _ = std::fs::remove_file(&tmp);
 
         let enriched = ds.enrich_from_prm_sidecars(sidecar_dir);
-        assert!(enriched >= 1, "should have enriched at least one via sidecar");
+        assert!(
+            enriched >= 1,
+            "should have enriched at least one via sidecar"
+        );
         let r = &ds.records[0];
         assert!(r.prm_overall.is_some());
         assert_eq!(r.prm_overall.unwrap(), 0.82);
@@ -841,7 +1114,7 @@ mod tests {
         let res = ds2.load_flywheel_data(
             Some(std::path::Path::new("/nonexistent_farm_traj_zzz")),
             None::<std::path::PathBuf>,
-            Some(std::path::Path::new("/nonexistent_farm_res_zzz"))
+            Some(std::path::Path::new("/nonexistent_farm_res_zzz")),
         );
         assert!(res.is_ok());
         assert_eq!(ds2.len(), 0);

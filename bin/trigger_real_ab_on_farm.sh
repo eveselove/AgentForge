@@ -31,7 +31,7 @@
 #     confidence via is_clear_winner), full runs in ab_results*.json,
 #     trajectories + .prm.json sidecars (ProcessRewardModel), costs/durations
 #     from EvaluationResult (enriched via load_trajectory + post_process_run).
-#     Real tasks created via http://localhost:8080/tasks (preferred_agent=grok),
+#     Real tasks created via http://localhost:9090/tasks (preferred_agent=grok),
 #     polled when wait=True, post-processed by farm hooks.
 #   - Also writes bin/real_ab_farm_commands.txt with exact pasteable blocks.
 #
@@ -51,7 +51,7 @@
 #       # Real tasks remain visible in dashboard / API; no data loss.
 #   - **MONITORING** (run in parallel tmux pane):
 #       tail -f logs/real_ab_*.log logs/jules_worker.log logs/grok_worker.log
-#       watch -n 10 'curl -s http://localhost:8080/tasks?limit=5 | python -m json.tool; ls -l /tmp/agentforge_rust_flywheel/ 2>/dev/null | tail -5; python -m agentforge.list_pending_candidates list --limit 3 --sort value'
+#       watch -n 10 'curl -s http://localhost:9090/tasks?limit=5 | python -m json.tool; ls -l /tmp/agentforge_rust_flywheel/ 2>/dev/null | tail -5; python -m agentforge.list_pending_candidates list --limit 3 --sort value'
 #   - **ROLLBACK / NO-OP**: Entirely non-destructive to prod skills (A/B uses
 #     SKILL= temp or .promoted.*.yaml paths; baseline always "general-refactor").
 #     No agent_cards or routing changes. Winner decision manual after.
@@ -146,7 +146,7 @@ echo
 
 # Quick API sanity (non-fatal)
 if command -v curl >/dev/null; then
-    if curl -sf --max-time 3 http://localhost:8080/ >/dev/null 2>&1; then
+    if curl -sf --max-time 3 http://localhost:9090/ >/dev/null 2>&1; then
         echo "  [OK] AgentForge API reachable at localhost:8080 (real dispatch path active)"
     else
         echo "  [WARN] API not responding on localhost:8080 — real tasks may queue or fail. (Proceed anyway for farm readiness.)"

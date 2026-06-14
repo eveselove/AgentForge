@@ -84,7 +84,7 @@ $RELEASE_BIN flywheel-export --trajectories eval/trajectories --prm-dir eval/tra
 
 **Bridge / guarded paths (current hot paths, prefer pure when enabled):**
 - `AGENTFORGE_FLYWHEEL_ENGINE=rust AGENTFORGE_PURE_RUST_FLYWHEEL=1 python -m agentforge.rust_flywheel_step --real-data --limit 20 --ingest`
-- Post-task: workers + `eval/post_process.py` + `bin/rust_post_process_hook.py` now **prefer binary** under `is_pure_rust_flywheel()` (see learning/utils.py + hardened bridge code).
+- Post-task: workers + `eval/post_process.py` + `DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)` now **prefer binary** under `is_pure_rust_flywheel()` (see learning/utils.py + hardened bridge code).
 - Shadow fidelity: `AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 ...` (dual run + diffs).
 - One-command farm cutover: `bash bin/make_pure_rust_flywheel_default.sh --dry-run` (then live).
 
@@ -126,7 +126,7 @@ cat /tmp/agentforge_rust_flywheel/flywheel_health.json 2>/dev/null | head -20
 - Main thread: `bin/make_pure_rust_flywheel_default.sh` skeleton created + dry-run tested (symmetric to the famous make_antigravity_default.sh).
 
 **New Jules wave (5 agents) + major delivery**:
-- Agent 019e7cd1-86df... (just completed): **Direct Rust flywheel-step bridge hardened** in eval/post_process.py and bin/rust_post_process_hook.py. Now when pure_rust (is_pure_rust_flywheel() / AGENTFORGE_FLYWHEEL_ENGINE=rust / marker), it **always prefers** `agentforge-runner flywheel-step --real-data ... --ingest` first. Clear logging "[post_process] Using PURE RUST flywheel-step via agentforge-runner". Python path explicitly labeled as fallback only. Non-breaking.
+- Agent 019e7cd1-86df... (just completed): **Direct Rust flywheel-step bridge hardened** in eval/post_process.py and DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist). Now when pure_rust (is_pure_rust_flywheel() / AGENTFORGE_FLYWHEEL_ENGINE=rust / marker), it **always prefers** `agentforge-runner flywheel-step --real-data ... --ingest` first. Clear logging "[post_process] Using PURE RUST flywheel-step via agentforge-runner". Python path explicitly labeled as fallback only. Non-breaking.
 
 Current active Jules agents (new wave + remaining):
 - Real candidate promote implementation

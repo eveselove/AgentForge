@@ -16,7 +16,7 @@ TASKS_DB = os.path.join(DATA_DIR, "tasks.db")
 
 # ── Gateway ──────────────────────────────────────────────────
 GATEWAY_URL = os.environ.get("PLANLY_GATEWAY", "http://localhost:3000")
-API_BASE = os.environ.get("AGENTFORGE_API", "http://localhost:8080")
+API_BASE = os.environ.get("AGENTFORGE_API", "http://127.0.0.1:9090")
 
 # ── Watchdog ─────────────────────────────────────────────────
 POLL_INTERVAL = int(os.environ.get("WATCHDOG_POLL", "10"))

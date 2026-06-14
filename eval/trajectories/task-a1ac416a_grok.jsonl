@@ -1,0 +1,12 @@
+{"ts":"2026-06-12T19:43:30.351Z","type":"task_start","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"title\":\"Сгенерировано нагрузочным тестом. TASK_ID=task-d4ba2586\",\"priority\":\"low\",\"tags\":\"\"}}"}}
+{"ts":"2026-06-12T19:43:30.583Z","type":"worktree_created","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"path\":\"/tmp/agentforge/task-a1ac416a\"}}"}}
+{"ts":"2026-06-12T19:43:30.640Z","type":"infra_step","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"step\":\"cargo_optimization\"}}"}}
+{"ts":"2026-06-12T19:43:30.701Z","type":"infra_step","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"step\":\"mold_linker\"}}"}}
+{"ts":"2026-06-12T19:49:35.016Z","type":"tracing_protocol_injected","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"task_id\":\"task-a1ac416a\",\"prompt_len_with_protocol\":420}}"}}
+{"ts":"2026-06-12T19:49:35.092Z","type":"grok_execution_start","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"worktree\":\"/tmp/agentforge/task-a1ac416a\",\"skill\":\"none\",\"model\":\"grok\",\"prompt_length\":419,\"tracing_protocol\":true}}"}}
+{"ts":"2026-06-12T19:49:35.168Z","type":"prompt_prepared","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"prompt_hash\":\"706d9ada80fe\",\"preview\":\"Сгенерировано нагрузочным тестом. TASK_ID=task-d4ba2586. ВАЖНО: Все твои ответы, логика рассуждений, комментарии в коде и итоговые отчеты (включая файлы) должны быть написаны строго на РУССКОМ языке.  === AGENTFORGE TRACING PROTOCOL v1 (injected; TASK_ID=task-a1ac416a) ===\",\"len\":419,\"has_tracing\":true,\"has_skill\":\"false\"}}"}}
+{"ts":"2026-06-12T19:58:58.646Z","type":"grok_output_tail","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"unparsable"}}
+{"ts":"2026-06-12T19:59:10.501Z","type":"task_completed","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"status\":\"review\",\"duration_seconds\":575,\"cost_usd\":0.0}}"}}
+{"ts":"2026-06-12T19:59:17.676Z","type":"grok_execution_end","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"status\":\"review\",\"duration_seconds\":575,\"ci_result\":\"pass\"}}"}}
+{"ts":"2026-06-12T19:59:20.777Z","type":"task_finished","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"status\":\"review\",\"duration_seconds\":575}}"}}
+{"ts":"2026-06-12T19:59:23.436Z","type":"trajectory_located","task_id":"task-a1ac416a","agent":"grok","data":{"raw":"{\"path\":\"/home/eveselove/agentforge/eval/trajectories/task-a1ac416a_grok.jsonl\"}}"}}
