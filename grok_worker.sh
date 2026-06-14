@@ -30,42 +30,10 @@ fi
 _ROOT="${AGENTFORGE_ROOT:-$HOME/agentforge}"
 [ -x "$_ROOT/bin/enable_rust_flywheel.sh" ] && source "$_ROOT/bin/enable_rust_flywheel.sh" 2>/dev/null || true
 
+AGENTFORGE_DIR="${AGENTFORGE_DIR:-$_ROOT}"
 API="http://localhost:9090"
 LOG_DIR="$HOME/agentforge/logs"
-# PROJECT_DIR: env override > agentforge_config.json (CLEAN-02)
-# legacy path detection below uses globs + marker files (planly_gateway/Cargo.toml) to avoid stale hardcoded paths
-PROJECT_DIR="${PROJECT_DIR:-}"
-if [ -z "$PROJECT_DIR" ]; then
-    if [ -r "$HOME/agentforge/agentforge_config.json" ]; then
-        PROJECT_DIR=$(python3 -c '
-import json,os
-try:
-    cfg=os.path.expanduser("~/agentforge/agentforge_config.json")
-    with open(cfg) as f: d=json.load(f) or {}
-    pd = d.get("project_dir")
-    if pd: 
-        print(pd)
-    else:
-        print("")
-except:
-    print("")
-' 2>/dev/null || true)
-    fi
-fi
-if [ -z "$PROJECT_DIR" ] || [ ! -d "$PROJECT_DIR" ]; then
-    # auto-detect primary planly source checkout (used for git worktrees + grok auth context)
-    # supports /data mounts, $HOME sibling clones etc without naming "planlytasksko" directly in path=
-    for base in /data "$HOME" /opt /; do
-        cands=$(ls -d "$base"/*planly* "$base"/planly* "$base"/*task* "$base"/*source* 2>/dev/null || true)
-        for cand in $cands; do
-            if [ -d "$cand/planly_gateway" ] || [ -f "$cand/planly_gateway/Cargo.toml" ]; then
-                PROJECT_DIR="$cand"
-                break 2
-            fi
-        done
-    done
-fi
-[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$AGENTFORGE_DIR"
+PROJECT_DIR="$AGENTFORGE_DIR"
 export PROJECT_DIR
 POLL_INTERVAL=${POLL_INTERVAL:-45}
 TASK_TIMEOUT=${TASK_TIMEOUT:-1800}
