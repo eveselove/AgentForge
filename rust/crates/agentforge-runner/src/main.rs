@@ -110,6 +110,7 @@ TASK MANAGEMENT (LIVE by default to gw:9090 — replaces ALL Python create_*.py 
     agentforge-runner task approve --all-review
     agentforge-runner task review <id>
     agentforge-runner task reject <id> --feedback "reason (resets to pending)"
+    agentforge-runner task worker [--always-approve] [--no-plan] [--poll SECS] [--agent <grok|antigravity>]
     agentforge-runner task reset-fakes | stats
     (live default via reqwest to agentforge-gateway /api/* on 9090 or $AGENTFORGE_API or --api; --local for JsonFileTaskStore prototype only. --from-file kills the last create_*.py . See `task --help`)
 
@@ -484,6 +485,8 @@ async fn live_get_metrics(
         .map_err(|e| format!("decode metrics: {}", e))
 }
 
+// Swarm-engage has been removed in favor of task worker.
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let json_mode = has_flag(&args, &["--json", "-j"]);
@@ -512,12 +515,16 @@ fn main() {
     if args.iter().any(|a| a == "planning") {
         // Minimal for planner delegation (20g+3a wave). Returns delegated Plan json.
         if json_mode {
-            println!(r#"{{"plan":{{"goal":"delegated-from-runner","metadata":{{"delegated_to":"rust-agentforge-runner","engine":"rust-agentforge-runner/planning@dual-thin"}},"subtasks":[{{"id":"S1","description":"[RUST] Analyze + gather","metadata":{{"phase":"analysis","delegated":true}}}},{{"id":"S2","description":"[RUST] Design / files + risks","dependencies":["S1"],"metadata":{{"phase":"design","delegated":true}}}}]}}}}"#);
+            println!(
+                r#"{{"plan":{{"goal":"delegated-from-runner","metadata":{{"delegated_to":"rust-agentforge-runner","engine":"rust-agentforge-runner/planning@dual-thin"}},"subtasks":[{{"id":"S1","description":"[RUST] Analyze + gather","metadata":{{"phase":"analysis","delegated":true}}}},{{"id":"S2","description":"[RUST] Design / files + risks","dependencies":["S1"],"metadata":{{"phase":"design","delegated":true}}}}]}}}}"#
+            );
         } else {
             println!("[runner] planning decompose (dual-thin support) - delegated to Rust");
         }
         return;
     }
+
+    // SWARM-ENGAGE early (disabled)
 
     // Find first non-global non-flag arg as subcommand (supports globals before/after).
     // Production polish: top-level "promote <id>" and "list" are first-class short aliases (obvious for farm).
@@ -566,6 +573,10 @@ fn main() {
                     println!("Subtasks: {}", p.subtasks.len());
                 }
             }
+        }
+
+        "swarm-engage" => {
+            eprintln!("swarm-engage is disabled. Use 'task worker' instead.");
         }
 
         // === Rust-native Task Management (LIVE by default - Production) ===
@@ -931,9 +942,289 @@ fn main() {
                         }
                     }
 
+
+                    "worker" => {
+                        let always_approve = has_flag(&args, &["--always-approve"]);
+                        let no_plan = has_flag(&args, &["--no-plan"]);
+                        let poll_interval_secs: u64 = find_flag_value(&args, &["--poll", "-p"])
+                            .and_then(|v| v.parse().ok())
+                            .unwrap_or(5);
+                        let agent_name = find_flag_value(&args, &["--agent", "-a"])
+                            .unwrap_or_else(|| "grok".to_string());
+
+                        if client.is_none() {
+                            eprintln!("❌ Worker requires live gateway API (no --local).");
+                            return;
+                        }
+                        let c = client.as_ref().unwrap();
+
+                        println!("🚀 Starting AgentForge Rust Task Worker (1 Task = 1 Terminal)...");
+                        println!("   Gateway: {}", api_base);
+                        println!("   Agent: {}", agent_name);
+                        if agent_name == "grok" {
+                            println!("   Always-approve: {}", always_approve);
+                            println!("   No-plan: {}", no_plan);
+                        } else if agent_name == "antigravity" {
+                            println!("   Model: Gemini 3.1 Pro (Low)");
+                        }
+                        println!("   Poll interval: {}s", poll_interval_secs);
+                        println!("----------------------------------------");
+
+                        // Ensure tmux agents session exists
+                        let session_status = std::process::Command::new("tmux")
+                            .args(["has-session", "-t", "agents"])
+                            .status();
+                        let has_session = session_status.map(|s| s.success()).unwrap_or(false);
+                        if !has_session {
+                            let _ = std::process::Command::new("tmux")
+                                .args(["new-session", "-d", "-s", "agents"])
+                                .status();
+                            println!("📺 Created new tmux session 'agents'");
+                        }
+
+                        loop {
+                            // 1. Claim task
+                            let worker_id = format!("{}-rust-worker-{}", agent_name, std::process::id());
+                            let claim_url = format!("{}/claim", api_base.trim_end_matches('/'));
+                            let payload = serde_json::json!({
+                                "agent": worker_id,
+                                "preferred": agent_name
+                            });
+
+                            let claim_resp = c.post(&claim_url)
+                                .json(&payload)
+                                .send()
+                                .await;
+
+                            let mut task_opt = None;
+                            if let Ok(resp) = claim_resp {
+                                if resp.status().is_success() {
+                                    if let Ok(task) = resp.json::<serde_json::Value>().await {
+                                        if task.get("id").is_some() && !task.get("id").unwrap().is_null() {
+                                            task_opt = Some(task);
+                                        }
+                                    }
+                                }
+                            }
+
+                            let task = match task_opt {
+                                Some(t) => t,
+                                None => {
+                                    std::thread::sleep(std::time::Duration::from_secs(poll_interval_secs));
+                                    continue;
+                                }
+                            };
+
+                            let id = task.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            let title = task.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled").to_string();
+                            let desc = task.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            let tags_arr = task.get("tags").and_then(|v| v.as_array());
+                            let tags: Vec<String> = tags_arr
+                                .map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+                                .unwrap_or_default();
+
+                            println!("🎯 Claimed task {}: {}", id, title);
+
+                            // 2. Prepare prompt content
+                            let prompt_content = format!(
+                                "{}\n\nDetails: {}\n\nTags: {}\n",
+                                title, desc, tags.join(", ")
+                            );
+                            let prompt_path = format!("/tmp/grok-prompt-{}.txt", id);
+                            if let Err(e) = std::fs::write(&prompt_path, &prompt_content) {
+                                eprintln!("❌ Failed to write prompt file: {}", e);
+                                continue;
+                            }
+
+                            // 3. Create git worktree
+                            let wt_path = format!("/tmp/agentforge-work/task-{}", id);
+                            let branch_name = format!("agent/task-{}", id);
+
+                            // Clean up any stale worktree dir if it exists
+                            let _ = std::process::Command::new("git")
+                                .args(["worktree", "prune"])
+                                .status();
+                            let _ = std::fs::remove_dir_all(&wt_path);
+
+                            println!("🌱 Creating worktree in {}...", wt_path);
+                            // Try creating branch first, if that fails, try checking out existing
+                            let wt_status = std::process::Command::new("git")
+                                .args(["worktree", "add", &wt_path, "-b", &branch_name])
+                                .status();
+
+                            let wt_success = wt_status.map(|s| s.success()).unwrap_or(false);
+                            if !wt_success {
+                                println!("   Branch already exists, checking out existing...");
+                                let _ = std::process::Command::new("git")
+                                    .args(["worktree", "add", &wt_path, &branch_name])
+                                    .status();
+                            }
+
+                            // 3.5 Determine the directory to run the agent in (improves Grok efficiency)
+                            let mut run_dir = wt_path.clone();
+                            if let Some(meta) = task.get("metadata") {
+                                if let Some(dir_val) = meta.get("dir").or_else(|| meta.get("cwd")).or_else(|| meta.get("working_directory")) {
+                                    if let Some(dir_str) = dir_val.as_str() {
+                                        let clean = dir_str
+                                            .trim_start_matches('/')
+                                            .replace("home/eveselove/agentforge/", "")
+                                            .replace("home/eveselove/agentforge", "");
+                                        let joined = std::path::Path::new(&wt_path).join(&clean);
+                                        if joined.exists() {
+                                            run_dir = joined.to_string_lossy().to_string();
+                                        }
+                                    }
+                                }
+                            }
+                            if run_dir == wt_path {
+                                let combined = format!("{} {}", title, desc);
+                                let dirs_to_check = [
+                                    "gateway",
+                                    "rust/crates/agentforge-core",
+                                    "rust/crates/agentforge-flywheel",
+                                    "rust/crates/agentforge-planning",
+                                    "rust/crates/agentforge-safety",
+                                    "rust/crates/agentforge-mcp",
+                                    "rust/crates/agentforge-learning",
+                                    "rust/crates/agentforge-long-horizon",
+                                    "rust/crates/agentforge-candidates",
+                                    "rust/crates/agentforge-runner",
+                                    "rust",
+                                    "eval",
+                                    "safety",
+                                    "observability",
+                                    "skills"
+                                ];
+                                let mut best_dir = None;
+                                let mut max_match_len = 0;
+                                for d in dirs_to_check {
+                                    if combined.contains(d) && d.len() > max_match_len {
+                                        let joined = std::path::Path::new(&wt_path).join(d);
+                                        if joined.exists() {
+                                            max_match_len = d.len();
+                                            best_dir = Some(joined.to_string_lossy().to_string());
+                                        }
+                                    }
+                                }
+                                if let Some(bd) = best_dir {
+                                    run_dir = bd;
+                                }
+                            }
+                            if run_dir != wt_path {
+                                println!("📂 Target directory identified from task: {}", run_dir);
+                            }
+
+                            // 4. Generate launcher shell script (fully avoids shell escaping issues in tmux window)
+                            let launcher_path = format!("/tmp/agentforge-launcher-{}.sh", id);
+                            let exit_file = format!("/tmp/grok-exit-{}.txt", id);
+
+                            let launcher_content = if agent_name == "antigravity" {
+                                format!(
+                                    r#"#!/bin/bash
+# Auto-generated task launcher for AgentForge Antigravity (Gemini 3.1 Pro)
+set -uo pipefail
+cd "{}"
+export SSH_TTY=/dev/pts/0
+PROMPT=$(cat << 'EOF'
+{}
+EOF
+)
+/home/eveselove/.local/bin/agy --dangerously-skip-permissions --model "Gemini 3.1 Pro (Low)" --add-dir "{}" --print "$PROMPT"
+echo $? > "{}"
+"#,
+                                    run_dir,
+                                    prompt_content,
+                                    wt_path,
+                                    exit_file
+                                )
+                            } else {
+                                format!(
+                                    r#"#!/bin/bash
+# Auto-generated task launcher for AgentForge Grok
+set -uo pipefail
+cd "{}"
+grok {} {} --no-alt-screen --prompt-file "{}"
+echo $? > "{}"
+"#,
+                                    run_dir,
+                                    if always_approve { "--always-approve" } else { "" },
+                                    if no_plan { "--no-plan" } else { "" },
+                                    prompt_path,
+                                    exit_file
+                                )
+                            };
+
+                            if let Err(e) = std::fs::write(&launcher_path, &launcher_content) {
+                                eprintln!("❌ Failed to write launcher script: {}", e);
+                                continue;
+                            }
+                            let _ = std::process::Command::new("chmod")
+                                .args(["+x", &launcher_path])
+                                .status();
+
+                            // 5. Spawn tmux window running launcher script
+                            let window_name = format!("task-{}", id);
+                            let tmux_cmd = format!("bash {}", launcher_path);
+
+                            println!("📺 Spawning tmux window '{}'...", window_name);
+                            let _ = std::process::Command::new("tmux")
+                                .args(["kill-window", "-t", &format!("agents:{}", window_name)])
+                                .status();
+                            let _ = std::process::Command::new("tmux")
+                                .args(["new-window", "-t", "agents", "-n", &window_name, &tmux_cmd])
+                                .status();
+
+                            // 6. Monitor window and exit file
+                            let mut exit_code = None;
+                            loop {
+                                // Check if exit file exists
+                                if let Ok(content) = std::fs::read_to_string(&exit_file) {
+                                    if let Ok(code) = content.trim().parse::<i32>() {
+                                        exit_code = Some(code);
+                                        break;
+                                    }
+                                }
+
+                                // Check if tmux window still exists
+                                let tmux_check = std::process::Command::new("tmux")
+                                    .args(["list-windows", "-t", "agents", "-F", "#W"])
+                                    .output();
+                                if let Ok(out) = tmux_check {
+                                    let windows = String::from_utf8_lossy(&out.stdout);
+                                    let exists = windows.lines().any(|l| l == window_name);
+                                    if !exists {
+                                        println!("⚠️ Tmux window was closed manually.");
+                                        break;
+                                    }
+                                }
+
+                                std::thread::sleep(std::time::Duration::from_secs(1));
+                            }
+
+                            let code = exit_code.unwrap_or(0);
+                            let status = if code == 0 { "done" } else { "failed" };
+                            let result = format!("{} exited with code {} in tmux session", agent_name, code);
+
+                            println!("🏁 Task {} completed with status: {} (code {})", id, status, code);
+
+                            // 7. Update task in database
+                            let _ = live_update_task(c, &api_base, &id, Some(status), Some(&result), Some(&agent_name)).await;
+
+                            // 8. Clean up worktree and temp files
+                            println!("🧹 Cleaning up worktree and scripts...");
+                            let _ = std::process::Command::new("git")
+                                .args(["worktree", "remove", "--force", &wt_path])
+                                .status();
+                            let _ = std::fs::remove_file(&prompt_path);
+                            let _ = std::fs::remove_file(&exit_file);
+                            let _ = std::fs::remove_file(&launcher_path);
+                            println!("----------------------------------------");
+                        }
+                    }
+
                     _ => {
                         if json_mode {
-                            println!(r#"{{"status":"ok","commands":["create","list","get","update","dispatch","claim","reassign","approve","review","reject","reset-fakes","stats"],"note":"live default (gw 9090); --local for prototype JsonFile; --from-file for mass create; also review/reject"}}"#);
+                            println!(r#"{{"status":"ok","commands":["create","list","get","update","dispatch","claim","reassign","approve","review","reject","worker","reset-fakes","stats"],"note":"live default (gw 9090); --local for prototype JsonFile; --from-file for mass create; also review/reject"}}"#);
                         } else {
                             eprintln!("agentforge-runner task <subcommand>  [ --local ] [ --api http://localhost:9090 ]  (live to gw by default)");
                             eprintln!();
@@ -945,6 +1236,7 @@ fn main() {
                             eprintln!("  dispatch <id> | claim <id> --agent grok");
                             eprintln!("  reassign --from antigravity --to grok --pending-only [--dry-run]");
                             eprintln!("  approve --all-review | review <id> | reject <id> --feedback \"...\" | reset-fakes | stats");
+                            eprintln!("  worker [--always-approve] [--no-plan] [--poll SECS] [--agent <grok|antigravity>]");
                             eprintln!();
                             eprintln!("This surface replaces the Python create/fix/approve/reassign/show_agent_stats/check_status scripts.");
                         }
