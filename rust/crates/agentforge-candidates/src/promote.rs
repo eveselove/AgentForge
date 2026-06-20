@@ -1018,6 +1018,7 @@ mod tests {
         let pid = std::process::id();
         let tmp = std::env::temp_dir().join(format!("p_cross_shadow_emit_{}", pid));
         let _ = fs::create_dir_all(&tmp);
+        std::env::set_var("AGENTFORGE_SKILLS_DIR", &tmp); // isolate copy dest (CI: hardcoded $HOME skills path is uncreatable)
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "shadow_emit_cross_20260531";
         let d = tmp.join(cid);
@@ -1095,6 +1096,7 @@ mod tests {
             let pid = std::process::id();
             let tmp = std::env::temp_dir().join(format!("p_prop_invar_{}_{}", pid, cid));
             let _ = fs::create_dir_all(&tmp);
+            std::env::set_var("AGENTFORGE_SKILLS_DIR", &tmp); // isolate copy dest (CI: hardcoded $HOME skills path is uncreatable)
             let store = CandidateStore::new(Some(tmp.clone()));
             let d = tmp.join(&cid); let _ = fs::create_dir_all(&d);
             let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"inv","promoted":false}"#);
@@ -1254,6 +1256,7 @@ _learning_meta:
         let pid = std::process::id();
         let tmp = std::env::temp_dir().join(format!("p_deep_shadow_llm_{}", pid));
         let _ = fs::create_dir_all(&tmp);
+        std::env::set_var("AGENTFORGE_SKILLS_DIR", &tmp); // isolate copy dest (CI: hardcoded $HOME skills path is uncreatable)
         let store = CandidateStore::new(Some(tmp.clone()));
         let cid = "llm-emit_2026-shadow-cont_!special@name";
         let d = tmp.join(cid);
