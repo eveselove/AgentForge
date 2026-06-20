@@ -1,6 +1,7 @@
 #!/bin/bash
 # AgentForge Pre-Commit Hook (v2)
-# Enforces basic quality and traceability
+# Enforces basic quality (secrets/size/fmt/clippy/lint).
+# Traceability lives in the commit-msg hook (bin/commit-msg).
 
 set -e
 
@@ -48,23 +49,9 @@ if git diff --cached --name-only | grep -qE '\.sh$'; then
     fi
 fi
 
-# 5. Mandatory traceability (Task ID or Jules session in commit message)
-if [ -x "./bin/validate-commit-msg" ]; then
-    # Use the reusable validator (reads last commit)
-    if ! ./bin/validate-commit-msg; then
-        echo "   Bypass (emergency only): PRECOMMIT_BYPASS_TRACE=1 git commit ..."
-        if [ "${PRECOMMIT_BYPASS_TRACE:-}" != "1" ]; then
-            exit 1
-        fi
-        echo "⚠️  Traceability bypass active (PRECOMMIT_BYPASS_TRACE=1)"
-    fi
-else
-    # Fallback inline check
-    COMMIT_MSG="$(git log -1 --pretty=%B 2>/dev/null || echo '')"
-    if ! echo "$COMMIT_MSG" | grep -qE '(task[[:space:]]*[0-9a-f]{6,}|jules[[:space:]]*[0-9]{10,}|JULES_[0-9]+|Jules[[:space:]]*[0-9]+)'; then
-        echo "❌ MANDATORY traceability missing. See bin/validate-commit-msg and .gitmessage"
-        [ "${PRECOMMIT_BYPASS_TRACE:-}" = "1" ] || exit 1
-    fi
-fi
+# Traceability (Task ID / Jules session) is enforced by the commit-msg hook
+# (bin/commit-msg -> bin/validate-commit-msg "$1"), which runs AFTER the commit
+# message is finalized. pre-commit runs too early (the message is not written
+# yet) so it cannot read it reliably -- do NOT re-add a traceability check here.
 
-echo "✅ Pre-commit checks passed (traceability enforced)"
+echo "✅ Pre-commit checks passed"

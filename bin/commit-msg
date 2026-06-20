@@ -1,0 +1,29 @@
+#!/bin/bash
+# bin/commit-msg
+# Git commit-msg hook for AgentForge.
+# Delegates traceability (Task ID / Jules session) validation to bin/validate-commit-msg.
+# This runs at the correct time: after prepare-commit-msg (so -m "task xxx ..." is visible in the file),
+# unlike pre-commit which runs too early (before msg finalized).
+#
+# Git invokes: <hook> <commit-msg-file>
+# Exit non-0 aborts the commit (as before).
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+cd "$REPO_ROOT" || { echo "commit-msg: cannot cd to repo root" >&2; exit 1; }
+
+if [ -x "./bin/validate-commit-msg" ]; then
+    exec ./bin/validate-commit-msg "$@"
+else
+    # Fallback (should not happen after install)
+    MSG_FILE="${1:-}"
+    if [ -n "$MSG_FILE" ] && [ -f "$MSG_FILE" ]; then
+        if ! grep -qiE '(task[[:space:]/:._-]*[0-9a-fA-F]{6,}|jules[[:space:]/:._-]*[0-9]{8,}|jules_[0-9]+)' "$MSG_FILE"; then
+            echo "❌ MANDATORY traceability missing in commit message (fallback)."
+            echo "   See bin/validate-commit-msg and AGENTS.md"
+            exit 1
+        fi
+    fi
+    exit 0
+fi
