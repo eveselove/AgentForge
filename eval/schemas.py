@@ -99,7 +99,7 @@ class EvaluationResult:
     """
     # Required fields must come first (dataclass rule: no non-default fields after defaults)
     task_id: str
-    agent: str                          # grok / jules / antigravity / ...
+    agent: str                          # grok / antigravity / ...
     outcome: TaskOutcome
     duration_seconds: float
 

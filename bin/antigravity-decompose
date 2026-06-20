@@ -3,46 +3,73 @@
 Antigravity Decomposition Helper
 
 Usage:
-    python bin/antigravity-decompose "High level goal here" --count 12 --priority high
+    bin/antigravity-decompose "High level goal here" --count 20 --priority high --parent-id task-xxx --repo agentforge
+    bin/antigravity-decompose "..." --output json | agentforge-runner task create --from-file /dev/stdin --parent ...
 
-This tool is meant to be invoked by or for Antigravity when it needs to force
-aggressive task breakdown instead of doing the work itself.
+Deep audit (2026-06-13, lightning via targeted edit ONLY to this file):
+- Logical: weak validation (count<=0/neg), dumb non-semantic split (template only, not real decompose), complexity vocab mismatch (low/medium/high vs trivial/simple/...), missing parent_id/repo linkage (breaks traceability/waves per ANTIGRAVITY_ORCHESTRATION_PROTOCOL + AGENTS.md), placeholder descs.
+- Bottleneck: no real goal breakdown (N generic "Part i" for any goal) -> human still refines; no direct create/dispatch (passive); text dump for --count=100 slow; no integration to planner.py / HierarchicalPlanner.
+- Data race: minute-strftime base_id -> ID suggestion collision under concurrent decompose calls (or same-min waves) if downstream relies on suggested ids (server mints its own; InMemory/JsonFile would reject dups, Lance does not dedup on id). Also no atomicity for wave as unit.
+- Fixes: uuid base for suggested ids (collision-free), count 1-500 validate, complexity fixed, --parent-id/--repo added + injected, better micro-task descs + requires_agent_review, updated next-steps with --from-file example, doc+comments.
+- No races inside: pure sync CLI, no threads/locks/shared state/mutables after parse. All fixes local to generator.
+- Still: real decomposition intelligence belongs in planner / LLM hook or antigravity thinking before calling this; this remains numbering+template tool.
+- Strict: only this file modified.
 
-It prints a ready-to-use set of task creation commands / JSON that can be fed
-into the task queue or turned into a Dispatch Plan.
+See: docs/ANTIGRAVITY_ORCHESTRATION_PROTOCOL.md, AGENTS.md (agent-review mandatory after).
 """
+
+# NOTE: Suggested "id" values are human hints only. Gateway (create_task_api) ALWAYS
+# mints fresh "task-<short-uuid8>" regardless of payload "id". --from-file in runner
+# also ignores "id"/"status". This prevents ID injection races but means you cannot
+# force specific server IDs from here (by design for uniqueness under concurrency).
 
 import argparse
 import json
-import sys
+import uuid
 from datetime import datetime
 
 def main():
-    parser = argparse.ArgumentParser(description="Force aggressive decomposition for Antigravity")
+    parser = argparse.ArgumentParser(description="Force aggressive decomposition for Antigravity (per ANTIGRAVITY_ORCHESTRATION_PROTOCOL)")
     parser.add_argument("goal", help="High-level goal or initiative")
-    parser.add_argument("--count", type=int, default=10, help="Target number of parallel tasks")
+    parser.add_argument("--count", type=int, default=10, help="Target number of parallel micro-tasks (1-500)")
     parser.add_argument("--priority", default="high", choices=["critical", "high", "medium", "low"])
-    parser.add_argument("--complexity", default="medium", choices=["low", "medium", "high"])
+    parser.add_argument("--complexity", default="medium", choices=["trivial", "simple", "medium", "complex"])
     parser.add_argument("--output", choices=["text", "json"], default="text")
+    parser.add_argument("--parent-id", help="Parent task ID (for metadata/traceability; sets parent_id in output for --from-file)")
+    parser.add_argument("--repo", help="Repo path/branch context for tasks (e.g. planlytasksko or agentforge)")
     args = parser.parse_args()
 
-    base_id = datetime.now().strftime("%Y%m%d%H%M")
+    if args.count < 1 or args.count > 500:
+        parser.error("--count must be between 1 and 500 (lightning parallel limit; use multiple waves for more)")
+
+    # Use uuid for suggested ID (no time-based collision possible even under concurrent
+    # antigravity-decompose invocations from swarm; real server IDs are minted as task-uuid8 anyway).
+    # Coarse time ID was a latent race vector for duplicate suggestions if two waves same minute.
+    wave_base = uuid.uuid4().hex[:8]
 
     tasks = []
     for i in range(1, args.count + 1):
         task = {
-            "id": f"antigravity-wave-{base_id}-{i:02d}",
+            "id": f"antigravity-wave-{wave_base}-{i:02d}",
             "title": f"[Antigravity Wave] {args.goal} — Part {i}",
-            "description": f"Sub-task {i} of aggressive decomposition for: {args.goal}\n\n"
-                          f"Acceptance criteria: [Fill in during dispatch]\n"
-                          f"preferred_agent: grok | jules | auto\n"
-                          f"parent: [Link to main Antigravity initiative task]",
+            "description": (
+                f"Micro-task {i}/{args.count} from aggressive decomposition of: {args.goal}\n\n"
+                "STRICT: Work ONLY on your Part. Do not touch the full goal or other Parts.\n"
+                "If your part >10-15min estimated: further decompose it yourself into sub-micro-tasks + dispatch.\n"
+                "Acceptance: implement + pass local checks + create handoff for review (see AGENTS.md).\n"
+                "After done: update parent wave task."
+            ),
             "priority": args.priority,
             "complexity": args.complexity,
             "preferred_agent": "auto",
             "status": "pending",
-            "tags": ["antigravity", "wave", "decomposed"]
+            "tags": ["antigravity", "wave", "decomposed"],
+            "requires_agent_review": True,
         }
+        if args.parent_id:
+            task["parent_id"] = args.parent_id
+        if args.repo:
+            task["repo"] = args.repo
         tasks.append(task)
 
     if args.output == "json":
@@ -50,19 +77,31 @@ def main():
     else:
         print(f"# Antigravity Dispatch Wave — {args.goal}")
         print(f"# Generated: {datetime.now().isoformat()}")
-        print(f"# Target parallel tasks: {args.count}\n")
+        print(f"# Target parallel tasks: {args.count}")
+        if args.parent_id:
+            print(f"# Parent: {args.parent_id}")
+        if args.repo:
+            print(f"# Repo: {args.repo}")
+        print()
+
         for t in tasks:
             print(f"## {t['title']}")
             print(f"ID suggestion: {t['id']}")
-            print(f"Priority: {t['priority']} | Complexity: {t['complexity']}")
+            print(f"Priority: {t['priority']} | Complexity: {t['complexity']} | Review: {t.get('requires_agent_review')}")
             print(t['description'])
+            if t.get("parent_id"):
+                print(f"parent_id: {t['parent_id']}")
+            if t.get("repo"):
+                print(f"repo: {t['repo']}")
             print("-" * 60 + "\n")
 
-        print("\n# Recommended next steps for Antigravity:")
-        print("1. Review and refine the tasks above")
-        print("2. Create them in the queue (via API or UI)")
-        print("3. Launch parallel agents using bin/launch-jules-parallel or agent-team")
-        print("4. Monitor via jules-watch + bin/consume-handoff-reviews.py")
+        print("\n# Recommended next steps for Antigravity (lightning creation, NO manual UI):")
+        print("1. Review/refine the parts (fill real acceptance per your wave plan).")
+        print("2. Create via:  agentforge-runner task create --from-file <(bin/antigravity-decompose \"...\" --output json --parent-id TASKID --repo REPO)")
+        print("   (or --from-file wave.json after saving; runner forwards parent_id/repo + sets server id)")
+        print("3. Dispatch/launch: use agentforge-runner task dispatch <id> or agent-team + worktrees.")
+        print("4. Monitor: gateway 9090 /api/tasks | jq + bin/consume-handoff-reviews.py after reviews.")
+        print("5. Per protocol: >=70% delegated; only you do glue. Update originating task with wave links.")
 
 if __name__ == "__main__":
     main()

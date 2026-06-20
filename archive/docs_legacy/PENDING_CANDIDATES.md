@@ -28,7 +28,7 @@ See `RUST_FULL_MIGRATION_PLAN.md` (exec summary, detailed phases 0–4, risk mat
 - New crates integrated. 40+ cargo green (burst). 238 real candidates. Direct pure paths (list/promote/step/continuous) production + 100% readiness audited. All roadmaps + TURBO + 100% checklist one-last-time refreshed in FINAL DOCS VELOCITY wave. **DOCS AND 100% READINESS MAXIMIZED.**
 - See TURBO_VELOCITY_REPORT.md + MIGRATION_PROGRESS.md (~78-80%, Phase1 93%). Python under deprecation with guards.
 
-**Phase 1 Deprecation Expander (turbo agent):** Added deprecation warnings + TODOs (all referencing RUST_FULL_MIGRATION_PLAN.md) + updated module docstrings to next batch of orchestration files from inventory: `bin/run_continuous_flywheel.py`, `eval/runner.py`, `bin/rust_flywheel_after_task.sh`, `bin/run_continuous_flywheel.sh`, `bin/rust_post_process_hook.py`, `list_pending_candidates.py`, and `learning/evaluator.py`. Expanded `learning/utils.py:is_pure_rust_flywheel()` usage (imports + guards + conditionals) into the continuous runner, post-process hook, and list_pending CLI. All changes conservative/non-breaking (warnings only on Python paths when not pure; existing ENABLE semantics untouched; no behavior/artifact changes). See updated headers + the central helper for details. Next: more hooks + Rust parity scaffolding.
+**Phase 1 Deprecation Expander (turbo agent):** Added deprecation warnings + TODOs (all referencing RUST_FULL_MIGRATION_PLAN.md) + updated module docstrings to next batch of orchestration files from inventory: `bin/run_continuous_flywheel.py`, `eval/runner.py`, `bin/rust_flywheel_after_task.sh`, `bin/run_continuous_flywheel.sh`, `DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)`, `list_pending_candidates.py`, and `learning/evaluator.py`. Expanded `learning/utils.py:is_pure_rust_flywheel()` usage (imports + guards + conditionals) into the continuous runner, post-process hook, and list_pending CLI. All changes conservative/non-breaking (warnings only on Python paths when not pure; existing ENABLE semantics untouched; no behavior/artifact changes). See updated headers + the central helper for details. Next: more hooks + Rust parity scaffolding.
 
 ## Central Location
 
@@ -75,7 +75,7 @@ This is the single source of truth for "what the farm just proposed for itself".
 
 3. Also wired through:
    - `phase2_3_integration.run_rust_flywheel_step_if_enabled()` (the production guard point)
-   - `bin/rust_post_process_hook.py` (when both env flags set)
+   - `DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)` (when both env flags set)
    - Any future cron / worker / meta-loop.
 
 Different `--limit` / `--since-days` / `--slice` runs on recent real data produce meaningfully different candidate sets (different #records → different sampled failures → different target skills or proposal focus).

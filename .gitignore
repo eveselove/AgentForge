@@ -41,3 +41,15 @@ env/
 # Temp
 /tmp/
 scratch/
+
+# Rust (full crates + bins, not committed; built per env)
+rust/target/
+target/
+
+
+# --- forge rollout 2026-06-20: runtime/generated/backup junk ---
+.migration_venv/
+*.bak
+*.bak.*
+skills/*.promoted.*.yaml
+temp_tasks.json

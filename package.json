@@ -13,7 +13,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@google/jules-sdk": "^0.2.0"
-  }
+  "dependencies": {}  # jules-sdk was for deprecated Jules farm (removed 2026-06); no active node usage for agents
 }

@@ -16,7 +16,9 @@ from pathlib import Path
 from .spans import Span, create_span, export_spans_to_json
 
 
-def replay_trajectory(trajectory: Dict[str, Any], prm_result: Optional[Dict] = None) -> List[Span]:
+def replay_trajectory(
+    trajectory: Dict[str, Any], prm_result: Optional[Dict] = None
+) -> List[Span]:
     """
     Convert a *normalized* trajectory dict (from load_trajectory) into Spans.
 
@@ -54,7 +56,9 @@ def replay_trajectory(trajectory: Dict[str, Any], prm_result: Optional[Dict] = N
                     "event_type": getattr(ss, "event_type", None),
                 }
 
-    overall_prm = prm_result.get("overall_prm_score") if isinstance(prm_result, dict) else None
+    overall_prm = (
+        prm_result.get("overall_prm_score") if isinstance(prm_result, dict) else None
+    )
 
     for idx, event in enumerate(events):
         etype = event.get("type", "unknown")
@@ -77,8 +81,18 @@ def replay_trajectory(trajectory: Dict[str, Any], prm_result: Optional[Dict] = N
         span = create_span(span_name, parent=parent)
 
         # Standard attributes (sanitized for size)
-        for key in ("model", "tokens_in", "tokens_out", "cost_usd", "tool", "name",
-                    "duration_ms", "duration_seconds", "status", "exit_code"):
+        for key in (
+            "model",
+            "tokens_in",
+            "tokens_out",
+            "cost_usd",
+            "tool",
+            "name",
+            "duration_ms",
+            "duration_seconds",
+            "status",
+            "exit_code",
+        ):
             if key in data:
                 val = data[key]
                 if isinstance(val, (dict, list)):
@@ -108,8 +122,14 @@ def replay_trajectory(trajectory: Dict[str, Any], prm_result: Optional[Dict] = N
                 span.set_attribute("prm_score", overall_prm)  # fallback
 
         # Event for full fidelity (trim huge payloads)
-        event_attrs = {k: (str(v)[:300] if isinstance(v, (dict, list, str)) and len(str(v)) > 300 else v)
-                       for k, v in list(data.items())[:12]}
+        event_attrs = {
+            k: (
+                str(v)[:300]
+                if isinstance(v, (dict, list, str)) and len(str(v)) > 300
+                else v
+            )
+            for k, v in list(data.items())[:12]
+        }
         span.add_event(etype, event_attrs)
 
         spans.append(span)
@@ -118,7 +138,13 @@ def replay_trajectory(trajectory: Dict[str, Any], prm_result: Optional[Dict] = N
         if etype in ("task_start", "grok_execution_start", "execution_start", "start"):
             root_span = span
             parent_stack = [span]
-        elif etype in ("task_finished", "grok_execution_end", "task_completed", "execution_end", "end"):
+        elif etype in (
+            "task_finished",
+            "grok_execution_end",
+            "task_completed",
+            "execution_end",
+            "end",
+        ):
             if parent_stack:
                 top = parent_stack.pop()
                 if not top.end_time:
@@ -159,8 +185,7 @@ def summarize_spans(spans: List[Span]) -> Dict[str, Any]:
         }
 
     total_duration = sum(
-        (s.end_time - s.start_time).total_seconds()
-        for s in spans if s.end_time
+        (s.end_time - s.start_time).total_seconds() for s in spans if s.end_time
     )
     errors = sum(1 for s in spans if s.status == "error")
     llm_spans = [s for s in spans if "llm_call" in s.name]
@@ -183,7 +208,9 @@ def summarize_spans(spans: List[Span]) -> Dict[str, Any]:
         "error_rate": round(errors / len(spans), 4) if spans else 0.0,
         "llm_calls": len(llm_spans),
         "tool_calls": len(tool_spans),
-        "avg_span_duration_ms": round((total_duration * 1000) / len(spans), 1) if spans else 0.0,
+        "avg_span_duration_ms": (
+            round((total_duration * 1000) / len(spans), 1) if spans else 0.0
+        ),
         "avg_prm": round(avg_prm, 3) if avg_prm is not None else None,
         "prm_span_coverage": len(prm_values),
         "prm_min": round(min(prm_values), 3) if prm_values else None,
@@ -223,7 +250,10 @@ def create_spans_from_trajectory(
     # Lazy import: avoids any potential import-time coupling between top-level observability
     # and the heavier eval/ package (good for minimal installs / future splitting).
     try:
-        from agentforge.eval.trajectory import load_trajectory as _load_trajectory, find_trajectory_file
+        from agentforge.eval.trajectory import (
+            load_trajectory as _load_trajectory,
+            find_trajectory_file,
+        )
     except Exception as exc:  # pragma: no cover - defensive
         raise RuntimeError(
             "create_spans_from_trajectory requires agentforge.eval.trajectory.load_trajectory. "
@@ -235,15 +265,22 @@ def create_spans_from_trajectory(
     # over .prm.json sidecars that load_trajectory's glob matching can pick up.
     if isinstance(source, (str, Path)) and not Path(str(source)).exists():
         try:
-            candidate = find_trajectory_file(str(source), trajectories_dir=trajectories_dir)
+            candidate = find_trajectory_file(
+                str(source), trajectories_dir=trajectories_dir
+            )
             if candidate and ".prm" in candidate.name:
                 # search for a sibling .jsonl or clean .json
                 td = candidate.parent
                 tid = str(source)
-                better = [p for p in (list(td.glob("*.jsonl")) + list(td.glob("*.json")))
-                          if tid in p.name and ".prm" not in p.name]
+                better = [
+                    p
+                    for p in (list(td.glob("*.jsonl")) + list(td.glob("*.json")))
+                    if tid in p.name and ".prm" not in p.name
+                ]
                 if better:
-                    better.sort(key=lambda p: (p.suffix != ".jsonl", -p.stat().st_mtime))
+                    better.sort(
+                        key=lambda p: (p.suffix != ".jsonl", -p.stat().st_mtime)
+                    )
                     resolved_source = better[0]
         except Exception:
             pass
@@ -274,3 +311,5 @@ def create_spans_from_trajectory(
             pass  # never break caller for export side-effect
 
     return spans
+
+

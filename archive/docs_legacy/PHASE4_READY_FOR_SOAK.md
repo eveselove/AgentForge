@@ -46,7 +46,7 @@ bash bin/phase4_pre_removal_audit.sh --emit-commands   # for copy-paste deletion
 - 19+ import sites of "from agentforge.learning.utils import ... is_pure_rust_flywheel" (all accounted: bridges, deprecated files, examples, parity, __init__).
 - Unmarked audit (PLAN cmd 1): flagged only 5 *.service files (secondary infra with cutover comments from make_pure...sh 2026-05-31T10:42; flywheel.service explicitly has "PHASE 4 DELETION TARGET INFRA" at lines 6-14 + guard refs; these are patch targets, not deletion). Zero core .py orchestration unmarked.
 - Python -m invocation snapshot: only in deprecated self-refs + rollback tools (make/disable pure etc. — KEEP per PLAN §1) + generated pending_candidates/ data (excluded).
-- Call-site classification: ZERO ACTIVE_PROD stray outside tiers (the few "stray" detections were expected bridge imports inside eval/post_process.py:378 and bin/rust_post_process_hook.py:62/222 — these files are Tier 2/3 surgical targets).
+- Call-site classification: ZERO ACTIVE_PROD stray outside tiers (the few "stray" detections were expected bridge imports inside eval/post_process.py:378 and DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist):62/222 — these files are Tier 2/3 surgical targets).
 - Binary smoke: agentforge-runner present with full flywheel/continuous/candidate surface.
 - All 20+ targets from PLAN §1 + final sweep confirmed present + bannered.
 
@@ -118,7 +118,7 @@ git rm -f rust_flywheel_demo.py enable_rust_flywheel.py list_pending_candidates.
 
 **TIER 2: Mid Glue + Supporting (Hooks, Post-Process Glue, Trajectory Glue, Parity Harness)**
 ```
-git rm -f bin/rust_post_process_hook.py
+git rm -f DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist)
 # SURGICAL ONLY for the following (DO NOT wholesale rm if non-flywheel value remains):
 # - eval/post_process.py: strip only flywheel trigger blocks (rate-limit + Python fallback paths ~lines 140-400; retain PRM/trajectory cores + hardened binary delegation at 148-338 + health/continuous tick). Cite banner at post_process.py:3,7,13,106-107.
 # - eval/runner.py: remove only advisory deprecation notes + flywheel-specific wiring.
@@ -127,7 +127,7 @@ git rm -f bin/rust_post_process_hook.py
 git rm -rf learning/flywheel_parity/   # ONLY after final documented parity_harness run on real data (fixtures to git history or separate cold storage if audit required)
 ```
 - Rationale (PLAN §2): These are bridges/hooks. Parity harness kept until final verification.
-- High-care files: eval/post_process.py:148-397 (PURE RUST BRIDGE + legacy fallback; delicate rate-limit + do_flywheel logic); bin/rust_post_process_hook.py:38/111 (guard + trigger).
+- High-care files: eval/post_process.py:148-397 (PURE RUST BRIDGE + legacy fallback; delicate rate-limit + do_flywheel logic); DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist):38/111 (guard + trigger).
 - Post-Tier 2: same verification + one real task + continuous dry + candidate promote dry under pure; logs confirm no Python flywheel .py activation.
 
 **TIER 3: Core Orchestration (High Dependency — Delete After Tiers 1-2)**

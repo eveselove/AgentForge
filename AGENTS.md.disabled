@@ -1,0 +1,162 @@
+# Agent Development Guide for AgentForge
+
+This document describes how agents (Grok, Jules, Gemini, etc.) are expected to work inside the AgentForge project.
+
+## Core Principles
+
+- **Dogfooding first**: We improve AgentForge using AgentForge.
+- **Task-driven**: Almost all non-trivial work starts as a task in the queue.
+- **Traceability (enforced)**: Every commit/PR **must** reference a Task ID (e.g. task 90fcbf89) or Jules session. Enforced by `bin/pre-commit` (quality) + `bin/commit-msg` (via `bin/validate-commit-msg`) + `.gitmessage` template. (Moved to commit-msg hook in post-bypass cleanup so `-m "task <id>"` is visible; pre-commit phase was too early.) CI will also check. See docs/BRANCHING_STRATEGY.md.
+- **Parallelism**: We use multiple agents (Grok primary via grok_worker + agentforge-runner, Antigravity, Gemini) + worktrees aggressively. (Jules farm/parallel cloud sessions removed 2026-06).
+
+## Available Tools for Agents
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| `agent-team` (or `at`) | Launch parallel Grok (primary) / Antigravity / Gemini agents in tmux | High-volume parallel work |
+| `bin/pre-commit` + `bin/commit-msg` + `bin/install-pre-commit` | **Hard mandatory** quality gates in pre-commit (secrets/size/fmt/clippy/ruff/black/shell) + traceability in commit-msg (Task ID or legacy Jules via validate-commit-msg). | **Mandatory install** in every clone/worktree/branch before first commit: `./bin/install-pre-commit` |
+| `bin/agent-worktree` | Isolated git worktrees for conflict-free parallel agent work (MANDATORY for extreme waves) | High-parallelism local agent runs |
+| `bin/validate-commit-msg` + `.gitmessage` | Enforce Task ID (or legacy Jules session ID) on every commit (hard gate in commit-msg hook; correct phase for -m usage) | Always |
+| `agent-review` skill (or `/agent-review --to-jules`, `grok --agent jules`) | Mandatory independent cross-agent code review + handoff packaging after any work, before PR (hard requirement, produces auditable `~/.grok/handoffs/` record with `jules-review-*.md`). "Jules" here is the strict reviewer persona (not the removed farm). | After EVERY completed task / change set (see dedicated section below) |
+| `bin/consume-handoff-reviews.py` | Scans `~/.grok/handoffs/` for completed reviews (`jules-review-*.md`), bulk-approves via heuristics, PATCHes task. | After review waves; manual or automated to clear "review" backlog |
+| `agentforge-runner` | Main Rust-based execution engine for agentic workflows (dispatch, flywheel-step, continuous, candidates) | Use to spawn/decompose/dispatch + pure Rust flywheel |
+| Gateway (Rust task API, localhost:9090 /api/tasks etc) | Central source of work | Primary coordination mechanism |
+| `docs/PHASE{1,2,3}_TASK_BREAKDOWN.md` | Current parallel attack surface for closing Code Mgmt Plan (pick tasks here) | During all-phases closure waves |
+| `docs/REVIEW_CHECKLIST.md` | Mandatory self-check + external agent-review steps before every PR (P2 B5) | Always for agent changes |
+
+## Recommended Patterns
+
+### Starting Work
+```bash
+# Check current tasks (via gateway 9090)
+curl -s http://localhost:9090/api/tasks | jq '.[] | select(.status == "pending")'
+
+# Launch local parallel Grok agents (tmux + worktrees)
+agent-team grok "task description"   # or use grok_worker.sh (polls queue)
+# High-parallel: multiple worktrees via bin/agent-worktree + grok or agentforge-runner dispatch
+```
+
+**Note**: Jules farm (`launch-jules-parallel`, `jules-watch.sh`, `jules remote`, dedicated jules_worker) removed in 2026-06 cleanup wave (tasks f29c675b + JULES CLEANUP). Use Grok worker + task queue + Rust runner for parallel work. Legacy Jules session IDs still accepted in traceability for history.
+
+### Code Changes
+- **Follow the full Branching Strategy** — see [docs/BRANCHING_STRATEGY.md](docs/BRANCHING_STRATEGY.md) (v1.0, task 62a84821 [CM-03]).
+  - Canonical naming for agent/CM work: `agent/cm-xxx-description` (e.g. `agent/cm-03-branching-strategy-62a84821`) or `agent/<slug>`.
+  - `bin/agent-worktree create <slug>` is the recommended way to get an isolated `agent/` branch + worktree.
+- **Hooks are MANDATORY (hard gate)**: Install in every fresh clone / worktree / branch before first commit: `./bin/install-pre-commit`. This installs pre-commit (secrets/size/fmt/lint checks) + commit-msg (traceability). The commit-msg hook blocks commits missing Task ID/Jules (correct timing after `git commit -m "task <id> ..."` or editor). Pre-commit never saw the final msg. Shellcheck advisory unless `PRECOMMIT_STRICT=1`. Never bypass except emergencies (see Bypass Policy).
+- Always link commits + PR to originating task ID(s) (and legacy Jules session ID if applicable from history). This is **hard-enforced** by `bin/commit-msg` + `bin/validate-commit-msg` (pattern: `task <short-id>` or `Jules <id>`). Jules farm removed but ID support kept for traceability continuity.
+- Open a PR (from the short-lived branch) before merging to `main`. Never push directly. All PRs must reference task/Jules ID (see PR template).
+
+**Bypass Policy (pre-commit / commit-msg)**:
+  - Bypasses exist **only** for true emergencies (e.g. recovering a broken main that prevents any commit, or one-off env where a tool is missing in a critical hotfix path).
+  - Preferred (granular):
+    - `PRECOMMIT_BYPASS_TRACE=1 git commit ...` — only skips the task/Jules ID check (in commit-msg hook).
+    - `PRECOMMIT_STRICT=0 git commit ...` — run shellcheck (and future strict checks) in advisory mode (pre-commit).
+    - `PRECOMMIT_BYPASS_SHELLCHECK=1 ...` or `PRECOMMIT_BYPASS=1 ...` — skip shellcheck enforcement under STRICT.
+  - Ultimate hammer: `git commit --no-verify` (git-native, bypasses both hooks).
+  - **Rule**: Every bypass **must** be followed by:
+    1. Immediate creation of a high-priority "post-bypass cleanup / investigation" task in the queue. (This task is an example of such a follow-up.)
+    2. A short note in the commit body explaining the emergency.
+    3. Post-commit run of the skipped checks + fix in a follow-up commit (no --no-verify on the fix).
+  - Routine use of bypass (to "save time") is a policy violation and will be caught in agent-review.
+
+### Mandatory Post-Work Agent-Review Step (HARD REQUIREMENT, non-negotiable)
+**After completing ANY work** (code, docs, scripts, tasks — including this one), you **MUST** perform the agent-review step **before** marking the task ready, committing final changes for PR, or opening a PR:
+
+1. Ensure all local changes are complete and tests/lints pass locally. Run the full self-check from `docs/REVIEW_CHECKLIST.md` (P2 B5 deliverable, derived from 2026-05-31 wave defects).
+2. **OBLIGATORY invocation** (exact per task spec and AGENTS.md):
+   - Call the skill: `agent-review` (or `/agent-review --to-jules`, `grok --agent jules`, or equivalent via the `agent-review` skill in `~/.grok/skills/agent-review/`).
+   - This packages the diff + full context into a portable handoff under `~/.grok/handoffs/<id>/` (with `diff.patch`, `context.md`, `metadata.json`, `REVIEW_INSTRUCTIONS.md`).
+   - It launches (or prepares for) an **independent** reviewer (Jules persona recommended for strict review, or another named Grok) running in a separate session/context with its own memory and the strict reviewer persona. ("Jules" reviewer is distinct from the removed Jules farm/launcher automation.)
+3. Obtain the independent review. The reviewer produces a structured report (Summary + Issues: bugs/suggestions/nits with File:line).
+4. **Record the result** (fixed auditable artifact):
+   - Create or append to a handoff record (e.g. `docs/<SLUG>_AGENT_REVIEW_HANDOFF.md` modeled on `docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md` and `docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md`).
+   - Include: handoff ID + absolute path, reviewer identity, key findings (counts + excerpts), how issues were addressed (or why non-blocking), links to task/Jules.
+   - Reference this record + handoff dir in the commit message, PR description, and task result.
+5. **Consume reviewed handoffs (Post-100% Hardening automation)**:
+   - After independent reviews land as `jules-review-*.md` inside `~/.grok/handoffs/<id>/`, run the consumer (safe first):
+     ```bash
+     python3 bin/consume-handoff-reviews.py --stats --list
+     python3 bin/consume-handoff-reviews.py --dry-run --verbose --limit 20
+     python3 bin/consume-handoff-reviews.py --apply --handoff-id <id1>,<id2>   # or without filter for bulk clear approved ones
+     ```
+   - The script (c48c5f56) is the long-term mechanical closer for the review backlog. It only advances on explicit APPROVE heuristics (or --all-reviewed after vetting), writes .consumed markers, and injects rich result notes with full paths/links for traceability. Idempotent and logged.
+6. **ONLY THEN**:
+   - Consider the task complete / ready for acceptance.
+   - Open the PR (from short-lived branch).
+   - Update the originating task in the queue with status, links to review artifacts, and result summary.
+
+**Examples of recorded mandatory steps**:
+- `docs/A2_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md` (task bc6fa462)
+- `docs/A7_BRANCH_PROTECTION_AGENT_REVIEW_HANDOFF.md`
+- `docs/A1_BRANCH_PROTECTION_RESEARCH_REPORT.md` (includes handoff 1f3ceb91)
+- `docs/REVIEW_CHECKLIST_AGENT_REVIEW_HANDOFF.md` (this checklist + related doc updates, P2 B5)
+
+This is the **judgment layer** that replaces traditional "required GitHub approvals" (see Branch Protection A7 decision). It is mandatory for all agent-generated changes before merge to `main`. 
+
+**Agent-review is now the mandatory default path**: Every agent (Grok, Antigravity, etc.) must run it after work and usually create a follow-up review task. This is the standard for the current closure waves. 
+Tasks created via the API or `agentforge-runner` can now include the `requires_agent_review: true` flag, which ensures that a follow-up review task is automatically created upon task completion.
+
+**Special rule for Antigravity**: See the dedicated [Antigravity Orchestration Protocol](docs/ANTIGRAVITY_ORCHESTRATION_PROTOCOL.md). Antigravity's primary output is **delegated work via the task queue**, not solo implementation. Heavy decomposition + parallel dispatch is mandatory for non-trivial initiatives. The new `agentforge-runner` must be used as the primary execution engine.
+
+**CI Enforcement (Post-100% Hardening, task ee507687)**: The GitHub Actions job `agent-review-link` (powered by `bin/check-agent-review-link.sh`) is a **hard gate** for all PRs originating from `agent/` or `jules/` branches. The PR title or body **must** contain evidence of the completed agent-review + handoff record (e.g. handoff ID like "8806e0a2", "agent-review", "AGENT_REVIEW_HANDOFF", or link to the handoff doc). Missing evidence causes the CI job to fail. Use `AGENT_REVIEW_ADVISORY=1` only for local debugging. This makes the AGENTS.md process mechanically non-bypassable at the CI layer while preserving Level M2 (0 GitHub approvals).
+
+Failure to follow this (or pre-commit/traceability) will cause the PR to be rejected during agent-review or CI gates.
+
+## Multi-Account / Parallel Strategy
+
+**New direct swarm mode (2026-06-14)**: When the pull/claim from gateway + grok_worker feels laggy for "max speed", use the push mode: `bin/swarm-engage.py`. Antigravity gives you one task with "задействуй рой 50-300 агентов, вот промпт/цель". Ты сам умно дробишь на микро-задачи, пишешь детальные промпты в /tmp, tool открывает N tmux-окон, готовит per-agent worktree'ы, безопасно запускает grok CLI в каждом с injected протоколом роя + blackboard для координации. Это даёт именно то, что просили: ты контролируешь, терминалы открыты сразу, код пишется максимально параллельно и быстро.
+
+См. полное описание + команды в docs/PROBLEM_GROK_TMUX_DISPATCH_20260614.md и `bin/swarm-engage.py --help` (есть --bootstrap-goal для старта).
+
+Primary: Grok via grok_worker.sh (up to 500 parallel / MAX_PARALLEL with worktrees + dynamic models; dispatcher supports 300) + agentforge-runner for flywheel/dispatch + `bin/agent-worktree` + `agent-team` for local tmux parallelism. (Two Jules accounts + launchers removed 2026-06.)
+
+## Monitoring
+
+```bash
+# Active agents
+ta                    # attach to agents tmux session (300+ windows possible; see PROBLEM_GROK_TMUX_DISPATCH for scaling)
+
+# Grok worker logs
+tail -f ~/agentforge/logs/grok_worker.log
+
+# Current tasks
+curl -s http://localhost:9090/api/tasks | jq '[.[] | select(.status != "done")] | .[0:5]'
+# or dashboard: http://localhost:9090/
+```
+
+## Automation Tools (`bin/`)
+
+The `bin/` directory contains the core automation that makes the agent development loop fast and reliable:
+
+- **`bin/install-pre-commit`** — **MANDATORY** one-command installation of the hard quality+traceability gate hooks (pre-commit + commit-msg):
+  ```bash
+  ./bin/install-pre-commit
+  ```
+  Run this **immediately** on every fresh clone, worktree, or new branch before any `git commit`.
+  (Now worktree-safe; installs to correct per-worktree hooks dir via git rev-parse --git-dir.)
+  - `bin/pre-commit`: hard gate for secrets, size, fmt/clippy (rs), ruff/black (py), shellcheck (advisory or STRICT).
+  - `bin/commit-msg`: hard gate for traceability (calls validate-commit-msg on the finalized msg file). Fixes the "validate not seeing -m task <id>" bug (pre-commit was too early; now correct phase).
+  - **Traceability (hard)**: requires Task ID or Jules session in commit message (via `bin/validate-commit-msg`, bypass only via `PRECOMMIT_BYPASS_TRACE=1` in true emergencies)
+  - Full env controls and bypass policy documented in `bin/pre-commit` header + `bin/install-pre-commit` output.
+  See also "Code Changes" and the agent-review section.
+
+- **`bin/agent-worktree`** — Isolated git worktrees so dozens of agents can edit in parallel with zero conflicts on your main checkout. (Primary for high-parallelism now that Jules farm is removed.)
+
+  ```bash
+  ./bin/agent-worktree create cm-phase2-precommit
+  # ... cd into the worktree, do work, commit ...
+  ./bin/agent-worktree cleanup cm-phase2-precommit
+  ```
+  ```bash
+  ./bin/agent-worktree create cm-phase2-precommit
+  # ... cd into the worktree, do work, commit ...
+  ./bin/agent-worktree cleanup cm-phase2-precommit
+  ```
+
+Install the pre-commit hook early. Run grok_worker or jules-watch (if any external) / agent-team in tmux as needed. See current workers in root (grok_worker.sh) and bin/.
+
+## Philosophy
+
+The goal is not just to use agents — it is to make the **development process itself** agent-native and self-improving.
+
+This document is part of that effort.

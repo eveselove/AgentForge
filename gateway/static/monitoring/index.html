@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PLANLYTASK — Мониторинг сопоставлений</title>
+  <script src="echarts.min.js"></script>
+  <style>
+    /* fonts loaded locally or fallback to system */
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#f3f4f6;--surface:#ffffff;--surface2:#f9fafb;--surface3:#f0f0f0;
+      --border:#e5e7eb;--text:#1f2937;--text-muted:#6b7280;
+      --primary:#6366f1;--primary-bg:rgba(99,102,241,0.1);
+      --danger:#dc2626;--danger-bg:rgba(220,38,38,0.08);
+      --success:#16a34a;--success-bg:rgba(22,163,74,0.08);
+      --warning:#d97706;--warning-bg:rgba(217,119,6,0.08);
+      --radius:12px;--glow:0 2px 12px rgba(0,0,0,0.08);
+    }
+    body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    ::selection{background:var(--primary);color:#fff}
+
+    .header{
+      background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);
+      border-bottom:1px solid var(--border);padding:16px 32px;
+      display:flex;align-items:center;justify-content:space-between;
+      position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);
+    }
+    .header h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,#6366f1,#8b5cf6,#a855f7);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .header .nav-links{display:flex;gap:16px;align-items:center}
+    .header a{color:var(--text-muted);text-decoration:none;font-size:13px;transition:color 0.2s;padding:6px 12px;border-radius:6px}
+    .header a:hover{color:var(--text);background:var(--surface2)}
+    .header a.active{color:var(--primary);background:var(--primary-bg)}
+    .container{max-width:1440px;margin:0 auto;padding:24px 32px}
+
+    .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+    .kpi-card{
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+      padding:20px 24px;transition:transform 0.25s,box-shadow 0.25s;position:relative;overflow:hidden;
+    }
+    .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius) var(--radius) 0 0}
+    .kpi-card:hover{transform:translateY(-3px);box-shadow:var(--glow);cursor:pointer}
+    .kpi-card .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:8px}
+    .kpi-card .value{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+    .kpi-card .sub{font-size:11px;color:var(--text-muted);margin-top:4px}
+    .kpi-card.primary::before{background:linear-gradient(90deg,#818cf8,#6366f1)}.kpi-card.primary .value{color:var(--primary)}
+    .kpi-card.success::before{background:linear-gradient(90deg,#34d399,#10b981)}.kpi-card.success .value{color:var(--success)}
+    .kpi-card.danger::before{background:linear-gradient(90deg,#f87171,#ef4444)}.kpi-card.danger .value{color:var(--danger)}
+    .kpi-card.warning::before{background:linear-gradient(90deg,#fbbf24,#f59e0b)}.kpi-card.warning .value{color:var(--warning)}
+
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px;transition:box-shadow 0.3s}
+    .panel:hover{box-shadow:var(--glow)}
+    .panel-title{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .panel-title .dot{width:8px;height:8px;border-radius:50%;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+    .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+    .filter-btn{
+      background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);
+      border-radius:20px;padding:8px 18px;font-size:13px;font-family:inherit;
+      cursor:pointer;transition:all 0.2s;
+    }
+    .filter-btn:hover{border-color:var(--primary);color:var(--text)}
+    .filter-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);box-shadow:0 0 12px rgba(129,140,248,0.3)}
+
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+    @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+
+    .match-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+    @media(max-width:1600px){.match-grid{grid-template-columns:1fr}}
+    .match-card{
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+      overflow:hidden;transition:transform 0.2s,box-shadow 0.2s;
+    }
+    .match-card:hover{transform:translateY(-2px);box-shadow:var(--glow)}
+    .match-card.dimmed{filter:grayscale(1);opacity:0.45;pointer-events:auto}
+    .match-card.dimmed:hover{transform:none;box-shadow:none;filter:grayscale(1);opacity:0.45}
+    .match-card-body{display:flex;flex-direction:column;cursor:pointer}
+    .match-photos{display:flex;align-items:stretch;border-bottom:1px solid var(--border);position:relative}
+    .match-score-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);z-index:2;font-weight:700;font-size:14px;padding:6px 14px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,0.15)}
+    .match-score-center.high{background:rgba(52,211,153,0.9);color:#fff}
+    .match-score-center.mid{background:rgba(251,191,36,0.9);color:#fff}
+    .match-score-center.low{background:rgba(248,113,113,0.9);color:#fff}
+    .center-btns{position:absolute;top:50%;left:50%;transform:translate(-50%,50%);z-index:2;display:flex;gap:4px}
+    .center-btns .lbl{width:32px;height:32px;border-radius:50%;border:2px solid rgba(200,200,200,0.6);background:rgba(255,255,255,0.85);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 6px rgba(0,0,0,0.2);filter:grayscale(1);opacity:0.5}
+    .center-btns .lbl:hover{transform:scale(1.15);box-shadow:0 3px 10px rgba(0,0,0,0.3);filter:grayscale(0.3);opacity:0.8}
+    .center-btns .lbl.a-exact{border-color:#34d399;background:rgba(52,211,153,0.25);filter:none;opacity:1}
+    .center-btns .lbl.a-analog{border-color:#818cf8;background:rgba(129,140,248,0.25);filter:none;opacity:1}
+    .center-btns .lbl.a-no{border-color:#f87171;background:rgba(248,113,113,0.25);filter:none;opacity:1}
+    .match-photo-wrap{flex:1;height:490px;display:flex;align-items:center;justify-content:center;padding:12px;background:var(--surface2)}
+    .match-photo-wrap:first-child{border-right:1px dashed var(--border)}
+    .match-info-row{display:flex;border-bottom:1px solid var(--border)}
+    .match-info-cell{flex:1;padding:8px 16px;display:flex;flex-direction:column;gap:4px}
+    .match-info-cell:first-child{border-right:1px solid var(--border)}
+    .match-info-cell.mirror{text-align:right;align-items:flex-end}
+    .info-line{display:flex;align-items:center;gap:8px;width:100%}
+    .info-line .product-price{margin-left:auto}
+    .match-info-cell.mirror .info-line{justify-content:flex-end}
+    .match-info-cell.mirror .info-line .product-price{margin-left:0;margin-right:auto}
+    .store-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:4px 12px;border-radius:4px;display:inline-block;width:fit-content}
+    .store-tag.source{background:rgba(251,191,36,0.12);color:#fbbf24}
+    .store-tag.target{background:rgba(129,140,248,0.12);color:#818cf8}
+    .product-name{font-size:13px;font-weight:500;line-height:1.4;text-align:left;word-break:break-word}
+    .product-price{font-size:16px;font-weight:700;color:var(--primary)}
+    .product-sku{font-size:10px;color:var(--text-muted)}
+    .product-photo{max-width:90%;max-height:90%;object-fit:contain;border-radius:6px}
+    @media(max-width:900px){
+      .match-photos{flex-direction:column}
+      .match-photo-wrap:first-child{border-right:none;border-bottom:1px dashed var(--border)}
+      .match-info-row{flex-direction:column}
+      .match-info-cell:first-child{border-right:none;border-bottom:1px solid var(--border)}
+    }
+    .match-footer{
+      display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      padding:12px 20px;background:var(--surface2);border-top:1px solid var(--border);font-size:13px;
+    }
+    .match-score{font-weight:700;padding:4px 12px;border-radius:12px;font-size:13px}
+    .match-score.high{background:rgba(52,211,153,0.15);color:#34d399}
+    .match-score.mid{background:rgba(251,191,36,0.15);color:#fbbf24}
+    .match-score.low{background:rgba(248,113,113,0.15);color:#f87171}
+    .badge{display:inline-block;padding:3px 10px;border-radius:10px;font-weight:600;font-size:12px}
+    .badge-match{background:rgba(52,211,153,0.15);color:#34d399}
+    .badge-no{background:rgba(248,113,113,0.15);color:#f87171}
+    .badge-unknown{background:rgba(139,144,160,0.15);color:#8b90a0}
+    .match-reason{font-size:11px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* Confirm dialog */
+    .confirm-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+    .confirm-dialog{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;min-width:340px;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+    .confirm-dialog h3{margin:0 0 8px;font-size:18px;color:var(--text)}
+    .confirm-dialog p{margin:0 0 20px;font-size:13px;color:var(--text-muted);line-height:1.5}
+    .confirm-dialog .cd-buttons{display:flex;gap:10px;justify-content:flex-end}
+    .confirm-dialog .cd-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer;border:1px solid var(--border);transition:all 0.2s}
+    .confirm-dialog .cd-cancel{background:var(--surface2);color:var(--text)}
+    .confirm-dialog .cd-cancel:hover{border-color:var(--text-muted)}
+    .confirm-dialog .cd-ok{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .confirm-dialog .cd-ok:hover{opacity:0.9}
+    .label-btns{display:flex;gap:4px;margin-left:auto}
+    .label-btn{
+      background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);
+      border-radius:6px;padding:4px 10px;font-size:11px;font-family:inherit;
+      cursor:pointer;transition:all 0.2s;font-weight:500;
+    }
+    .label-btn:hover{border-color:var(--primary);color:var(--text);transform:scale(1.05)}
+    .label-btn.active-exact{background:rgba(52,211,153,0.2);color:#34d399;border-color:#34d399}
+    .label-btn.active-analog{background:rgba(99,102,241,0.15);color:#818cf8;border-color:#818cf8}
+    .label-btn.active-no{background:rgba(248,113,113,0.2);color:#f87171;border-color:#f87171}
+    .label-btn.saving{opacity:0.5;pointer-events:none}
+    .label-origin{position:absolute;top:10px;left:10px;z-index:3;font-size:28px;cursor:default;opacity:0.85;transition:opacity 0.2s;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))}
+    .label-origin:hover{opacity:1}
+
+    .loading{display:flex;align-items:center;justify-content:center;height:300px;color:var(--text-muted);font-size:14px}
+    .show-more-btn{
+      display:block;margin:24px auto 0;background:var(--primary);color:#fff;
+      border:none;border-radius:8px;padding:12px 32px;font-size:14px;
+      font-family:inherit;cursor:pointer;transition:opacity 0.2s,box-shadow 0.2s;
+    }
+    .show-more-btn:hover{opacity:0.9;box-shadow:0 0 16px rgba(129,140,248,0.4)}
+
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    .toolbar-btn{
+      background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);
+      border-radius:8px;padding:7px 14px;font-size:12px;font-family:inherit;
+      cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;
+    }
+    .toolbar-btn:hover{border-color:var(--primary);color:var(--text)}
+    .toolbar-btn.active{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
+    .toolbar-btn svg{width:14px;height:14px;fill:currentColor}
+    .refresh-timer{font-size:11px;color:var(--text-muted);min-width:90px;text-align:center}
+    .refresh-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;animation:blink2 1s infinite}
+    @keyframes blink2{0%,100%{opacity:1}50%{opacity:0.3}}
+    .toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+
+    .fs-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:var(--bg);padding:16px;display:none;flex-direction:column}
+    .fs-overlay.active{display:flex}
+    .fs-overlay .fs-chart{flex:1;width:100%;min-height:0}
+    .fs-close{position:absolute;top:12px;right:16px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit;font-size:13px;z-index:10000}
+    .panel-fs{margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;border-radius:4px;transition:color 0.2s}
+    .panel-fs:hover{color:var(--primary)}
+    .kbd{display:inline-block;background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:10px;font-family:monospace;color:var(--text-muted);margin-left:4px;vertical-align:middle}
+
+    /* Product detail modal */
+    .detail-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+    .detail-overlay.active{display:flex}
+    .detail-modal{background:var(--surface);border-radius:16px;width:92vw;max-width:1400px;height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden}
+    .detail-topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0}
+    .detail-topbar h3{margin:0;font-size:15px;color:var(--text)}
+    .detail-close{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 16px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--text);transition:all 0.2s}
+    .detail-close:hover{border-color:var(--primary);color:var(--primary)}
+    .detail-columns{display:flex;flex:1;min-height:0}
+    .detail-col{flex:1;overflow-y:auto;padding:20px 24px;scrollbar-width:thin}
+    .detail-col:first-child{border-right:1px solid var(--border)}
+    .detail-col::-webkit-scrollbar{width:6px}
+    .detail-col::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+    .detail-store{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+    .detail-name{font-size:16px;font-weight:600;line-height:1.5;margin-bottom:12px;color:var(--text)}
+    .detail-meta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;font-size:13px}
+    .detail-meta span{color:var(--text-muted)}
+    .detail-meta b{color:var(--text)}
+    .detail-gallery{position:relative;margin-bottom:20px;background:var(--surface2);border-radius:8px;overflow:hidden}
+    .detail-gallery img{width:100%;height:280px;object-fit:contain;display:none}
+    .detail-gallery img.active{display:block}
+    .gal-nav{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,0.4);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;transition:background 0.2s}
+    .gal-nav:hover{background:rgba(0,0,0,0.7)}
+    .gal-nav.prev{left:8px}
+    .gal-nav.next{right:8px}
+    .gal-dots{display:flex;justify-content:center;gap:6px;padding:8px 0}
+    .gal-dots span{width:8px;height:8px;border-radius:50%;background:var(--border);cursor:pointer;transition:background 0.2s}
+    .gal-dots span.active{background:var(--primary)}
+    .detail-section{margin-bottom:16px}
+    .detail-section h4{font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+    .detail-section p{font-size:13px;line-height:1.6;color:var(--text);margin:0}
+    .detail-score-row{display:flex;align-items:center;gap:12px;padding:12px 24px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface2)}
+    .detail-score-row .match-score{font-weight:700}
+    .detail-compare{border-top:1px solid var(--border);overflow-y:auto;max-height:40vh;padding:0}
+    .compare-table{width:100%;border-collapse:collapse;font-size:13px}
+    .compare-table th{position:sticky;top:0;background:var(--surface2);padding:10px 12px;text-align:left;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+    .compare-table td{padding:6px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+    .compare-table td:first-child,.compare-table td:nth-child(3){color:var(--text-muted);font-weight:500;white-space:nowrap;width:18%}
+    .compare-table td:nth-child(2){width:32%;text-align:right;padding-right:16px}
+    .compare-table td:nth-child(4){width:32%;text-align:left;padding-left:16px}
+    .compare-table tr:hover{background:var(--surface2)}
+    .compare-match{color:var(--success)}
+    .compare-diff{color:#f87171}
+    .desc-row td{white-space:normal;line-height:1.5}
+    .detail-tabs{display:flex;gap:4px;margin-left:24px}
+    .detail-tab{padding:6px 16px;border-radius:8px;font-size:12px;font-family:inherit;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);transition:all 0.2s}
+    .detail-tab.active{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
+    .detail-tab:hover:not(.active){border-color:var(--text-muted)}
+
+    @media print{.header,.toolbar,.filters,.filter-btn,.show-more-btn,.fs-overlay,.panel-fs,.detail-overlay{display:none!important}.panel,.match-card{break-inside:avoid;box-shadow:none!important;border:1px solid #ccc!important}}
+
+    /* Self-learning panel */
+    .train-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;display:none}
+    .train-panel.visible{display:block}
+    .train-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .train-header h3{margin:0;color:var(--text);font-size:16px;font-weight:600}
+    .train-status{font-size:12px;padding:3px 10px;border-radius:12px;font-weight:500}
+    .train-status.ready{background:rgba(52,211,153,0.15);color:#34d399}
+    .train-status.training{background:rgba(251,191,36,0.15);color:#fbbf24;animation:pulse 1s infinite}
+    .train-status.done{background:rgba(99,102,241,0.15);color:#818cf8}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    .train-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+    .train-metric{background:var(--surface2);border-radius:8px;padding:12px;text-align:center}
+    .train-metric .tm-label{font-size:11px;color:var(--text-muted);margin-bottom:4px}
+    .train-metric .tm-value{font-size:20px;font-weight:700;color:var(--text)}
+    .train-metric .tm-value.good{color:#34d399}
+    .train-metric .tm-value.warn{color:#fbbf24}
+    .train-weights{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .train-weight{background:var(--surface2);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text-muted)}
+    .train-weight strong{color:var(--text);font-weight:600}
+    .train-results{max-height:200px;overflow-y:auto;font-size:12px}
+    .train-results table{width:100%;border-collapse:collapse}
+    .train-results th{text-align:left;color:var(--text-muted);font-weight:500;padding:4px 8px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+    .train-results td{padding:4px 8px;color:var(--text);border-bottom:1px solid var(--surface2)}
+    .confidence-bar{display:inline-block;height:4px;border-radius:2px;vertical-align:middle;margin-left:4px}
+    .toolbar-btn.train-btn{background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(168,85,247,0.15));border-color:rgba(99,102,241,0.3);color:#818cf8}
+    .toolbar-btn.train-btn:hover{border-color:#818cf8;color:#a78bfa;box-shadow:0 0 12px rgba(99,102,241,0.2)}
+    .toolbar-btn.judge-btn{background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.15));border-color:rgba(16,185,129,0.3);color:#10b981}
+    .toolbar-btn.judge-btn:hover{border-color:#10b981;color:#34d399;box-shadow:0 0 12px rgba(16,185,129,0.3)}
+    .judge-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;display:none}
+    .judge-panel.visible{display:block}
+    .judge-progress{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;margin:12px 0}
+    .judge-progress-bar{height:100%;background:linear-gradient(90deg,#10b981,#06b6d4);border-radius:3px;transition:width 0.3s ease}
+    .judge-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:12px}
+    .judge-stat{background:var(--surface2);border-radius:8px;padding:10px;text-align:center}
+    .judge-stat .js-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px}
+    .judge-stat .js-value{font-size:18px;font-weight:700;margin-top:2px}
+    .tq-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.15));color:#06b6d4;border:1px solid rgba(6,182,212,0.2)}
+    .cat-select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:13px;font-family:inherit;color:var(--text);cursor:pointer;min-width:160px}
+    .cat-select:focus{outline:none;border-color:var(--primary)}
+    .score-bars{display:flex;gap:6px;padding:8px 16px;border-top:1px solid var(--border);background:var(--surface2)}
+    .sbar{flex:1;min-width:0}
+    .sbar-label{font-size:9px;color:var(--text-muted);display:flex;justify-content:space-between;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.3px}
+    .sbar-track{height:5px;border-radius:3px;background:rgba(0,0,0,0.15);overflow:hidden}
+    .sbar-fill{height:100%;border-radius:3px;transition:width 0.5s ease}
+    .sbar-fill.sem{background:linear-gradient(90deg,#6366f1,#818cf8)}
+    .sbar-fill.txt{background:linear-gradient(90deg,#3b82f6,#06b6d4)}
+    .sbar-fill.img{background:linear-gradient(90deg,#8b5cf6,#ec4899)}
+    .sbar-fill.tot{background:linear-gradient(90deg,#10b981,#34d399)}
+    .verdict-sys{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;margin-left:auto}
+    .verdict-sys.yes{background:rgba(52,211,153,0.15);color:#34d399}
+    .verdict-sys.no{background:rgba(248,113,113,0.15);color:#f87171}
+    .verdict-sys.unk{background:rgba(107,114,128,0.12);color:#9ca3af}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔍 PLANLYTASK Мониторинг</h1>
+    <div class="nav-links">
+      <a href="/analytics/index.html">Уровень сервиса</a>
+      <a href="/analytics/revenue.html">Продажи / Выручка</a>
+      <a href="/monitoring/index.html" class="active">Мониторинг</a>
+      <a href="/monitoring/wallpaper.html" style="background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(168,85,247,0.15));color:#818cf8;border:1px solid rgba(99,102,241,0.2)">📊 По категориям</a>
+      <a href="/merchandising/index.html">Мерчандайзинг</a>
+      <a href="/parsing/index.html">Парсинг</a>
+      <a href="/">← Приложение</a>
+    </div>
+  </div>
+
+  <div class="container" style="padding-bottom:0;margin-bottom:-8px">
+    <div class="toolbar">
+      <button class="toolbar-btn" onclick="exportCSV()" title="CSV (E)">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-3-7v4h-2v-4h-2l3-3 3 3h-2z"/></svg>
+        CSV<kbd class="kbd">E</kbd>
+      </button>
+      <button class="toolbar-btn" onclick="exportPDF()" title="PDF (P)">
+        <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+        PDF<kbd class="kbd">P</kbd>
+      </button>
+      <div class="toolbar-sep"></div>
+      <span style="font-size:11px;color:var(--text-muted)" id="lastUpdated">Обновлено: —</span>
+      <div class="toolbar-sep"></div>
+      <button class="toolbar-btn train-btn" onclick="triggerRetrain()" id="trainBtn" title="Обучить модель на размеченных данных">🧠 Обучить</button>
+      <button class="toolbar-btn judge-btn" onclick="triggerJudgeBatch()" id="judgeBtn" title="Запустить AI-судью для неоценённых пар">🤖 AI Судья</button>
+      <button class="toolbar-btn" onclick="loadUncertain()" id="uncertainBtn" title="Показать uncertain пары для разметки" style="background:rgba(245,158,11,0.12);color:#d97706;border-color:rgba(245,158,11,0.3)">⚠️ Uncertain <span id="uncertainCount" style="font-weight:700"></span></button>
+      <span class="tq-badge" id="tqBadge" style="display:none">⚡ TurboQuant</span>
+      <div class="toolbar-sep"></div>
+      <span style="font-size:10px;color:var(--text-muted)">R=обн F=экран</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="kpi-row">
+      <div class="kpi-card primary" onclick="filterFromKpi(null)"><div class="label">Всего сопоставлений</div><div class="value" id="kpiTotal">—</div></div>
+      <div class="kpi-card success" onclick="filterFromKpi('match')"><div class="label">Соответствует</div><div class="value" id="kpiMatch">—</div><div class="sub" id="kpiMatchPct"></div></div>
+      <div class="kpi-card warning" onclick="filterFromKpi('analog')"><div class="label">Аналог</div><div class="value" id="kpiAnalog">—</div><div class="sub" id="kpiAnalogPct"></div></div>
+      <div class="kpi-card danger" onclick="filterFromKpi('no_match')"><div class="label">Не соответствует</div><div class="value" id="kpiNoMatch">—</div><div class="sub" id="kpiNoMatchPct"></div></div>
+      <div class="kpi-card" style="background:#f3f4f6;border-color:#e5e7eb" onclick="filterFromKpi('unknown')"><div class="label" style="color:#6b7280">Не размечено</div><div class="value" id="kpiUnknown" style="color:#374151">—</div><div class="sub" id="kpiUnknownPct" style="color:#9ca3af"></div></div>
+      <div class="kpi-card" style="--accent:#06b6d4" onclick="filterFromKpi('judged')"><div class="label">🤖 AI Оценено</div><div class="value" id="kpiJudged" style="color:#06b6d4">—</div><div class="sub" id="kpiJudgedPct"></div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title"><span class="dot" style="background:var(--success)"></span>Статус разметки</div>
+        <div id="chartPie" style="width:100%;height:280px"></div>
+      </div>
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title"><span class="dot" style="background:var(--warning)"></span>Распределение Score</div>
+        <div id="chartScore" style="width:100%;height:280px"></div>
+      </div>
+    </div>
+
+
+
+    <!-- AI Judge Panel -->
+    <div class="judge-panel" id="judgePanel">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <h3 style="margin:0;font-size:16px;font-weight:600">🤖 AI Судья</h3>
+        <span class="tq-badge" id="tqBadgePanel">⚡ TurboQuant KV 3.76×</span>
+        <span class="train-status" id="judgeStatus">Готово</span>
+      </div>
+      <div class="judge-progress"><div class="judge-progress-bar" id="judgeBar" style="width:0%"></div></div>
+      <div style="font-size:12px;color:var(--text-muted)" id="judgeText">Оценка пар товаров через LLM с компактными промптами</div>
+      <div class="judge-stats" id="judgeStats"></div>
+    </div>
+
+    <!-- Self-learning panel -->
+    <div class="train-panel" id="trainPanel">
+      <div class="train-header">
+        <h3>🧠 Самообучение модели</h3>
+        <span class="train-status" id="trainStatus">Готово</span>
+      </div>
+      <div class="train-metrics" id="trainMetrics"></div>
+      <div class="train-weights" id="trainWeights"></div>
+      <div class="train-results" id="trainResults"></div>
+    </div>
+
+    <div class="filters" id="resetRow" style="display:none;align-items:center">
+      <button class="filter-btn active" onclick="filterFromKpi(null)">✕ Сбросить все фильтры</button>
+      <span id="activeFilterLabel" style="font-size:13px;color:var(--text-muted);line-height:1"></span>
+    </div>
+
+    <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
+      <input type="text" id="searchInput" placeholder="🔍 Поиск по SKU или названию..." oninput="applySearch()" style="flex:1;padding:10px 16px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--surface);color:var(--text);outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+      <select class="cat-select" id="categoryFilter" onchange="setCategoryFilter(this.value)">
+        <option value="">📦 Все категории</option>
+        <option value="обои">🏠 Обои</option>
+        <option value="краск">🎨 Краски и лаки</option>
+        <option value="смес">🧱 Сухие смеси</option>
+        <option value="инструмент">🔧 Инструменты</option>
+        <option value="сантехник">🚿 Сантехника</option>
+        <option value="электр">⚡ Электрика</option>
+        <option value="ламинат|линолеум|паркет">🪵 Напольные</option>
+      </select>
+      <div id="storeFilters" style="display:flex;gap:4px;flex-shrink:0"></div>
+    </div>
+
+    <div id="matchGrid" class="match-grid"><div class="loading">Загрузка данных...</div></div>
+    <button id="showMoreBtn" class="show-more-btn" style="display:none" onclick="showMore()">Показать ещё</button>
+
+  <!-- Fullscreen overlay -->
+  <div class="fs-overlay" id="fsOverlay">
+    <button class="fs-close" onclick="closeFullscreen()">✕ Закрыть (Esc)</button>
+    <div class="fs-chart" id="fsChart"></div>
+  </div>
+  </div>
+
+  <!-- Detail product modal -->
+  <div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+    <div class="detail-modal">
+      <div class="detail-topbar">
+        <h3 id="detailTitle">Сравнение товаров</h3>
+        <div class="detail-tabs">
+          <button class="detail-tab" onclick="switchDetailTab('cards',this)">📋 Карточки</button>
+          <button class="detail-tab active" onclick="switchDetailTab('compare',this)">⚖️ Сравнение</button>
+        </div>
+        <button class="detail-close" onclick="closeDetail()">✕ Закрыть</button>
+      </div>
+      <div class="detail-columns">
+        <div class="detail-col" id="detailLeft"></div>
+        <div class="detail-col" id="detailRight"></div>
+      </div>
+      <div class="detail-compare" id="detailCompare"></div>
+      <div class="detail-score-row" id="detailScore"></div>
+    </div>
+  </div>
+
+  <script>
+    const API='';
+    let allResults=[],filteredResults=[],currentFilter=null,visibleCount=30,serverTotal=0,serverOffset=0;
+    let chartPie,chartScore;
+    let fsChart=null;
+    const THEME={backgroundColor:'transparent',textStyle:{color:'#1f2937'},tooltip:{backgroundColor:'#fff',borderColor:'#e5e7eb',textStyle:{color:'#1f2937'}}};
+
+    function initCharts(){
+      const o={renderer:'canvas'};
+      chartPie=echarts.init(document.getElementById('chartPie'),null,o);
+      chartScore=echarts.init(document.getElementById('chartScore'),null,o);
+      const all=[chartPie,chartScore];
+      window.addEventListener('resize',()=>all.forEach(c=>c.resize()));
+    }
+
+    function scoreType(r){
+      if(r.human_label==='match'||r.human_label==='exact')return'match';
+      if(r.human_label==='analog')return'analog';
+      if(r.human_label==='no_match')return'no_match';
+      if(r.judge_match===true||r.judge_match==='True')return'match';
+      if(r.judge_match==='Analog'||r.judge_match==='analog')return'analog';
+      if(r.judge_match===false||r.judge_match==='False')return'no_match';
+      return'unknown';
+    }
+    function imgUrl(p,s){
+      if(!p)return'';
+      try {
+        if(p.startsWith('[')) {
+          let arr = JSON.parse(p);
+          if (typeof arr === 'string') arr = JSON.parse(arr);
+          if(Array.isArray(arr) && arr.length > 0) p = arr[0];
+        }
+      } catch(e) {}
+      if(!p)return'';
+      if(p.startsWith('//')) p = 'https:'+p;
+      // Rewrite blocked s3.glavsnab.com URLs to working image-minifier API
+      if(p.includes('s3.glavsnab.com/image/v1/')) {
+          const m = p.match(/\/image\/v1\/(\d+)/);
+          if(m) p = 'https://new.glavsnab.com/api/image-minifier/v1/' + m[1] + '.jpg';
+      }
+      if(p.startsWith('http'))return p;
+      return API+'/api/image?url='+encodeURIComponent(p)+'&size='+(s||300)
+    }
+    function fmtPrice(v){if(!v||v<=0)return'—';return new Intl.NumberFormat('ru-RU').format(Math.round(v))+' ₽'}
+    function cleanSku(s){if(!s)return'—';const i=s.indexOf('_');return i>=0?s.slice(i+1):s}
+
+    function openDetail(sku,store){
+      const r=allResults.find(x=>x.source_sku===sku&&x.source_store===store);
+      if(!r)return;
+      const score=Math.round((r.best_match_score||0)*100);
+      const sc=score>=70?'high':score>=40?'mid':'low';
+      /* ── Fuzzy characteristic key matching ── */
+      function normalizeKey(k){
+        return k.toLowerCase().replace(/[\s,_\-\.\(\)]+/g,' ').replace(/\s+/g,' ').trim()
+          .replace(/кг$/,'').replace(/мл$/,'').replace(/мм$/,'').replace(/гр$/,'').trim();
+      }
+      function simScore(a,b){
+        a=normalizeKey(a);b=normalizeKey(b);
+        if(a===b)return 1;
+        if(a.includes(b)||b.includes(a))return 0.8;
+        const wa=a.split(' '),wb=b.split(' ');
+        let common=0;
+        for(const w of wa){if(wb.some(x=>x===w||x.includes(w)||w.includes(x)))common++;}
+        return wa.length?common/Math.max(wa.length,wb.length):0;
+      }
+      function matchCharacteristics(charsA,charsB){
+        const a=charsA&&typeof charsA==='object'&&!Array.isArray(charsA)?Object.entries(charsA):[];
+        const b=charsB&&typeof charsB==='object'&&!Array.isArray(charsB)?Object.entries(charsB):[];
+        const usedB=new Set();
+        const rows=[];
+        for(const [kA,vA] of a){
+          let bestIdx=-1,bestScore=0;
+          for(let i=0;i<b.length;i++){
+            if(usedB.has(i))continue;
+            const s=simScore(kA,b[i][0]);
+            if(s>bestScore){bestScore=s;bestIdx=i;}
+          }
+          if(bestScore>=0.5&&bestIdx>=0){
+            usedB.add(bestIdx);
+            rows.push([kA,vA,b[bestIdx][1]]);
+          } else {
+            rows.push([kA,vA,'—']);
+          }
+        }
+        for(let i=0;i<b.length;i++){
+          if(!usedB.has(i)) rows.push([b[i][0],'—',b[i][1]]);
+        }
+        return rows;
+      }
+      function matchCharacteristics4(charsA,charsB){
+        const a=charsA&&typeof charsA==='object'&&!Array.isArray(charsA)?Object.entries(charsA):[];
+        const b=charsB&&typeof charsB==='object'&&!Array.isArray(charsB)?Object.entries(charsB):[];
+        const usedB=new Set();
+        const rows=[];
+        for(const [kA,vA] of a){
+          let bestIdx=-1,bestScore=0;
+          for(let i=0;i<b.length;i++){
+            if(usedB.has(i))continue;
+            const s=simScore(kA,b[i][0]);
+            if(s>bestScore){bestScore=s;bestIdx=i;}
+          }
+          if(bestScore>=0.5&&bestIdx>=0){
+            usedB.add(bestIdx);
+            rows.push([kA,vA,b[bestIdx][0],b[bestIdx][1]]);
+          } else {
+            rows.push([kA,vA,'','\u2014']);
+          }
+        }
+        for(let i=0;i<b.length;i++){
+          if(!usedB.has(i)) rows.push(['','\u2014',b[i][0],b[i][1]]);
+        }
+        return rows;
+      }
+      function renderCharsSingle(ch){
+        if(!ch||typeof ch!=='object'||Array.isArray(ch))return'';
+        const entries=Object.entries(ch);
+        if(!entries.length)return'';
+        return`<div class="detail-section"><h4>Характеристики</h4>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            ${entries.map(([k,v])=>`<tr><td style="padding:4px 8px 4px 0;color:var(--text-muted);vertical-align:top">${k}</td><td style="padding:4px 0;color:var(--text)">${v}</td></tr>`).join('')}
+          </table></div>`;
+      }
+      function renderCol(name,brand,price,sku,store,photo,photos,url,desc,chars,isSource){
+        const allPhotos=(photos&&photos.length)?photos:(photo?[photo]:[]);
+        return`
+          <div class="detail-store">
+            <span class="store-tag ${isSource?'source':'target'}">${store||'—'}</span>
+            ${url?`<a href="${url}" target="_blank" style="font-size:12px;color:var(--primary);text-decoration:none">↗ На сайт</a>`:''}
+          </div>
+          <div class="detail-name">${name||'—'}</div>
+          <div class="detail-meta">
+            <span>Артикул: <b>${cleanSku(sku)}</b></span>
+            <span>Бренд: <b>${brand||'—'}</b></span>
+            <span>Цена: <b>${fmtPrice(price)}</b></span>
+          </div>
+          <div class="detail-section"><h4>Фото (${allPhotos.length})</h4></div>
+          <div class="detail-gallery" id="gal_${isSource?'s':'t'}">
+            ${allPhotos.map((p,i)=>`<img src="${imgUrl(p,800)}" class="${i===0?'active':''}" alt="" onerror="this.style.display='none'">`).join('')}
+            ${allPhotos.length>1?`<button class="gal-nav prev" onclick="event.stopPropagation();galSlide('gal_${isSource?'s':'t'}',-1)">‹</button><button class="gal-nav next" onclick="event.stopPropagation();galSlide('gal_${isSource?'s':'t'}',1)">›</button>`:''}
+          </div>
+          ${allPhotos.length>1?`<div class="gal-dots" id="dots_${isSource?'s':'t'}">${allPhotos.map((p,i)=>`<span class="${i===0?'active':''}" onclick="galGo('gal_${isSource?'s':'t'}',${i})"></span>`).join('')}</div>`:''}
+          <div class="col-chars">
+            ${renderCharsSingle(chars)}
+            ${desc?`<div class="detail-section"><h4>Описание</h4><p>${desc}</p></div>`:''}
+          </div>
+        `;
+      }
+      function renderCompare(charsA,charsB,descA,descB,storeA,storeB){
+        const rows=matchCharacteristics4(charsA,charsB);
+        let html=`<table class="compare-table">
+          <thead><tr><th>${storeA}</th><th>Значение</th><th>${storeB}</th><th>Значение</th></tr></thead><tbody>`;
+        for(const [kA,vA,kB,vB] of rows){
+          const cls=vA!=='—'&&vB!=='—'&&vA.toString().toLowerCase()===vB.toString().toLowerCase()?'compare-match':vA!=='—'&&vB!=='—'?'compare-diff':'';
+          html+=`<tr class="${cls}"><td>${kA}</td><td>${vA}</td><td>${kB}</td><td>${vB}</td></tr>`;
+        }
+        if(descA||descB){
+          html+=`<tr class="desc-row"><td>Описание</td><td style="font-size:12px">${descA||'—'}</td><td>Описание</td><td style="font-size:12px">${descB||'—'}</td></tr>`;
+        }
+        html+=`</tbody></table>`;
+        return html;
+      }
+      // Use enriched data from match response for initial render
+      function safeParseObj(str) {
+        if (!str) return {};
+        if (typeof str === 'object') return str;
+        try { 
+          let o = JSON.parse(str); 
+          if (typeof o === 'string') o = JSON.parse(o);
+          return (o && typeof o === 'object') ? o : {}; 
+        } catch(e) { return {}; }
+      }
+      function safeParseArr(str) {
+        if (!str) return [];
+        if (Array.isArray(str)) return str;
+        try { 
+          let a = JSON.parse(str); 
+          if (typeof a === 'string') a = JSON.parse(a);
+          return Array.isArray(a) ? a : []; 
+        } catch(e) { return []; }
+      }
+      const srcChars=safeParseObj(r.source_characteristics);
+      const tgtChars=safeParseObj(r.best_match_characteristics);
+      const srcDesc=r.source_description||'';
+      const tgtDesc=r.best_match_description||'';
+      const srcPhotos=safeParseArr(r.source_photos);
+      const tgtPhotos=safeParseArr(r.best_match_photos);
+      document.getElementById('detailLeft').innerHTML=renderCol(r.source_name,r.source_brand,r.source_price,r.source_sku,r.source_store,r.source_photo,srcPhotos,r.source_url,srcDesc,srcChars,true);
+      document.getElementById('detailRight').innerHTML=renderCol(r.best_match_name,r.best_match_brand,r.best_match_price,r.best_match_sku,r.best_match_store,r.best_match_photo,tgtPhotos,r.best_match_url,tgtDesc,tgtChars,false);
+      // Show comparison immediately if we have data, otherwise show loading
+      const hasChars=Object.keys(srcChars).length>0||Object.keys(tgtChars).length>0;
+      if(hasChars){
+        document.getElementById('detailCompare').innerHTML=renderCompare(srcChars,tgtChars,srcDesc,tgtDesc,r.source_store||'Источник',r.best_match_store||'Конкурент');
+      } else {
+        document.getElementById('detailCompare').innerHTML='<p style="padding:20px;color:var(--text-muted)">Загрузка характеристик...</p>';
+      }
+      switchDetailTab('compare',document.querySelectorAll('.detail-tab')[1]);
+      document.getElementById('detailScore').innerHTML=`
+        <span class="match-score ${sc}" style="padding:4px 14px;border-radius:12px">Совпадение: ${score}%</span>
+        ${r.judge_reason?`<span style="font-size:12px;color:var(--text-muted)">${r.judge_reason}</span>`:''}
+      `;
+      document.getElementById('detailOverlay').classList.add('active');
+      document.body.style.overflow='hidden';
+
+      // Async load product details (characteristics, photos, description) with store param
+      Promise.all([
+        fetch(API+'/api/product/details?sku='+encodeURIComponent(r.source_sku)+'&store='+encodeURIComponent(r.source_store||'')).then(r=>r.json()),
+        fetch(API+'/api/product/details?sku='+encodeURIComponent(r.best_match_sku)+'&store='+encodeURIComponent(r.best_match_store||'')).then(r=>r.json())
+      ]).then(([srcD,tgtD])=>{
+        const finalSrcChars=srcD.characteristics&&Object.keys(srcD.characteristics).length>0?srcD.characteristics:srcChars;
+        const finalTgtChars=tgtD.characteristics&&Object.keys(tgtD.characteristics).length>0?tgtD.characteristics:tgtChars;
+        const finalSrcDesc=srcD.description||srcDesc;
+        const finalTgtDesc=tgtD.description||tgtDesc;
+        const finalSrcPhotos=(srcD.photos&&srcD.photos.length>0)?srcD.photos:srcPhotos;
+        const finalTgtPhotos=(tgtD.photos&&tgtD.photos.length>0)?tgtD.photos:tgtPhotos;
+        document.getElementById('detailLeft').innerHTML=renderCol(r.source_name,r.source_brand,r.source_price,r.source_sku,r.source_store,srcD.photo||r.source_photo,finalSrcPhotos,srcD.url||r.source_url,finalSrcDesc,finalSrcChars,true);
+        document.getElementById('detailRight').innerHTML=renderCol(r.best_match_name,r.best_match_brand,r.best_match_price,r.best_match_sku,r.best_match_store,tgtD.photo||r.best_match_photo,finalTgtPhotos,tgtD.url||r.best_match_url,finalTgtDesc,finalTgtChars,false);
+        document.getElementById('detailCompare').innerHTML=renderCompare(finalSrcChars,finalTgtChars,finalSrcDesc,finalTgtDesc,r.source_store||'Источник',r.best_match_store||'Конкурент');
+        switchDetailTab('compare',document.querySelectorAll('.detail-tab')[1]);
+      }).catch(e=>console.warn('Details load failed:',e));
+    }
+    function switchDetailTab(mode,btn){
+      document.querySelectorAll('.detail-tab').forEach(t=>t.classList.remove('active'));
+      if(btn)btn.classList.add('active');
+      const cmp=document.getElementById('detailCompare');
+      const colChars=document.querySelectorAll('.col-chars');
+      if(mode==='cards'){
+        cmp.style.display='none';
+        colChars.forEach(el=>el.style.display='block');
+      } else {
+        cmp.style.display='block';
+        colChars.forEach(el=>el.style.display='none');
+      }
+    }
+    function closeDetail(){
+      document.getElementById('detailOverlay').classList.remove('active');
+      document.body.style.overflow='';
+    }
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('detailOverlay').classList.contains('active'))closeDetail()});
+
+    function galGo(galId,idx){
+      const gal=document.getElementById(galId);
+      const imgs=gal.querySelectorAll('img');
+      imgs.forEach((img,i)=>img.classList.toggle('active',i===idx));
+      const dotsId=galId.replace('gal_','dots_');
+      const dots=document.getElementById(dotsId);
+      if(dots) dots.querySelectorAll('span').forEach((d,i)=>d.classList.toggle('active',i===idx));
+    }
+    function galSlide(galId,dir){
+      const gal=document.getElementById(galId);
+      const imgs=gal.querySelectorAll('img');
+      let cur=0;
+      imgs.forEach((img,i)=>{if(img.classList.contains('active'))cur=i;});
+      let next=cur+dir;
+      if(next<0)next=imgs.length-1;
+      if(next>=imgs.length)next=0;
+      galGo(galId,next);
+    }
+
+    function animateValue(id,target,fmt){
+      const el=document.getElementById(id);const dur=800,start=performance.now();
+      function step(now){const t=Math.min((now-start)/dur,1);const ease=1-Math.pow(1-t,3);el.textContent=fmt(target*ease);if(t<1)requestAnimationFrame(step)}
+      requestAnimationFrame(step);
+    }
+
+    async function loadData(append){
+      try{
+        const lim=200;
+        const off=append?allResults.length:0;
+        const res=await fetch(API+'/api/match/saved?limit='+lim+'&offset='+off);const data=await res.json();
+        serverTotal=data.total||0;
+        if(append){allResults=allResults.concat(data.results||[]);}else{allResults=data.results||[];}
+        const total=allResults.length;
+        const match=allResults.filter(r=>scoreType(r)==='match').length;
+        const analog=allResults.filter(r=>scoreType(r)==='analog').length;
+        const noMatch=allResults.filter(r=>scoreType(r)==='no_match').length;
+        const unknown=allResults.filter(r=>scoreType(r)==='unknown').length;
+
+        animateValue('kpiTotal',serverTotal,v=>Math.round(v).toString());
+        animateValue('kpiMatch',match,v=>Math.round(v).toString());
+        animateValue('kpiAnalog',analog,v=>Math.round(v).toString());
+        animateValue('kpiNoMatch',noMatch,v=>Math.round(v).toString());
+        animateValue('kpiUnknown',unknown,v=>Math.round(v).toString());
+        document.getElementById('kpiMatchPct').textContent=total?(match/total*100).toFixed(1)+'%':'';
+        document.getElementById('kpiAnalogPct').textContent=total?(analog/total*100).toFixed(1)+'%':'';
+        document.getElementById('kpiNoMatchPct').textContent=total?(noMatch/total*100).toFixed(1)+'%':'';
+        document.getElementById('kpiUnknownPct').textContent=total?(unknown/total*100).toFixed(1)+'%':'';
+
+        // Pie
+        chartPie.setOption({
+          ...THEME,
+          tooltip:{backgroundColor:'#fff',borderColor:'#e5e7eb',textStyle:{color:'#1f2937'},trigger:'item',formatter:'{b}: {c} ({d}%)'},
+          legend:{bottom:0,left:'center',icon:'circle',textStyle:{color:'#6b7280',fontSize:11}},
+          series:[{
+            type:'pie',radius:['42%','72%'],center:['50%','45%'],
+            itemStyle:{borderRadius:6,borderColor:'#fff',borderWidth:2},
+            label:{show:false},
+            emphasis:{label:{show:true,fontSize:16,fontWeight:'bold',formatter:'{b}\n{d}%',color:'#e4e6eb'},itemStyle:{shadowBlur:20,shadowColor:'rgba(0,0,0,0.5)'}},
+            data:[
+              {name:'Соответствует',value:match, itemStyle:{color:'#34d399'}},
+              {name:'Аналог',value:analog, itemStyle:{color:'#facc15'}},
+              {name:'Не соответствует',value:noMatch, itemStyle:{color:'#f87171'}},
+              {name:'Не размечено',value:unknown, itemStyle:{color:'#6b7280'}}
+            ].filter(d=>d.value>0),
+            animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*100
+          }]
+        });
+        chartPie.off('click');
+        chartPie.on('click',function(params){
+          const map={'Соответствует':'match','Аналог':'analog','Не соответствует':'no_match','Не размечено':'unknown'};
+          filterFromKpi(map[params.name]||null);
+        });
+
+        // Score histogram
+        const buckets=[0,0,0,0,0,0,0,0,0,0];
+        allResults.forEach(r=>{const s=r.best_match_score||0;buckets[Math.min(Math.floor(s*10),9)]++});
+        const gradColors=['#ef4444','#ef4444','#f97316','#f97316','#eab308','#eab308','#84cc16','#22c55e','#10b981','#10b981'];
+        chartScore.setOption({
+          ...THEME,
+          tooltip:{backgroundColor:'#fff',borderColor:'#e5e7eb',textStyle:{color:'#1f2937'},trigger:'axis'},
+          toolbox:{
+            right:10,top:5,
+            feature:{
+              saveAsImage:{title:'PNG',pixelRatio:2,iconStyle:{borderColor:'#6b7280'}},
+              magicType:{title:{line:'Линия',bar:'Столбцы'},type:['line','bar'],iconStyle:{borderColor:'#6b7280'}}
+            }
+          },
+          grid:{left:'3%',right:'8%',bottom:'3%',top:'40',containLabel:true},
+          xAxis:{type:'category',data:['0-10%','10-20%','20-30%','30-40%','40-50%','50-60%','60-70%','70-80%','80-90%','90-100%'],axisLabel:{fontSize:10,color:'#6b7280',rotate:25}},
+          yAxis:{type:'value',axisLabel:{color:'#6b7280'},splitLine:{lineStyle:{type:'dashed',color:'#e5e7eb'}}},
+          series:[{
+            type:'bar',data:buckets.map((v,i)=>({value:v,itemStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:gradColors[i]},{offset:1,color:gradColors[i]+'80'}]),borderRadius:[4,4,0,0]}})),
+            animationDelay:i=>i*80,
+            label:{show:true,position:'top',color:'#6b7280',fontSize:10}
+          }],
+          animationEasing:'elasticOut'
+        });
+        chartScore.off('click');
+        chartScore.on('click',function(params){
+          if(params.dataIndex!==undefined){
+            const lo=params.dataIndex/10, hi=(params.dataIndex+1)/10;
+            currentFilter='score';
+            currentScoreRange=[lo,hi];
+            visibleCount=30;
+            updateResetRow();
+            filteredResults=allResults.filter(r=>{
+              const s=r.best_match_score||0;
+              return s>=lo&&s<hi;
+            });
+            renderCards();
+            document.getElementById('matchGrid').scrollIntoView({behavior:'smooth'});
+          }
+        });
+
+        applyFilter();
+        buildStoreFilters();
+        document.getElementById('lastUpdated').textContent='Обновлено: '+new Date().toLocaleString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit',day:'2-digit',month:'2-digit'});
+      }catch(e){console.error('Load:',e);document.getElementById('matchGrid').innerHTML='<div class="loading">Ошибка загрузки</div>'}
+    }
+
+    let currentScoreRange=null;
+    const filterLabels={'match':'✅ Соответствует','no_match':'❌ Не соответствует','unknown':'❓ Не размечено','score':'📊 Score диапазон'};
+    function updateResetRow(){
+      const row=document.getElementById('resetRow');
+      const label=document.getElementById('activeFilterLabel');
+      if(currentFilter){
+        row.style.display='flex';
+        let txt=filterLabels[currentFilter]||currentFilter;
+        if(currentFilter==='score'&&currentScoreRange) txt+=' '+Math.round(currentScoreRange[0]*100)+'–'+Math.round(currentScoreRange[1]*100)+'%';
+        label.textContent='Фильтр: '+txt+' ('+filteredResults.length+' из '+allResults.length+')';
+      } else {
+        row.style.display='none';
+      }
+    }
+    function filterFromKpi(f){
+      currentFilter=f;currentScoreRange=null;visibleCount=30;
+      if(!f){currentStoreFilter=null;document.querySelectorAll('#storeFilters .filter-btn').forEach(b=>b.classList.remove('active'));document.getElementById('searchInput').value='';}
+      applyFilter();
+      updateResetRow();
+      if(f) document.getElementById('matchGrid').scrollIntoView({behavior:'smooth'});
+    }
+    function applyFilter(){
+      let results=allResults;
+      if(currentFilter&&currentFilter!=='score') results=results.filter(r=>scoreType(r)===currentFilter);
+      if(currentFilter==='score'&&currentScoreRange) results=results.filter(r=>{const s=r.best_match_score||0;return s>=currentScoreRange[0]&&s<currentScoreRange[1]});
+      if(currentStoreFilter) results=results.filter(r=>(r.source_store||'')===currentStoreFilter);
+      // Category filter
+      const catVal=document.getElementById('categoryFilter').value;
+      if(catVal){
+        const parts=catVal.split('|');
+        results=results.filter(r=>{
+          const cat=((r.source_category||'')+(r.best_match_category||'')).toLowerCase();
+          const name=((r.source_name||'')+(r.best_match_name||'')).toLowerCase();
+          return parts.some(p=>cat.includes(p)||name.includes(p));
+        });
+      }
+      const q=(document.getElementById('searchInput').value||'').toLowerCase().trim();
+      if(q) results=results.filter(r=>(r.source_sku||'').toLowerCase().includes(q)||(r.source_name||'').toLowerCase().includes(q)||(r.best_match_name||'').toLowerCase().includes(q)||(r.best_match_sku||'').toLowerCase().includes(q));
+      filteredResults=results;
+      renderCards();updateResetRow();
+    }
+    function applySearch(){visibleCount=30;applyFilter()}
+    function setCategoryFilter(val){visibleCount=30;applyFilter();}
+    let currentStoreFilter=null;
+    function setStoreFilter(store,btn){
+      currentStoreFilter=currentStoreFilter===store?null:store;
+      visibleCount=30;
+      document.querySelectorAll('#storeFilters .filter-btn').forEach(b=>b.classList.remove('active'));
+      if(currentStoreFilter&&btn)btn.classList.add('active');
+      applyFilter();
+    }
+    function buildStoreFilters(){
+      const stores=[...new Set(allResults.map(r=>r.source_store).filter(Boolean))];
+      const el=document.getElementById('storeFilters');
+      el.innerHTML=stores.map(s=>`<button class="filter-btn" onclick="setStoreFilter('${s}',this)">${s}</button>`).join('');
+    }
+
+    function renderCards(){
+      const visible=filteredResults.slice(0,visibleCount);
+      const grid=document.getElementById('matchGrid');
+      if(!visible.length){grid.innerHTML='<div class="loading">Нет данных по фильтру</div>';document.getElementById('showMoreBtn').style.display='none';return}
+      grid.innerHTML=visible.map(r=>{
+        const score=r.best_match_score||0;const scorePct=(score*100).toFixed(0);
+        const sc=score>=0.7?'high':score>=0.4?'mid':'low';
+        const st=scoreType(r);const bc=st==='match'?'badge-match':st==='no_match'?'badge-no':'badge-unknown';
+        const bt=st==='match'?(r.human_label==='exact'?'✅ Точный':r.human_label==='analog'?'🔄 Аналог':'✅ Совпал'):st==='no_match'?'❌ Нет':'❓ Не размечено';
+        const sp=imgUrl(r.source_photo,800);const tp=imgUrl(r.best_match_photo,800);
+        const labelOrigin=r.human_label&&!r.auto_labeled?`<span class="label-origin" title="Размечено вручную">✋</span>`:r.auto_labeled?`<span class="label-origin auto" title="Авто-разметка (${((r.auto_confidence||0)*100).toFixed(0)}%)">🤖</span>`:'';
+        // Scores
+        const semScore=score;
+        const txtScore=r.text_score;
+        const imgScore=r.image_score;
+        const totScore=txtScore!=null&&txtScore>=0?txtScore:score;
+        // Verdict: human label > judge_match > fallback
+        let verdictCls,verdictTxt;
+        const reason=(r.judge_reason||'').replace(/'/g,'');
+        if(r.human_label==='exact'){verdictCls='yes';verdictTxt='✅ Соответствует'}
+        else if(r.human_label==='analog'){verdictCls='yes';verdictTxt='🔄 Аналог'}
+        else if(r.human_label==='no_match'){verdictCls='no';verdictTxt='❌ Не соответствует'}
+        else if(r.judge_match===true||r.judge_match==='True'){verdictCls='yes';verdictTxt='✅ Соответствует'}
+        else if(r.judge_match==='Analog'||r.judge_match==='analog'){verdictCls='warn';verdictTxt='⚠️ Аналог'}
+        else if(r.judge_match===false||r.judge_match==='False'){verdictCls='no';verdictTxt='❌ Не соответствует'}
+        else{verdictCls='unk';verdictTxt='❓ Не определено'}
+        function sbar(label,val,cls){
+          if(val===null||val===undefined||val===-1) return '<div class="sbar"><div class="sbar-label"><span>'+label+'</span><span>—</span></div><div class="sbar-track"><div class="sbar-fill '+cls+'" style="width:0%"></div></div></div>';
+          const pct=Math.round(val*100);
+          return '<div class="sbar"><div class="sbar-label"><span>'+label+'</span><span>'+pct+'%</span></div><div class="sbar-track"><div class="sbar-fill '+cls+'" style="width:'+pct+'%"></div></div></div>';
+        }
+        return`<div class="match-card${r.human_label==='no_match'?' dimmed':''}" data-sku="${r.source_sku}" data-store="${r.source_store}">
+          <div class="match-card-body" onclick="openDetail('${r.source_sku}','${r.source_store}')">
+            <div class="match-photos">
+              <div class="center-btns" onclick="event.stopPropagation()">
+                <button class="lbl${r.human_label==='exact'?' a-exact':''}" data-label="exact" onclick="confirmLabel('${r.source_sku}','${r.source_store}','exact','${(r.source_name||'').replace(/'/g,"\\'").slice(0,50)}')" title="Да">✅</button>
+                <button class="lbl${r.human_label==='analog'?' a-analog':''}" data-label="analog" onclick="confirmLabel('${r.source_sku}','${r.source_store}','analog','${(r.source_name||'').replace(/'/g,"\\'").slice(0,50)}')" title="Аналог">🔄</button>
+                <button class="lbl${r.human_label==='no_match'?' a-no':''}" data-label="no_match" onclick="confirmLabel('${r.source_sku}','${r.source_store}','no_match','${(r.source_name||'').replace(/'/g,"\\'").slice(0,50)}')" title="Нет">❌</button>
+              </div>
+              ${labelOrigin}
+              <div class="match-photo-wrap">
+                ${sp?`<img class="product-photo" src="${sp}" alt="" onerror="this.style.display='none'">`:''}
+              </div>
+              <div class="match-photo-wrap">
+                ${tp?`<img class="product-photo" src="${tp}" alt="" onerror="this.style.display='none'">`:''}
+              </div>
+            </div>
+            <div class="match-info-row">
+              <div class="match-info-cell">
+                <div class="product-name">${r.source_name||'—'}</div>
+                <div class="info-line">
+                  <span class="store-tag source">${r.source_store||'—'}</span>
+                  <span class="product-sku">${cleanSku(r.source_sku)}</span>
+                  <span class="product-price">${fmtPrice(r.source_price)}</span>
+                </div>
+              </div>
+              <div class="match-info-cell mirror">
+                <div class="product-name">${r.best_match_name||'—'}</div>
+                <div class="info-line">
+                  <span class="product-price">${fmtPrice(r.best_match_price)}</span>
+                  <span class="product-sku">${cleanSku(r.best_match_sku)}</span>
+                  <span class="store-tag target">${r.best_match_store||'—'}</span>
+                </div>
+              </div>
+            </div>
+            <div class="score-bars">
+              ${sbar('Семантика',semScore,'sem')}
+              ${sbar('Текст',txtScore,'txt')}
+              ${sbar('Фото',imgScore,'img')}
+              ${sbar('Итого',totScore,'tot')}
+              <span class="verdict-sys ${verdictCls}" title="${reason}">${verdictTxt}</span>
+            </div>
+          </div>
+        </div>`}).join('');
+      document.getElementById('showMoreBtn').style.display=visibleCount<filteredResults.length?'block':'none';
+    }
+
+    function showMore(){
+      visibleCount+=30;
+      if(visibleCount>=allResults.length && allResults.length<serverTotal){
+        loadData(true);
+      }
+      renderCards();
+    }
+
+    // === Label Voting with Confirmation ===
+    const labelNames={exact:'✅ Точное совпадение',analog:'🔄 Аналог',no_match:'❌ Не совпадает'};
+    function confirmLabel(sku,store,label,name){
+      const r=allResults.find(x=>x.source_sku===sku&&x.source_store===store);
+      if(!r)return;
+      // First-time labeling — no confirmation needed
+      if(!r.human_label){setLabel(sku,store,label);return}
+      // Same label clicked — toggle off without confirmation
+      if(r.human_label===label){setLabel(sku,store,label);return}
+      // Changing existing label — show confirmation
+      const newLabel=label;
+      const oldName=labelNames[r.human_label]||r.human_label;
+      const newName=labelNames[newLabel]||newLabel;
+      const overlay=document.createElement('div');
+      overlay.className='confirm-overlay';
+      overlay.innerHTML=`<div class="confirm-dialog">
+        <h3>Изменить разметку?</h3>
+        <p>${name}<br/><br/>Текущий статус: <b>${oldName}</b><br/>Новый статус: <b>${newName}</b></p>
+        <div class="cd-buttons">
+          <button class="cd-btn cd-cancel" id="cdCancel">Отмена</button>
+          <button class="cd-btn cd-ok" id="cdOk">Подтвердить</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+      overlay.querySelector('#cdCancel').onclick=()=>overlay.remove();
+      overlay.querySelector('#cdOk').onclick=()=>{overlay.remove();setLabel(sku,store,label)};
+      overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+    }
+
+    async function setLabel(sku,store,label){
+      const r=allResults.find(x=>x.source_sku===sku&&x.source_store===store);
+      if(!r)return;
+      const oldLabel=r.human_label;
+      // Toggle: if same label clicked again, clear it
+      const newLabel=(oldLabel===label)?null:label;
+      r.human_label=newLabel;
+      // Update card in-place (don't re-filter — card stays visible)
+      updateCardInPlace(sku,store,r);
+      updateKPIs();
+      // Save to backend
+      try{
+        const res=await fetch(API+'/api/match/label',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({sku,store,label:newLabel})
+        });
+        if(!res.ok){
+          r.human_label=oldLabel;updateCardInPlace(sku,store,r);updateKPIs();
+          console.error('Label save failed:',await res.text());
+        }
+      }catch(e){
+        r.human_label=oldLabel;updateCardInPlace(sku,store,r);updateKPIs();
+        console.error('Label error:',e);
+      }
+    }
+    function updateCardInPlace(sku,store,r){
+      const card=document.querySelector(`.match-card[data-sku="${sku}"][data-store="${store}"]`);
+      if(!card)return;
+      const st=scoreType(r);
+      // Update label buttons
+      card.querySelectorAll('.lbl').forEach(b=>{
+        const l=b.getAttribute('data-label');
+        b.className='lbl';
+        if(r.human_label==='exact'&&l==='exact')b.classList.add('a-exact');
+        if(r.human_label==='analog'&&l==='analog')b.classList.add('a-analog');
+        if(r.human_label==='no_match'&&l==='no_match')b.classList.add('a-no');
+      });
+      // Update footer badge
+      const badge=card.querySelector('.badge');
+      if(badge){
+        badge.className='badge '+(st==='match'?'badge-match':st==='no_match'?'badge-no':'badge-unknown');
+        badge.textContent=st==='match'?'✅ Соответствует':st==='no_match'?'❌ Не соответствует':'❓ Не размечено';
+      }
+      // Update label origin emoji
+      const origin=card.querySelector('.label-origin');
+      if(origin){
+        origin.textContent=r.human_label==='exact'?'✅':r.human_label==='analog'?'📦':r.human_label==='no_match'?'❌':'';
+        origin.title=r.human_label?'Ручная разметка':'';
+      }
+      // Update dimmed state
+      card.classList.toggle('dimmed',st==='match'||st==='no_match');
+    }
+
+    function updateKPIs(){
+      const total=allResults.length;
+      const match=allResults.filter(r=>scoreType(r)==='match').length;
+      const noMatch=allResults.filter(r=>scoreType(r)==='no_match').length;
+      const unknown=allResults.filter(r=>scoreType(r)==='unknown').length;
+      document.getElementById('kpiTotal').textContent=total;
+      document.getElementById('kpiMatch').textContent=match;
+      document.getElementById('kpiNoMatch').textContent=noMatch;
+      document.getElementById('kpiUnknown').textContent=unknown;
+      document.getElementById('kpiMatchPct').textContent=total?(match/total*100).toFixed(1)+'%':'';
+      document.getElementById('kpiNoMatchPct').textContent=total?(noMatch/total*100).toFixed(1)+'%':'';
+      document.getElementById('kpiUnknownPct').textContent=total?(unknown/total*100).toFixed(1)+'%':'';
+      updateJudgedKPI();
+    }
+
+    // === Self-Learning (Retrain) ===
+    async function triggerRetrain(){
+      const btn=document.getElementById('trainBtn');
+      const panel=document.getElementById('trainPanel');
+      const status=document.getElementById('trainStatus');
+      const metrics=document.getElementById('trainMetrics');
+      const weights=document.getElementById('trainWeights');
+      const results=document.getElementById('trainResults');
+
+      // Show panel and set training state
+      panel.classList.add('visible');
+      status.className='train-status training';
+      status.textContent='Обучение...';
+      btn.disabled=true;
+      btn.textContent='⏳ Обучение...';
+      metrics.innerHTML='';
+      weights.innerHTML='';
+      results.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted)">Извлечение признаков и обучение модели...</div>';
+
+      try{
+        const res=await fetch(API+'/api/match/retrain',{method:'POST'});
+        const data=await res.json();
+
+        if(!data.ok){
+          status.className='train-status';
+          status.textContent='Ошибка';
+          results.innerHTML=`<div style="color:var(--danger);padding:12px">${data.error||'Unknown error'}</div>`;
+          return;
+        }
+
+        const t=data.training;
+        const p=data.prediction;
+        const accPct=(t.accuracy*100).toFixed(1);
+        const accClass=t.accuracy>=0.9?'good':t.accuracy>=0.7?'warn':'';
+
+        status.className='train-status done';
+        status.textContent=`Завершено — точность ${accPct}%`;
+
+        // Metrics cards
+        metrics.innerHTML=`
+          <div class="train-metric"><div class="tm-label">Обучающая выборка</div><div class="tm-value">${t.labeled_count}</div></div>
+          <div class="train-metric"><div class="tm-label">Точность модели</div><div class="tm-value ${accClass}">${accPct}%</div></div>
+          <div class="train-metric"><div class="tm-label">Эпох обучения</div><div class="tm-value">${t.epochs}</div></div>
+          <div class="train-metric"><div class="tm-label">Авто-размечено</div><div class="tm-value good">${p.auto_labeled_count}</div></div>
+          <div class="train-metric"><div class="tm-label">Неуверенных</div><div class="tm-value warn">${p.skipped_uncertain}</div></div>
+          <div class="train-metric"><div class="tm-label">Было без метки</div><div class="tm-value">${p.unlabeled_count}</div></div>
+        `;
+
+        // Feature weights
+        const wNames={name_sim:'Схожесть названий',brand_match:'Совпадение бренда',price_ratio:'Соотношение цен',original_score:'Исходный Score',len_ratio:'Длина названий'};
+        weights.innerHTML=Object.entries(t.weights).map(([k,v])=>{
+          const pct=Math.abs(v);
+          const dir=v>0?'↑':'↓';
+          return`<div class="train-weight">${wNames[k]||k}: <strong>${dir}${v.toFixed(2)}</strong></div>`;
+        }).join('');
+
+        // Auto-labeled results table
+        if(p.results&&p.results.length>0){
+          const labelEmoji={exact:'✅',analog:'🔄',no_match:'❌'};
+          const labelName={exact:'Точный',analog:'Аналог',no_match:'Не совпал'};
+          let rows=p.results.map(r=>{
+            const conf=(r.confidence*100).toFixed(0);
+            const barW=Math.round(r.confidence*80);
+            const barColor=r.predicted_label==='no_match'?'#f87171':r.predicted_label==='analog'?'#818cf8':'#34d399';
+            return`<tr>
+              <td>${r.source_sku}</td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.source_name}">${r.source_name}</td>
+              <td>${labelEmoji[r.predicted_label]||''} ${labelName[r.predicted_label]||r.predicted_label}</td>
+              <td>${conf}% <span class="confidence-bar" style="width:${barW}px;background:${barColor}"></span></td>
+            </tr>`;
+          }).join('');
+          results.innerHTML=`<table>
+            <tr><th>SKU</th><th>Товар</th><th>Предсказание</th><th>Уверенность</th></tr>
+            ${rows}
+          </table>`;
+        } else {
+          results.innerHTML='<div style="text-align:center;padding:12px;color:var(--text-muted)">Все товары уже размечены вручную ✓</div>';
+        }
+
+        // Refresh data to show new labels
+        if(p.auto_labeled_count>0){
+          setTimeout(()=>loadData(),500);
+        }
+
+      }catch(e){
+        status.className='train-status';
+        status.textContent='Ошибка сети';
+        results.innerHTML=`<div style="color:var(--danger);padding:12px">${e.message}</div>`;
+      }finally{
+        btn.disabled=false;
+        btn.textContent='🧠 Обучить';
+      }
+    }
+
+    // === Auto-refresh ===
+    let refreshInterval=0,refreshCountdown=0,countdownId=null;
+    function setRefresh(sec,btn){
+      document.querySelectorAll('.toolbar .toolbar-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      clearInterval(countdownId);
+      refreshInterval=sec;refreshCountdown=sec;
+      const el=document.getElementById('refreshTimer');
+      if(!sec){el.innerHTML='';return}
+      function tick(){refreshCountdown--;if(refreshCountdown<=0){refreshCountdown=refreshInterval;loadData()}
+        const m=Math.floor(refreshCountdown/60),s=refreshCountdown%60;
+        el.innerHTML=`<span class="refresh-dot"></span> ${m}:${s.toString().padStart(2,'0')}`;
+      }
+      tick();countdownId=setInterval(tick,1000);
+    }
+
+    // === CSV Export ===
+    function exportCSV(){
+      if(!allResults.length){alert('Нет данных');return}
+      const cols=['source_store','source_sku','source_name','source_price','best_match_store','best_match_sku','best_match_name','best_match_price','best_match_score','human_label','judge_match','judge_reason'];
+      const labels=['Магазин источник','SKU источник','Название источник','Цена источник','Магазин цель','SKU цель','Название цель','Цена цель','Score','Разметка','Судья','Причина'];
+      let csv='\uFEFF'+labels.join(';')+'\n';
+      const data=currentFilter?filteredResults:allResults;
+      data.forEach(r=>{csv+=cols.map(c=>{let v=r[c]??'';if(typeof v==='string')v='"'+v.replace(/"/g,'""')+'"';if(typeof v==='number'&&c==='best_match_score')v=(v*100).toFixed(1);return v}).join(';')+'\n'});
+      const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download='monitoring_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+    }
+
+
+    // === Fullscreen ===
+    function openFullscreen(chartId){
+      const src=echarts.getInstanceByDom(document.getElementById(chartId));
+      if(!src)return;
+      document.getElementById('fsOverlay').classList.add('active');
+      fsChart=echarts.init(document.getElementById('fsChart'),null,{renderer:'canvas'});
+      fsChart.setOption(src.getOption());
+      setTimeout(()=>fsChart.resize(),50);
+    }
+    function closeFullscreen(){
+      document.getElementById('fsOverlay').classList.remove('active');
+      if(fsChart){fsChart.dispose();fsChart=null}
+    }
+
+    // === PDF ===
+    function exportPDF(){window.print()}
+
+    // === Keyboard Shortcuts ===
+    document.addEventListener('keydown',e=>{
+      if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+      switch(e.key.toLowerCase()){
+        case 'r':loadData();break;
+        case 'e':exportCSV();break;
+        case 'p':exportPDF();break;
+        case 'f':{const p=document.querySelectorAll('.panel [id^=chart]');if(p.length)openFullscreen(p[0].id);break}
+        case 'escape':closeFullscreen();break;
+      }
+    });
+
+    // === AI Judge (TurboQuant Batch) ===
+    let judgePolling=null;
+    async function triggerJudgeBatch(){
+      const btn=document.getElementById('judgeBtn');
+      const panel=document.getElementById('judgePanel');
+      const status=document.getElementById('judgeStatus');
+      const bar=document.getElementById('judgeBar');
+      const text=document.getElementById('judgeText');
+      const stats=document.getElementById('judgeStats');
+
+      panel.classList.add('visible');
+      status.className='train-status training';
+      status.textContent='Запуск...';
+      btn.disabled=true;
+      btn.textContent='⏳ Обработка...';
+      bar.style.width='0%';
+      text.textContent='Отправка пар на LLM...';
+      stats.innerHTML='';
+
+      // Start progress polling
+      judgePolling=setInterval(async()=>{
+        try{
+          const r=await fetch(API+'/api/match/judge-progress');
+          const d=await r.json();
+          if(d.running){
+            bar.style.width=d.percentage+'%';
+            text.textContent=`Обработано: ${d.current} / ${d.total} пар (${d.percentage}%)`;
+          }
+        }catch(e){}
+      },1500);
+
+      try{
+        const res=await fetch(API+'/api/match/judge-batch',{method:'POST'});
+        const data=await res.json();
+        clearInterval(judgePolling);
+
+        if(!data.ok){
+          status.className='train-status';
+          status.textContent='Ошибка';
+          text.textContent=data.error||'Unknown error';
+          return;
+        }
+
+        bar.style.width='100%';
+        status.className='train-status done';
+        status.textContent=`Оценено ${data.judged} пар`;
+        text.textContent=`Модель: ${data.model} | Бэкенд: ${data.backend}${data.turboquant?' | ⚡ TurboQuant':''}`;
+
+        // Show verdict statistics
+        if(data.results&&data.results.length>0){
+          const verdicts={exact:0,analog:0,no_match:0};
+          let totalConf=0;
+          data.results.forEach(r=>{verdicts[r.verdict]=(verdicts[r.verdict]||0)+1;totalConf+=r.confidence});
+          const avgConf=(totalConf/data.results.length*100).toFixed(0);
+          stats.innerHTML=`
+            <div class="judge-stat"><div class="js-label">Exact</div><div class="js-value" style="color:#34d399">${verdicts.exact}</div></div>
+            <div class="judge-stat"><div class="js-label">Аналог</div><div class="js-value" style="color:#818cf8">${verdicts.analog}</div></div>
+            <div class="judge-stat"><div class="js-label">Не совпал</div><div class="js-value" style="color:#f87171">${verdicts.no_match}</div></div>
+            <div class="judge-stat"><div class="js-label">Ср. уверенность</div><div class="js-value">${avgConf}%</div></div>
+            <div class="judge-stat"><div class="js-label">Batch size</div><div class="js-value">${data.batch_size}</div></div>
+          `;
+        }
+
+        // Refresh data
+        if(data.judged>0) setTimeout(()=>loadData(),500);
+
+      }catch(e){
+        clearInterval(judgePolling);
+        status.className='train-status';
+        status.textContent='Ошибка сети';
+        text.textContent=e.message;
+      }finally{
+        btn.disabled=false;
+        btn.textContent='🤖 AI Судья';
+      }
+    }
+
+    // Check AI backend and show TurboQuant badge
+    async function checkAIHealth(){
+      try{
+        const r=await fetch(API+'/api/ai/health');
+        const d=await r.json();
+        const badge=document.getElementById('tqBadge');
+        if(d.turboquant&&badge)badge.style.display='';
+        else if(badge)badge.style.display='none';
+      }catch(e){}
+    }
+
+    // Update KPI for AI-judged items
+    function updateJudgedKPI(){
+      const judged=allResults.filter(r=>r.match_judge&&r.match_judge.length>0).length;
+      const el=document.getElementById('kpiJudged');
+      const pct=document.getElementById('kpiJudgedPct');
+      if(el)el.textContent=judged;
+      if(pct&&allResults.length)pct.textContent=(judged/allResults.length*100).toFixed(1)+'%';
+    }
+
+    // ==================== WebSocket Live Pipeline ====================
+    let ws=null, wsRetry=0;
+    function connectWS(){
+      const proto=location.protocol==='https:'?'wss:':'ws:';
+      ws=new WebSocket(proto+'//'+location.host+'/ws/monitoring');
+      ws.onopen=()=>{
+        wsRetry=0;
+        updateWSIndicator('connected');
+        console.log('WS: connected to reactive pipeline');
+      };
+      ws.onclose=()=>{
+        updateWSIndicator('disconnected');
+        const delay=Math.min(3000*(++wsRetry),30000);
+        setTimeout(connectWS,delay);
+      };
+      ws.onerror=()=>ws.close();
+      ws.onmessage=(e)=>{
+        try{
+          const msg=JSON.parse(e.data);
+          handleWSEvent(msg);
+        }catch(err){console.warn('WS parse error:',err)}
+      };
+    }
+
+    function handleWSEvent(msg){
+      switch(msg.type){
+        case 'connected':
+          console.log('WS:',msg.data.message,'clients:',msg.data.clients);
+          break;
+        case 'price_changed':
+          showToast(`💰 ${msg.data.store}: ${msg.data.sku} цена ${msg.data.change_pct>0?'↑':'↓'}${Math.abs(msg.data.change_pct)}% (${msg.data.old_price}→${msg.data.new_price}₽)`,
+            msg.data.change_pct<-5?'alert':'info');
+          // Update row in table if visible
+          updatePriceInTable(msg.data);
+          break;
+        case 'new_product':
+          showToast(`🆕 ${msg.data.store}: ${msg.data.name.slice(0,40)}...`,'success');
+          break;
+        case 'new_match':
+          showToast(`🔗 Новое сопоставление: ${msg.data.source_sku} ↔ ${msg.data.target_sku} (${Math.round(msg.data.score*100)}%)`,'success');
+          break;
+        case 'match_updated':
+          showToast(`🔄 Обновлён матч: ${msg.data.source_sku} (${msg.data.reason})`,'info');
+          break;
+        case 'stats_updated':
+          // Update KPI cards
+          break;
+      }
+    }
+
+    function updatePriceInTable(d){
+      // Find and update price in allResults
+      for(const r of allResults){
+        if(r.source_sku===d.sku){r.source_price=d.new_price;break;}
+        if(r.best_match_sku===d.sku){r.best_match_price=d.new_price;break;}
+      }
+    }
+
+    function updateWSIndicator(status){
+      let ind=document.getElementById('wsIndicator');
+      if(!ind){
+        ind=document.createElement('div');
+        ind.id='wsIndicator';
+        ind.style.cssText='position:fixed;bottom:16px;right:16px;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;z-index:9999;backdrop-filter:blur(8px);transition:all 0.3s;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(0,0,0,0.15)';
+        ind.onclick=()=>showToast('WS clients: '+(ws&&ws.readyState===1?'connected':'disconnected'),'info');
+        document.body.appendChild(ind);
+      }
+      if(status==='connected'){
+        ind.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;animation:pulse 2s infinite"></span> Live';
+        ind.style.background='rgba(16,185,129,0.15)';ind.style.color='#059669';ind.style.border='1px solid rgba(16,185,129,0.3)';
+      } else {
+        ind.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block"></span> Offline';
+        ind.style.background='rgba(239,68,68,0.15)';ind.style.color='#dc2626';ind.style.border='1px solid rgba(239,68,68,0.3)';
+      }
+    }
+
+    function showToast(text,type='info'){
+      const t=document.createElement('div');
+      t.style.cssText='position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:12px;font-size:13px;max-width:400px;z-index:10000;animation:slideIn 0.3s ease;box-shadow:0 4px 20px rgba(0,0,0,0.15);backdrop-filter:blur(8px)';
+      const colors={info:'rgba(59,130,246,0.9)',success:'rgba(16,185,129,0.9)',alert:'rgba(239,68,68,0.9)'};
+      t.style.background=colors[type]||colors.info;
+      t.style.color='#fff';
+      t.textContent=text;
+      document.body.appendChild(t);
+      setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(100px)';t.style.transition='all 0.3s';setTimeout(()=>t.remove(),300)},4000);
+    }
+
+    // === Uncertain Pairs ===
+    let uncertainMode = false;
+    async function loadUncertain(){
+      if(uncertainMode){
+        // Toggle back to normal
+        uncertainMode = false;
+        document.getElementById('uncertainBtn').style.background='rgba(245,158,11,0.12)';
+        loadData();
+        showToast('Режим: все сопоставления','info');
+        return;
+      }
+      try{
+        const res = await fetch(API+'/api/judge/uncertain?limit=100');
+        const data = await res.json();
+        if(!data.pairs || !data.pairs.length){
+          showToast('Нет uncertain пар для разметки','info');
+          return;
+        }
+        // Map uncertain pairs to match card format
+        allResults = data.pairs.map(p=>({
+          source_sku: p.source_sku,
+          source_store: p.source_store || '',
+          source_name: p.source_name || p.source_sku,
+          source_photo: p.source_photo || '',
+          source_price: null,
+          best_match_sku: p.target_sku,
+          best_match_store: p.target_store || '',
+          best_match_name: p.target_name || p.target_sku,
+          best_match_photo: p.target_photo || '',
+          best_match_price: null,
+          best_match_score: p.score || 0,
+          human_label: null,
+          _uncertain: true,
+        }));
+        serverTotal = data.total;
+        uncertainMode = true;
+        document.getElementById('uncertainBtn').style.background='rgba(245,158,11,0.35)';
+        animateValue('kpiTotal', data.total, v=>Math.round(v).toString());
+        animateValue('kpiUnknown', data.total, v=>Math.round(v).toString());
+        animateValue('kpiMatch', data.labeled, v=>Math.round(v).toString());
+        document.getElementById('kpiNoMatch').textContent = '0';
+        currentFilter=null; currentStoreFilter=null;
+        filteredResults=[...allResults];
+        visibleCount=30;
+        renderCards();
+        showToast(`⚠️ Uncertain: ${data.total} пар (score 0.85-0.95)`,'alert');
+      }catch(e){
+        showToast('Ошибка загрузки uncertain: '+e.message,'alert');
+      }
+    }
+
+    // Override setLabel for uncertain pairs — save via judge API
+    const originalSetLabel = setLabel;
+    setLabel = async function(sku, store, label){
+      const r = allResults.find(x=>x.source_sku===sku&&x.source_store===store);
+      if(r && r._uncertain){
+        // Save via judge label API
+        r.human_label = label;
+        updateCardInPlace(sku, store, r);
+        try{
+          await fetch(API+'/api/judge/label',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              source_sku: sku,
+              target_sku: r.best_match_sku,
+              verdict: label === 'exact' ? 'match' : label === 'no_match' ? 'no_match' : 'analog',
+              notes: 'labeled from dashboard uncertain tab',
+            })
+          });
+          showToast(`✅ ${label}: ${(r.source_name||'').slice(0,40)}`,'success');
+        }catch(e){
+          showToast('Ошибка сохранения: '+e.message,'alert');
+        }
+        return;
+      }
+      return originalSetLabel(sku, store, label);
+    };
+
+    // Load uncertain count on load
+    async function loadUncertainCount(){
+      try{
+        const res = await fetch(API+'/api/judge/uncertain?limit=0');
+        const data = await res.json();
+        const el = document.getElementById('uncertainCount');
+        if(el && data.total > 0) el.textContent = `(${data.total})`;
+      }catch(e){}
+    }
+
+    document.addEventListener('DOMContentLoaded',()=>{initCharts();loadData();checkAIHealth();connectWS();loadUncertainCount()})
+  </script>
+</body>
+</html>

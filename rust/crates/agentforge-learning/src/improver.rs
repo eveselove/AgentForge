@@ -1,6 +1,7 @@
 use crate::types::TrajectoryRecord;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 /// Result of proposing an improved skill.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,6 +22,39 @@ impl SkillImprover {
         Self
     }
 
+    /// Bounded exec for LLM_CMD (or sh) to prevent hangs on slow/unresponsive external
+    /// (e.g. model servers, network). Uses std-only poll+kill; 25ms tick.
+    /// Critical for reliability (bottleneck + liveness fix).
+    fn run_with_timeout(
+        mut command: std::process::Command,
+        timeout_ms: u64,
+    ) -> Option<std::process::Output> {
+        let mut child = match command.spawn() {
+            Ok(ch) => ch,
+            Err(_) => return None,
+        };
+        let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+        loop {
+            match child.try_wait() {
+                Ok(Some(_)) => break,
+                Ok(None) => {
+                    if Instant::now() >= deadline {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return None;
+                    }
+                    std::thread::sleep(Duration::from_millis(25));
+                }
+                Err(_) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return None;
+                }
+            }
+        }
+        child.wait_with_output().ok()
+    }
+
     /// Analyze failures and propose improvements (heuristic version).
     /// Now emits richer signals for flywheel emission (more proposal variety).
     pub fn propose_improvements(
@@ -37,8 +71,10 @@ impl SkillImprover {
 
         for failure in failures {
             if let Some(error) = &failure.error_message {
-                *error_signatures.entry(error.clone()).or_insert(0) += 1;
-                if error.to_lowercase().contains("tool") || error.to_lowercase().contains("call") {
+                let err_l = error.to_lowercase();
+                let sig = error.chars().take(140).collect::<String>();
+                *error_signatures.entry(sig).or_insert(0) += 1;
+                if err_l.contains("tool") || err_l.contains("call") {
                     tool_related_errors += 1;
                 }
             }
@@ -57,7 +93,8 @@ impl SkillImprover {
             }
 
             // scan events loosely for recovery/tool signals (events are json values)
-            for ev in &failure.events {
+            // Bounded take(25) to prevent CPU blowup on huge event lists (bottleneck guard)
+            for ev in failure.events.iter().take(25) {
                 let s = ev.to_string().to_lowercase();
                 if s.contains("recover") || s.contains("retry") || s.contains("fallback") {
                     recovery_mentions += 1;
@@ -68,10 +105,14 @@ impl SkillImprover {
             }
         }
 
+        // Dedup low_prm for clean rationale + less noise downstream
+        low_prm_steps.sort();
+        low_prm_steps.dedup();
+
         let top_error = error_signatures
             .iter()
             .max_by_key(|(_, &count)| count)
-            .map(|(k, _)| k.clone())
+            .map(|(k, _)| k.chars().take(80).collect::<String>())
             .unwrap_or_else(|| "unknown_error".to_string());
 
         let mut rationale = format!(
@@ -81,13 +122,17 @@ impl SkillImprover {
         );
 
         if !low_prm_steps.is_empty() {
-            rationale.push_str(&format!(
-                "Weak steps frequently seen: {:?}. ",
-                low_prm_steps
-            ));
+            let shown: Vec<_> = low_prm_steps.iter().take(4).cloned().collect();
+            rationale.push_str(&format!("Weak steps frequently seen: {:?}. ", shown));
+            if low_prm_steps.len() > 4 {
+                rationale.push_str("(+more) ");
+            }
         }
         if tool_related_errors > 0 {
-            rationale.push_str(&format!("Tool-related errors in {} failures. ", tool_related_errors));
+            rationale.push_str(&format!(
+                "Tool-related errors in {} failures. ",
+                tool_related_errors
+            ));
         }
         if recovery_mentions == 0 && failures.len() > 2 {
             rationale.push_str("No recovery behaviors observed in failures. ");
@@ -103,17 +148,27 @@ impl SkillImprover {
         if recovery_mentions == 0 && failures.len() > 1 {
             suggestions.push("Always attempt exactly ONE structured recovery (different approach) on non-success; classify OUTCOME first.".to_string());
         }
-        if total_tool_calls > 4 && failures.len() > 0 {
+        if total_tool_calls > 4 && !failures.is_empty() {
             suggestions.push("After EVERY tool: 1-line VERIFICATION (shape/emptiness/error) then recover or proceed.".to_string());
         }
         if failures.len() > 3 {
-            suggestions.push("Before complex sequences emit explicit PLAN (goal + 2-3 risks + first actions).".to_string());
+            suggestions.push(
+                "Before complex sequences emit explicit PLAN (goal + 2-3 risks + first actions)."
+                    .to_string(),
+            );
         }
-        if low_prm_steps.iter().any(|s| s.contains("reason") || s.contains("thought") || s.contains("decision")) || failures.len() > 2 {
+        if low_prm_steps
+            .iter()
+            .any(|s| s.contains("reason") || s.contains("thought") || s.contains("decision"))
+            || failures.len() > 2
+        {
             suggestions.push("Structured decision blocks at branches: Hypothesis | Evidence | Action+rationale | Falsifiers.".to_string());
         }
         if low_prm_steps.iter().any(|s| s.contains("call")) || tool_related_errors > 0 {
-            suggestions.push("Post-tool: VERIFICATION + classify + single recovery. Never swallow tool errors.".to_string());
+            suggestions.push(
+                "Post-tool: VERIFICATION + classify + single recovery. Never swallow tool errors."
+                    .to_string(),
+            );
         }
         if failures.len() > 2 {
             suggestions.push("After recovery: brief SELF_REFLECT (did classification match reality? did fix address root?).".to_string());
@@ -121,6 +176,12 @@ impl SkillImprover {
         // New richer signals for even higher emission quality (guarded for compile)
         if failures.len() > 4 {
             suggestions.push("Maintain compact state checkpoints every 2-3 actions for safe resume on error/long horizon.".to_string());
+        }
+
+        // Dedup suggestions (overlapping rule conditions are common); keeps prompt compact (bottleneck for downstream LLM emission size)
+        {
+            let mut seen: HashSet<String> = HashSet::new();
+            suggestions.retain(|s| seen.insert(s.clone()));
         }
 
         // enrich base prompt with suggestions for better emission
@@ -149,14 +210,23 @@ impl SkillImprover {
                 "python -m pytest -q --tb=line || true".to_string(),
             ],
             overall_rationale: rationale,
-            estimated_impact: if failures.len() > 5 { "high".to_string() } else { "medium".to_string() },
+            estimated_impact: if failures.len() > 5 {
+                "high".to_string()
+            } else {
+                "medium".to_string()
+            },
         }
     }
 
     /// Structured heuristic fallback critique (always available, clean & high-signal).
     /// Used when AGENTFORGE_LLM_CMD not set (or LLM stub fails). Produces actionable rule.
     /// SIGNIFICANTLY ENRICHED for higher emission quality: produces 1-2 concrete rules + section hints targeting new high-value sections.
-    fn structured_fallback_critique(&self, skill_name: &str, summary: &str, failure_count: usize) -> String {
+    fn structured_fallback_critique(
+        &self,
+        skill_name: &str,
+        summary: &str,
+        failure_count: usize,
+    ) -> String {
         let s = summary.to_lowercase();
         let base = if s.contains("tool") || s.contains("call") {
             format!("For '{}': after EVERY tool result, immediately output VERIFICATION: (observed vs expected) pass/fail + error class. Then EXACTLY ONE targeted recovery. Prefer narrow tool_selection first.", skill_name)
@@ -192,9 +262,22 @@ impl SkillImprover {
     /// Always produces high-signal critique (real LLM output or deterministic rich structured fallback).
     /// Output folded by propose_with_llm_stub into rationale/new_prompt for richer proposals/sections.
     fn try_llm_critique_stub(&self, skill_name: &str, summary: &str) -> Option<String> {
-        let env_keys = ["AGENTFORGE_LLM_CMD", "AGENTFORGE_LLM", "LLM_CMD", "GROK_CMD"];
-        let cmd = env_keys.iter().find_map(|k| std::env::var(k).ok()).filter(|v| !v.trim().is_empty())?;
-        let compact_summary = summary.chars().take(1200).collect::<String>().replace('\n', " ").replace('"', "'");
+        let env_keys = [
+            "AGENTFORGE_LLM_CMD",
+            "AGENTFORGE_LLM",
+            "LLM_CMD",
+            "GROK_CMD",
+        ];
+        let cmd = env_keys
+            .iter()
+            .find_map(|k| std::env::var(k).ok())
+            .filter(|v| !v.trim().is_empty())?;
+        let compact_summary = summary
+            .chars()
+            .take(1200)
+            .collect::<String>()
+            .replace('\n', " ")
+            .replace('"', "'");
 
         // Refined prompt: explicitly drives more high-value sections for emission quality boost.
         // Targets: recovery_strategy, verification, tool_use, planning_decomposition, state_management, self_reflection, error_handling, tool_selection etc.
@@ -217,14 +300,22 @@ impl SkillImprover {
             // Try 3 common clean invocation styles (no shell) for real CLIs/binaries
             for style in [0, 1, 2] {
                 let mut c = std::process::Command::new(exe);
-                for a in &base_args { c.arg(a); }
+                for a in &base_args {
+                    c.arg(a);
+                }
                 match style {
-                    0 => { c.arg(&safe_prompt); } // positional last (common default)
-                    1 => { c.arg("--prompt").arg(&safe_prompt); }
-                    _ => { c.arg("-p").arg(&safe_prompt); }
+                    0 => {
+                        c.arg(&safe_prompt);
+                    } // positional last (common default)
+                    1 => {
+                        c.arg("--prompt").arg(&safe_prompt);
+                    }
+                    _ => {
+                        c.arg("-p").arg(&safe_prompt);
+                    }
                 }
                 c.stderr(std::process::Stdio::null());
-                if let Ok(output) = c.output() {
+                if let Some(output) = Self::run_with_timeout(c, 8500) {
                     if output.status.success() {
                         let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
                         if let Some(parsed) = Self::parse_critique_output(&raw) {
@@ -237,14 +328,20 @@ impl SkillImprover {
         }
 
         // === Robust shell fallback (complex wrappers, pipes, quoted envs) ===
+        // Use single-quoted printf + ' -> '\'' escape for DATA (prompt) to prevent $ ` ( ) expansion / shell injection from error msgs/trajectories (was using " " which expands).
+        // Timeout applied uniformly.
         if llm_text.is_none() {
-            let shell = format!(r#"printf '%s' "{}" | {} 2>/dev/null | head -c 1100 | tr -d '\n' | cut -c1-800"#, safe_prompt.replace('"', "'"), cmd);
-            if let Ok(output) = std::process::Command::new("sh")
+            let prompt_for_shell = safe_prompt.replace('\'', "'\\''");
+            let shell = format!(
+                r#"printf '%s' '{}' | {} 2>/dev/null | head -c 1100 | tr -d '\n' | cut -c1-800"#,
+                prompt_for_shell, cmd
+            );
+            let mut sh_cmd = std::process::Command::new("sh");
+            sh_cmd
                 .arg("-c")
                 .arg(&shell)
-                .stderr(std::process::Stdio::null())
-                .output()
-            {
+                .stderr(std::process::Stdio::null());
+            if let Some(output) = Self::run_with_timeout(sh_cmd, 8500) {
                 if output.status.success() {
                     let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
                     llm_text = Self::parse_critique_output(&raw);
@@ -259,29 +356,45 @@ impl SkillImprover {
     /// Stronger filters for the clean path.
     fn parse_critique_output(raw: &str) -> Option<String> {
         let t = raw.trim();
-        if t.len() < 8 { return None; }
+        if t.len() < 8 {
+            return None;
+        }
         let lower = t.to_lowercase();
-        if lower.contains("error") || lower.contains("usage") || lower.contains("command not found") || lower.starts_with("usage:") || lower.contains("not found") {
+        // Relaxed reject: drop broad "error"/"not found" (valid critiques discuss error handling/recovery/tool errors).
+        // Only reject clear CLI failures (command not found, usage headers). Prevents dropping good rules like "better error classification after tool".
+        if lower.contains("command not found")
+            || lower.starts_with("usage:")
+            || lower.contains("command is not recognized")
+        {
             return None;
         }
         // Try minimal JSON {"critique": "..."} or {"rule": "..."} etc. (supports basic LLM path JSON)
         if t.starts_with('{') {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(t) {
-                if let Some(s) = v.get("critique").and_then(|x| x.as_str())
+                if let Some(s) = v
+                    .get("critique")
+                    .and_then(|x| x.as_str())
                     .or_else(|| v.get("rule").and_then(|x| x.as_str()))
                     .or_else(|| v.get("suggestion").and_then(|x| x.as_str()))
                     .or_else(|| v.get("text").and_then(|x| x.as_str()))
                     .or_else(|| v.get("crit").and_then(|x| x.as_str()))
                 {
                     let cleaned = s.trim().chars().take(620).collect::<String>();
-                    if cleaned.len() > 7 { return Some(cleaned); }
+                    if cleaned.len() > 7 {
+                        return Some(cleaned);
+                    }
                 }
             }
         }
         // Plain high-signal text (basic LLM critique path output)
-        let cleaned: String = t.chars().filter(|c| c.is_ascii() || c.is_whitespace()).take(620).collect();
+        // Allow non-ascii/unicode (drop only controls); previous ascii-only dropped valid intl chars.
+        let cleaned: String = t.chars().filter(|c| !c.is_control()).take(620).collect();
         let cleaned = cleaned.trim().to_string();
-        if cleaned.len() > 7 && !cleaned.to_lowercase().contains("i am an ai") && !cleaned.to_lowercase().contains("as an ai") && !cleaned.to_lowercase().contains("language model") {
+        if cleaned.len() > 7
+            && !cleaned.to_lowercase().contains("i am an ai")
+            && !cleaned.to_lowercase().contains("as an ai")
+            && !cleaned.to_lowercase().contains("language model")
+        {
             Some(cleaned)
         } else {
             None
@@ -292,26 +405,51 @@ impl SkillImprover {
     /// ALWAYS enriches with high-value critique (LLM when available for real path, else deterministic structured fallback).
     /// This delivers the (split) basic LLM path + guarantees rich emission even without external LLM.
     /// Now returns enriched ProposedSkill; callers (flywheel) detect source for _learning_meta.critique_source.
-    pub fn propose_with_llm_stub(&self, skill_name: &str, failures: &[TrajectoryRecord]) -> ProposedSkill {
+    pub fn propose_with_llm_stub(
+        &self,
+        skill_name: &str,
+        failures: &[TrajectoryRecord],
+    ) -> ProposedSkill {
         let mut base = self.propose_improvements(skill_name, failures, &[]);
-        let summary = format!("{} | errors: top={}", base.overall_rationale, failures.len());
-        let has_llm = std::env::var("AGENTFORGE_LLM_CMD").map(|v|!v.trim().is_empty()).unwrap_or(false)
-            || std::env::var("AGENTFORGE_LLM").map(|v|!v.trim().is_empty()).unwrap_or(false)
-            || std::env::var("LLM_CMD").map(|v|!v.trim().is_empty()).unwrap_or(false)
-            || std::env::var("GROK_CMD").map(|v|!v.trim().is_empty()).unwrap_or(false);
-        let critique = self.try_llm_critique_stub(skill_name, &summary)
-            .unwrap_or_else(|| self.structured_fallback_critique(skill_name, &summary, failures.len()));
-        let source = if has_llm && self.try_llm_critique_stub(skill_name, &summary).is_some() { "llm" } else { "structured_fallback" };
+        let summary = format!(
+            "{} | errors: top={}",
+            base.overall_rationale,
+            failures.len()
+        );
+        // Call try_llm_critique_stub ONCE only (was: 1 in unwrap_or + 1 re-call for source).
+        // Eliminates redundant external process spawns (major bottleneck when AGENTFORGE_LLM_CMD is slow).
+        // Also fixes logical error: source could disagree with actual critique used on flaky external.
+        let critique_opt = self.try_llm_critique_stub(skill_name, &summary);
+        let critique = critique_opt.clone().unwrap_or_else(|| {
+            self.structured_fallback_critique(skill_name, &summary, failures.len())
+        });
+        let source = if critique_opt.is_some() {
+            "llm"
+        } else {
+            "structured_fallback"
+        };
         // Always apply critique (real LLM or clean fallback) → significantly richer rationale/prompt for emission
-        base.overall_rationale = format!("{} | CRITIQUE[source={}]: {}", base.overall_rationale, source, critique);
+        base.overall_rationale = format!(
+            "{} | CRITIQUE[source={}]: {}",
+            base.overall_rationale, source, critique
+        );
         if let Some(ref mut p) = base.new_system_prompt {
             if critique.len() > 15 && critique.len() < 420 {
-                p.push_str(&format!(" CRITIQUE-DERIVED[source={}]: {}.", source, critique));
+                p.push_str(&format!(
+                    " CRITIQUE-DERIVED[source={}]: {}.",
+                    source, critique
+                ));
             }
         }
         // Attach for downstream (flywheel yaml + proposal_dict analysis)
         // (simple: embed in rationale; real callers read env+outcome for meta)
         base
+    }
+}
+
+impl Default for SkillImprover {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -325,10 +463,15 @@ pub fn try_llm_critique_stub(skill_name: &str, summary: &str) -> Option<String> 
 mod tests {
     use super::*;
     use crate::types::{Outcome, TrajectoryRecord};
-    use std::collections::HashMap;
     use proptest::prelude::*;
+    use std::collections::HashMap;
 
-    fn dummy_rec(id: &str, outcome: Outcome, prm: Option<f64>, err: Option<String>) -> TrajectoryRecord {
+    fn dummy_rec(
+        id: &str,
+        outcome: Outcome,
+        prm: Option<f64>,
+        err: Option<String>,
+    ) -> TrajectoryRecord {
         TrajectoryRecord {
             task_id: id.into(),
             benchmark_id: "b1".into(),
@@ -358,7 +501,12 @@ mod tests {
     #[test]
     fn skill_improver_proposes_from_failures() {
         let improver = SkillImprover::new();
-        let fails = vec![dummy_rec("f1", Outcome::Failure, Some(0.2), Some("timeout".into()))];
+        let fails = vec![dummy_rec(
+            "f1",
+            Outcome::Failure,
+            Some(0.2),
+            Some("timeout".into()),
+        )];
         let succs = vec![];
         let prop = improver.propose_improvements("test-skill", &fails, &succs);
         assert_eq!(prop.skill_name, "test-skill");
@@ -370,28 +518,60 @@ mod tests {
     fn skill_improver_propose_with_llm_stub_always_enriches_for_flywheel_emission() {
         let improver = SkillImprover::new();
         let fails = vec![
-            dummy_rec("f1", Outcome::Failure, Some(0.1), Some("tool call error".into())),
+            dummy_rec(
+                "f1",
+                Outcome::Failure,
+                Some(0.1),
+                Some("tool call error".into()),
+            ),
             dummy_rec("f2", Outcome::Failure, Some(0.3), Some("timeout".into())),
         ];
         let prop = improver.propose_with_llm_stub("emit-skill", &fails);
         assert_eq!(prop.skill_name, "emit-skill");
-        assert!(prop.overall_rationale.contains("CRITIQUE"), "must apply critique or fallback for rich emission");
-        assert!(prop.new_system_prompt.as_ref().unwrap().contains("CRITIQUE-DERIVED") || prop.overall_rationale.len() > 50);
+        assert!(
+            prop.overall_rationale.contains("CRITIQUE"),
+            "must apply critique or fallback for rich emission"
+        );
+        assert!(
+            prop.new_system_prompt
+                .as_ref()
+                .unwrap()
+                .contains("CRITIQUE-DERIVED")
+                || prop.overall_rationale.len() > 50
+        );
         // suggestions from tool/timeout in failures
-        assert!(prop.new_system_prompt.as_deref().unwrap_or("").contains("recover") || prop.overall_rationale.contains("Tool"));
+        assert!(
+            prop.new_system_prompt
+                .as_deref()
+                .unwrap_or("")
+                .contains("recover")
+                || prop.overall_rationale.contains("Tool")
+        );
     }
 
     #[test]
     fn skill_improver_handles_mixed_outcomes_and_generates_recovery_suggestions() {
         let improver = SkillImprover::new();
-        let fails = vec![dummy_rec("f", Outcome::Failure, Some(0.2), Some("schema error".into()))];
+        let fails = vec![dummy_rec(
+            "f",
+            Outcome::Failure,
+            Some(0.2),
+            Some("schema error".into()),
+        )];
         let mut succ = dummy_rec("s1", Outcome::Success, Some(0.85), None);
         succ.prm_overall = Some(0.9);
         let prop = improver.propose_improvements("mixed", &fails, &[succ]);
         assert!(prop.estimated_impact == "medium" || prop.estimated_impact == "high");
         assert!(prop.suggested_few_shots.len() <= 3);
         // recovery suggestion triggered
-        assert!(prop.overall_rationale.contains("error") || prop.new_system_prompt.as_deref().unwrap_or("").contains("classify"));
+        assert!(
+            prop.overall_rationale.contains("error")
+                || prop
+                    .new_system_prompt
+                    .as_deref()
+                    .unwrap_or("")
+                    .contains("classify")
+        );
     }
 
     #[test]
@@ -400,7 +580,13 @@ mod tests {
         let r1 = imp.structured_fallback_critique("t", "tool call failed", 3);
         assert!(r1.to_lowercase().contains("tool") || r1.contains("classify"));
         let r2 = imp.structured_fallback_critique("t", "timeout slow", 5);
-        assert!(r2.to_lowercase().contains("time") || r2.contains("checkpoint") || r2.contains("progress") || r2.contains("slow") || !r2.is_empty());
+        assert!(
+            r2.to_lowercase().contains("time")
+                || r2.contains("checkpoint")
+                || r2.contains("progress")
+                || r2.contains("slow")
+                || !r2.is_empty()
+        );
         let r3 = imp.structured_fallback_critique("t", "recover error", 1);
         assert!(r3.contains("OUTCOME") || r3.contains("RECOVERY"));
     }
@@ -409,26 +595,51 @@ mod tests {
     fn skill_improver_emission_for_continuous_shadow_and_disable_paths() {
         // High quality emission must hold for flywheel-step/continuous under shadow + disable (dry/limit)
         let imp = SkillImprover::new();
-        let fails = vec![dummy_rec("f1", Outcome::Failure, Some(0.3), Some("timeout in long horizon".into()))];
+        let fails = vec![dummy_rec(
+            "f1",
+            Outcome::Failure,
+            Some(0.3),
+            Some("timeout in long horizon".into()),
+        )];
         let prop = imp.propose_with_llm_stub("cont-shadow-skill", &fails);
         assert!(prop.overall_rationale.len() > 20);
         assert!(prop.suggested_few_shots.len() <= 5);
         // Recovery always present for continuous loops
         let prompt = prop.new_system_prompt.as_deref().unwrap_or("");
-        assert!(prompt.to_lowercase().contains("recover") || prop.overall_rationale.to_lowercase().contains("recover"));
+        assert!(
+            prompt.to_lowercase().contains("recover")
+                || prop.overall_rationale.to_lowercase().contains("recover")
+        );
     }
 
     #[test]
     fn skill_improver_propose_supports_runner_subcommand_flywheel_export_and_cutover() {
         // Used by runner flywheel-export + promote cutover flows: produces fields for rich candidate yaml
         let imp = SkillImprover::new();
-        let recs = vec![
-            dummy_rec("r1", Outcome::Failure, Some(0.4), Some("tool schema".into())),
+        let recs = [
+            dummy_rec(
+                "r1",
+                Outcome::Failure,
+                Some(0.4),
+                Some("tool schema".into()),
+            ),
             dummy_rec("r2", Outcome::Success, Some(0.88), None),
         ];
-        let prop = imp.propose_improvements("export-cutover", &recs.iter().filter(|r| !r.outcome.is_success()).cloned().collect::<Vec<_>>(), &recs.iter().filter(|r| r.outcome.is_success()).cloned().collect::<Vec<_>>());
+        let prop = imp.propose_improvements(
+            "export-cutover",
+            &recs
+                .iter()
+                .filter(|r| !r.outcome.is_success())
+                .cloned()
+                .collect::<Vec<_>>(),
+            &recs
+                .iter()
+                .filter(|r| r.outcome.is_success())
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
         assert_eq!(prop.skill_name, "export-cutover");
-        assert!(prop.estimated_impact.len() > 0);
+        assert!(!prop.estimated_impact.is_empty());
         assert!(prop.new_system_prompt.is_some() || !prop.overall_rationale.is_empty());
     }
 
@@ -484,8 +695,18 @@ mod tests {
         // This is the core production loop confidence test. (pure in learning: validates emission shape consumed by promote/continuous)
         let imp = SkillImprover::new();
         let fails = vec![
-            dummy_rec("e1", Outcome::Failure, Some(0.25), Some("recovery missing after tool fail".into())),
-            dummy_rec("e2", Outcome::Failure, Some(0.15), Some("no progress heartbeat on long".into())),
+            dummy_rec(
+                "e1",
+                Outcome::Failure,
+                Some(0.25),
+                Some("recovery missing after tool fail".into()),
+            ),
+            dummy_rec(
+                "e2",
+                Outcome::Failure,
+                Some(0.15),
+                Some("no progress heartbeat on long".into()),
+            ),
         ];
         let prop = imp.propose_with_llm_stub("cross-emit-promote", &fails);
 
@@ -499,16 +720,37 @@ mod tests {
     }
 
     #[test]
-    fn structured_fallback_and_llm_path_produce_nonempty_for_all_failure_classes_continuous_shadow() {
+    fn structured_fallback_and_llm_path_produce_nonempty_for_all_failure_classes_continuous_shadow()
+    {
         // Edge coverage: all common failure modes from real trajectories must yield actionable emission for continuous loops
         let imp = SkillImprover::new();
-        let classes = ["tool call failed mid step", "timeout on complex query >30s", "schema validation error in output", "no recovery after partial", "low prm on planning step", "cost overrun long horizon"];
+        let classes = [
+            "tool call failed mid step",
+            "timeout on complex query >30s",
+            "schema validation error in output",
+            "no recovery after partial",
+            "low prm on planning step",
+            "cost overrun long horizon",
+        ];
         for (i, cls) in classes.iter().enumerate() {
-            let rec = dummy_rec(&format!("fc{}", i), Outcome::Failure, Some(0.3), Some(cls.to_string()));
+            let rec = dummy_rec(
+                &format!("fc{}", i),
+                Outcome::Failure,
+                Some(0.3),
+                Some(cls.to_string()),
+            );
             let prop = imp.propose_with_llm_stub("class-test", &[rec]);
-            assert!(!prop.overall_rationale.is_empty() && prop.overall_rationale.contains("CRITIQUE"));
+            assert!(
+                !prop.overall_rationale.is_empty() && prop.overall_rationale.contains("CRITIQUE")
+            );
             let p = prop.new_system_prompt.as_deref().unwrap_or("");
-            assert!(p.contains("recover") || p.contains("checkpoint") || p.contains("VERIF") || p.contains("classify") || p.len() > 20);
+            assert!(
+                p.contains("recover")
+                    || p.contains("checkpoint")
+                    || p.contains("VERIF")
+                    || p.contains("classify")
+                    || p.len() > 20
+            );
         }
     }
 
@@ -550,10 +792,10 @@ mod tests {
             reps in 2usize..4
         ) {
             let imp = SkillImprover::new();
-            let rec = dummy_rec("rep", Outcome::Failure, Some(0.25), Some(seed_err.into()));
+            let rec = dummy_rec("rep", Outcome::Failure, Some(0.25), Some(seed_err));
             let mut first_rationale = String::new();
             for i in 0..reps {
-                let p = imp.propose_with_llm_stub("fidelity-skill", &[rec.clone()]);
+                let p = imp.propose_with_llm_stub("fidelity-skill", std::slice::from_ref(&rec));
                 if i == 0 { first_rationale = p.overall_rationale.clone(); }
                 // Always contains core critique tag for parity in shadow dual runs
                 prop_assert!(p.overall_rationale.contains("CRITIQUE"));
@@ -567,11 +809,22 @@ mod tests {
     fn emission_llm_stub_yaml_safety_for_promote_copy_in_continuous_flows() {
         // Edge: generated prompt/rationale from LLM must not break yaml emission or promote dest sanitization
         let imp = SkillImprover::new();
-        let bad = dummy_rec("bad", Outcome::Failure, Some(0.1), Some("error with \"quotes\" & special: /tmp".into()));
+        let bad = dummy_rec(
+            "bad",
+            Outcome::Failure,
+            Some(0.1),
+            Some("error with \"quotes\" & special: /tmp".into()),
+        );
         let prop = imp.propose_with_llm_stub("yaml-safe", &[bad]);
         // Rationale safe-ish for embedding
         assert!(!prop.overall_rationale.contains('\0'));
-        let yaml_sim = format!("name: yaml-safe\nprompt: {}\n", prop.new_system_prompt.as_deref().unwrap_or("base").replace('"', "'"));
+        let yaml_sim = format!(
+            "name: yaml-safe\nprompt: {}\n",
+            prop.new_system_prompt
+                .as_deref()
+                .unwrap_or("base")
+                .replace('"', "'")
+        );
         assert!(yaml_sim.contains("name:"));
         // Would pass to promote copy sanitization (tested in candidates)
         assert!(prop.overall_rationale.len() > 5);

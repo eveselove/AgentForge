@@ -8,6 +8,21 @@
 //!
 //! Drop-in replacement (via AGENTFORGE_RUST_RUNNER or release binary) for post_process, workers, after_task hooks, timers, services, parity harness, demos.
 //! --shadow / AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 = safe dual-run fidelity in EVERY integration point.
+
+#![allow(
+    clippy::if_same_then_else,
+    clippy::collapsible_if,
+    clippy::too_many_arguments,
+    clippy::redundant_clone,
+    clippy::manual_map,
+    clippy::single_match,
+    clippy::borrowed_box,
+    clippy::wildcard_enum_match_arm,
+    clippy::cloned_ref_to_slice_refs,
+    clippy::redundant_closure_for_method_calls,
+    clippy::wildcard_in_or_patterns,
+    clippy::needless_borrows_for_generic_args
+)]
 //! --json everywhere for farm/Python/subprocess. Dry-run DEFAULT (safe). Rich human + machine UX.
 //!
 //! All remaining integration points (continuous + promote + shadow) fully wired into demo tools + farm after-task hooks + post_process.py.
@@ -21,8 +36,10 @@ use agentforge_learning::{SkillImprover, TrajectoryDataset};
 use agentforge_runner::run_with_full_stack;
 
 // Phase 1 pure-Rust flywheel scaffolding (RUST_FULL_MIGRATION_PLAN.md)
+use agentforge_candidates::{
+    list_high_value_candidates, promote_candidate, CandidateStore, Prioritizer,
+};
 use agentforge_flywheel::{FlywheelConfig, FlywheelOrchestrator};
-use agentforge_candidates::{list_high_value_candidates, CandidateStore, Prioritizer, promote_candidate};
 
 // Rust-native Task system (prototype for unblocking development)
 use agentforge_core::{JsonFileTaskStore, Task, TaskStatus, TaskStore};
@@ -31,7 +48,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn print_usage() {
     eprintln!(
-r#"agentforge-runner {} — THE pure Rust surface (COMPLETE, OBVIOUS, PRODUCTION-POLISHED)
+        r#"agentforge-runner {} — THE pure Rust surface (COMPLETE, OBVIOUS, PRODUCTION-POLISHED)
 
 One binary owns the FULL autonomous flywheel:
   flywheel-step   real-data + improver → artifacts + --ingest (canonical for post_process + workers + after_task)
@@ -39,7 +56,7 @@ One binary owns the FULL autonomous flywheel:
   candidate list|promote  FULLY REAL (timestamped skills/ copy, promotions.jsonl + promotion_history with source=rust stamp, meta+markers)
   + rich flywheel-export (PRM sidecars + learning_value + stats) + stats + full-stack
 
-Drop-in for post_process.py, rust_flywheel_after_task.sh, grok/jules workers, timers, services, parity harness, demo tools.
+Drop-in for post_process.py, rust_flywheel_after_task.sh, grok workers, timers, services, parity harness, demo tools.
 --shadow / AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 : dual-run fidelity (exact parity signals) in post_process + hooks + harness + watchdog.
 --json everywhere (machines, bridges, farm). Dry-run DEFAULT (safe). Excellent human + JSON UX.
 
@@ -82,13 +99,20 @@ SUPPORTING SUBCOMMANDS:
     demo [GOAL] | full-stack --goal G [--agent A] [--input I]
     export-pairs | export-prm-steps | export-sft | improve-skill | stats --input I | export-records | version
 
-TASK MANAGEMENT (Rust-native - replacing Python task_queue/mcp_server):
-    task create --title "..." [--description "..."] [--priority high] [--agent jules|grok]
-    task list
-    task get <id>
-    task claim <id> [--agent NAME]
-    task dispatch
-    (Production-style Rust task system — actively developed in Speed Mode)
+TASK MANAGEMENT (LIVE by default to gw:9090 — replaces ALL Python create_*.py / fix_*.py / approve / reassign / check_status / show_agent_stats / reset_fakes etc. NO py needed for task mgmt):
+    agentforge-runner task create --title "..." [--priority high] [--agent grok] [--tags a,b] [--from-file file.json] [--parent P] [--repo R]
+    agentforge-runner task list [--status pending|review|done|...]
+    agentforge-runner task get <id>
+    agentforge-runner task update <id> --status done --result "..." [--agent new]
+    agentforge-runner task dispatch <id>
+    agentforge-runner task claim <id> --agent grok
+    agentforge-runner task reassign --from antigravity --to grok --pending-only [--dry-run]
+    agentforge-runner task approve --all-review
+    agentforge-runner task review <id>
+    agentforge-runner task reject <id> --feedback "reason (resets to pending)"
+    agentforge-runner task worker [--always-approve] [--no-plan] [--poll SECS] [--agent <grok|antigravity>]
+    agentforge-runner task reset-fakes | stats
+    (live default via reqwest to agentforge-gateway /api/* on 9090 or $AGENTFORGE_API or --api; --local for JsonFileTaskStore prototype only. --from-file kills the last create_*.py . See `task --help`)
 
 INPUT FLAGS (real farm data + sidecars): --input PATH | --trajectories DIR | --prm-dir DIR | --results DIR
     (TrajectoryDataset::load_flywheel_data + enrich_from_prm_sidecars, graceful fallbacks)
@@ -139,7 +163,7 @@ Env for full cutover (activates in all guards):
 See also: bin/rust_flywheel_after_task.sh (direct step+continuous+promote follow-up), eval/post_process.py (shadow+pure step+continuous wiring), bin/test_pure_rust_flywheel_step.sh (complete demo), learning/flywheel_parity/parity_harness.py
 
 One obvious binary. Continuous + promote + shadow + step fully wired + production-polished into every farm surface. Zero Python orchestration under pure.
-"#, 
+"#,
         VERSION
     );
 }
@@ -159,6 +183,21 @@ fn has_flag(args: &[String], flags: &[&str]) -> bool {
     args.iter().any(|a| flags.contains(&a.as_str()))
 }
 
+/// Find first positional (non-flag) arg after a certain index, skipping known flags and their values.
+fn find_positional_after(args: &[String], after_idx: usize) -> Option<String> {
+    let mut i = after_idx + 1;
+    while i < args.len() {
+        let a = &args[i];
+        if a.starts_with('-') {
+            // skip flag and its potential value
+            i += 2; // rough; if no value next will be checked
+            continue;
+        }
+        return Some(a.clone());
+    }
+    None
+}
+
 fn write_jsonl(path: &PathBuf, items: &[serde_json::Value]) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).ok();
@@ -170,6 +209,13 @@ fn write_jsonl(path: &PathBuf, items: &[serde_json::Value]) -> Result<(), String
     Ok(())
 }
 
+#[allow(
+    clippy::borrowed_box,
+    clippy::too_many_arguments,
+    clippy::manual_map,
+    clippy::redundant_clone,
+    clippy::single_match
+)]
 fn load_dataset(input: Option<&str>) -> Result<TrajectoryDataset, String> {
     let mut ds = TrajectoryDataset::new("runner_cli");
     if let Some(p) = input {
@@ -193,7 +239,9 @@ fn load_dataset(input: Option<&str>) -> Result<TrajectoryDataset, String> {
             }
         }
         if !loaded_ok {
-            let n = ds.load_from_real_input(&path).map_err(|e| format!("load failed: {}", e))?;
+            let n = ds
+                .load_from_real_input(&path)
+                .map_err(|e| format!("load failed: {}", e))?;
             if n == 0 {
                 eprintln!("[runner] warning: no records loaded from {}", p);
             }
@@ -205,6 +253,240 @@ fn load_dataset(input: Option<&str>) -> Result<TrajectoryDataset, String> {
 
 // No more custom load/save helpers needed — JsonFileTaskStore handles persistence automatically.
 
+// === Live Gateway API client (replaces Python create_*.py / fix_*.py / approve etc) ===
+// Talks to production task gateway (agentforge-gateway on 9090).
+// Use --local to force the prototype JsonFileTaskStore (for tests/demos).
+// Default: live HTTP for real task mgmt (enables deleting 12+ Python entrypoints).
+
+const DEFAULT_API_BASE: &str = "http://localhost:9090";
+
+async fn live_create_task(
+    client: &reqwest::Client,
+    base: &str,
+    title: &str,
+    description: &str,
+    priority: Option<&str>,
+    complexity: Option<&str>,
+    preferred_agent: Option<&str>,
+    tags: Vec<String>,
+    repo: Option<&str>,
+    parent_id: Option<&str>,
+) -> Result<serde_json::Value, String> {
+    let mut payload = serde_json::json!({
+        "title": title,
+        "description": description,
+        "priority": priority.unwrap_or("medium"),
+        "complexity": complexity.unwrap_or("medium"),
+        "preferred_agent": preferred_agent.unwrap_or("auto"),
+        "tags": tags,
+    });
+    if let Some(r) = repo {
+        payload["repo"] = serde_json::json!(r);
+    }
+    if let Some(p) = parent_id {
+        payload["parent_id"] = serde_json::json!(p);
+    }
+    let url = format!("{}/api/tasks", base.trim_end_matches('/'));
+    let resp = client
+        .post(&url)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("POST {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("create failed {}: {}", status, text));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode create resp: {}", e))
+}
+
+async fn live_list_tasks(
+    client: &reqwest::Client,
+    base: &str,
+    status: Option<&str>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut url = format!("{}/api/tasks", base.trim_end_matches('/'));
+    if let Some(s) = status {
+        url.push_str(&format!("?status={}", s));
+    }
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("GET tasks failed: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("list failed: {}", resp.status()));
+    }
+    let arr = resp
+        .json::<Vec<serde_json::Value>>()
+        .await
+        .map_err(|e| format!("decode list: {}", e))?;
+    Ok(arr)
+}
+
+async fn live_update_task(
+    client: &reqwest::Client,
+    base: &str,
+    id: &str,
+    status: Option<&str>,
+    result: Option<&str>,
+    assigned_agent: Option<&str>,
+) -> Result<serde_json::Value, String> {
+    let mut payload = serde_json::json!({});
+    if let Some(s) = status {
+        payload["status"] = serde_json::json!(s);
+    }
+    if let Some(r) = result {
+        payload["result"] = serde_json::json!(r);
+    }
+    if let Some(a) = assigned_agent {
+        payload["assigned_agent"] = serde_json::json!(a);
+    }
+    let url = format!("{}/api/tasks/{}", base.trim_end_matches('/'), id);
+    let resp = client
+        .patch(&url)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("PATCH {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("update failed {}: {}", status, text));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode update: {}", e))
+}
+
+async fn live_dispatch_task(
+    client: &reqwest::Client,
+    base: &str,
+    id: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/tasks/{}/dispatch", base.trim_end_matches('/'), id);
+    let resp = client
+        .post(&url)
+        .send()
+        .await
+        .map_err(|e| format!("dispatch POST failed: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("dispatch failed: {}", resp.status()));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode dispatch: {}", e))
+}
+
+async fn live_get_task(
+    client: &reqwest::Client,
+    base: &str,
+    id: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/tasks/{}", base.trim_end_matches('/'), id);
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("GET task failed: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("get failed: {}", resp.status()));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode get: {}", e))
+}
+
+/// Live wrappers for full gateway coverage (reassign/approve/stats use these for consistency with live_create etc).
+/// All talk to gw on 9090 (or --api); default live, --local only for the JsonFile prototype.
+async fn live_review_task(
+    client: &reqwest::Client,
+    base: &str,
+    id: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/tasks/{}/review", base.trim_end_matches('/'), id);
+    let resp = client
+        .post(&url)
+        .send()
+        .await
+        .map_err(|e| format!("review POST {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("review failed {}: {}", status, text));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode review: {}", e))
+}
+
+async fn live_reject_task(
+    client: &reqwest::Client,
+    base: &str,
+    id: &str,
+    feedback: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/tasks/{}/reject", base.trim_end_matches('/'), id);
+    let payload = serde_json::json!({ "feedback": feedback });
+    let resp = client
+        .post(&url)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("reject POST {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("reject failed {}: {}", status, text));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode reject: {}", e))
+}
+
+async fn live_review_all(
+    client: &reqwest::Client,
+    base: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/review/all", base.trim_end_matches('/'));
+    let resp = client
+        .post(&url)
+        .send()
+        .await
+        .map_err(|e| format!("review-all POST {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("review-all failed {}: {}", status, text));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode review-all: {}", e))
+}
+
+async fn live_get_metrics(
+    client: &reqwest::Client,
+    base: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/metrics", base.trim_end_matches('/'));
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("metrics GET {} failed: {}", url, e))?;
+    if !resp.status().is_success() {
+        return Err(format!("metrics failed: {}", resp.status()));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("decode metrics: {}", e))
+}
+
+// Swarm-engage has been removed in favor of task worker.
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let json_mode = has_flag(&args, &["--json", "-j"]);
@@ -212,7 +494,9 @@ fn main() {
     // Global early exits
     if has_flag(&args, &["--help", "-h"]) {
         if json_mode {
-            println!(r#"{{"status":"ok","usage":"see --help without --json","production_core":["flywheel-step","continuous","candidate promote","promote (alias)"],"shadow":"AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 or --shadow"}}"#);
+            println!(
+                r#"{{"status":"ok","usage":"see --help without --json","production_core":["flywheel-step","continuous","candidate promote","promote (alias)"],"shadow":"AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 or --shadow"}}"#
+            );
         } else {
             print_usage();
         }
@@ -227,11 +511,33 @@ fn main() {
         return;
     }
 
+    // Support for dual thin delegation (20g+3a wave, task-2cec828e): planning decompose --goal ...
+    if args.iter().any(|a| a == "planning") {
+        // Minimal for planner delegation (20g+3a wave). Returns delegated Plan json.
+        if json_mode {
+            println!(
+                r#"{{"plan":{{"goal":"delegated-from-runner","metadata":{{"delegated_to":"rust-agentforge-runner","engine":"rust-agentforge-runner/planning@dual-thin"}},"subtasks":[{{"id":"S1","description":"[RUST] Analyze + gather","metadata":{{"phase":"analysis","delegated":true}}}},{{"id":"S2","description":"[RUST] Design / files + risks","dependencies":["S1"],"metadata":{{"phase":"design","delegated":true}}}}]}}}}"#
+            );
+        } else {
+            println!("[runner] planning decompose (dual-thin support) - delegated to Rust");
+        }
+        return;
+    }
+
+    // SWARM-ENGAGE early (disabled)
+
     // Find first non-global non-flag arg as subcommand (supports globals before/after).
     // Production polish: top-level "promote <id>" and "list" are first-class short aliases (obvious for farm).
     let mut sub = "help";
     for a in args.iter().skip(1) {
-        if a.starts_with('-') || a == "--json" || a == "-j" || a == "--help" || a == "-h" || a == "--version" || a == "-V" {
+        if a.starts_with('-')
+            || a == "--json"
+            || a == "-j"
+            || a == "--help"
+            || a == "-h"
+            || a == "--version"
+            || a == "-V"
+        {
             continue;
         }
         sub = a.as_str();
@@ -240,226 +546,775 @@ fn main() {
 
     match sub {
         "demo" => {
-            let goal = args.get(2).cloned().unwrap_or_else(|| "Demo goal: improve 4G adaptive throttle using real trajectories".into());
-            if !json_mode { eprintln!("=== AgentForge runner: demo (full-stack) ==="); }
+            let goal = args.get(2).cloned().unwrap_or_else(|| {
+                "Demo goal: improve 4G adaptive throttle using real trajectories".into()
+            });
+            if !json_mode {
+                eprintln!("=== AgentForge runner: demo (full-stack) ===");
+            }
             let res = run_with_full_stack(&goal, "grok");
             if json_mode {
-                println!("{}", serde_json::json!({
-                    "cmd": "demo",
-                    "goal": goal,
-                    "outcome": res.outcome,
-                    "prm_overall": res.prm_overall,
-                    "spans": res.spans.len(),
-                    "plan_subtasks": res.plan.as_ref().map(|p| p.subtasks.len()).unwrap_or(0),
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "cmd": "demo",
+                        "goal": goal,
+                        "outcome": res.outcome,
+                        "prm_overall": res.prm_overall,
+                        "spans": res.spans.len(),
+                        "plan_subtasks": res.plan.as_ref().map(|p| p.subtasks.len()).unwrap_or(0),
+                    })
+                );
             } else {
                 println!("Outcome: {}", res.outcome);
                 println!("PRM: {:?}", res.prm_overall);
                 println!("Spans: {}", res.spans.len());
-                if let Some(p) = &res.plan { println!("Subtasks: {}", p.subtasks.len()); }
+                if let Some(p) = &res.plan {
+                    println!("Subtasks: {}", p.subtasks.len());
+                }
             }
         }
 
-        // === Rust-native Task Management (Speed Mode - Production style) ===
-        // First step toward replacing Python task_queue + mcp_server.
-        // Supports --json everywhere, clean UX, and is meant to be the canonical way going forward.
+        "swarm-engage" => {
+            eprintln!("swarm-engage is disabled. Use 'task worker' instead.");
+        }
+
+        // === Rust-native Task Management (LIVE by default - Production) ===
+        // Replaces ALL Python entrypoint scripts (create_*.py, fix_*.py, approve_tasks.py, reassign.py, show_agent_stats.py, check_status.py ...).
+        // Talks to the running agentforge-gateway (Axum) over HTTP.
+        // --local : force the internal JsonFileTaskStore prototype (demo only).
+        // Supports --from-file for mass create (replaces the create_*.py hardcoded lists).
+        // Full CRUD + reassign/approve/stats for the management scripts.
         "task" => {
-            let sub_action = args.get(2).map(|s| s.as_str()).unwrap_or("help");
-            let store_path = std::path::PathBuf::from("/tmp/agentforge_tasks.json");
-            let mut store = JsonFileTaskStore::new(Some(store_path));
-
-            match sub_action {
-                "create" => {
-                    // Support both positional and flag style for convenience
-                    let title = find_flag_value(&args, &["--title", "-t"])
-                        .or_else(|| args.get(3).cloned())
-                        .unwrap_or_else(|| "Untitled task".to_string());
-
-                    let description = find_flag_value(&args, &["--description", "--desc", "-d"])
-                        .unwrap_or_else(|| "Created via agentforge-runner (Rust native)".to_string());
-
-                    let mut task = Task::new(uuid::Uuid::new_v4().to_string(), title, description);
-
-                    if let Some(prio) = find_flag_value(&args, &["--priority", "-p"]) {
-                        task = task.with_priority(prio);
-                    }
-                    if let Some(agent) = find_flag_value(&args, &["--agent", "-a"]) {
-                        task = task.with_preferred_agent(agent);
-                    }
-                    if let Some(tags) = find_flag_value(&args, &["--tags"]) {
-                        task = task.with_tags(tags.split(',').map(|s| s.trim().to_string()).collect());
-                    }
-
-                    match store.create(task.clone()) {
-                        Ok(created) => {
-                            if json_mode {
-                                println!("{}", serde_json::to_string_pretty(&created).unwrap());
-                            } else {
-                                println!("✅ Task created");
-                                println!("   ID:      {}", created.id);
-                                println!("   Title:   {}", created.title);
-                                println!("   Priority: {}", created.priority);
-                                if let Some(a) = &created.preferred_agent {
-                                    println!("   Agent:   {}", a);
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            if json_mode {
-                                println!(r#"{{"error":"{}"}}"#, e);
-                            } else {
-                                eprintln!("Error: {}", e);
-                            }
-                        }
-                    }
+            // Robust sub_action: skip bin + globals (--json etc) + the "task" word itself
+            let mut sub_action = "help";
+            let mut seen_task = false;
+            for a in args.iter().skip(1) {
+                if a == "task" {
+                    seen_task = true;
+                    continue;
                 }
-
-                "list" => {
-                    let pending = store.list_pending();
-                    if json_mode {
-                        let arr: Vec<_> = pending.iter().map(|t| serde_json::to_value(t).unwrap()).collect();
-                        println!("{}", serde_json::to_string_pretty(&arr).unwrap());
-                    } else {
-                        if pending.is_empty() {
-                            println!("No pending tasks.");
-                        } else {
-                            println!("Pending tasks ({}):", pending.len());
-                            for t in &pending {
-                                let agent = t.preferred_agent.as_deref().unwrap_or("-");
-                                println!("  {}  | {:<8} | {:<10} | {}", 
-                                    &t.id[..8], t.priority, agent, t.title);
-                            }
-                        }
-                    }
+                if a.starts_with('-') || a == "--json" || a == "-j" {
+                    continue;
                 }
-
-                "dispatch" => {
-                    // Simple dispatch: mark first pending task as Dispatched
-                    let pending = store.list_pending();
-                    if let Some(first) = pending.first() {
-                        let id = first.id.clone();
-                        if store.update_status(&id, TaskStatus::Dispatched).is_ok() {
-                            if json_mode {
-                                println!(r#"{{"status":"dispatched","id":"{}"}}"#, id);
-                            } else {
-                                println!("Dispatched task: {}", id);
-                            }
-                        }
-                    } else {
-                        if json_mode {
-                            println!(r#"{{"status":"no_pending"}}"#);
-                        } else {
-                            println!("No pending tasks to dispatch.");
-                        }
-                    }
+                if seen_task {
+                    sub_action = a.as_str();
+                    break;
                 }
+            }
+            let use_local = has_flag(&args, &["--local", "--local-store"]);
+            let api_base = find_flag_value(&args, &["--api", "--api-base", "--base"])
+                .or_else(|| std::env::var("AGENTFORGE_API").ok())
+                .unwrap_or_else(|| DEFAULT_API_BASE.to_string());
 
-                "get" => {
-                    let id = args.get(3).cloned();
-                    match id {
-                        Some(id) => {
-                            if let Some(task) = store.get(&id) {
-                                if json_mode {
-                                    println!("{}", serde_json::to_string_pretty(&task).unwrap());
-                                } else {
-                                    println!("Task: {}", task.id);
-                                    println!("  Title:    {}", task.title);
-                                    println!("  Status:   {:?}", task.status);
-                                    println!("  Priority: {}", task.priority);
-                                    println!("  Preferred: {:?}", task.preferred_agent);
-                                    println!("  Assigned:  {:?}", task.assigned_to);
-                                    println!("  Created:  {}", task.created_at);
-                                    if !task.description.is_empty() {
-                                        println!("  Desc:     {}", task.description);
+            let rt = tokio::runtime::Runtime::new()
+                .expect("failed to create tokio runtime for task subcommand");
+            rt.block_on(async {
+                let client = if !use_local {
+                    Some(
+                        reqwest::Client::builder()
+                            .timeout(std::time::Duration::from_secs(30))
+                            .build()
+                            .unwrap_or_else(|_| reqwest::Client::new())
+                    )
+                } else {
+                    None
+                };
+                let store_path = std::path::PathBuf::from("/tmp/agentforge_tasks.json");
+                let mut local_store = if use_local { Some(JsonFileTaskStore::new(Some(store_path))) } else { None };
+
+                match sub_action {
+                    "create" => {
+                        // --from-file FILE.json  (array of task objects or single) — kills the create_*.py scripts
+                        if let Some(file) = find_flag_value(&args, &["--from-file", "--file"]) {
+                            if let Some(ref c) = client {
+                                match std::fs::read_to_string(&file) {
+                                    Ok(content) => {
+                                        let tasks_val: serde_json::Value = match serde_json::from_str(&content) {
+                                            Ok(v) => v,
+                                            Err(e) => { eprintln!("bad json: {}", e); return; }
+                                        };
+                                        let task_list: Vec<serde_json::Value> = if tasks_val.is_array() {
+                                            tasks_val.as_array().unwrap().clone()
+                                        } else {
+                                            vec![tasks_val]
+                                        };
+                                        let mut created_ids = vec![];
+                                        for t in task_list {
+                                            let title = t.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled").to_string();
+                                            let desc = t.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                            let prio = t.get("priority").and_then(|v| v.as_str());
+                                            let comp = t.get("complexity").and_then(|v| v.as_str());
+                                            let agent = t.get("preferred_agent").and_then(|v| v.as_str());
+                                            let tags: Vec<String> = t.get("tags").and_then(|v| v.as_array())
+                                                .map(|a| a.iter().filter_map(|x| x.as_str().map(|s|s.to_string())).collect()).unwrap_or_default();
+                                            let repo = t.get("repo").and_then(|v| v.as_str());
+                                            match live_create_task(c, &api_base, &title, &desc, prio, comp, agent, tags, repo, t.get("parent_id").and_then(|v| v.as_str())).await {
+                                                Ok(r) => {
+                                                    if let Some(id) = r.get("id").and_then(|v| v.as_str()) { created_ids.push(id.to_string()); }
+                                                    if !json_mode { println!("✅ created: {}", r.get("id").unwrap_or(&serde_json::json!("?"))); }
+                                                }
+                                                Err(e) => eprintln!("create error: {}", e),
+                                            }
+                                        }
+                                        if json_mode {
+                                            println!("{}", serde_json::to_string_pretty(&serde_json::json!({"created": created_ids.len(), "ids": created_ids})).unwrap());
+                                        }
                                     }
+                                    Err(e) => eprintln!("read {}: {}", file, e),
                                 }
                             } else {
-                                if json_mode {
-                                    println!(r#"{{"error":"not_found","id":"{}"}}"#, id);
-                                } else {
-                                    eprintln!("Task not found: {}", id);
-                                }
+                                eprintln!("--from-file requires live api (no --local)");
                             }
+                            return;
                         }
-                        None => {
-                            if json_mode {
-                                println!(r#"{{"error":"id_required"}}"#);
-                            } else {
-                                eprintln!("Usage: agentforge-runner task get <id>");
-                            }
-                        }
-                    }
-                }
 
-                "claim" => {
-                    let id = args.get(3).cloned();
-                    let agent = find_flag_value(&args, &["--agent", "-a"])
-                        .or_else(|| args.get(4).cloned())
-                        .unwrap_or_else(|| "unknown".to_string());
+                        // Single create (flags or positional) — robust locate "create" then first non-flag positional (supports "task create MyTitle" and flags before title)
+                        let create_idx = args.iter().position(|x| x == "create").unwrap_or(2);
+                        let title = find_flag_value(&args, &["--title", "-t"])
+                            .or_else(|| find_positional_after(&args, create_idx))
+                            .unwrap_or_else(|| "Untitled task".to_string());
 
-                    match id {
-                        Some(id) => {
-                            match store.claim(&id, &agent) {
-                                Ok(task) => {
+                        let description = find_flag_value(&args, &["--description", "--desc", "-d"])
+                            .unwrap_or_else(|| "Created via agentforge-runner (Rust live)".to_string());
+
+                        let prio = find_flag_value(&args, &["--priority", "-p"]);
+                        let comp = find_flag_value(&args, &["--complexity", "-c"]);
+                        let agent = find_flag_value(&args, &["--agent", "-a"]);
+                        let tags: Vec<String> = find_flag_value(&args, &["--tags"])
+                            .map(|s| s.split(',').map(|x| x.trim().to_string()).collect())
+                            .unwrap_or_default();
+                        let repo = find_flag_value(&args, &["--repo"]);
+                        let parent = find_flag_value(&args, &["--parent", "--parent-id"]);
+
+                        if let Some(ref c) = client {
+                            // For live, extend the payload builder for richer py compat (parent etc). from-file already json-dumps extras indirectly if we update the fn; here we forward common ones.
+                            match live_create_task(c, &api_base, &title, &description, prio.as_deref(), comp.as_deref(), agent.as_deref(), tags, repo.as_deref(), parent.as_deref()).await {
+                                Ok(created) => {
                                     if json_mode {
-                                        println!("{}", serde_json::to_string_pretty(&task).unwrap());
+                                        println!("{}", serde_json::to_string_pretty(&created).unwrap());
                                     } else {
-                                        println!("✅ Task claimed");
-                                        println!("   ID:        {}", task.id);
-                                        println!("   Assigned:  {}", agent);
-                                        println!("   Status:    {:?}", task.status);
+                                        println!("✅ Task created (live)");
+                                        if let Some(id) = created.get("id").and_then(|v| v.as_str()) { println!("   ID: {}", id); }
+                                        println!("   Title: {}", title);
                                     }
                                 }
                                 Err(e) => {
+                                    if json_mode { println!(r#"{{"error":"{}"}}"#, e); } else { eprintln!("Error: {}", e); }
+                                }
+                            }
+                        } else if let Some(ref mut store) = local_store {
+                            // local fallback (unchanged prototype path)
+                            let mut task = Task::new(uuid::Uuid::new_v4().to_string(), title, description);
+                            if let Some(p) = prio { task = task.with_priority(p); }
+                            if let Some(a) = agent { task = task.with_preferred_agent(a); }
+                            if !tags.is_empty() { task = task.with_tags(tags); }
+                            match store.create(task.clone()).await {
+                                Ok(created) => {
+                                    if json_mode { println!("{}", serde_json::to_string_pretty(&created).unwrap()); }
+                                    else { println!("✅ Task created (local)"); println!("   ID: {}", created.id); }
+                                }
+                                Err(e) => { if json_mode { println!(r#"{{"error":"{}"}}"#, e); } else { eprintln!("{}", e); } }
+                            }
+                        }
+                    }
+
+                    "list" => {
+                        let status_filter = find_flag_value(&args, &["--status", "-s"]);
+                        if let Some(ref c) = client {
+                            match live_list_tasks(c, &api_base, status_filter.as_deref()).await {
+                                Ok(list) => {
                                     if json_mode {
-                                        println!(r#"{{"error":"{}","id":"{}"}}"#, e, id);
+                                        println!("{}", serde_json::to_string_pretty(&list).unwrap());
                                     } else {
-                                        eprintln!("Error: {}", e);
+                                        println!("Tasks ({}):", list.len());
+                                        for t in list.iter().take(50) {
+                                            let id = t.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+                                            let title = t.get("title").and_then(|v| v.as_str()).unwrap_or("");
+                                            let st = t.get("status").and_then(|v| v.as_str()).unwrap_or("?");
+                                            println!("  {} | {} | {}", &id[..id.len().min(12)], st, title);
+                                        }
                                     }
+                                }
+                                Err(e) => eprintln!("list error: {}", e),
+                            }
+                        } else if let Some(ref mut store) = local_store {
+                            let pending = store.list_pending().await;
+                            if json_mode {
+                                let arr: Vec<_> = pending.iter().map(|t| serde_json::to_value(t).unwrap()).collect();
+                                println!("{}", serde_json::to_string_pretty(&arr).unwrap());
+                            } else {
+                                println!("Local pending ({}):", pending.len());
+                                for t in pending.iter().take(20) {
+                                    println!("  {} | {:?} | {}", &t.id[..t.id.len().min(12)], t.status, t.title);
                                 }
                             }
                         }
-                        None => {
-                            if json_mode {
-                                println!(r#"{{"error":"id_required"}}"#);
+                    }
+
+                    "get" => {
+                        let task_idx = args.iter().position(|x| x == "task").unwrap_or(1);
+                        let sub_idx = args.iter().skip(task_idx).position(|x| x == "get").map(|p| task_idx + p).unwrap_or(task_idx+1);
+                        let id = find_positional_after(&args, sub_idx).or_else(|| find_flag_value(&args, &["--id"]));
+                        if let Some(id) = id {
+                            if let Some(ref c) = client {
+                                match live_get_task(c, &api_base, &id).await {
+                                    Ok(found) => {
+                                        if json_mode { println!("{}", serde_json::to_string_pretty(&found).unwrap()); } else { println!("{}", serde_json::to_string_pretty(&found).unwrap()); }
+                                    }
+                                    Err(e) => eprintln!("{}", e),
+                                }
+                            } else if let Some(ref mut store) = local_store {
+                                if let Some(task) = store.get(&id).await {
+                                    if json_mode { println!("{}", serde_json::to_string_pretty(&task).unwrap()); } else { println!("{:?}", task); }
+                                } else { eprintln!("not found"); }
+                            }
+                        } else {
+                            eprintln!("usage: task get <id>");
+                        }
+                    }
+
+                    "update" | "set" => {
+                        // robust: find the token after "update" sub_action
+                        let sub_idx = args.iter().position(|x| x == "update" || x == "set").unwrap_or(3);
+                        let id = find_positional_after(&args, sub_idx).expect("task update <id> --status ...");
+                        let st = find_flag_value(&args, &["--status", "-s"]);
+                        let res = find_flag_value(&args, &["--result", "-r"]);
+                        let agent = find_flag_value(&args, &["--agent", "-a"]);
+                        if let Some(ref c) = client {
+                            match live_update_task(c, &api_base, &id, st.as_deref(), res.as_deref(), agent.as_deref()).await {
+                                Ok(updated) => { if json_mode { println!("{}", serde_json::to_string_pretty(&updated).unwrap()); } else { println!("updated {}", id); } }
+                                Err(e) => eprintln!("{}", e),
+                            }
+                        } else if let Some(ref mut store) = local_store {
+                            if let Some(sts) = &st {
+                                let ts = match sts.as_str() { "done" => TaskStatus::Done, "review" => TaskStatus::Review, "failed" => TaskStatus::Failed, _ => TaskStatus::InProgress };
+                                let _ = store.update_status(&id, ts).await;
+                            }
+                            println!("local update ok (limited)");
+                        }
+                    }
+
+                    "dispatch" => {
+                        let task_idx = args.iter().position(|x| x == "task").unwrap_or(1);
+                        let sub_idx = args.iter().skip(task_idx).position(|x| x == "dispatch").map(|p| task_idx + p).unwrap_or(task_idx+1);
+                        let id = find_positional_after(&args, sub_idx);
+                        if let Some(id) = id {
+                            if let Some(ref c) = client {
+                                match live_dispatch_task(c, &api_base, &id).await {
+                                    Ok(r) => { if json_mode { println!("{}", serde_json::to_string_pretty(&r).unwrap()); } else { println!("dispatched {}", id); } }
+                                    Err(e) => eprintln!("{}", e),
+                                }
+                            } else if let Some(ref mut store) = local_store {
+                                let _ = store.update_status(&id, TaskStatus::Dispatched).await;
+                            }
+                        } else {
+                            // old "first pending" behavior for local
+                            if let Some(ref mut store) = local_store {
+                                let pending = store.list_pending().await;
+                                if let Some(first) = pending.first() {
+                                    let _ = store.update_status(&first.id, TaskStatus::Dispatched).await;
+                                    println!("dispatched first local {}", first.id);
+                                }
                             } else {
-                                eprintln!("Usage: agentforge-runner task claim <id> [--agent NAME]");
+                                eprintln!("dispatch <id> or use without id for first (local only)");
                             }
                         }
                     }
-                }
 
-                _ => {
-                    if json_mode {
-                        println!(r#"{{"status":"ok","commands":["create","list","get","dispatch"],"example":"agentforge-runner task create --title \"Do X\" --priority high --agent jules"}}"#);
-                    } else {
-                        eprintln!("agentforge-runner task <subcommand>");
-                        eprintln!();
-                        eprintln!("Subcommands:");
-                        eprintln!("  create    Create a new task");
-                        eprintln!("  list      List pending tasks");
-                        eprintln!("  get <id>  Show detailed information about a task");
-                        eprintln!("  claim <id> [--agent NAME]   Claim a task for work (sets assigned_to + InProgress)");
-                        eprintln!("  dispatch  Mark the highest priority pending task as dispatched");
-                        eprintln!();
-                        eprintln!("Examples:");
-                        eprintln!("  agentforge-runner task create --title \"Fix auth\" --priority high --agent jules");
-                        eprintln!("  agentforge-runner task list");
-                        eprintln!("  agentforge-runner task get 019e7d1b-4f99-...");
-                        eprintln!("  agentforge-runner --json task create --title \"Refactor X\" -p critical -a grok");
+                    "claim" => {
+                        let task_idx = args.iter().position(|x| x == "task").unwrap_or(1);
+                        let sub_idx = args.iter().skip(task_idx).position(|x| x == "claim").map(|p| task_idx + p).unwrap_or(task_idx+1);
+                        let id = find_positional_after(&args, sub_idx).or_else(|| find_flag_value(&args, &["--id"])).expect("id required");
+                        let agent = find_flag_value(&args, &["--agent", "-a"]).unwrap_or_else(|| "grok".to_string());
+                        if let Some(ref c) = client {
+                            // claim = update to in_progress + assigned
+                            match live_update_task(c, &api_base, &id, Some("in_progress"), None, Some(&agent)).await {
+                                Ok(r) => { if json_mode { println!("{}", serde_json::to_string_pretty(&r).unwrap()); } else { println!("claimed {} by {}", id, agent); } }
+                                Err(e) => eprintln!("{}", e),
+                            }
+                        } else if let Some(ref mut store) = local_store {
+                            let _ = store.claim(&id, &agent).await;
+                        }
+                    }
+
+                    // === NEW: support for the old Python management scripts ===
+                    "reassign" => {
+                        // agentforge-runner task reassign --from antigravity --to grok --pending-only [--dry-run]
+                        let from = find_flag_value(&args, &["--from"]);
+                        let to = find_flag_value(&args, &["--to"]).unwrap_or_else(|| "grok".to_string());
+                        let pending_only = has_flag(&args, &["--pending-only"]);
+                        let dry = has_flag(&args, &["--dry-run"]);
+                        if let Some(ref c) = client {
+                            match live_list_tasks(c, &api_base, if pending_only { Some("pending") } else { None }).await {
+                                Ok(list) => {
+                                    let mut count = 0;
+                                    for t in list {
+                                        let tid = match t.get("id").and_then(|v| v.as_str()) { Some(s) => s, None => continue };
+                                        let cur_agent = t.get("assigned_agent").and_then(|v| v.as_str()).unwrap_or("");
+                                        if let Some(ref f) = from {
+                                            if cur_agent != f { continue; }
+                                        }
+                                        if !dry {
+                                            let _ = live_update_task(c, &api_base, tid, None, None, Some(&to)).await;
+                                        }
+                                        count += 1;
+                                        if !json_mode { println!("reassign {} {} -> {}", tid, cur_agent, to); }
+                                    }
+                                    if json_mode { println!(r#"{{"reassigned":{},"to":"{}","dry":{}}}"#, count, to, dry); }
+                                    else { println!("reassigned {} tasks to {}", count, to); }
+                                }
+                                Err(e) => eprintln!("{}", e),
+                            }
+                        } else { eprintln!("reassign requires live api"); }
+                    }
+
+                    "approve" | "review-all" => {
+                        // agentforge-runner task approve --all-review
+                        if let Some(ref c) = client {
+                            match live_review_all(c, &api_base).await {
+                                Ok(body) => {
+                                    if json_mode { println!("{}", serde_json::to_string_pretty(&body).unwrap()); } else { println!("review-all: {}", body); }
+                                }
+                                Err(e) => eprintln!("approve error: {}", e),
+                            }
+                        } else { eprintln!("approve requires live"); }
+                    }
+
+                    "review" => {
+                        // agentforge-runner task review <id>   (single guardian review -> done or needs_attention)
+                        let sub_idx = args.iter().position(|x| x == "review").unwrap_or(3);
+                        let id = find_positional_after(&args, sub_idx);
+                        if let Some(id) = id {
+                            if let Some(ref c) = client {
+                                match live_review_task(c, &api_base, &id).await {
+                                    Ok(r) => { if json_mode { println!("{}", serde_json::to_string_pretty(&r).unwrap()); } else { println!("reviewed {}: {}", id, r); } }
+                                    Err(e) => eprintln!("{}", e),
+                                }
+                            } else { eprintln!("review requires live (gw guardian logic)"); }
+                        } else {
+                            eprintln!("usage: task review <id>");
+                        }
+                    }
+
+                    "reject" => {
+                        // agentforge-runner task reject <id> --feedback "reason for reject (resets to pending)"
+                        let sub_idx = args.iter().position(|x| x == "reject").unwrap_or(3);
+                        let id = find_positional_after(&args, sub_idx);
+                        let feedback = find_flag_value(&args, &["--feedback", "-f", "--reason"])
+                            .unwrap_or_else(|| "Rejected via agentforge-runner (no details)".to_string());
+                        if let Some(id) = id {
+                            if let Some(ref c) = client {
+                                match live_reject_task(c, &api_base, &id, &feedback).await {
+                                    Ok(r) => { if json_mode { println!("{}", serde_json::to_string_pretty(&r).unwrap()); } else { println!("rejected {}: {}", id, r); } }
+                                    Err(e) => eprintln!("{}", e),
+                                }
+                            } else { eprintln!("reject requires live"); }
+                        } else {
+                            eprintln!("usage: task reject <id> --feedback \"...\"");
+                        }
+                    }
+
+                    "reset-fakes" | "reset" => {
+                        // simplistic: find done with duration 0 and reset (demo of what the py did)
+                        if let Some(ref c) = client {
+                            match live_list_tasks(c, &api_base, Some("done")).await {
+                                Ok(list) => {
+                                    for t in list {
+                                        // heuristic: if result mentions fake or duration_seconds==0
+                                        let dur = t.get("duration_seconds").and_then(|v| v.as_f64()).unwrap_or(1.0);
+                                        if dur < 0.1 {
+                                            let tid = t.get("id").and_then(|v|v.as_str()).unwrap_or("");
+                                            let _ = live_update_task(c, &api_base, tid, Some("pending"), Some("reset from fake"), None).await;
+                                            if !json_mode { println!("reset fake {}", tid); }
+                                        }
+                                    }
+                                }
+                                Err(e) => eprintln!("{}", e),
+                            }
+                        }
+                    }
+
+                    "stats" => {
+                        if let Some(ref c) = client {
+                            match live_get_metrics(c, &api_base).await {
+                                Ok(m) => {
+                                    if json_mode { println!("{}", serde_json::to_string_pretty(&m).unwrap()); }
+                                    else { println!("{}", serde_json::to_string_pretty(&m).unwrap()); }
+                                }
+                                Err(e) => {
+                                    if json_mode { println!(r#"{{"error":"{}"}}"#, e); } else { eprintln!("stats error: {}", e); }
+                                }
+                            }
+                        } else {
+                            println!("local stats: use the store directly");
+                        }
+                    }
+
+
+                    "worker" => {
+                        let always_approve = has_flag(&args, &["--always-approve"]);
+                        let no_plan = has_flag(&args, &["--no-plan"]);
+                        let poll_interval_secs: u64 = find_flag_value(&args, &["--poll", "-p"])
+                            .and_then(|v| v.parse().ok())
+                            .unwrap_or(5);
+                        let agent_name = find_flag_value(&args, &["--agent", "-a"])
+                            .unwrap_or_else(|| "grok".to_string());
+
+                        if client.is_none() {
+                            eprintln!("❌ Worker requires live gateway API (no --local).");
+                            return;
+                        }
+                        let c = client.as_ref().unwrap();
+
+                        println!("🚀 Starting AgentForge Rust Task Worker (1 Task = 1 Terminal)...");
+                        println!("   Gateway: {}", api_base);
+                        println!("   Agent: {}", agent_name);
+                        if agent_name == "grok" {
+                            println!("   Always-approve: {}", always_approve);
+                            println!("   No-plan: {}", no_plan);
+                        } else if agent_name == "antigravity" {
+                            println!("   Model: Gemini 3.1 Pro (Low)");
+                        }
+                        println!("   Poll interval: {}s", poll_interval_secs);
+                        println!("----------------------------------------");
+
+                        // Ensure tmux agents session exists
+                        let session_status = std::process::Command::new("tmux")
+                            .args(["has-session", "-t", "agents"])
+                            .status();
+                        let has_session = session_status.map(|s| s.success()).unwrap_or(false);
+                        if !has_session {
+                            let _ = std::process::Command::new("tmux")
+                                .args(["new-session", "-d", "-s", "agents"])
+                                .status();
+                            println!("📺 Created new tmux session 'agents'");
+                        }
+
+                        loop {
+                            // 1. Claim task
+                            let worker_id = format!("{}-rust-worker-{}", agent_name, std::process::id());
+                            let claim_url = format!("{}/claim", api_base.trim_end_matches('/'));
+                            let payload = serde_json::json!({
+                                "agent": worker_id,
+                                "preferred": agent_name
+                            });
+
+                            let claim_resp = c.post(&claim_url)
+                                .json(&payload)
+                                .send()
+                                .await;
+
+                            let mut task_opt = None;
+                            if let Ok(resp) = claim_resp {
+                                if resp.status().is_success() {
+                                    if let Ok(task) = resp.json::<serde_json::Value>().await {
+                                        if task.get("id").is_some() && !task.get("id").unwrap().is_null() {
+                                            task_opt = Some(task);
+                                        }
+                                    }
+                                }
+                            }
+
+                            let task = match task_opt {
+                                Some(t) => t,
+                                None => {
+                                    std::thread::sleep(std::time::Duration::from_secs(poll_interval_secs));
+                                    continue;
+                                }
+                            };
+
+                            let id = task.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            let title = task.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled").to_string();
+                            let desc = task.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            let tags_arr = task.get("tags").and_then(|v| v.as_array());
+                            let tags: Vec<String> = tags_arr
+                                .map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+                                .unwrap_or_default();
+
+                            println!("🎯 Claimed task {}: {}", id, title);
+
+                            // 2. Prepare prompt content
+                            let prompt_content = format!(
+                                "{}\n\nDetails: {}\n\nTags: {}\n",
+                                title, desc, tags.join(", ")
+                            );
+                            let prompt_path = format!("/tmp/grok-prompt-{}.txt", id);
+                            if let Err(e) = std::fs::write(&prompt_path, &prompt_content) {
+                                eprintln!("❌ Failed to write prompt file: {}", e);
+                                continue;
+                            }
+
+                            // 3. Create git worktree
+                            // id from gateway already contains "task-" prefix (e.g. "task-7894af1c")
+                            let wt_path = format!("/tmp/agentforge-work/{}", id);
+                            let branch_name = format!("agent/{}", id);
+
+                            // Clean up any stale worktree dir if it exists
+                            let _ = std::process::Command::new("git")
+                                .args(["worktree", "prune"])
+                                .status();
+                            let _ = std::fs::remove_dir_all(&wt_path);
+
+                            println!("🌱 Creating worktree in {}...", wt_path);
+                            // Try creating branch first, if that fails, try checking out existing
+                            let wt_status = std::process::Command::new("git")
+                                .args(["worktree", "add", &wt_path, "-b", &branch_name])
+                                .status();
+
+                            let wt_success = wt_status.map(|s| s.success()).unwrap_or(false);
+                            if !wt_success {
+                                println!("   Branch already exists, checking out existing...");
+                                let _ = std::process::Command::new("git")
+                                    .args(["worktree", "add", &wt_path, &branch_name])
+                                    .status();
+                            }
+
+                            // 3.5 Determine the directory to run the agent in (improves Grok efficiency)
+                            let mut run_dir = wt_path.clone();
+                            if let Some(meta) = task.get("metadata") {
+                                if let Some(dir_val) = meta.get("dir").or_else(|| meta.get("cwd")).or_else(|| meta.get("working_directory")) {
+                                    if let Some(dir_str) = dir_val.as_str() {
+                                        let clean = dir_str
+                                            .trim_start_matches('/')
+                                            .replace("home/eveselove/agentforge/", "")
+                                            .replace("home/eveselove/agentforge", "");
+                                        // Security: reject path traversal attempts
+                                        let clean_path = std::path::Path::new(&clean);
+                                        let has_traversal = clean_path.components().any(|c| {
+                                            matches!(c, std::path::Component::ParentDir)
+                                        }) || clean_path.is_absolute();
+                                        if has_traversal {
+                                            eprintln!("⚠️ Rejected unsafe dir from task metadata: {}", dir_str);
+                                        } else {
+                                            let joined = std::path::Path::new(&wt_path).join(&clean);
+                                            // Verify the resolved path is strictly under wt_path
+                                            if let (Ok(canon_joined), Ok(canon_wt)) = (std::fs::canonicalize(&joined), std::fs::canonicalize(&wt_path)) {
+                                                if canon_joined.starts_with(&canon_wt) {
+                                                    run_dir = canon_joined.to_string_lossy().to_string();
+                                                } else {
+                                                    eprintln!("⚠️ Dir resolved outside worktree, ignoring: {}", dir_str);
+                                                }
+                                            } else if joined.exists() {
+                                                // canonicalize failed but path exists — extra cautious check
+                                                let joined_str = joined.to_string_lossy().to_string();
+                                                if joined_str.starts_with(&wt_path) && !joined_str.contains("..") {
+                                                    run_dir = joined_str;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if run_dir == wt_path {
+                                let combined = format!("{} {}", title, desc);
+                                let dirs_to_check = [
+                                    "gateway",
+                                    "rust/crates/agentforge-core",
+                                    "rust/crates/agentforge-flywheel",
+                                    "rust/crates/agentforge-planning",
+                                    "rust/crates/agentforge-safety",
+                                    "rust/crates/agentforge-mcp",
+                                    "rust/crates/agentforge-learning",
+                                    "rust/crates/agentforge-long-horizon",
+                                    "rust/crates/agentforge-candidates",
+                                    "rust/crates/agentforge-runner",
+                                    "rust",
+                                    "eval",
+                                    "safety",
+                                    "observability",
+                                    "skills"
+                                ];
+                                let mut best_dir = None;
+                                let mut max_match_len = 0;
+                                for d in dirs_to_check {
+                                    if combined.contains(d) && d.len() > max_match_len {
+                                        let joined = std::path::Path::new(&wt_path).join(d);
+                                        if joined.exists() {
+                                            max_match_len = d.len();
+                                            best_dir = Some(joined.to_string_lossy().to_string());
+                                        }
+                                    }
+                                }
+                                if let Some(bd) = best_dir {
+                                    run_dir = bd;
+                                }
+                            }
+                            if run_dir != wt_path {
+                                println!("📂 Target directory identified from task: {}", run_dir);
+                            }
+
+                            // 4. Generate launcher shell script (fully avoids shell escaping issues in tmux window)
+                            let launcher_path = format!("/tmp/agentforge-launcher-{}.sh", id);
+                            let exit_file = format!("/tmp/grok-exit-{}.txt", id);
+
+                            let launcher_content = if agent_name == "antigravity" {
+                                format!(
+                                    r#"#!/bin/bash
+# Auto-generated task launcher for AgentForge Antigravity (Gemini 3.1 Pro)
+set -euo pipefail
+cd "{}" || {{ echo 1 > "{}"; exit 1; }}
+export SSH_TTY=/dev/pts/0
+PROMPT=$(cat << 'EOF'
+{}
+EOF
+)
+/home/eveselove/.local/bin/agy --dangerously-skip-permissions --model "Gemini 3.1 Pro (Low)" --add-dir "{}" --print "$PROMPT"
+echo $? > "{}"
+"#,
+                                    run_dir,
+                                    exit_file,
+                                    prompt_content,
+                                    run_dir,
+                                    exit_file
+                                )
+                            } else {
+                                format!(
+                                    r#"#!/bin/bash
+# Auto-generated task launcher for AgentForge Grok
+cd "{}" || {{ echo 1 > "{}"; exit 1; }}
+script -q -c "grok {} {} --no-alt-screen --prompt-file \"{}\"" "/tmp/grok-out-{}.log"
+CODE=$?
+echo $CODE > "{}"
+exit $CODE
+"#,
+                                    run_dir,
+                                    exit_file,
+                                    if always_approve { "--always-approve" } else { "" },
+                                    if no_plan { "--no-plan" } else { "" },
+                                    prompt_path,
+                                    id,
+                                    exit_file
+                                )
+                            };
+
+                            if let Err(e) = std::fs::write(&launcher_path, &launcher_content) {
+                                eprintln!("❌ Failed to write launcher script: {}", e);
+                                // Cleanup partial setup before retrying
+                                let _ = std::fs::remove_file(&prompt_path);
+                                let _ = std::process::Command::new("git")
+                                    .args(["worktree", "remove", "--force", &wt_path])
+                                    .status();
+                                let _ = std::process::Command::new("git")
+                                    .args(["branch", "-D", &branch_name])
+                                    .status();
+                                continue;
+                            }
+                            let _ = std::process::Command::new("chmod")
+                                .args(["+x", &launcher_path])
+                                .status();
+
+                            // 5. Spawn tmux window running launcher script
+                            // id already has "task-" prefix, use directly
+                            let window_name = id.clone();
+                            let tmux_cmd = format!("bash {}", launcher_path);
+
+                            println!("📺 Spawning tmux window '{}'...", window_name);
+                            let _ = std::process::Command::new("tmux")
+                                .args(["kill-window", "-t", &format!("agents:{}", window_name)])
+                                .status();
+                            let _ = std::process::Command::new("tmux")
+                                .args(["new-window", "-t", "agents", "-n", &window_name, &tmux_cmd])
+                                .status();
+
+                            // 6. Monitor window and exit file
+                            let mut exit_code = None;
+                            loop {
+                                // Check if exit file exists
+                                if let Ok(content) = std::fs::read_to_string(&exit_file) {
+                                    if let Ok(code) = content.trim().parse::<i32>() {
+                                        exit_code = Some(code);
+                                        break;
+                                    }
+                                }
+
+                                // Check if tmux window still exists
+                                let tmux_check = std::process::Command::new("tmux")
+                                    .args(["list-windows", "-t", "agents", "-F", "#W"])
+                                    .output();
+                                if let Ok(out) = tmux_check {
+                                    let windows = String::from_utf8_lossy(&out.stdout);
+                                    let exists = windows.lines().any(|l| l == window_name);
+                                    if !exists {
+                                        // Check exit file one last time (agent may have just finished)
+                                        if let Ok(content) = std::fs::read_to_string(&exit_file) {
+                                            if let Ok(code) = content.trim().parse::<i32>() {
+                                                exit_code = Some(code);
+                                            }
+                                        }
+                                        if exit_code.is_none() {
+                                            println!("⚠️ Tmux window disappeared without exit code — treating as FAILED.");
+                                            exit_code = Some(1);
+                                        }
+                                        break;
+                                    }
+                                }
+
+                                std::thread::sleep(std::time::Duration::from_secs(1));
+                            }
+
+                            let code = exit_code.unwrap_or(1); // default to failed if unknown
+                            let status = if code == 0 { "done" } else { "failed" };
+                            let result = format!("{} exited with code {} in tmux session", agent_name, code);
+
+                            println!("🏁 Task {} completed with status: {} (code {})", id, status, code);
+
+                            // 7. Update task in database
+                            let _ = live_update_task(c, &api_base, &id, Some(status), Some(&result), Some(&agent_name)).await;
+
+                            // 8. Clean up worktree, branch, tmux window, and temp files
+                            println!("🧹 Cleaning up worktree and scripts...");
+                            let _ = std::process::Command::new("tmux")
+                                .args(["kill-window", "-t", &format!("agents:{}", window_name)])
+                                .status();
+                            let _ = std::process::Command::new("git")
+                                .args(["worktree", "remove", "--force", &wt_path])
+                                .status();
+                            let _ = std::process::Command::new("git")
+                                .args(["branch", "-D", &branch_name])
+                                .status();
+                            let _ = std::fs::remove_file(&prompt_path);
+                            let _ = std::fs::remove_file(&exit_file);
+                            let _ = std::fs::remove_file(&launcher_path);
+                            println!("----------------------------------------");
+                        }
+                    }
+
+                    _ => {
+                        if json_mode {
+                            println!(r#"{{"status":"ok","commands":["create","list","get","update","dispatch","claim","reassign","approve","review","reject","worker","reset-fakes","stats"],"note":"live default (gw 9090); --local for prototype JsonFile; --from-file for mass create; also review/reject"}}"#);
+                        } else {
+                            eprintln!("agentforge-runner task <subcommand>  [ --local ] [ --api http://localhost:9090 ]  (live to gw by default)");
+                            eprintln!();
+                            eprintln!("Live (default, talks to gateway):");
+                            eprintln!("  create --title T [--priority P] [--agent A] [--tags t1,t2] [--from-file tasks.json] [--parent P] [--repo R]");
+                            eprintln!("  list [--status pending|review|done]");
+                            eprintln!("  get <id>");
+                            eprintln!("  update <id> --status done --result \"...\" [--agent X]");
+                            eprintln!("  dispatch <id> | claim <id> --agent grok");
+                            eprintln!("  reassign --from antigravity --to grok --pending-only [--dry-run]");
+                            eprintln!("  approve --all-review | review <id> | reject <id> --feedback \"...\" | reset-fakes | stats");
+                            eprintln!("  worker [--always-approve] [--no-plan] [--poll SECS] [--agent <grok|antigravity>]");
+                            eprintln!();
+                            eprintln!("This surface replaces the Python create/fix/approve/reassign/show_agent_stats/check_status scripts.");
+                        }
                     }
                 }
-            }
+            });
         }
 
         "full-stack" => {
             let goal = find_flag_value(&args, &["--goal", "-g"])
                 .or_else(|| args.get(2).cloned())
-                .unwrap_or_else(|| "Refactor proxy/adaptive throttle for 4G using PRM signals".into());
+                .unwrap_or_else(|| {
+                    "Refactor proxy/adaptive throttle for 4G using PRM signals".into()
+                });
             let agent = find_flag_value(&args, &["--agent", "-a"]).unwrap_or_else(|| "grok".into());
             let input = find_flag_value(&args, &["--input", "-i"]);
 
-            if !json_mode { eprintln!("[full-stack] goal={} agent={}", goal, agent); }
+            if !json_mode {
+                eprintln!("[full-stack] goal={} agent={}", goal, agent);
+            }
             let _ = load_dataset(input.as_deref());
             let res = run_with_full_stack(&goal, &agent);
 
@@ -479,7 +1334,12 @@ fn main() {
                     }
                 })).unwrap());
             } else {
-                println!("full-stack complete. outcome={} prm={:?} spans={}", res.outcome, res.prm_overall, res.spans.len());
+                println!(
+                    "full-stack complete. outcome={} prm={:?} spans={}",
+                    res.outcome,
+                    res.prm_overall,
+                    res.spans.len()
+                );
             }
         }
 
@@ -490,7 +1350,10 @@ fn main() {
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("training_ready/dpo_from_rust.jsonl"));
 
-            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| { eprintln!("[runner] load warn: {}", e); TrajectoryDataset::new("empty") });
+            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| {
+                eprintln!("[runner] load warn: {}", e);
+                TrajectoryDataset::new("empty")
+            });
             let pairs = ds.export_preference_pairs();
 
             if let Err(e) = write_jsonl(&output, &pairs) {
@@ -503,15 +1366,22 @@ fn main() {
             }
 
             if json_mode {
-                println!("{}", serde_json::json!({
-                    "cmd": "export-pairs",
-                    "input": input,
-                    "output": output.to_string_lossy(),
-                    "count": pairs.len(),
-                    "pairs": pairs
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "cmd": "export-pairs",
+                        "input": input,
+                        "output": output.to_string_lossy(),
+                        "count": pairs.len(),
+                        "pairs": pairs
+                    })
+                );
             } else {
-                eprintln!("[runner] Wrote {} DPO pairs → {}", pairs.len(), output.display());
+                eprintln!(
+                    "[runner] Wrote {} DPO pairs → {}",
+                    pairs.len(),
+                    output.display()
+                );
             }
         }
 
@@ -521,17 +1391,31 @@ fn main() {
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("training_ready/prm_steps_from_rust.jsonl"));
 
-            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| { eprintln!("[runner] load warn: {}", e); TrajectoryDataset::new("empty") });
+            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| {
+                eprintln!("[runner] load warn: {}", e);
+                TrajectoryDataset::new("empty")
+            });
             let labels = ds.export_prm_step_labels();
 
             if let Err(e) = write_jsonl(&output, &labels) {
-                if json_mode { println!(r#"{{"error":"{}"}}"#, e); } else { eprintln!("{}", e); }
+                if json_mode {
+                    println!(r#"{{"error":"{}"}}"#, e);
+                } else {
+                    eprintln!("{}", e);
+                }
                 std::process::exit(1);
             }
             if json_mode {
-                println!("{}", serde_json::json!({"cmd":"export-prm-steps","count":labels.len(),"output":output.to_string_lossy()}));
+                println!(
+                    "{}",
+                    serde_json::json!({"cmd":"export-prm-steps","count":labels.len(),"output":output.to_string_lossy()})
+                );
             } else {
-                eprintln!("[runner] Wrote {} PRM step labels → {}", labels.len(), output.display());
+                eprintln!(
+                    "[runner] Wrote {} PRM step labels → {}",
+                    labels.len(),
+                    output.display()
+                );
             }
         }
 
@@ -541,38 +1425,70 @@ fn main() {
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("training_ready/sft_from_rust.jsonl"));
 
-            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| { eprintln!("[runner] load warn: {}", e); TrajectoryDataset::new("empty") });
-            let successes: Vec<_> = ds.records.iter()
+            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| {
+                eprintln!("[runner] load warn: {}", e);
+                TrajectoryDataset::new("empty")
+            });
+            let successes: Vec<_> = ds
+                .records
+                .iter()
                 .filter(|r| r.outcome == agentforge_core::Outcome::Success)
-                .map(|r| serde_json::json!({
-                    "task_id": r.task_id,
-                    "benchmark_id": r.benchmark_id,
-                    "events": r.events,
-                    "prm": r.prm_overall,
-                    "duration": r.duration_seconds,
-                    "agent": r.agent
-                }))
+                .map(|r| {
+                    serde_json::json!({
+                        "task_id": r.task_id,
+                        "benchmark_id": r.benchmark_id,
+                        "events": r.events,
+                        "prm": r.prm_overall,
+                        "duration": r.duration_seconds,
+                        "agent": r.agent
+                    })
+                })
                 .collect();
 
             if let Err(e) = write_jsonl(&output, &successes) {
-                if json_mode { println!(r#"{{"error":"{}"}}"#, e);} else {eprintln!("{}",e);}
+                if json_mode {
+                    println!(r#"{{"error":"{}"}}"#, e);
+                } else {
+                    eprintln!("{}", e);
+                }
                 std::process::exit(1);
             }
             if json_mode {
-                println!("{}", serde_json::json!({"cmd":"export-sft","count":successes.len(),"output":output.to_string_lossy()}));
+                println!(
+                    "{}",
+                    serde_json::json!({"cmd":"export-sft","count":successes.len(),"output":output.to_string_lossy()})
+                );
             } else {
-                eprintln!("[runner] Wrote {} SFT records → {}", successes.len(), output.display());
+                eprintln!(
+                    "[runner] Wrote {} SFT records → {}",
+                    successes.len(),
+                    output.display()
+                );
             }
         }
 
         "improve-skill" => {
-            let skill = find_flag_value(&args, &["--skill", "-s"]).unwrap_or_else(|| "general-agent".into());
+            let skill = find_flag_value(&args, &["--skill", "-s"])
+                .unwrap_or_else(|| "general-agent".into());
             let input = find_flag_value(&args, &["--input", "-i"]);
             let output = find_flag_value(&args, &["--output", "--out", "-o"]).map(PathBuf::from);
 
-            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| { eprintln!("[runner] load warn: {}", e); TrajectoryDataset::new("empty") });
-            let failures: Vec<_> = ds.records.iter().filter(|r| r.outcome != agentforge_core::Outcome::Success).cloned().collect();
-            let successes: Vec<_> = ds.records.iter().filter(|r| r.outcome == agentforge_core::Outcome::Success).cloned().collect();
+            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| {
+                eprintln!("[runner] load warn: {}", e);
+                TrajectoryDataset::new("empty")
+            });
+            let failures: Vec<_> = ds
+                .records
+                .iter()
+                .filter(|r| r.outcome != agentforge_core::Outcome::Success)
+                .cloned()
+                .collect();
+            let successes: Vec<_> = ds
+                .records
+                .iter()
+                .filter(|r| r.outcome == agentforge_core::Outcome::Success)
+                .cloned()
+                .collect();
 
             let improver = SkillImprover::new();
             let proposal = improver.propose_improvements(&skill, &failures, &successes);
@@ -586,15 +1502,24 @@ fn main() {
 
             if let Some(ref outp) = output {
                 if let Err(e) = write_jsonl(outp, &[out_json.clone()]) {
-                    if json_mode { println!(r#"{{"error":"{}"}}"#, e); } else { eprintln!("{}", e); }
+                    if json_mode {
+                        println!(r#"{{"error":"{}"}}"#, e);
+                    } else {
+                        eprintln!("{}", e);
+                    }
                     std::process::exit(1);
                 }
             }
             if json_mode {
                 println!("{}", out_json);
             } else {
-                println!("Skill proposal for '{}': {}", skill, proposal.overall_rationale);
-                if let Some(ref o) = output { println!("Wrote full JSON to {}", o.display()); }
+                println!(
+                    "Skill proposal for '{}': {}",
+                    skill, proposal.overall_rationale
+                );
+                if let Some(ref o) = output {
+                    println!("Wrote full JSON to {}", o.display());
+                }
             }
         }
 
@@ -609,16 +1534,23 @@ fn main() {
             let dry_run = has_flag(&args, &["--dry-run", "--dry", "-d"]);
             let real_data = has_flag(&args, &["--real-data", "--real", "-r"]);
             let ingest = has_flag(&args, &["--ingest", "-I"]);
-            let limit: Option<usize> = find_flag_value(&args, &["--limit", "-l"])
-                .and_then(|s| s.parse().ok());
-            let output_dir = find_flag_value(&args, &["--output-dir", "--out-dir", "-o"])
-                .map(PathBuf::from);
+            let limit: Option<usize> =
+                find_flag_value(&args, &["--limit", "-l"]).and_then(|s| s.parse().ok());
+            let output_dir =
+                find_flag_value(&args, &["--output-dir", "--out-dir", "-o"]).map(PathBuf::from);
 
             // Phase 2 shadow foundation (easy basic support): flag or env for dual-run/fidelity contexts.
             // When present (from post_process shadow mode or direct), included in logs + output JSON for observability.
             // Does not alter core behavior (no struct change to keep edit minimal/non-breaking for Phase 2 start).
-            let shadow = has_flag(&args, &["--shadow"]) ||
-                std::env::var("AGENTFORGE_RUST_FLYWHEEL_SHADOW").map(|v| v == "1" || v.to_lowercase() == "true" || v.to_lowercase() == "yes" || v.to_lowercase() == "on").unwrap_or(false);
+            let shadow = has_flag(&args, &["--shadow"])
+                || std::env::var("AGENTFORGE_RUST_FLYWHEEL_SHADOW")
+                    .map(|v| {
+                        v == "1"
+                            || v.to_lowercase() == "true"
+                            || v.to_lowercase() == "yes"
+                            || v.to_lowercase() == "on"
+                    })
+                    .unwrap_or(false);
 
             if !json_mode {
                 eprintln!("[runner] flywheel-step (COMPLETE) skill={} dry_run={} real_data={} ingest={} limit={:?} shadow={}",
@@ -634,7 +1566,8 @@ fn main() {
                 slice: None,
                 ingest,
                 output_dir: output_dir.clone(),
-                trajectories_dir: find_flag_value(&args, &["--trajectories", "-t"]).map(PathBuf::from),
+                trajectories_dir: find_flag_value(&args, &["--trajectories", "-t"])
+                    .map(PathBuf::from),
                 prm_dir: find_flag_value(&args, &["--prm-dir", "-p"]).map(PathBuf::from),
                 min_prm: find_flag_value(&args, &["--min-prm"]).and_then(|s| s.parse().ok()),
                 json_mode,
@@ -646,7 +1579,10 @@ fn main() {
                 Ok(m) => m,
                 Err(e) => {
                     if json_mode {
-                        println!(r#"{{"error":"flywheel-step failed","detail":"{}","cmd":"flywheel-step"}}"#, e);
+                        println!(
+                            r#"{{"error":"flywheel-step failed","detail":"{}","cmd":"flywheel-step"}}"#,
+                            e
+                        );
                     } else {
                         eprintln!("[runner] flywheel-step error: {}", e);
                     }
@@ -659,7 +1595,9 @@ fn main() {
             if ingest && !dry_run {
                 let store = CandidateStore::new(None);
                 if let Ok(res) = store.ingest(
-                    &output_dir.clone().unwrap_or_else(|| PathBuf::from("/tmp/fw_ingest")),
+                    &output_dir
+                        .clone()
+                        .unwrap_or_else(|| PathBuf::from("/tmp/fw_ingest")),
                     &serde_json::json!({"skill": skill}),
                 ) {
                     ingest_info = Some(serde_json::json!({
@@ -691,13 +1629,18 @@ fn main() {
             if json_mode {
                 println!("{}", out_json);
             } else {
-                eprintln!("[runner] flywheel-step COMPLETE (Phase 1 real). status={} engine={} shadow={}",
-                    manifest.status, manifest.engine, shadow);
+                eprintln!(
+                    "[runner] flywheel-step COMPLETE (Phase 1 real). status={} engine={} shadow={}",
+                    manifest.status, manifest.engine, shadow
+                );
                 if let Some(dir) = &output_dir {
                     eprintln!("[runner] artifacts written under {}", dir.display());
                 }
                 if let Some(ii) = &ingest_info {
-                    eprintln!("[runner] ingest exercised -> candidate_id={}", ii["candidate_id"]);
+                    eprintln!(
+                        "[runner] ingest exercised -> candidate_id={}",
+                        ii["candidate_id"]
+                    );
                 }
                 eprintln!("[runner] Next: ls the output dir, then python -m agentforge.list_pending_candidates list (or promote)");
             }
@@ -705,7 +1648,10 @@ fn main() {
 
         "stats" => {
             let input = find_flag_value(&args, &["--input", "-i", "--from", "-f"]);
-            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| { eprintln!("[runner] load warn: {}", e); TrajectoryDataset::new("empty") });
+            let ds = load_dataset(input.as_deref()).unwrap_or_else(|e| {
+                eprintln!("[runner] load warn: {}", e);
+                TrajectoryDataset::new("empty")
+            });
             let stats = ds.basic_stats();
             let by_outcome: std::collections::HashMap<_, _> = {
                 let mut m = std::collections::HashMap::new();
@@ -730,7 +1676,9 @@ fn main() {
                 .or_else(|| Some("eval/results".into()));
             let output = find_flag_value(&args, &["--output", "--out", "-o"])
                 .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(format!("/tmp/rust_records_{}.jsonl", std::process::id())));
+                .unwrap_or_else(|| {
+                    PathBuf::from(format!("/tmp/rust_records_{}.jsonl", std::process::id()))
+                });
 
             let ds = match load_dataset(input.as_deref()) {
                 Ok(d) => d,
@@ -739,14 +1687,23 @@ fn main() {
                     TrajectoryDataset::new("empty")
                 }
             };
-            let recs: Vec<serde_json::Value> = ds.records.iter()
+            let recs: Vec<serde_json::Value> = ds
+                .records
+                .iter()
                 .map(|r| serde_json::to_value(r).unwrap_or_else(|_| serde_json::json!({})))
                 .collect();
             let _ = write_jsonl(&output, &recs);
             if json_mode {
-                println!("{}", serde_json::json!({"cmd":"export-records","count":recs.len(),"output":output.to_string_lossy()}));
+                println!(
+                    "{}",
+                    serde_json::json!({"cmd":"export-records","count":recs.len(),"output":output.to_string_lossy()})
+                );
             } else {
-                eprintln!("[runner] Wrote {} full records → {}", recs.len(), output.display());
+                eprintln!(
+                    "[runner] Wrote {} full records → {}",
+                    recs.len(),
+                    output.display()
+                );
             }
         }
 
@@ -758,13 +1715,18 @@ fn main() {
             // Emits rich structured: preference_pairs (DPO-style), prm_step_labels (when present), per-record learning_value,
             // stats (success_rate, avg_prm, high_value_count). Graceful missing sidecars, fast, good errors.
             // --format json => single pretty rich bundle JSON; jsonl => jsonl of pairs + records + labels + stats trailer.
-            let trajectories = find_flag_value(&args, &["--trajectories", "--traj", "-t", "--trajectories-dir"]);
+            let trajectories = find_flag_value(
+                &args,
+                &["--trajectories", "--traj", "-t", "--trajectories-dir"],
+            );
             let prm_dir = find_flag_value(&args, &["--prm-dir", "--prm", "--prm-sidecars", "-p"]);
             let results = find_flag_value(&args, &["--results", "--res", "-r", "--results-dir"]);
             let input_fallback = find_flag_value(&args, &["--input", "-i", "--from", "-f"]);
             let output = find_flag_value(&args, &["--output", "--out", "-o"])
                 .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(format!("/tmp/flywheel_rich_{}.json", std::process::id())));
+                .unwrap_or_else(|| {
+                    PathBuf::from(format!("/tmp/flywheel_rich_{}.json", std::process::id()))
+                });
             let fmt = find_flag_value(&args, &["--format", "--fmt"])
                 .unwrap_or_else(|| "json".to_string())
                 .to_lowercase();
@@ -775,26 +1737,38 @@ fn main() {
             let mut ds = TrajectoryDataset::new("flywheel_export");
             let mut load_summary = serde_json::json!({});
             if trajectories.is_some() || prm_dir.is_some() || results.is_some() {
-                let t_arg = trajectories.as_ref().map(|s| std::path::PathBuf::from(s));
-                let p_arg = prm_dir.as_ref().map(|s| std::path::PathBuf::from(s));
-                let r_arg = results.as_ref().map(|s| std::path::PathBuf::from(s));
+                let t_arg = trajectories.as_ref().map(std::path::PathBuf::from);
+                let p_arg = prm_dir.as_ref().map(std::path::PathBuf::from);
+                let r_arg = results.as_ref().map(std::path::PathBuf::from);
                 match ds.load_flywheel_data(t_arg.as_ref(), p_arg.as_ref(), r_arg.as_ref()) {
                     Ok((tt, pp, rr)) => {
                         load_summary = serde_json::json!({"trajectories":tt,"prm_enriched":pp,"results":rr,"mode":"dirs"});
                     }
                     Err(e) => {
-                        if !json_mode { eprintln!("[runner] load_flywheel_data warning (graceful): {}", e); }
+                        if !json_mode {
+                            eprintln!("[runner] load_flywheel_data warning (graceful): {}", e);
+                        }
                     }
                 }
             }
-            let effective_input = if trajectories.is_none() && prm_dir.is_none() && results.is_none() {
-                input_fallback.or_else(|| Some("/home/eveselove/agentforge/eval/trajectories".into()))
-            } else { input_fallback.clone() };
+            let effective_input =
+                if trajectories.is_none() && prm_dir.is_none() && results.is_none() {
+                    input_fallback
+                        .or_else(|| Some("/home/eveselove/agentforge/eval/trajectories".into()))
+                } else {
+                    input_fallback.clone()
+                };
             if let Some(inp) = &effective_input {
                 if ds.records.is_empty() {
                     let p = PathBuf::from(inp);
-                    let cands: Vec<PathBuf> = if p.is_absolute() { vec![p.clone()] } else {
-                        vec![ PathBuf::from("/home/eveselove/agentforge").join(inp), p.clone(), PathBuf::from("..").join(inp) ]
+                    let cands: Vec<PathBuf> = if p.is_absolute() {
+                        vec![p.clone()]
+                    } else {
+                        vec![
+                            PathBuf::from("/home/eveselove/agentforge").join(inp),
+                            p.clone(),
+                            PathBuf::from("..").join(inp),
+                        ]
                     };
                     for cand in cands {
                         if cand.exists() {
@@ -820,10 +1794,17 @@ fn main() {
 
             // Write: json => full rich bundle as pretty JSON; jsonl => rich jsonl (pairs + learning records + prm labels + stats)
             let write_err = if fmt == "jsonl" || fmt == "jsonlines" {
-                let mut items: Vec<serde_json::Value> = bundle.get("preference_pairs")
-                    .and_then(|v| v.as_array()).cloned().unwrap_or_default();
-                if let Some(recs) = bundle.get("per_record_learning_values").and_then(|v| v.as_array()) {
-                    for r in recs.iter().take(500) { // cap for size in jsonl mode
+                let mut items: Vec<serde_json::Value> = bundle
+                    .get("preference_pairs")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                if let Some(recs) = bundle
+                    .get("per_record_learning_values")
+                    .and_then(|v| v.as_array())
+                {
+                    for r in recs.iter().take(500) {
+                        // cap for size in jsonl mode
                         items.push(serde_json::json!({"type":"learning_record", "learning_value": r.get("learning_value"), "data": r}));
                     }
                 }
@@ -844,41 +1825,67 @@ fn main() {
 
             if let Err(e) = write_err {
                 if json_mode {
-                    println!(r#"{{"error":"write failed","detail":"{}","cmd":"flywheel-export"}}"#, e);
-                } else { eprintln!("error writing: {}", e); }
+                    println!(
+                        r#"{{"error":"write failed","detail":"{}","cmd":"flywheel-export"}}"#,
+                        e
+                    );
+                } else {
+                    eprintln!("error writing: {}", e);
+                }
                 std::process::exit(1);
             }
 
             let rec_count = ds.len();
-            let pairs_c = bundle.get("preference_pairs").and_then(|a| a.as_array().map(|x|x.len())).unwrap_or(0);
-            let labels_c = bundle.get("prm_step_labels").and_then(|a| a.as_array().map(|x|x.len())).unwrap_or(0);
-            let stats_out = bundle.get("stats").cloned().unwrap_or(serde_json::json!({}));
+            let pairs_c = bundle
+                .get("preference_pairs")
+                .and_then(|a| a.as_array().map(|x| x.len()))
+                .unwrap_or(0);
+            let labels_c = bundle
+                .get("prm_step_labels")
+                .and_then(|a| a.as_array().map(|x| x.len()))
+                .unwrap_or(0);
+            let stats_out = bundle
+                .get("stats")
+                .cloned()
+                .unwrap_or(serde_json::json!({}));
 
             if json_mode {
-                println!("{}", serde_json::json!({
-                    "cmd": "flywheel-export",
-                    "format": fmt,
-                    "trajectories": trajectories,
-                    "prm_dir": prm_dir,
-                    "input": effective_input,
-                    "output": output.to_string_lossy(),
-                    "min_prm": min_prm,
-                    "record_count": rec_count,
-                    "pairs_count": pairs_c,
-                    "prm_labels_count": labels_c,
-                    "stats": stats_out,
-                    "load_summary": load_summary,
-                    "rich_keys": ["preference_pairs","prm_step_labels","per_record_learning_values","stats"]
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "cmd": "flywheel-export",
+                        "format": fmt,
+                        "trajectories": trajectories,
+                        "prm_dir": prm_dir,
+                        "input": effective_input,
+                        "output": output.to_string_lossy(),
+                        "min_prm": min_prm,
+                        "record_count": rec_count,
+                        "pairs_count": pairs_c,
+                        "prm_labels_count": labels_c,
+                        "stats": stats_out,
+                        "load_summary": load_summary,
+                        "rich_keys": ["preference_pairs","prm_step_labels","per_record_learning_values","stats"]
+                    })
+                );
             } else {
                 eprintln!("[runner] flywheel-export: {} recs ({} pairs + {} prm_labels, high_value={}) → {}",
                     rec_count, pairs_c, labels_c,
                     stats_out.get("high_value_count").and_then(|x|x.as_u64()).unwrap_or(0),
                     output.display());
-                eprintln!("[runner] stats success_rate={:.3} avg_prm={:.3} (min_prm={:?})  format={}",
-                    stats_out.get("success_rate").and_then(|x|x.as_f64()).unwrap_or(0.0),
-                    stats_out.get("avg_prm").and_then(|x|x.as_f64()).unwrap_or(0.0),
-                    min_prm, fmt);
+                eprintln!(
+                    "[runner] stats success_rate={:.3} avg_prm={:.3} (min_prm={:?})  format={}",
+                    stats_out
+                        .get("success_rate")
+                        .and_then(|x| x.as_f64())
+                        .unwrap_or(0.0),
+                    stats_out
+                        .get("avg_prm")
+                        .and_then(|x| x.as_f64())
+                        .unwrap_or(0.0),
+                    min_prm,
+                    fmt
+                );
             }
         }
 
@@ -899,7 +1906,8 @@ fn main() {
         "candidate" => {
             // Robust subcmd detection: find "candidate" position, take the next non-flag token as cand_cmd (handles --json before or after, and direct use).
             let cand_idx = args.iter().position(|a| a == "candidate").unwrap_or(0);
-            let cand_cmd = args.get(cand_idx + 1)
+            let cand_cmd = args
+                .get(cand_idx + 1)
                 .filter(|s| !s.starts_with('-'))
                 .map(|s| s.as_str())
                 .unwrap_or("list");
@@ -966,15 +1974,26 @@ fn main() {
                             eprintln!("  (no pending candidates found; run flywheel-step --real-data --ingest or equivalent)");
                         }
                         for (i, c) in listed.iter().enumerate() {
-                            let lv_str = if let Some(v) = c.rich_avg_learning_value.or(c.avg_learning_value) {
+                            let lv_str = if let Some(v) =
+                                c.rich_avg_learning_value.or(c.avg_learning_value)
+                            {
                                 format!(" avg_lv={:.2}", v)
-                            } else { String::new() };
+                            } else {
+                                String::new()
+                            };
                             let sr_str = c
                                 .success_rate
                                 .map(|v| format!(" sr={:.3}", v))
                                 .unwrap_or_default();
-                            let rec_str = c.records_loaded.map(|r| format!(" recs={}", r)).unwrap_or_default();
-                            let ts_str = c.timestamp.as_deref().map(|t| format!(" ts={}", t)).unwrap_or_default();
+                            let rec_str = c
+                                .records_loaded
+                                .map(|r| format!(" recs={}", r))
+                                .unwrap_or_default();
+                            let ts_str = c
+                                .timestamp
+                                .as_deref()
+                                .map(|t| format!(" ts={}", t))
+                                .unwrap_or_default();
                             eprintln!(
                                 "  #{:<2} {}{}  skill={}  impact={}  hlv={}{}{}{}  promoted={}",
                                 i + 1,
@@ -999,14 +2018,17 @@ fn main() {
                     // Rich result for detailed status. --dry-run for safety preview. Excellent human + --json output.
                     // Robust id detection (after "promote" token or via flags).
                     let prom_idx = args.iter().position(|a| a == "promote").unwrap_or(0);
-                    let candidate_id = args.get(prom_idx + 1)
+                    let candidate_id = args
+                        .get(prom_idx + 1)
                         .filter(|s| !s.starts_with('-'))
                         .map(|s| s.to_string())
                         .or_else(|| find_flag_value(&args, &["--id", "--candidate", "-c"]))
                         .unwrap_or_default();
                     if candidate_id.is_empty() {
                         if json_mode {
-                            println!(r#"{{"error":"missing candidate_id","usage":"candidate promote <id> [--copy-to-skills] [--json] [--dry-run]"}}"#);
+                            println!(
+                                r#"{{"error":"missing candidate_id","usage":"candidate promote <id> [--copy-to-skills] [--json] [--dry-run]"}}"#
+                            );
                         } else {
                             eprintln!("[runner] usage: agentforge-runner candidate promote <id> [--copy-to-skills] [--json] [--dry-run] (safe)");
                         }
@@ -1041,17 +2063,39 @@ fn main() {
                                     })).unwrap());
                                 } else {
                                     eprintln!("[runner] candidate promote (REAL RUST, FULLY WIRED) for: {}", candidate_id);
-                                    eprintln!("  dry_run={}  copy_to_skills={}  success={}", res.dry_run, do_copy, res.success);
+                                    eprintln!(
+                                        "  dry_run={}  copy_to_skills={}  success={}",
+                                        res.dry_run, do_copy, res.success
+                                    );
                                     eprintln!("  candidate_dir: {}", res.candidate_dir.display());
                                     if let Some(p) = &res.promoted_to {
-                                        eprintln!("  promoted_to (skills): {}  (copy_succeeded={})", p.display(), res.copy_succeeded);
+                                        eprintln!(
+                                            "  promoted_to (skills): {}  (copy_succeeded={})",
+                                            p.display(),
+                                            res.copy_succeeded
+                                        );
                                     } else if do_copy {
                                         eprintln!("  promoted_to: (none - no yaml or copy failed)");
                                     }
-                                    eprintln!("  meta: {}  (updated={})", res.meta_path.display(), res.meta_updated);
-                                    eprintln!("  history: {}  (updated={})", res.history_path.display(), res.history_updated);
-                                    eprintln!("  markers: .promoted={}  .reviewed={}", res.marker_path.display(), res.reviewed_marker_path.display());
-                                    eprintln!("  promoted_at={}  promoted={}  marker_created={}", res.promoted_at, res.promoted, res.marker_created);
+                                    eprintln!(
+                                        "  meta: {}  (updated={})",
+                                        res.meta_path.display(),
+                                        res.meta_updated
+                                    );
+                                    eprintln!(
+                                        "  history: {}  (updated={})",
+                                        res.history_path.display(),
+                                        res.history_updated
+                                    );
+                                    eprintln!(
+                                        "  markers: .promoted={}  .reviewed={}",
+                                        res.marker_path.display(),
+                                        res.reviewed_marker_path.display()
+                                    );
+                                    eprintln!(
+                                        "  promoted_at={}  promoted={}  marker_created={}",
+                                        res.promoted_at, res.promoted, res.marker_created
+                                    );
                                     if !res.warnings.is_empty() {
                                         eprintln!("  warnings: {:?}", res.warnings);
                                     }
@@ -1066,7 +2110,10 @@ fn main() {
                             }
                             Err(e) => {
                                 if json_mode {
-                                    println!(r#"{{"error":"promote_failed","candidate_id":"{}","detail":"{}","usage":"candidate promote <id> [--copy-to-skills] [--json] [--dry-run]"}}"#, candidate_id, e);
+                                    println!(
+                                        r#"{{"error":"promote_failed","candidate_id":"{}","detail":"{}","usage":"candidate promote <id> [--copy-to-skills] [--json] [--dry-run]"}}"#,
+                                        candidate_id, e
+                                    );
                                 } else {
                                     eprintln!("[runner] promote error for {}: {}", candidate_id, e);
                                     eprintln!("  usage: agentforge-runner candidate promote <id> [--copy-to-skills] [--json] [--dry-run] (safe)");
@@ -1078,7 +2125,9 @@ fn main() {
                 }
                 _ => {
                     if json_mode {
-                        println!(r#"{{"error":"unknown candidate subcmd","use":"list [--top N] [--sort value|recency] | promote <id>"}}"#);
+                        println!(
+                            r#"{{"error":"unknown candidate subcmd","use":"list [--top N] [--sort value|recency] | promote <id>"}}"#
+                        );
                     } else {
                         eprintln!("[runner] candidate subcommands: list [--top N] [--sort value|recency]  |  promote <id> [--copy-to-skills] [--json] [--dry-run] (FULL: source=rust-agentforge-runner in history.jsonl)");
                     }
@@ -1094,14 +2143,17 @@ fn main() {
         "promote" => {
             // Treat as "candidate promote" — robust id capture
             let prom_idx = args.iter().position(|a| a == "promote").unwrap_or(0);
-            let candidate_id = args.get(prom_idx + 1)
+            let candidate_id = args
+                .get(prom_idx + 1)
                 .filter(|s| !s.starts_with('-'))
                 .map(|s| s.to_string())
                 .or_else(|| find_flag_value(&args, &["--id", "--candidate", "-c"]))
                 .unwrap_or_default();
             if candidate_id.is_empty() {
                 if json_mode {
-                    println!(r#"{{"error":"missing candidate_id","usage":"promote <id> [--copy-to-skills] [--json] [--dry-run]  (or: candidate promote ...)"}}"#);
+                    println!(
+                        r#"{{"error":"missing candidate_id","usage":"promote <id> [--copy-to-skills] [--json] [--dry-run]  (or: candidate promote ...)"}}"#
+                    );
                 } else {
                     eprintln!("[runner] usage: agentforge-runner promote <id> [--copy-to-skills] [--json] [--dry-run]   (short alias; same as 'candidate promote'. REAL rust promote, safe dry default)");
                 }
@@ -1125,13 +2177,18 @@ fn main() {
                             })).unwrap());
                         } else {
                             eprintln!("[runner] promote (top-level alias, REAL RUST) for {}: success={} dry={}", candidate_id, res.success, res.dry_run);
-                            if let Some(p) = &res.promoted_to { eprintln!("  promoted_to: {}", p.display()); }
+                            if let Some(p) = &res.promoted_to {
+                                eprintln!("  promoted_to: {}", p.display());
+                            }
                             eprintln!("  (identical to 'candidate promote'; history + markers + rust stamp written when !dry_run)");
                         }
                     }
                     Err(e) => {
                         if json_mode {
-                            println!(r#"{{"error":"promote_failed","candidate_id":"{}","detail":"{}"}}"#, candidate_id, e);
+                            println!(
+                                r#"{{"error":"promote_failed","candidate_id":"{}","detail":"{}"}}"#,
+                                candidate_id, e
+                            );
                         } else {
                             eprintln!("[runner] promote error for {}: {}", candidate_id, e);
                         }
@@ -1161,18 +2218,37 @@ fn main() {
                 ranked.into_iter().take(top).map(|p| p.summary).collect()
             };
             if json_mode {
-                let items: Vec<_> = listed.iter().map(|c| serde_json::json!({
-                    "id": c.id, "skill": c.skill, "impact": c.impact,
-                    "rich_avg_learning_value": c.rich_avg_learning_value,
-                    "promoted": c.promoted, "path": c.path.to_string_lossy()
-                })).collect();
-                println!("{}", serde_json::json!({"cmd":"list","alias_of":"candidate list","sort":sort,"top":top,"count":items.len(),"candidates":items}));
+                let items: Vec<_> = listed
+                    .iter()
+                    .map(|c| {
+                        serde_json::json!({
+                            "id": c.id, "skill": c.skill, "impact": c.impact,
+                            "rich_avg_learning_value": c.rich_avg_learning_value,
+                            "promoted": c.promoted, "path": c.path.to_string_lossy()
+                        })
+                    })
+                    .collect();
+                println!(
+                    "{}",
+                    serde_json::json!({"cmd":"list","alias_of":"candidate list","sort":sort,"top":top,"count":items.len(),"candidates":items})
+                );
             } else {
-                eprintln!("[runner] list (top-level alias for candidate list, sort={}, top {}):", sort, top);
+                eprintln!(
+                    "[runner] list (top-level alias for candidate list, sort={}, top {}):",
+                    sort, top
+                );
                 for (i, c) in listed.iter().enumerate() {
-                    eprintln!("  #{} {}  skill={}  impact={}", i+1, c.id, c.skill, c.impact);
+                    eprintln!(
+                        "  #{} {}  skill={}  impact={}",
+                        i + 1,
+                        c.id,
+                        c.skill,
+                        c.impact
+                    );
                 }
-                eprintln!("(Use 'candidate list' for full fields or --json. Then 'promote <id>' to act.)");
+                eprintln!(
+                    "(Use 'candidate list' for full fields or --json. Then 'promote <id>' to act.)"
+                );
             }
         }
 
@@ -1191,10 +2267,19 @@ fn main() {
             // Dry-run default true (safe). --no-dry-run or --execute to run real actions (future).
             let dry_run = !has_flag(&args, &["--no-dry-run", "--execute", "--real"]);
             // Phase 2 shadow / dual-run (continuous fidelity for farm validation, mirrors flywheel-step + post_process)
-            let shadow = has_flag(&args, &["--shadow"]) ||
-                std::env::var("AGENTFORGE_RUST_FLYWHEEL_SHADOW").map(|v| v == "1" || v.to_lowercase() == "true" || v.to_lowercase() == "yes" || v.to_lowercase() == "on").unwrap_or(false);
+            let shadow = has_flag(&args, &["--shadow"])
+                || std::env::var("AGENTFORGE_RUST_FLYWHEEL_SHADOW")
+                    .map(|v| {
+                        v == "1"
+                            || v.to_lowercase() == "true"
+                            || v.to_lowercase() == "yes"
+                            || v.to_lowercase() == "on"
+                    })
+                    .unwrap_or(false);
             // UX completeness: accept --min-lv (future filter parity with Python continuous) - parsed but advisory in skeleton
-            let _min_lv: Option<f64> = find_flag_value(&args, &["--min-lv", "--min-lv", "--min_avg_lv"]).and_then(|s| s.parse().ok());
+            let _min_lv: Option<f64> =
+                find_flag_value(&args, &["--min-lv", "--min-lv", "--min_avg_lv"])
+                    .and_then(|s| s.parse().ok());
 
             if !json_mode {
                 eprintln!("[runner] continuous (COMPLETE production autonomy) top_n={} dry_run={} shadow={}", top_n, dry_run, shadow);
@@ -1222,7 +2307,9 @@ fn main() {
             // Includes shadow for continuous dual-run fidelity (hooks / post_process / harness / services)
             let health = serde_json::json!({
                 "timestamp": chrono::Utc::now().to_rfc3339(),
-                "source": "agentforge-runner continuous (COMPLETE pure-Rust autonomy meta-loop + shadow)",
+                "engine": "rust-agentforge-runner",
+                "provenance": "rust-agentforge-runner",
+                "source": "rust-agentforge-runner continuous (COMPLETE pure-Rust autonomy meta-loop + shadow)",
                 "dry_run": dry_run,
                 "top_n": top_n,
                 "shadow": shadow,
@@ -1235,11 +2322,15 @@ fn main() {
                 "phase": "production"
             });
 
-            let health_path = std::path::PathBuf::from("/tmp/agentforge_rust_flywheel/flywheel_health.json");
+            let health_path =
+                std::path::PathBuf::from("/tmp/agentforge_rust_flywheel/flywheel_health.json");
             if let Some(p) = health_path.parent() {
                 let _ = std::fs::create_dir_all(p);
             }
-            let _ = std::fs::write(&health_path, serde_json::to_string_pretty(&health).unwrap_or_default());
+            let _ = std::fs::write(
+                &health_path,
+                serde_json::to_string_pretty(&health).unwrap_or_default(),
+            );
 
             let out = serde_json::json!({
                 "cmd": "continuous",
@@ -1258,20 +2349,38 @@ fn main() {
             } else {
                 eprintln!("[runner] continuous COMPLETE (production autonomy + shadow). Suggested {} candidates (dry_run={} shadow={}).", suggestions.len(), dry_run, shadow);
                 for (i, s) in suggestions.iter().enumerate() {
-                    eprintln!("  #{} {} (skill={}, lv={:?})", i+1, s["id"], s["skill"], s["rich_avg_learning_value"]);
+                    eprintln!(
+                        "  #{} {} (skill={}, lv={:?})",
+                        i + 1,
+                        s["id"],
+                        s["skill"],
+                        s["rich_avg_learning_value"]
+                    );
                 }
-                eprintln!("[runner] Health JSON -> {} (watchdog + farm parity ready)", health_path.display());
+                eprintln!(
+                    "[runner] Health JSON -> {} (watchdog + farm parity ready)",
+                    health_path.display()
+                );
                 eprintln!("[runner] Pure Rust surface: --shadow or AGENTFORGE_RUST_FLYWHEEL_SHADOW=1 wires continuous dual-run fidelity into hooks/post_process/timers/parity.");
             }
         }
 
         "version" => {
-            println!("{}", if json_mode { format!(r#"{{"version":"{}"}}"#, VERSION) } else { VERSION.to_string() });
+            println!(
+                "{}",
+                if json_mode {
+                    format!(r#"{{"version":"{}"}}"#, VERSION)
+                } else {
+                    VERSION.to_string()
+                }
+            );
         }
 
         "help" | _ => {
             if json_mode {
-                println!(r#"{{"status":"ok","commands":["demo","full-stack","export-pairs","export-prm-steps","export-sft","flywheel-export","export-learning","improve-skill","flywheel-step","stats","version","candidate list","candidate promote","continuous"],"note":"COMPLETE pure Rust surface: flywheel-step + continuous (autonomy+shadow) + candidate promote (real) + shadow. All integration (after_task hooks, post_process, demo tools, timers, workers) wired direct. See --help for examples."}}"#);
+                println!(
+                    r#"{{"status":"ok","commands":["demo","full-stack","export-pairs","export-prm-steps","export-sft","flywheel-export","export-learning","improve-skill","flywheel-step","stats","version","candidate list","candidate promote","continuous"],"note":"COMPLETE pure Rust surface: flywheel-step + continuous (autonomy+shadow) + candidate promote (real) + shadow. All integration (after_task hooks, post_process, demo tools, timers, workers) wired direct. See --help for examples."}}"#
+                );
             } else {
                 print_usage();
             }

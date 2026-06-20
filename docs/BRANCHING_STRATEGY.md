@@ -23,13 +23,13 @@ To keep history searchable and understandable for both humans and agents, all br
 | Prefix   | Pattern                        | When to use                                      | Example                              |
 |----------|--------------------------------|--------------------------------------------------|--------------------------------------|
 | `task/`  | `task/<task-short-id>`         | Work directly linked to a task in the queue      | `task/1870c84c`                      |
-| `agent/` | `agent/<kebab-desc>`           | Work initiated by local agents (Grok, etc.)      | `agent/improve-jules-watcher`        |
-| `jules/` | `jules/<session-id>`           | Work originating from a specific Jules session   | `jules/11158842600384206278`         |
+| `agent/` | `agent/<kebab-desc>`           | Work initiated by local agents (Grok primary)    | `agent/cm-03-branching-strategy-62a84821` |
+| `jules/` | `jules/<session-id>`           | (Legacy) Work from old Jules sessions (farm removed 2026-06) | `jules/11158842600384206278` (historical) |
 | `human/` | `human/<name>/<topic>`         | Exploratory or coordination work by humans       | `human/eveselove/audit-ci`           |
 | `feat/`  | `feat/<description>`           | Standard new feature work                        | `feat/multi-jules-support`           |
 | `fix/`   | `fix/<description>`            | Bug fixes (can be combined with other prefixes)  | `fix/watcher-parsing`                |
 
-**Strong recommendation**: Always include a Task ID or Jules Session ID when possible.
+**Strong recommendation**: Always include a Task ID (legacy Jules Session ID ok for historical).
 
 ## Workflow
 
@@ -39,13 +39,13 @@ To keep history searchable and understandable for both humans and agents, all br
 - If the work comes from the internal task queue, the branch should reference the task ID.
 
 ### 2. During Development
-- Commit frequently with clear messages that reference the originating Task ID and/or Jules Session ID.
+- Commit frequently with clear messages that reference the originating Task ID (and/or legacy Jules Session ID).
 - Follow code style (run pre-commit hook).
 - For Jules work — the session usually creates the branch on GitHub automatically.
 
 ### 3. Finishing Work
 - Open a Pull Request to `main`.
-- **Mandatory**: Link the PR to at least one Task ID or Jules Session ID (use the PR template).
+- **Mandatory**: Link the PR to at least one Task ID (legacy Jules Session ID accepted). (use the PR template).
 - Get review (preferably via another agent using the `agent-review` skill when possible).
 - All CI checks must pass.
 - Branch protection design for `main` (A2, task bc6fa462) lives in `docs/BRANCH_PROTECTION_A2_PROPOSAL.md` (smallest effective set) and `docs/BRANCH_PROTECTION_A7_DECISION.md` (A7 architectural level decision, Level M2) + `.github/BRANCH_PROTECTION.md` (status + pointers). Always consult them; implementation is A4.
@@ -53,7 +53,7 @@ To keep history searchable and understandable for both humans and agents, all br
 ### 4. After Merge
 - Delete the branch immediately.
 - Update the task status in the queue (if applicable).
-- If it was a Jules session, the acceptance task created by `jules-watch.sh` should be completed.
+- (Legacy) If it was a Jules session, the acceptance task created by `jules-watch.sh` should be completed (Jules farm removed; this note for historical PRs).
 
 ## Enforcement
 
@@ -63,12 +63,12 @@ To keep history searchable and understandable for both humans and agents, all br
 | CI        | GitHub Actions (fmt, clippy, tests, etc.) | Basic version exists, being strengthened |
 | PR        | Mandatory linking + review                | PR template + CODEOWNERS exist   |
 | Branch    | Protection on `main`                      | A2 proposal (`docs/BRANCH_PROTECTION_A2_PROPOSAL.md`, task bc6fa462) + A7 Level M2 decision (`docs/BRANCH_PROTECTION_A7_DECISION.md`); implementation pending (A4). |
-| Process   | `jules-watch.sh` + task queue             | Running                          |
+| Process   | task queue (grok_worker + gateway + runner) | Running (Jules farm removed)     |
 
 ## Agent-Specific Rules
 
 - **Worktree Isolation**: Agents **must** use `git worktree` (via `bin/agent-worktree` when available) to avoid file collisions when multiple agents run in parallel.
-- **Automatic Cleanup**: Execution runners (`agent-team`, `launch-jules-parallel`, custom scripts, etc.) are responsible for cleaning up their worktrees and local branches when a task completes or fails.
+- **Automatic Cleanup**: Execution runners (`agent-team`, grok_worker, agentforge-runner, custom scripts, worktree users) are responsible for cleaning up their worktrees and local branches when a task completes or fails. (launch-jules-parallel removed.)
 - **Self-Verification**: For high-priority or complex tasks, agents should use the `--check` flag (or equivalent self-review mode) before marking the work ready for external review.
 
 ## Special Cases
@@ -88,20 +88,20 @@ In case of critical failures on `main`:
 - High-priority "Fix the Build" tasks can be created in the task queue to coordinate recovery.
 
 ### High-volume Jules periods
-When running large parallel waves via `launch-jules-parallel`, we expect more conflicts and messier history. This is an accepted trade-off for speed.
+When running large parallel waves (via agent-team + many agent-worktrees or high MAX_PARALLEL in grok_worker), we expect more conflicts and messier history. This is an accepted trade-off for speed. (Jules launch-parallel removed.)
 
 ## Commit & PR Message Guidelines
 
 **Mandatory linking** (enforced as much as possible):
-- Every commit **must** reference a Task ID or Jules Session ID.
+- Every commit **must** reference a Task ID (or legacy Jules Session ID).
 - Recommended formats:
   - `type(scope): description (task <short-id>)`
   - `type(scope): description (jules <session-id>)`
 
 Good examples:
 ```
-feat(branching): improve agent branch naming (task 6f948c10, jules/11158842600384206278)
-fix(jules): reduce precondition errors on parallel launches (task bcd05a4b)
+feat(branching): improve agent branch naming (task 6f948c10)  # or (task ..., jules/...) for legacy
+fix(agents): reduce precondition errors on parallel launches (task bcd05a4b)  # (jules example was legacy)
 ```
 
 This makes history auditable and allows the system to automatically connect code changes to tasks and flywheel trajectories.

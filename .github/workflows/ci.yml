@@ -25,7 +25,7 @@ on:
 #
 # PHASE2 A3 (task 3bb7b46d): Added simple "traceability" job (runs on pull_request only).
 # Fails the PR if neither title nor body contains a Task ID (e.g. "task 3bb7b46d", "task c517baad")
-# or Jules session reference (e.g. "Jules 12237721410778183159"). Regex kept in sync with
+# or legacy Jules session reference (e.g. "Jules 12237721410778183159"). Regex kept in sync with (Jules farm removed, ID support retained)
 # bin/validate-commit-msg. Enforces the mandatory traceability rule from docs/BRANCHING_STRATEGY.md
 # and AGENTS.md at the CI layer (complements local pre-commit).
 
@@ -58,23 +58,25 @@ jobs:
 
       - name: Check
         run: cargo check --workspace --all-targets
-        continue-on-error: true   # final gate: latent test code issues (proptest, macro usage in runner/flywheel etc.) pre-exist on branch; required for merge of P1 handoff (task b477ca99)
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
-        continue-on-error: true   # final gate softness for P1 merge (latent warnings in crates on branch)
 
       - name: Format
         run: cargo fmt --all -- --check
-        continue-on-error: true   # final gate for P1 (formatting on branch)
 
       - name: Test (lib)
         run: cargo test --workspace --lib -- --test-threads=2
-        continue-on-error: true   # Many tests are still environment-dependent
 
       - name: Docs
         run: cargo doc --workspace --no-deps --locked
-        continue-on-error: true   # final gate for P1
+
+      - name: Rust CI Health Report
+        run: |
+          echo "### Rust CI Health 🦀" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build/Check**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "Monitor build times in the GitHub Actions UI to detect potential flakiness or regressions." >> $GITHUB_STEP_SUMMARY
 
   python:
     name: Python
@@ -148,3 +150,22 @@ jobs:
       - name: Markdown structure check
         run: |
           echo "Docs check passed (expand later)"
+
+  agent-review-link:
+    name: Agent-Review Traceability (A4)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'agent/') || startsWith(github.head_ref, 'jules/'))
+    steps:
+      - name: Check PR body for Agent-Review Handoff
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if ! echo "$PR_BODY $PR_TITLE" | grep -qiE 'agent-review|handoff [0-9a-fA-F]{8}|AGENT_REVIEW_HANDOFF'; then
+            echo "::error::Agent-review is the mandatory default path! Please include the agent-review handoff evidence in your PR title or body."
+            if [ -z "$AGENT_REVIEW_ADVISORY" ]; then
+              exit 1
+            fi
+          else
+            echo "Found agent-review handoff evidence. Proceeding."
+          fi

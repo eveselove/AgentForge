@@ -1,12 +1,12 @@
 {
-  "api_base": "http://localhost:8080",
+  "api_base": "http://localhost:9090",
   "poll_interval": 15,
-  "max_parallel": 1000,
-  "task_timeout": 900,
-  "project_dir": "/home/eveselove/planlytasksko",
+  "max_parallel": 10,
+  "task_timeout": 1800,
+  "project_dir": "/home/eveselove/agentforge",
   "log_dir": "/home/eveselove/agentforge/logs",
-  "grok_bin": "/home/eveselove/.grok/bin/grok",
-  "default_model": "grok-build",
-  "fallback_model": "grok-3",
-  "agent_id": "antigravity"
+  "default_model": "Gemini 3.5 Flash (Medium)",
+  "fallback_model": "Claude Opus 4.6 (Thinking)",
+  "agent_id": "antigravity",
+  "agy_bin": "/home/eveselove/.local/bin/agy"
 }

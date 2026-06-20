@@ -6,11 +6,11 @@
 # ============================================
 # AgentForge Watchdog — контроль зависших задач + эскалация
 # Если агент завис → задача эскалируется к более опытному
-# Цепочка: jules → grok → antigravity → failed
+# Цепочка: grok → antigravity → failed (jules farm removed)
 # Запуск через cron: */5 * * * * bash ~/agentforge/watchdog.sh
 # ============================================
 
-API="http://localhost:8080"
+API="http://localhost:9090"
 LOG_DIR="/home/eveselove/agentforge/logs"
 TIMEOUT_MINUTES=30  # Таймаут для обычных задач
 CRITICAL_TIMEOUT=60 # Таймаут для critical (best-of-n дольше)
@@ -27,9 +27,9 @@ tasks = json.load(sys.stdin)
 now = datetime.now(timezone.utc)
 
 # Цепочка эскалации: кто следующий если агент завис
-# jules → grok → antigravity → failed (конец цепочки)
+# grok → antigravity → failed (jules farm removed 2026-06)
 ESCALATION = {
-    'jules': 'grok',
+    'jules': 'grok',  # legacy tasks only
     'grok': 'antigravity',
     'antigravity': None,  # Некуда эскалировать — failed
     'auto': 'grok',

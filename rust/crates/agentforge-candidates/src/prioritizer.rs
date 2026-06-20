@@ -4,7 +4,7 @@
 //! - _lv_key / list_high_value_candidates / print_pending_summary scoring logic
 //! - composite: lv * lift_potential + recency (where lift_pot = hlv * (1-sr) * max(lv, 0.05))
 //!   Matches both the *10 variant in list_high_value_candidates and recency tiebreak from _lv_key.
-//! Real FS data from candidate_meta.json (rich_*) + proposal fallbacks now drive it.
+//!   Real FS data from candidate_meta.json (rich_*) + proposal fallbacks now drive it.
 
 use super::*;
 
@@ -30,7 +30,10 @@ impl Prioritizer {
         let mut scored: Vec<CandidatePriority> = candidates
             .iter()
             .map(|c| {
-                let lv = c.rich_avg_learning_value.or(c.avg_learning_value).unwrap_or(0.0);
+                let lv = c
+                    .rich_avg_learning_value
+                    .or(c.avg_learning_value)
+                    .unwrap_or(0.0);
                 let hlv = c.high_value_count;
                 let sr = c.success_rate.unwrap_or(0.5);
                 // Lift potential: high value signals on lower-success batches = high priority for flywheel (exact py port)
@@ -66,12 +69,19 @@ impl Prioritizer {
     }
 }
 
+impl Default for Prioritizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Public API: returns top-N by real prioritizer score (non-promoted preferred in spirit of callers).
 /// Mirrors Python list_high_value_candidates + the sort in print_pending_summary("value").
 pub fn list_high_value_candidates(store: &CandidateStore, top_n: usize) -> Vec<CandidateSummary> {
     let mut list = store.list_pending().unwrap_or_default();
-    // Filter out already-promoted for "high value pending" view (matches store.list_high_value intent)
-    list.retain(|c| !c.promoted);
+    // "High value pending" view: exclude already-promoted AND zero-high-value-record
+    // candidates (shadow/continuous edge) - matches store.list_high_value intent.
+    list.retain(|c| !c.promoted && c.high_value_count > 0);
     let ranked = Prioritizer::new().rank(&list);
     ranked.into_iter().take(top_n).map(|p| p.summary).collect()
 }
@@ -146,7 +156,10 @@ mod tests {
         assert_eq!(top.summary.id, "new_high_impact");
         assert!(top.score.is_finite() && top.score > 50.0);
 
-        let low = ranked.iter().find(|p| p.summary.id == "old_low_lv").unwrap();
+        let low = ranked
+            .iter()
+            .find(|p| p.summary.id == "old_low_lv")
+            .unwrap();
         assert!(top.score > low.score);
 
         // promoted is included in rank() (upstream list_high filters); zeroes get tiny score but finite
@@ -170,7 +183,10 @@ mod tests {
             ("20260531_prio_a", false),
             ("20260531_prio_b", false),
             ("20260531_prio_promoted", true),
-        ].iter().enumerate() {
+        ]
+        .iter()
+        .enumerate()
+        {
             let d = tmp_root.join(cid);
             let _ = std::fs::create_dir_all(&d);
             let meta = serde_json::json!({
@@ -181,7 +197,10 @@ mod tests {
                 "estimated_impact": "high",
                 "rich_avg_learning_value": 0.6 + (i as f64 * 0.1)
             });
-            let _ = std::fs::write(d.join("candidate_meta.json"), serde_json::to_string(&meta).unwrap());
+            let _ = std::fs::write(
+                d.join("candidate_meta.json"),
+                serde_json::to_string(&meta).unwrap(),
+            );
         }
 
         let tops = list_high_value_candidates(&store, 2);
@@ -189,7 +208,10 @@ mod tests {
         assert!(tops.iter().all(|c| !c.promoted));
         // higher rich lv first due to rank
         if tops.len() == 2 {
-            assert!(tops[0].rich_avg_learning_value.unwrap_or(0.0) >= tops[1].rich_avg_learning_value.unwrap_or(0.0));
+            assert!(
+                tops[0].rich_avg_learning_value.unwrap_or(0.0)
+                    >= tops[1].rich_avg_learning_value.unwrap_or(0.0)
+            );
         }
 
         let _ = std::fs::remove_dir_all(&tmp_root);
@@ -199,14 +221,30 @@ mod tests {
     fn prioritizer_rank_lift_potential_and_zero_edge_math() {
         let summaries = vec![
             CandidateSummary {
-                id: "high_lift".into(), skill: "s".into(), impact: "high".into(), high_value_count: 20,
-                promoted: false, path: PathBuf::new(), rich_avg_learning_value: Some(0.4),
-                avg_learning_value: None, success_rate: Some(0.1), timestamp: None, records_loaded: None,
+                id: "high_lift".into(),
+                skill: "s".into(),
+                impact: "high".into(),
+                high_value_count: 20,
+                promoted: false,
+                path: PathBuf::new(),
+                rich_avg_learning_value: Some(0.4),
+                avg_learning_value: None,
+                success_rate: Some(0.1),
+                timestamp: None,
+                records_loaded: None,
             },
             CandidateSummary {
-                id: "zero_hlv".into(), skill: "s".into(), impact: "low".into(), high_value_count: 0,
-                promoted: false, path: PathBuf::new(), rich_avg_learning_value: Some(0.9),
-                avg_learning_value: Some(0.9), success_rate: Some(0.1), timestamp: None, records_loaded: None,
+                id: "zero_hlv".into(),
+                skill: "s".into(),
+                impact: "low".into(),
+                high_value_count: 0,
+                promoted: false,
+                path: PathBuf::new(),
+                rich_avg_learning_value: Some(0.9),
+                avg_learning_value: Some(0.9),
+                success_rate: Some(0.1),
+                timestamp: None,
+                records_loaded: None,
             },
         ];
         let ranked = Prioritizer::new().rank(&summaries);
@@ -226,9 +264,17 @@ mod tests {
         assert!(ranked.is_empty());
 
         let all_prom = vec![CandidateSummary {
-            id: "p1".into(), skill: "s".into(), impact: "med".into(), high_value_count: 3,
-            promoted: true, path: PathBuf::new(), rich_avg_learning_value: Some(0.5),
-            avg_learning_value: None, success_rate: Some(0.5), timestamp: None, records_loaded: None,
+            id: "p1".into(),
+            skill: "s".into(),
+            impact: "med".into(),
+            high_value_count: 3,
+            promoted: true,
+            path: PathBuf::new(),
+            rich_avg_learning_value: Some(0.5),
+            avg_learning_value: None,
+            success_rate: Some(0.5),
+            timestamp: None,
+            records_loaded: None,
         }];
         let ranked2 = Prioritizer::new().rank(&all_prom);
         assert_eq!(ranked2.len(), 1);
@@ -238,9 +284,19 @@ mod tests {
     #[test]
     fn prioritizer_top_n_zero_and_negative_equiv_returns_empty_for_continuous() {
         // Edge for continuous --top-n 0 (safe no-op path)
-        let summaries = vec![
-            CandidateSummary { id: "c1".into(), skill: "s".into(), impact: "h".into(), high_value_count: 10, promoted: false, path: PathBuf::new(), rich_avg_learning_value: Some(0.9), avg_learning_value: None, success_rate: Some(0.1), timestamp: None, records_loaded: None },
-        ];
+        let summaries = vec![CandidateSummary {
+            id: "c1".into(),
+            skill: "s".into(),
+            impact: "h".into(),
+            high_value_count: 10,
+            promoted: false,
+            path: PathBuf::new(),
+            rich_avg_learning_value: Some(0.9),
+            avg_learning_value: None,
+            success_rate: Some(0.1),
+            timestamp: None,
+            records_loaded: None,
+        }];
         let ranked = Prioritizer::new().rank(&summaries);
         assert_eq!(ranked.len(), 1);
         // list_high_value respects top_n=0 as empty (used by continuous skeleton)
@@ -249,10 +305,17 @@ mod tests {
         let _ = std::fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         // seed one
-        let d = tmp.join("z1"); let _ = std::fs::create_dir_all(&d);
-        let _ = std::fs::write(d.join("candidate_meta.json"), r#"{"candidate_id":"z1","skill":"z","promoted":false,"high_learning_value_records":7,"rich_avg_learning_value":0.8}"#);
+        let d = tmp.join("z1");
+        let _ = std::fs::create_dir_all(&d);
+        let _ = std::fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"candidate_id":"z1","skill":"z","promoted":false,"high_learning_value_records":7,"rich_avg_learning_value":0.8}"#,
+        );
         let tops0 = list_high_value_candidates(&store, 0);
-        assert!(tops0.is_empty(), "top_n=0 must yield no suggestions (continuous safe)");
+        assert!(
+            tops0.is_empty(),
+            "top_n=0 must yield no suggestions (continuous safe)"
+        );
         let tops_neg = list_high_value_candidates(&store, usize::MAX); // large but filter works
         assert!(!tops_neg.is_empty());
         let _ = std::fs::remove_dir_all(&tmp);
@@ -261,19 +324,37 @@ mod tests {
     #[test]
     fn prioritizer_composite_score_stable_on_ties_and_promoted_filter_in_list_high() {
         let s1 = CandidateSummary {
-            id: "tie_a".into(), skill: "s".into(), impact: "med".into(), high_value_count: 2,
-            promoted: false, path: PathBuf::new(), rich_avg_learning_value: Some(0.3),
-            avg_learning_value: Some(0.3), success_rate: Some(0.5), timestamp: Some("20260501_000000".into()), records_loaded: None,
+            id: "tie_a".into(),
+            skill: "s".into(),
+            impact: "med".into(),
+            high_value_count: 2,
+            promoted: false,
+            path: PathBuf::new(),
+            rich_avg_learning_value: Some(0.3),
+            avg_learning_value: Some(0.3),
+            success_rate: Some(0.5),
+            timestamp: Some("20260501_000000".into()),
+            records_loaded: None,
         };
         let s2 = CandidateSummary {
-            id: "tie_b".into(), skill: "s".into(), impact: "med".into(), high_value_count: 2,
-            promoted: false, path: PathBuf::new(), rich_avg_learning_value: Some(0.3),
-            avg_learning_value: Some(0.3), success_rate: Some(0.5), timestamp: Some("20260501_000000".into()), records_loaded: None,
+            id: "tie_b".into(),
+            skill: "s".into(),
+            impact: "med".into(),
+            high_value_count: 2,
+            promoted: false,
+            path: PathBuf::new(),
+            rich_avg_learning_value: Some(0.3),
+            avg_learning_value: Some(0.3),
+            success_rate: Some(0.5),
+            timestamp: Some("20260501_000000".into()),
+            records_loaded: None,
         };
         let ranked = Prioritizer::new().rank(&[s1.clone(), s2.clone()]);
         assert_eq!(ranked.len(), 2);
         // scores equal is fine (stable sort)
-        assert!((ranked[0].score - ranked[1].score).abs() < 1e-9 || ranked[0].score > ranked[1].score);
+        assert!(
+            (ranked[0].score - ranked[1].score).abs() < 1e-9 || ranked[0].score > ranked[1].score
+        );
 
         // list_high filters promoted regardless of score
         let pid = std::process::id();
@@ -281,14 +362,21 @@ mod tests {
         let _ = std::fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         for (id, prom) in [("tie1", false), ("tie2", true)] {
-            let d = tmp.join(id); let _ = std::fs::create_dir_all(&d);
+            let d = tmp.join(id);
+            let _ = std::fs::create_dir_all(&d);
             // full fields for reliable CandidateMeta de (no missing non-default)
-            let meta = format!(r#"{{"candidate_id":"{}","timestamp":"","skill":"t","estimated_impact":"med","rust_pairs_used":0,"high_learning_value_records":3,"source_artifacts":"","generated_by":"","copied_files":[],"promoted":{},"reviewed":false,"rich_avg_learning_value":0.4}}"#, id, prom);
+            let meta = format!(
+                r#"{{"candidate_id":"{}","timestamp":"","skill":"t","estimated_impact":"med","rust_pairs_used":0,"high_learning_value_records":3,"source_artifacts":"","generated_by":"","copied_files":[],"promoted":{},"reviewed":false,"rich_avg_learning_value":0.4}}"#,
+                id, prom
+            );
             let _ = std::fs::write(d.join("candidate_meta.json"), meta);
         }
         let tops = list_high_value_candidates(&store, 5);
         // Filter must exclude promoted (critical for continuous flywheel to avoid re-work)
-        assert!(tops.iter().all(|c| !c.promoted), "promoted must be filtered for continuous safety");
+        assert!(
+            tops.iter().all(|c| !c.promoted),
+            "promoted must be filtered for continuous safety"
+        );
         assert!(tops.iter().any(|c| c.id == "tie1"));
         assert!(tops.len() <= 2); // at most the non-promoted (test isolation)
         let _ = std::fs::remove_dir_all(&tmp);
@@ -301,9 +389,14 @@ mod tests {
         let _ = std::fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         // corrupt-ish dir (no meta) + good one
-        let bad = tmp.join("bad_no_meta"); let _ = std::fs::create_dir_all(&bad);
-        let good = tmp.join("20260531_good_lv"); let _ = std::fs::create_dir_all(&good);
-        let _ = std::fs::write(good.join("candidate_meta.json"), r#"{"candidate_id":"20260531_good_lv","skill":"g","promoted":false,"rich_avg_learning_value":0.55,"high_learning_value_records":2}"#);
+        let bad = tmp.join("bad_no_meta");
+        let _ = std::fs::create_dir_all(&bad);
+        let good = tmp.join("20260531_good_lv");
+        let _ = std::fs::create_dir_all(&good);
+        let _ = std::fs::write(
+            good.join("candidate_meta.json"),
+            r#"{"candidate_id":"20260531_good_lv","skill":"g","promoted":false,"rich_avg_learning_value":0.55,"high_learning_value_records":2}"#,
+        );
         let tops = list_high_value_candidates(&store, 3);
         assert!(tops.iter().any(|c| c.id.contains("good_lv")));
         assert!(tops.iter().all(|c| !c.promoted));
@@ -318,9 +411,13 @@ mod tests {
         let _ = std::fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         for (cid, prom) in [("pre_cut", false), ("post_cut", true)] {
-            let d = tmp.join(cid); let _ = std::fs::create_dir_all(&d);
+            let d = tmp.join(cid);
+            let _ = std::fs::create_dir_all(&d);
             // Full fields for robust CandidateMeta deserialize (all non-Option non-defaulted present)
-            let meta = format!(r#"{{"candidate_id":"{}","timestamp":"","skill":"c","estimated_impact":"med","rust_pairs_used":0,"high_learning_value_records":4,"source_artifacts":"","generated_by":"","copied_files":[],"promoted":{},"reviewed":false,"rich_avg_learning_value":0.7}}"#, cid, prom);
+            let meta = format!(
+                r#"{{"candidate_id":"{}","timestamp":"","skill":"c","estimated_impact":"med","rust_pairs_used":0,"high_learning_value_records":4,"source_artifacts":"","generated_by":"","copied_files":[],"promoted":{},"reviewed":false,"rich_avg_learning_value":0.7}}"#,
+                cid, prom
+            );
             let _ = std::fs::write(d.join("candidate_meta.json"), meta);
         }
         let tops = list_high_value_candidates(&store, 10);
@@ -334,9 +431,17 @@ mod tests {
     fn prioritizer_disable_via_zero_high_value_and_limit_for_shadow_continuous() {
         // Disable path (zero hlv or top_n=0) used in shadow/continuous health checks must yield safe empty without panic
         let summaries = vec![CandidateSummary {
-            id: "zeroed".into(), skill: "s".into(), impact: "low".into(), high_value_count: 0,
-            promoted: false, path: PathBuf::new(), rich_avg_learning_value: Some(0.1),
-            avg_learning_value: None, success_rate: Some(0.9), timestamp: None, records_loaded: None,
+            id: "zeroed".into(),
+            skill: "s".into(),
+            impact: "low".into(),
+            high_value_count: 0,
+            promoted: false,
+            path: PathBuf::new(),
+            rich_avg_learning_value: Some(0.1),
+            avg_learning_value: None,
+            success_rate: Some(0.9),
+            timestamp: None,
+            records_loaded: None,
         }];
         let ranked = Prioritizer::new().rank(&summaries);
         assert_eq!(ranked.len(), 1);
@@ -346,10 +451,17 @@ mod tests {
         let tmp = std::env::temp_dir().join(format!("prio_disable_{}", pid));
         let _ = std::fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
-        let d = tmp.join("zh"); let _ = std::fs::create_dir_all(&d);
-        let _ = std::fs::write(d.join("candidate_meta.json"), r#"{"candidate_id":"zh","skill":"z","promoted":false,"high_learning_value_records":0}"#);
+        let d = tmp.join("zh");
+        let _ = std::fs::create_dir_all(&d);
+        let _ = std::fs::write(
+            d.join("candidate_meta.json"),
+            r#"{"candidate_id":"zh","skill":"z","promoted":false,"high_learning_value_records":0}"#,
+        );
         let tops = list_high_value_candidates(&store, 0);
-        assert!(tops.is_empty(), "top_n=0 disable for continuous shadow must be empty");
+        assert!(
+            tops.is_empty(),
+            "top_n=0 disable for continuous shadow must be empty"
+        );
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -357,9 +469,17 @@ mod tests {
     fn prioritizer_shadow_emission_fields_stable_under_disable_for_runner_continuous() {
         // Fields consumed by runner continuous --json + shadow must stay stable even under disable filters
         let s = CandidateSummary {
-            id: "shadow_stable".into(), skill: "ss".into(), impact: "high".into(), high_value_count: 8,
-            promoted: false, path: PathBuf::new(), rich_avg_learning_value: Some(0.82),
-            avg_learning_value: None, success_rate: Some(0.2), timestamp: Some("20260531_120000".into()), records_loaded: Some(99),
+            id: "shadow_stable".into(),
+            skill: "ss".into(),
+            impact: "high".into(),
+            high_value_count: 8,
+            promoted: false,
+            path: PathBuf::new(),
+            rich_avg_learning_value: Some(0.82),
+            avg_learning_value: None,
+            success_rate: Some(0.2),
+            timestamp: Some("20260531_120000".into()),
+            records_loaded: Some(99),
         };
         let ranked = Prioritizer::new().rank(&[s]);
         assert!(ranked[0].score > 80.0);
@@ -438,19 +558,33 @@ mod tests {
         let _ = std::fs::create_dir_all(&tmp);
         let store = CandidateStore::new(Some(tmp.clone()));
         // zero hlv (shadow emission edge)
-        let z = tmp.join("zero_hlv_shadow"); let _ = std::fs::create_dir_all(&z);
-        let _ = std::fs::write(z.join("candidate_meta.json"), r#"{"candidate_id":"zero_hlv_shadow","skill":"z","promoted":false,"high_learning_value_records":0,"rich_avg_learning_value":0.01}"#);
+        let z = tmp.join("zero_hlv_shadow");
+        let _ = std::fs::create_dir_all(&z);
+        let _ = std::fs::write(
+            z.join("candidate_meta.json"),
+            r#"{"candidate_id":"zero_hlv_shadow","skill":"z","promoted":false,"high_learning_value_records":0,"rich_avg_learning_value":0.01}"#,
+        );
         // promoted one
-        let p = tmp.join("post_prom_shadow"); let _ = std::fs::create_dir_all(&p);
-        let _ = std::fs::write(p.join("candidate_meta.json"), r#"{"candidate_id":"post_prom_shadow","skill":"p","promoted":true,"high_learning_value_records":10,"rich_avg_learning_value":0.9}"#);
+        let p = tmp.join("post_prom_shadow");
+        let _ = std::fs::create_dir_all(&p);
+        let _ = std::fs::write(
+            p.join("candidate_meta.json"),
+            r#"{"candidate_id":"post_prom_shadow","skill":"p","promoted":true,"high_learning_value_records":10,"rich_avg_learning_value":0.9}"#,
+        );
         // good one
-        let g = tmp.join("good_for_cont"); let _ = std::fs::create_dir_all(&g);
-        let _ = std::fs::write(g.join("candidate_meta.json"), r#"{"candidate_id":"good_for_cont","skill":"g","promoted":false,"high_learning_value_records":4,"rich_avg_learning_value":0.88}"#);
+        let g = tmp.join("good_for_cont");
+        let _ = std::fs::create_dir_all(&g);
+        let _ = std::fs::write(
+            g.join("candidate_meta.json"),
+            r#"{"candidate_id":"good_for_cont","skill":"g","promoted":false,"high_learning_value_records":4,"rich_avg_learning_value":0.88}"#,
+        );
 
         let tops = list_high_value_candidates(&store, 5);
         assert!(tops.iter().all(|c| !c.promoted));
         assert!(tops.iter().any(|c| c.id == "good_for_cont"));
-        assert!(!tops.iter().any(|c| c.id.contains("zero_hlv") || c.id.contains("post_prom")));
+        assert!(!tops
+            .iter()
+            .any(|c| c.id.contains("zero_hlv") || c.id.contains("post_prom")));
 
         // rank still produces finite for zero case (used in health emission)
         let all = store.list_pending().unwrap_or_default();

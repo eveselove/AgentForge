@@ -20,29 +20,44 @@ import urllib.error
 import os
 import subprocess
 from collections import Counter
-import re
 import sys
 
-# Добавляем путь к planlytasksko для импорта task_checkpoints
-for p in ["/data/planlytasksko", "/home/eveselove/planlytasksko", os.path.expanduser("~/planlytasksko")]:
-    if os.path.exists(p):
-        sys.path.append(p)
-        break
+# Добавляем путь к planlytasksko / agentforge для импорта task_checkpoints (RAG для Guardian)
+# Исправлено (audit): более робастный поиск, как в core/agentforge_watchdog.py
+for p in [
+    "/data/planlytasksko",
+    "/home/eveselove/planlytasksko",
+    os.path.expanduser("~/planlytasksko"),
+    "/home/eveselove/agentforge",
+    os.path.expanduser("~/agentforge"),
+]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+    core_p = os.path.join(p, "core") if os.path.exists(p) else ""
+    if core_p and os.path.exists(core_p) and core_p not in sys.path:
+        sys.path.insert(0, core_p)
 
 try:
-    from scripts.task_checkpoints import get_last_checkpoint, search_similar_tasks
+    from task_checkpoints import get_last_checkpoint, search_similar_tasks
 except ImportError:
-    get_last_checkpoint = None
-    search_similar_tasks = None
+    try:
+        from scripts.task_checkpoints import get_last_checkpoint, search_similar_tasks
+    except ImportError:
+        get_last_checkpoint = None
+        search_similar_tasks = None
 
-API_BASE = "http://localhost:8080"
+API_BASE = os.environ.get(
+    "AGENTFORGE_API", "http://127.0.0.1:9090"
+)  # Gateway (единый порт, 8080 убран)
 LOG_DIR = os.path.expanduser("~/agentforge/logs")
-POLL_INTERVAL = 10
-LOOP_THRESHOLD = 5 # Если одинаковая строка-ошибка или шаблон появляется >5 раз
-MAX_LOG_SIZE_MB = 2.0 # Лимит размера лога (защита от спама)
+POLL_INTERVAL = 30  # Увеличено с 10 до 30 (мониторинг не требует частого опроса)
+LOOP_THRESHOLD = 5  # Если одинаковая строка-ошибка или шаблон появляется >5 раз
+MAX_LOG_SIZE_MB = 2.0  # Лимит размера лога (защита от спама)
+
 
 def log(msg):
     print(f"[Watchdog] {msg}", flush=True)
+
 
 def api_get(endpoint):
     try:
@@ -53,6 +68,7 @@ def api_get(endpoint):
         log(f"⚠️ Ошибка API GET {endpoint}: {e}")
         return []
 
+
 def api_patch(endpoint, payload):
     try:
         data = json.dumps(payload).encode()
@@ -60,7 +76,7 @@ def api_patch(endpoint, payload):
             f"{API_BASE}{endpoint}",
             data=data,
             headers={"Content-Type": "application/json"},
-            method="PATCH"
+            method="PATCH",
         )
         with urllib.request.urlopen(req) as resp:
             return json.loads(resp.read().decode())
@@ -68,13 +84,16 @@ def api_patch(endpoint, payload):
         log(f"⚠️ Ошибка API PATCH {endpoint}: {e}")
         return None
 
+
 def get_active_tasks():
     tasks = api_get("/tasks")
     return [t for t in tasks if t.get("status") in ("dispatched", "in_progress")]
 
+
 def get_failed_tasks():
     tasks = api_get("/tasks?status=failed")
     return tasks
+
 
 def kill_task_process(task_id):
     """Найти и убить процесс grok, связанный с задачей (через worktree dir)"""
@@ -83,89 +102,100 @@ def kill_task_process(task_id):
         cmd = ["pgrep", "-f", worktree_dir]
         result = subprocess.run(cmd, capture_output=True, text=True)
         pids = result.stdout.strip().split("\n")
-        
+
         killed = False
         for pid in pids:
             if pid:
                 subprocess.run(["kill", "-9", pid], check=False)
                 killed = True
-                
+
         cmd2 = ["pgrep", "-f", f"grok_worker.*{task_id}|grok.*{task_id}"]
         res2 = subprocess.run(cmd2, capture_output=True, text=True)
         for pid in res2.stdout.strip().split("\n"):
             if pid:
                 subprocess.run(["kill", "-9", pid], check=False)
                 killed = True
-                
+
         return killed
     except Exception as e:
         log(f"⚠️ Ошибка при убийстве процесса: {e}")
         return False
 
+
 def mark_task_failed(task_id, reason):
     """Перевести задачу в статус failed"""
     payload = {
         "status": "failed",
-        "result": f"[Watchdog] 🛑 Принудительно остановлено: {reason}. Сэкономлены токены."
+        "result": f"[Watchdog] 🛑 Принудительно остановлено: {reason}. Сэкономлены токены.",
     }
     api_patch(f"/tasks/{task_id}", payload)
     log(f"✅ Задача {task_id} помечена как failed.")
+
 
 def analyze_log_for_loops(log_path):
     """Эвристический анализ лога на бесконечные циклы"""
     if not os.path.exists(log_path):
         return None
-        
+
     try:
         size_mb = os.path.getsize(log_path) / (1024 * 1024)
         if size_mb > MAX_LOG_SIZE_MB:
             return f"превышен лимит лога ({size_mb:.1f} MB)"
 
-        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+        with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
             lines = f.readlines()
-            
+
         if not lines:
             return None
-            
+
         recent_lines = [l.strip() for l in lines[-50:] if l.strip()]
-        error_lines = [l for l in recent_lines if "error" in l.lower() or "failed" in l.lower() or "exception" in l.lower()]
+        error_lines = [
+            l
+            for l in recent_lines
+            if "error" in l.lower() or "failed" in l.lower() or "exception" in l.lower()
+        ]
         if error_lines:
             counts = Counter(error_lines)
             most_common, count = counts.most_common(1)[0]
             if count >= LOOP_THRESHOLD:
                 return f"зацикливание ошибки ('{most_common[:50]}...')"
-                
-        tool_calls = [l for l in recent_lines if "Running tool" in l or "Command output" in l]
-        if len(tool_calls) > 20: 
+
+        tool_calls = [
+            l for l in recent_lines if "Running tool" in l or "Command output" in l
+        ]
+        if len(tool_calls) > 20:  # noqa: E501 (long for clarity)
             counts = Counter(tool_calls)
             if counts and counts.most_common(1)[0][1] >= LOOP_THRESHOLD:
                 return "зацикливание вызова инструментов"
-                
+
         return None
     except Exception as e:
         log(f"⚠️ Ошибка анализа {log_path}: {e}")
         return None
 
+
 def guardian_loop():
     """Проверяет упавшие задачи и пытается их воскресить с RAG-контекстом"""
     if not get_last_checkpoint:
         return
-        
+
     failed_tasks = get_failed_tasks()
     for task in failed_tasks:
         task_id = task["id"]
         retry_count = task.get("retry_count", 0)
-        
+
         if retry_count < 3:
-            log(f"🛡️ Guardian: Воскрешение задачи {task_id} (Попытка {retry_count + 1}/3)")
-            
+            log(
+                f"🛡️ Guardian: Воскрешение задачи {task_id} (Попытка {retry_count + 1}/3)"
+            )
+
             error_msg = task.get("result", "")
-            
+
             # Попытаемся достать ошибку из чекпоинтов
             cp = get_last_checkpoint(task_id)
             if cp and cp.get("data", {}).get("error"):
                 error_msg = cp["data"]["error"]
-            
+
             # RAG поиск
             rag_context = ""
             if search_similar_tasks and error_msg:
@@ -174,44 +204,48 @@ def guardian_loop():
                 if similar:
                     rag_context = "\n\n--- GUARDIAN RAG CONTEXT ---\nНайдено несколько похожих прошлых задач, которые могут помочь решить эту ошибку:\n"
                     for s in similar:
-                        outcome = s.get('outcome', 'unknown')
-                        rag_context += f"- Задача '{s.get('title')}': Статус: {outcome}.\n"
-            
+                        outcome = s.get("outcome", "unknown")
+                        rag_context += (
+                            f"- Задача '{s.get('title')}': Статус: {outcome}.\n"
+                        )
+
             new_desc = task.get("description", "")
             guardian_note = f"\n\n--- GUARDIAN AUTO-RETRY ({retry_count + 1}/3) ---\nПредыдущая попытка завершилась ошибкой:\n{error_msg}{rag_context}"
-            
+
             # Избегаем дублирования логов
             if "--- GUARDIAN AUTO-RETRY" in new_desc:
                 new_desc = new_desc.split("--- GUARDIAN AUTO-RETRY")[0].strip()
-                
+
             new_desc += guardian_note
-            
+
             # Патчим базу: статус -> pending, обновляем счетчик и описание
             patch_data = {
                 "status": "pending",
                 "retry_count": retry_count + 1,
-                "result": None  # Clear previous failure result
+                "result": None,  # Clear previous failure result
             }
 
-            # После рефакторинга routing (2026-06): если задача была на antigravity — переводим на grok при воскрешении
-            if task.get("assigned_agent") == "antigravity" or task.get("preferred_agent") == "antigravity":
-                patch_data["preferred_agent"] = "grok"
-                patch_data["assigned_agent"] = "grok"
-                log(f"   [Guardian] Задача {task_id} была на Antigravity — переводим на Grok при воскрешении (новая политика routing)")
+            # Fair work-stealing: при воскрешении сбрасываем assigned_agent,
+            # preferred_agent остаётся — пусть конкурируют за задачу
+            patch_data["assigned_agent"] = None
 
             api_patch(f"/tasks/{task_id}", patch_data)
-            
+
             # Поскольку API не поддерживает обновление description, мы обновим его напрямую через sqlite3
             import sqlite3
+
             try:
                 conn = sqlite3.connect(os.path.expanduser("~/agentforge/tasks.db"))
-                conn.execute("UPDATE tasks SET description = ? WHERE id = ?", (new_desc, task_id))
+                conn.execute(
+                    "UPDATE tasks SET description = ? WHERE id = ?", (new_desc, task_id)
+                )
                 conn.commit()
                 conn.close()
             except Exception as ex:
                 log(f"⚠️ Guardian не смог обновить описание: {ex}")
-                
+
             log(f"✅ Guardian вернул задачу {task_id} в очередь.")
+
 
 def _flywheel_health_report():
     """Autonomy hook: surface Rust flywheel health (candidates generated last hour, last A/B, high-LV pending).
@@ -269,7 +303,6 @@ def _flywheel_health_report():
         elif rich_total > 3 and rich_last_succ:
             # lightweight stale check (reuse health ts if needed)
             try:
-                from datetime import datetime as _dt
                 # rough: if last_success age >8h (unix or parse)
                 ls = rich.get("last_success_unix")
                 if ls and (time.time() - float(ls) > AUTO_DISABLE_STALE_HOURS * 3600):
@@ -289,20 +322,32 @@ def _flywheel_health_report():
             "last": None,
             "status": "unknown",
         }
-        for mode, cmd_prefix in [("user", ["systemctl", "--user"]), ("system", ["systemctl"])]:
+        for mode, cmd_prefix in [
+            ("user", ["systemctl", "--user"]),
+            ("system", ["systemctl"]),
+        ]:
             try:
                 # Check if unit exists and get status (timeout protected, 3s max)
                 unit = "agentforge-flywheel.timer"
                 # is-active
                 res = subprocess.run(
                     cmd_prefix + ["is-active", unit],
-                    capture_output=True, text=True, timeout=3
+                    capture_output=True,
+                    text=True,
+                    timeout=3,
                 )
                 is_active = res.stdout.strip() == "active"
                 # show for timing info (NextElapse etc are monotonic but useful for parse; use list-timers for human)
                 show_res = subprocess.run(
-                    cmd_prefix + ["show", unit, "--property=ActiveState,NextElapseUSecMonotonic,LastTriggerUSec"],
-                    capture_output=True, text=True, timeout=3
+                    cmd_prefix
+                    + [
+                        "show",
+                        unit,
+                        "--property=ActiveState,NextElapseUSecMonotonic,LastTriggerUSec",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=3,
                 )
                 props = {}
                 for line in show_res.stdout.strip().splitlines():
@@ -312,14 +357,18 @@ def _flywheel_health_report():
                 # Fallback human next via list-timers (greppable)
                 list_res = subprocess.run(
                     cmd_prefix + ["list-timers", "--all", "--no-pager"],
-                    capture_output=True, text=True, timeout=4
+                    capture_output=True,
+                    text=True,
+                    timeout=4,
                 )
                 next_human = None
                 for ln in list_res.stdout.splitlines():
                     if "agentforge-flywheel" in ln:
                         parts = ln.split()
                         if len(parts) >= 1:
-                            next_human = " ".join(parts[:4])  # e.g. "Tue 2026-06-02 ..."
+                            next_human = " ".join(
+                                parts[:4]
+                            )  # e.g. "Tue 2026-06-02 ..."
                         break
                 if is_active or "agentforge-flywheel" in list_res.stdout:
                     timer_info = {
@@ -339,8 +388,13 @@ def _flywheel_health_report():
             "flywheel_candidates_last_hour": last_hour,
             "flywheel_high_lv_pending": high_lv,
             "last_ab_age_min": last_ab_age,
-            "continuous_last_run": (health.get("last_continuous") or {}).get("finished_at"),
-            "enable_marker": (state_dir.parent / "agentforge/ENABLE_RUST_FLYWHEEL").exists() or Path(os.path.expanduser("~/agentforge/ENABLE_RUST_FLYWHEEL")).exists(),
+            "continuous_last_run": (health.get("last_continuous") or {}).get(
+                "finished_at"
+            ),
+            "enable_marker": (
+                state_dir.parent / "agentforge/ENABLE_RUST_FLYWHEEL"
+            ).exists()
+            or Path(os.path.expanduser("~/agentforge/ENABLE_RUST_FLYWHEEL")).exists(),
             # Deep timer rollout fields:
             "timer_mode": timer_info["mode"],
             "timer_active": timer_info["active"],
@@ -357,7 +411,9 @@ def _flywheel_health_report():
             "flywheel_degraded_reason": degraded_reason,
             "flywheel_safeguard_active": bool(flywheel_safeguard_msg),
         }
-        (state_dir / "watchdog_flywheel_status.json").write_text(json.dumps(status, indent=2), encoding="utf-8")
+        (state_dir / "watchdog_flywheel_status.json").write_text(
+            json.dumps(status, indent=2), encoding="utf-8"
+        )
 
         # Rich log line (always cheap) + dedicated flywheel health section
         timer_str = ""
@@ -366,8 +422,16 @@ def _flywheel_health_report():
         rich_str = ""
         if rich_total or rich_sr is not None or rich_consec:
             rich_str = f" rich_sr={rich_sr} err_rate={rich_err_rate} consec_fails={rich_consec} last_succ={str(rich_last_succ)[:16] if rich_last_succ else 'n/a'} degraded={degraded}"
-        if last_hour or high_lv or last_ab_age is not None or timer_info["mode"] or rich_str:
-            log(f"🌀 Flywheel health: last_hour={last_hour} high_lv={high_lv} last_ab_age_min={last_ab_age}{timer_str}{rich_str} (continuous autonomy + timer active + safeguards)")
+        if (
+            last_hour
+            or high_lv
+            or last_ab_age is not None
+            or timer_info["mode"]
+            or rich_str
+        ):
+            log(
+                f"🌀 Flywheel health: last_hour={last_hour} high_lv={high_lv} last_ab_age_min={last_ab_age}{timer_str}{rich_str} (continuous autonomy + timer active + safeguards)"
+            )
         if flywheel_safeguard_msg:
             # explicit section for operators
             log(f"🛡️ Flywheel Safeguards: {flywheel_safeguard_msg}")
@@ -378,6 +442,7 @@ def _flywheel_health_report():
 
 # === Auto-review sweep (подбирает задачи, застрявшие в review) ===
 _review_cycle_counter = 0
+
 
 def auto_review_stale():
     """Подбирает задачи застрявшие в review."""
@@ -392,20 +457,28 @@ def auto_review_stale():
             f"{API_BASE}/review/all",
             data=data,
             headers={"Content-Type": "application/json"},
-            method="POST"
+            method="POST",
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read().decode())
             reviewed = result.get("reviewed", 0)
             if reviewed > 0:
-                approved = sum(1 for r in result.get("results", []) if r.get("verdict") == "approved")
-                log(f"🛡️ Auto-review sweep: {reviewed} задач проверено, {approved} одобрено")
+                approved = sum(
+                    1
+                    for r in result.get("results", [])
+                    if r.get("verdict") == "approved"
+                )
+                log(
+                    f"🛡️ Auto-review sweep: {reviewed} задач проверено, {approved} одобрено"
+                )
     except Exception as e:
         log(f"⚠️ Auto-review sweep failed: {e}")
 
 
 def main():
-    log("🚀 Запуск AgentForge Watchdog + Guardian (с учётом новой маршрутизации 2026-06)")
+    log(
+        "🚀 Запуск AgentForge Watchdog + Guardian (с учётом новой маршрутизации 2026-06)"
+    )
     while True:
         try:
             # Flywheel autonomy health (new in continuous wave — polled every 10s, cheap)
@@ -416,25 +489,39 @@ def main():
             for task in tasks:
                 task_id = task["id"]
                 log_path = os.path.join(LOG_DIR, f"grok_{task_id}.log")
-                
+
                 reason = analyze_log_for_loops(log_path)
                 if reason:
-                    log(f"🚨 Обнаружена аномалия в {task_id}: {reason}. Принимаю меры...")
+                    log(
+                        f"🚨 Обнаружена аномалия в {task_id}: {reason}. Принимаю меры..."
+                    )
                     killed = kill_task_process(task_id)
                     mark_task_failed(task_id, reason)
                     if killed:
                         log(f"💀 Процессы задачи {task_id} убиты.")
-                        
+
             # 2. Самоисцеление (Guardian)
             guardian_loop()
 
             # 3. Подбор застрявших review-задач (sweep каждые ~60 сек)
             auto_review_stale()
-            
+
+        except urllib.error.URLError as e:
+            # Exponential backoff при недоступности gateway
+            if not hasattr(main, "_backoff"):
+                main._backoff = POLL_INTERVAL
+            main._backoff = min(main._backoff * 2, 120)
+            log(f"⚠️ Gateway недоступен: {e} (retry через {main._backoff}s)")
+            time.sleep(main._backoff)
+            continue
         except Exception as e:
             log(f"⚠️ Глобальная ошибка: {e}")
-            
+
+        # Сброс backoff при успешном цикле
+        if hasattr(main, "_backoff"):
+            main._backoff = POLL_INTERVAL
         time.sleep(POLL_INTERVAL)
+
 
 if __name__ == "__main__":
     main()

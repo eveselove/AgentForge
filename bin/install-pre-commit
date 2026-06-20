@@ -1,69 +1,183 @@
 #!/bin/bash
-# One-command installation (and management) of the AgentForge pre-commit hook.
+# bin/install-pre-commit
+# One-command installer for AgentForge quality + traceability hooks (pre-commit + commit-msg).
+#
+# Key fixes (post-bypass cleanup for MICRO-05 etc):
+# - Worktree-safe: computes real GIT_DIR via git rev-parse --git-dir (handles .git file in worktrees
+#   at /tmp/agentforge/<tid>/ etc; never assumes $REPO_ROOT/.git is a dir).
+# - Installs BOTH: pre-commit (fmt/clippy/secrets/etc) + commit-msg (traceability via validate-commit-msg).
+#   Traceability now lives in commit-msg hook (runs after msg finalized from `git commit -m "task <id>..."`).
+# - Uses absolute symlinks to bin/ sources (live updates, no stale cp).
+# - Supports core.hooksPath.
+# - Idempotent + --force, --uninstall (affects both hooks), --status, --check.
+#
 # Usage:
-#   ./bin/install-pre-commit          # install / update
-#   ./bin/install-pre-commit --force  # overwrite even if different hook exists
+#   ./bin/install-pre-commit            # install/update both hooks
+#   ./bin/install-pre-commit --force    # overwrite
 #   ./bin/install-pre-commit --uninstall
+#   ./bin/install-pre-commit --status
+#   ./bin/install-pre-commit --check    # exit 0 only if both ours
+#   DRY_RUN=1 ./bin/install-pre-commit
+#
+# MUST run in every clone/worktree before first commit (per AGENTS.md).
+# Tags: post-bypass, cleanup, pre-commit, commit-msg, worktree-safe, traceability
 
 set -e
 
+DRY_RUN=${DRY_RUN:-0}
+FORCE=0
+UNINSTALL=0
+STATUS=0
+CHECK=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --force|-f) FORCE=1 ;;
+    --uninstall|-u) UNINSTALL=1 ;;
+    --status) STATUS=1 ;;
+    --check) CHECK=1 ;;
+    --help|-h)
+      sed -n '2,/^set -e/p' "$0" | sed '/^set -e/d; s/^# //; s/^#//'
+      exit 0
+      ;;
+    *) echo "Usage: $0 [--force|-f] [--uninstall|-u] [--status] [--check]"; exit 2 ;;
+  esac
+done
+
+if (( (STATUS && (UNINSTALL||CHECK)) || (UNINSTALL && CHECK) )); then
+  echo "install-pre-commit: conflicting modes" >&2; exit 2
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HOOK_SOURCE="$REPO_ROOT/bin/pre-commit"
-HOOK_DEST="$REPO_ROOT/.git/hooks/pre-commit"
+cd "$REPO_ROOT" || { echo "ERROR: cannot cd $REPO_ROOT"; exit 1; }
 
-if [ ! -f "$HOOK_SOURCE" ]; then
-    echo "❌ Error: $HOOK_SOURCE not found"
+GIT_DIR=$(git rev-parse --git-dir 2>/dev/null || true)
+if [ -z "$GIT_DIR" ]; then echo "ERROR: not a git repo"; exit 1; fi
+if [[ "$GIT_DIR" != /* ]]; then GIT_DIR="$REPO_ROOT/$GIT_DIR"; fi
+
+HOOKS_DIR=$(git config --get core.hooksPath 2>/dev/null || true)
+if [ -z "$HOOKS_DIR" ]; then
+  HOOKS_DIR="$GIT_DIR/hooks"
+fi
+if [[ "$HOOKS_DIR" != /* ]]; then HOOKS_DIR="$REPO_ROOT/$HOOKS_DIR"; fi
+
+PRE_SRC="$REPO_ROOT/bin/pre-commit"
+CMT_SRC="$REPO_ROOT/bin/commit-msg"
+PRE_HOOK="$HOOKS_DIR/pre-commit"
+CMT_HOOK="$HOOKS_DIR/commit-msg"
+
+if [ ! -f "$PRE_SRC" ] || [ ! -f "$CMT_SRC" ]; then
+  echo "❌ Error: missing source hook(s) in bin/"
+  exit 1
+fi
+
+log() { [ "$DRY_RUN" = "1" ] || printf '%s\n' "$*"; }
+dry() { [ "$DRY_RUN" = "1" ] && printf '[DRY] %s\n' "$*" || true; }
+
+is_ours() {
+  local h="$1" src="$2"
+  [ -L "$h" ] || return 1
+  local eff; eff=$(readlink -f "$h" 2>/dev/null || true)
+  local seff; seff=$(readlink -f "$src" 2>/dev/null || true)
+  [ "$eff" = "$seff" ]
+}
+
+do_one() {
+  local name="$1" src="$2" hook="$3"
+  if [ -e "$hook" ]; then
+    if is_ours "$hook" "$src"; then
+      if [ "$FORCE" != "1" ]; then
+        log "✅ $name already ours: $hook -> $(readlink "$hook")"
+        return 0
+      fi
+      log "🔄 --force re-link $name"
+    else
+      if [ "$DRY_RUN" != "1" ]; then
+        local bak="$hook.bak.$(date +%Y%m%d_%H%M%S)"
+        cp "$hook" "$bak" 2>/dev/null || true
+        log "📦 backed up foreign $name -> $bak"
+      else
+        dry "would backup foreign $hook"
+      fi
+    fi
+  fi
+  if [ "$DRY_RUN" = "1" ]; then
+    dry "would ln -sf $src $hook"
+    return 0
+  fi
+  mkdir -p "$(dirname "$hook")" 2>/dev/null || true
+  ln -sf "$src" "$hook" || { echo "ERROR: ln $name failed"; return 1; }
+  if is_ours "$hook" "$src"; then
+    log "✅ installed $name: $hook -> $(readlink "$hook")"
+  else
+    echo "ERROR: post-install verify failed for $name"; return 1
+  fi
+}
+
+do_uninstall_one() {
+  local name="$1" hook="$2"
+  if [ ! -e "$hook" ]; then
+    log "ℹ️  no $name at $hook"
+    return 0
+  fi
+  # For uninstall we remove only if ours (symlink to our src)
+  if ! is_ours "$hook" "$PRE_SRC" && ! is_ours "$hook" "$CMT_SRC"; then
+    echo "Refusing to rm foreign $name at $hook (not pointing to our bin/)"
+    return 1
+  fi
+  if [ "$DRY_RUN" = "1" ]; then
+    dry "would rm $hook"
+    return 0
+  fi
+  rm -f "$hook"
+  log "✅ uninstalled $name: $hook"
+}
+
+do_status() {
+  echo "REPO_ROOT=$REPO_ROOT"
+  echo "GIT_DIR=$GIT_DIR"
+  echo "HOOKS_DIR=$HOOKS_DIR"
+  for pair in "pre-commit:$PRE_SRC:$PRE_HOOK" "commit-msg:$CMT_SRC:$CMT_HOOK"; do
+    IFS=: read -r nm src hk <<<"$pair"
+    if [ -L "$hk" ]; then
+      echo "$nm: symlink -> $(readlink "$hk")  $(is_ours "$hk" "$src" && echo '[OURS]' || echo '[FOREIGN]')"
+    elif [ -f "$hk" ]; then
+      echo "$nm: regular file (legacy/foreign)"
+    else
+      echo "$nm: absent"
+    fi
+  done
+}
+
+if (( UNINSTALL )); then
+  do_uninstall_one pre-commit "$PRE_HOOK" || true
+  do_uninstall_one commit-msg "$CMT_HOOK" || true
+  [ "$DRY_RUN" = "1" ] || echo "Run with no args to re-install."
+  exit 0
+fi
+
+if (( STATUS )); then
+  do_status
+  exit 0
+fi
+
+if (( CHECK )); then
+  if is_ours "$PRE_HOOK" "$PRE_SRC" && is_ours "$CMT_HOOK" "$CMT_SRC"; then
+    echo "CHECK: PASS (both hooks ours)"
+    exit 0
+  else
+    echo "CHECK: FAIL"
     exit 1
+  fi
 fi
 
-case "${1:-}" in
-    --uninstall|-u)
-        if [ -f "$HOOK_DEST" ]; then
-            rm -f "$HOOK_DEST"
-            echo "✅ Pre-commit hook removed from .git/hooks/"
-        else
-            echo "ℹ️  No pre-commit hook present at $HOOK_DEST"
-        fi
-        exit 0
-        ;;
-    --force|-f)
-        FORCE=1
-        ;;
-    "")
-        FORCE=0
-        ;;
-    *)
-        echo "Usage: $0 [--force|-f] [--uninstall|-u]"
-        exit 1
-        ;;
-esac
+# Install both
+do_one pre-commit "$PRE_SRC" "$PRE_HOOK"
+do_one commit-msg "$CMT_SRC" "$CMT_HOOK"
 
-if [ -f "$HOOK_DEST" ]; then
-    if cmp -s "$HOOK_SOURCE" "$HOOK_DEST"; then
-        echo "✅ Pre-commit hook is already installed and up to date."
-        exit 0
-    fi
-    if [ "$FORCE" -eq 0 ]; then
-        echo "⚠️  A different pre-commit hook already exists at $HOOK_DEST"
-        echo "   Backup it manually or re-run with --force to overwrite."
-        echo "   Current hook size: $(wc -c < "$HOOK_DEST") bytes"
-        exit 1
-    fi
-    BACKUP="${HOOK_DEST}.bak.$(date +%Y%m%d_%H%M%S)"
-    cp "$HOOK_DEST" "$BACKUP"
-    echo "📦 Backed up existing hook → $BACKUP"
-fi
-
-cp "$HOOK_SOURCE" "$HOOK_DEST"
-chmod +x "$HOOK_DEST"
-
-echo "✅ AgentForge pre-commit hook installed / updated successfully."
 echo ""
-echo "   Hook location : $HOOK_DEST"
-echo "   Source        : $HOOK_SOURCE"
-echo ""
-echo "   The hook will now run automatically on 'git commit'."
-echo "   It enforces secrets check, file size limits, cargo fmt/clippy, ruff/black, (optional) shellcheck."
-echo ""
-echo "   To bypass for a single commit (emergency only): git commit --no-verify"
-echo "   To remove: ./bin/install-pre-commit --uninstall"
+echo "✅ AgentForge hooks installed (pre-commit + commit-msg for traceability)."
+echo "   Hooks dir: $HOOKS_DIR (worktree-aware)"
+echo "   Re-run after bin/ changes or new worktree: ./bin/install-pre-commit"
+echo "   To bypass (emergency): PRECOMMIT_BYPASS_TRACE=1 git commit ... or git commit --no-verify"
+echo "   Uninstall: ./bin/install-pre-commit --uninstall"

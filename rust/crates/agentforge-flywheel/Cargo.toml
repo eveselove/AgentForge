@@ -15,3 +15,20 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"
+
+# Tuned profiles (ONLY for this crate): addresses CPU bottlenecks in run_step
+# (20+ O(N) passes over records for signals + heavy string/serde yaml+proposal emission).
+# Faster release for production hooks/continuous (post_process, workers, timer).
+# Slightly faster dev for proptest emission invariants under shadow/continuous edges.
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 1

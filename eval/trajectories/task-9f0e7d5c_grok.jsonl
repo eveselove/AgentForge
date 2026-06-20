@@ -1,0 +1,8 @@
+{"ts":"2026-06-12T19:34:44.228Z","type":"task_start","task_id":"task-9f0e7d5c","agent":"grok","data":{"raw":"{\"title\":\"\",\"priority\":\"low\",\"tags\":\"\"}}"}}
+{"ts":"2026-06-12T19:34:44.390Z","type":"worktree_created","task_id":"task-9f0e7d5c","agent":"grok","data":{"raw":"{\"path\":\"/tmp/agentforge/task-9f0e7d5c\"}}"}}
+{"ts":"2026-06-12T19:34:44.441Z","type":"infra_step","task_id":"task-9f0e7d5c","agent":"grok","data":{"raw":"{\"step\":\"cargo_optimization\"}}"}}
+{"ts":"2026-06-12T19:34:44.497Z","type":"infra_step","task_id":"task-9f0e7d5c","agent":"grok","data":{"raw":"{\"step\":\"mold_linker\"}}"}}
+{"ts":"2026-06-12T19:34:45.470Z","type":"tracing_protocol_injected","task_id":"task-9f0e7d5c","agent":"grok","data":{"raw":"{\"task_id\":\"task-9f0e7d5c\",\"prompt_len_with_protocol\":349}}"}}
+{"ts":"2026-06-12T19:34:45.523Z","type":"grok_execution_start","task_id":"task-9f0e7d5c","agent":"grok","data":{"raw":"{\"worktree\":\"/tmp/agentforge/task-9f0e7d5c\",\"skill\":\"none\",\"model\":\"grok\",\"prompt_length\":348,\"tracing_protocol\":true}}"}}
+{"ts":"2026-06-12T19:34:45.574Z","type":"prompt_prepared","task_id":"task-9f0e7d5c","agent":"grok","data":{"raw":"{\"prompt_hash\":\"82761ef4ad72\",\"preview\":\"perf load test. ВАЖНО: Все твои ответы, логика рассуждений, комментарии в коде и итоговые отчеты (включая файлы) должны быть написаны строго на РУССКОМ языке.  === AGENTFORGE TRACING PROTOCOL v1 (injected; TASK_ID=task-9f0e7d5c) ===\",\"len\":348,\"has_tracing\":true,\"has_skill\":\"false\"}}"}}
+{"ts":"2026-06-12T19:49:45.656Z","type":"grok_output_tail","task_id":"task-9f0e7d5c","agent":"grok","data":{"raw":"unparsable"}}

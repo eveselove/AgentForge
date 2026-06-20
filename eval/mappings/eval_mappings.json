@@ -5,5 +5,18 @@
     "status": "dispatched",
     "dispatched_at": "2026-05-31T04:17:53.648008Z",
     "updated_at": "2026-05-31T04:17:53.648024Z"
+  },
+  "_swarm_cleanup_task-8038ee68": {
+    "timestamp": "2026-06-13T23:50:00Z",
+    "benchmark_id": null,
+    "agent": "grok",
+    "outcome": "analysis",
+    "duration_seconds": 0.1,
+    "mode": "cleanup_swarm",
+    "real_task_id": "task-8038ee68",
+    "analysis": "old Python eval mappings code (eval/mappings.py + this eval_mappings.json: tracking benchmark<->real_task for eval harness). The only data entry is ancient adaptive-throttle-tuning-001 from 2026-05-31 (pre full Rust switch).",
+    "conclusion": "no longer used - fully superseded in Rust migration (Tier3/4 removal per 20g+3a wave + JULES_PY_REMOVAL_HANDOFF_f29c675b.md); mappings.py now stubbed no-op returning empty (see REMAINING_PYTHON_TO_RUST_MIGRATION_2026-06.md).",
+    "proposal": "delete this legacy file eval/mappings/eval_mappings.json (and eval/mappings.py); modern equivalents in Rust gateway/runner/observability crates if linkage needed; drop mappings/ subdir when sunsetting eval harness remnants. eval core (PRM/trajectories) may be kept for value per prior decisions.",
+    "action": "removal_proposed"
   }
 }

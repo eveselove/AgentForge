@@ -1,0 +1,7 @@
+{"ts":"2026-06-13T04:58:20.614Z","type":"task_start","task_id":"task-b0e2ed82","agent":"grok","data":{"raw":"{\"title\":\"Проект: /home/eveselove/planlytasksko. 1) Все env vars в Rust коде 2) Hardcoded IP 192.168.3.* 3) Пути /app/data/ vs /home/eveselove/ 4) Redis/loki URLs 5) systemd units 6) DuckDB путь. Таблица: что, где, проблема.\",\"priority\":\"high\",\"tags\":\"\"}}"}}
+{"ts":"2026-06-13T04:58:20.836Z","type":"worktree_created","task_id":"task-b0e2ed82","agent":"grok","data":{"raw":"{\"path\":\"/tmp/agentforge/task-b0e2ed82\"}}"}}
+{"ts":"2026-06-13T04:58:20.927Z","type":"infra_step","task_id":"task-b0e2ed82","agent":"grok","data":{"raw":"{\"step\":\"cargo_optimization\"}}"}}
+{"ts":"2026-06-13T04:58:21.061Z","type":"infra_step","task_id":"task-b0e2ed82","agent":"grok","data":{"raw":"{\"step\":\"mold_linker\"}}"}}
+{"ts":"2026-06-13T04:58:22.461Z","type":"tracing_protocol_injected","task_id":"task-b0e2ed82","agent":"grok","data":{"raw":"{\"task_id\":\"task-b0e2ed82\",\"prompt_len_with_protocol\":592}}"}}
+{"ts":"2026-06-13T04:58:22.556Z","type":"grok_execution_start","task_id":"task-b0e2ed82","agent":"grok","data":{"raw":"{\"worktree\":\"/tmp/agentforge/task-b0e2ed82\",\"skill\":\"none\",\"model\":\"grok\",\"prompt_length\":591,\"tracing_protocol\":true}}"}}
+{"ts":"2026-06-13T04:58:22.645Z","type":"prompt_prepared","task_id":"task-b0e2ed82","agent":"grok","data":{"raw":"unparsable"}}

@@ -3,6 +3,7 @@
 //! This is the foundation for replacing the Python task_queue + mcp_server.
 //! Goal: Allow creating, queuing, and dispatching tasks without Python.
 
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -22,12 +23,14 @@ pub struct Task {
     pub id: String,
     pub title: String,
     pub description: String,
-    pub priority: String,           // "low" | "medium" | "high" | "critical"
-    pub complexity: String,         // "trivial" | "simple" | "medium" | "complex"
-    pub preferred_agent: Option<String>, // "grok" | "jules" | "antigravity" | "auto"
+    pub priority: String,   // "low" | "medium" | "high" | "critical"
+    pub complexity: String, // "trivial" | "simple" | "medium" | "complex"
+    pub preferred_agent: Option<String>, // "grok" | "antigravity" | "auto" (jules removed from routing; external-only via PRs per AGENTS.md)
     pub assigned_to: Option<String>,     // кто реально взял задачу в работу
     pub status: TaskStatus,
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub requires_agent_review: bool,
     pub created_at: String,
     pub updated_at: String,
     pub started_at: Option<String>,
@@ -39,7 +42,11 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new(id: impl Into<String>, title: impl Into<String>, description: impl Into<String>) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        title: impl Into<String>,
+        description: impl Into<String>,
+    ) -> Self {
         let now = chrono::Utc::now().to_rfc3339();
         Self {
             id: id.into(),
@@ -51,6 +58,7 @@ impl Task {
             assigned_to: None,
             status: TaskStatus::Pending,
             tags: vec![],
+            requires_agent_review: false,
             created_at: now.clone(),
             updated_at: now,
             started_at: None,
@@ -74,89 +82,105 @@ impl Task {
         self.tags = tags;
         self
     }
+
+    pub fn with_requires_agent_review(mut self, requires: bool) -> Self {
+        self.requires_agent_review = requires;
+        self
+    }
+}
+
+// Private helper to deduplicate priority ranking logic (used by list_pending in both stores).
+// Lower rank = higher priority. Avoids string compares and dupe match arms.
+fn priority_rank(p: &str) -> u8 {
+    match p {
+        "critical" => 0,
+        "high" => 1,
+        "medium" => 2,
+        _ => 3,
+    }
 }
 
 // Core Task storage API.
 // This is the "normal" interface we will build the full Rust task system on top of.
+// Методы сделаны async, чтобы поддерживать LanceDB (который асинхронный).
+// InMemory и JsonFile всё ещё работают синхронно внутри async.
+#[async_trait]
 pub trait TaskStore {
-    fn create(&mut self, task: Task) -> Result<Task, String>;
-    fn get(&self, id: &str) -> Option<Task>;
-    fn list_pending(&self) -> Vec<Task>;
-    fn list_all(&self) -> Vec<Task>;
-    fn update_status(&mut self, id: &str, status: TaskStatus) -> Result<(), String>;
-    fn update(&mut self, task: Task) -> Result<(), String>;
-    fn delete(&mut self, id: &str) -> Result<(), String>;
-    fn count(&self) -> usize;
+    async fn create(&self, task: Task) -> Result<Task, String>;
+    async fn get(&self, id: &str) -> Option<Task>;
+    async fn list_pending(&self) -> Vec<Task>;
+    async fn list_all(&self) -> Vec<Task>;
+    async fn update_status(&self, id: &str, status: TaskStatus) -> Result<(), String>;
+    async fn update(&self, task: Task) -> Result<(), String>;
+    async fn delete(&self, id: &str) -> Result<(), String>;
+    async fn count(&self) -> usize;
 
     /// Пометить задачу как взятую в работу данным агентом.
     /// Возвращает ошибку, если задача уже взята или не в Pending.
-    fn claim(&mut self, id: &str, agent: &str) -> Result<Task, String>;
+    async fn claim(&self, id: &str, agent: &str) -> Result<Task, String>;
 }
 
 /// Simple in-memory implementation of TaskStore.
 /// This is the first concrete step toward a Rust-native task system.
 #[derive(Default, Debug)]
 pub struct InMemoryTaskStore {
-    tasks: std::collections::HashMap<String, Task>,
+    tasks: std::sync::RwLock<std::collections::HashMap<String, Task>>,
 }
 
 impl InMemoryTaskStore {
     pub fn new() -> Self {
         Self {
-            tasks: std::collections::HashMap::new(),
+            tasks: std::sync::RwLock::new(std::collections::HashMap::new()),
         }
     }
 }
 
+#[async_trait]
 impl TaskStore for InMemoryTaskStore {
-    fn create(&mut self, mut task: Task) -> Result<Task, String> {
-        if self.tasks.contains_key(&task.id) {
+    async fn create(&self, mut task: Task) -> Result<Task, String> {
+        let mut tasks = self.tasks.write().unwrap();
+        if tasks.contains_key(&task.id) {
             return Err(format!("Task with id {} already exists", task.id));
         }
 
-        // Ensure timestamps are set
+        // Ensure timestamps are set (single call for consistency)
+        let now = chrono::Utc::now().to_rfc3339();
         if task.created_at.is_empty() {
-            task.created_at = chrono::Utc::now().to_rfc3339();
+            task.created_at = now.clone();
         }
-        task.updated_at = chrono::Utc::now().to_rfc3339();
-
-        if task.status == TaskStatus::Pending && task.created_at.is_empty() {
-            // already handled above
-        }
+        task.updated_at = now;
 
         let id = task.id.clone();
-        self.tasks.insert(id, task.clone());
+        tasks.insert(id, task.clone());
         Ok(task)
     }
 
-    fn get(&self, id: &str) -> Option<Task> {
-        self.tasks.get(id).cloned()
+    async fn get(&self, id: &str) -> Option<Task> {
+        self.tasks.read().unwrap().get(id).cloned()
     }
 
-    fn list_pending(&self) -> Vec<Task> {
+    async fn list_pending(&self) -> Vec<Task> {
         let mut pending: Vec<Task> = self
             .tasks
+            .read()
+            .unwrap()
             .values()
             .filter(|t| t.status == TaskStatus::Pending)
             .cloned()
             .collect();
 
-        // Sort by priority (very rough for now)
         pending.sort_by(|a, b| {
-            let prio_order = |p: &str| match p {
-                "critical" => 0,
-                "high" => 1,
-                "medium" => 2,
-                _ => 3,
-            };
-            prio_order(&a.priority).cmp(&prio_order(&b.priority))
+            priority_rank(&a.priority)
+                .cmp(&priority_rank(&b.priority))
+                .then_with(|| a.created_at.cmp(&b.created_at))
         });
 
         pending
     }
 
-    fn update_status(&mut self, id: &str, status: TaskStatus) -> Result<(), String> {
-        if let Some(task) = self.tasks.get_mut(id) {
+    async fn update_status(&self, id: &str, status: TaskStatus) -> Result<(), String> {
+        let mut tasks = self.tasks.write().unwrap();
+        if let Some(task) = tasks.get_mut(id) {
             task.status = status;
             task.updated_at = chrono::Utc::now().to_rfc3339();
             Ok(())
@@ -165,47 +189,56 @@ impl TaskStore for InMemoryTaskStore {
         }
     }
 
-    fn list_all(&self) -> Vec<Task> {
-        let mut all: Vec<Task> = self.tasks.values().cloned().collect();
-        all.sort_by_key(|t| t.created_at.clone());
+    async fn list_all(&self) -> Vec<Task> {
+        let mut all: Vec<Task> = self.tasks.read().unwrap().values().cloned().collect();
+        all.sort_by(|a, b| a.created_at.cmp(&b.created_at));
         all
     }
 
-    fn update(&mut self, mut task: Task) -> Result<(), String> {
-        if !self.tasks.contains_key(&task.id) {
+    async fn update(&self, mut task: Task) -> Result<(), String> {
+        let mut tasks = self.tasks.write().unwrap();
+        if !tasks.contains_key(&task.id) {
             return Err(format!("Task {} not found", task.id));
         }
         task.updated_at = chrono::Utc::now().to_rfc3339();
-        self.tasks.insert(task.id.clone(), task);
+        tasks.insert(task.id.clone(), task);
         Ok(())
     }
 
-    fn delete(&mut self, id: &str) -> Result<(), String> {
-        if self.tasks.remove(id).is_some() {
+    async fn delete(&self, id: &str) -> Result<(), String> {
+        if self.tasks.write().unwrap().remove(id).is_some() {
             Ok(())
         } else {
             Err(format!("Task {} not found", id))
         }
     }
 
-    fn count(&self) -> usize {
-        self.tasks.len()
+    async fn count(&self) -> usize {
+        self.tasks.read().unwrap().len()
     }
 
-    fn claim(&mut self, id: &str, agent: &str) -> Result<Task, String> {
-        match self.tasks.get_mut(id) {
+    async fn claim(&self, id: &str, agent: &str) -> Result<Task, String> {
+        let mut tasks = self.tasks.write().unwrap();
+        match tasks.get_mut(id) {
             Some(task) => {
                 if task.status != TaskStatus::Pending {
-                    return Err(format!("Task {} is not pending (current status: {:?})", id, task.status));
+                    return Err(format!(
+                        "Task {} is not pending (current status: {:?})",
+                        id, task.status
+                    ));
                 }
                 if task.assigned_to.is_some() {
-                    return Err(format!("Task {} is already assigned to {:?}", id, task.assigned_to));
+                    return Err(format!(
+                        "Task {} is already assigned to {:?}",
+                        id, task.assigned_to
+                    ));
                 }
 
                 task.assigned_to = Some(agent.to_string());
                 task.status = TaskStatus::InProgress;
-                task.started_at = Some(chrono::Utc::now().to_rfc3339());
-                task.updated_at = chrono::Utc::now().to_rfc3339();
+                let now = chrono::Utc::now().to_rfc3339();
+                task.started_at = Some(now.clone());
+                task.updated_at = now;
 
                 // Note: InMemoryTaskStore does not persist (unlike JsonFileTaskStore)
                 Ok(task.clone())
@@ -225,7 +258,7 @@ impl TaskStore for InMemoryTaskStore {
 #[derive(Debug)]
 pub struct JsonFileTaskStore {
     path: std::path::PathBuf,
-    tasks: std::collections::HashMap<String, Task>,
+    tasks: std::sync::RwLock<std::collections::HashMap<String, Task>>,
 }
 
 impl JsonFileTaskStore {
@@ -245,7 +278,10 @@ impl JsonFileTaskStore {
             std::collections::HashMap::new()
         };
 
-        Self { path, tasks }
+        Self {
+            path,
+            tasks: std::sync::RwLock::new(tasks),
+        }
     }
 
     fn persist(&self) {
@@ -253,7 +289,8 @@ impl JsonFileTaskStore {
             let _ = std::fs::create_dir_all(parent);
         }
 
-        let tasks_vec: Vec<&Task> = self.tasks.values().collect();
+        let tasks_lock = self.tasks.read().unwrap();
+        let tasks_vec: Vec<&Task> = tasks_lock.values().collect();
 
         // Atomic write (write to .tmp then rename)
         let tmp_path = self.path.with_extension("json.tmp");
@@ -269,58 +306,62 @@ impl JsonFileTaskStore {
     }
 }
 
+#[async_trait]
 impl TaskStore for JsonFileTaskStore {
-    fn create(&mut self, mut task: Task) -> Result<Task, String> {
-        if self.tasks.contains_key(&task.id) {
+    async fn create(&self, mut task: Task) -> Result<Task, String> {
+        let mut tasks = self.tasks.write().unwrap();
+        if tasks.contains_key(&task.id) {
             return Err(format!("Task with id {} already exists", task.id));
         }
 
+        let now = chrono::Utc::now().to_rfc3339();
         if task.created_at.is_empty() {
-            task.created_at = chrono::Utc::now().to_rfc3339();
+            task.created_at = now.clone();
         }
-        task.updated_at = chrono::Utc::now().to_rfc3339();
+        task.updated_at = now;
 
         let id = task.id.clone();
-        self.tasks.insert(id, task.clone());
+        tasks.insert(id, task.clone());
+        drop(tasks);
         self.persist();
         Ok(task)
     }
 
-    fn get(&self, id: &str) -> Option<Task> {
-        self.tasks.get(id).cloned()
+    async fn get(&self, id: &str) -> Option<Task> {
+        self.tasks.read().unwrap().get(id).cloned()
     }
 
-    fn list_pending(&self) -> Vec<Task> {
+    async fn list_pending(&self) -> Vec<Task> {
         let mut pending: Vec<Task> = self
             .tasks
+            .read()
+            .unwrap()
             .values()
             .filter(|t| t.status == TaskStatus::Pending)
             .cloned()
             .collect();
 
         pending.sort_by(|a, b| {
-            let prio_order = |p: &str| match p {
-                "critical" => 0,
-                "high" => 1,
-                "medium" => 2,
-                _ => 3,
-            };
-            prio_order(&a.priority).cmp(&prio_order(&b.priority))
+            priority_rank(&a.priority)
+                .cmp(&priority_rank(&b.priority))
+                .then_with(|| a.created_at.cmp(&b.created_at))
         });
 
         pending
     }
 
-    fn list_all(&self) -> Vec<Task> {
-        let mut all: Vec<Task> = self.tasks.values().cloned().collect();
-        all.sort_by_key(|t| t.created_at.clone());
+    async fn list_all(&self) -> Vec<Task> {
+        let mut all: Vec<Task> = self.tasks.read().unwrap().values().cloned().collect();
+        all.sort_by(|a, b| a.created_at.cmp(&b.created_at));
         all
     }
 
-    fn update_status(&mut self, id: &str, status: TaskStatus) -> Result<(), String> {
-        if let Some(task) = self.tasks.get_mut(id) {
+    async fn update_status(&self, id: &str, status: TaskStatus) -> Result<(), String> {
+        let mut tasks = self.tasks.write().unwrap();
+        if let Some(task) = tasks.get_mut(id) {
             task.status = status;
             task.updated_at = chrono::Utc::now().to_rfc3339();
+            drop(tasks);
             self.persist();
             Ok(())
         } else {
@@ -328,18 +369,21 @@ impl TaskStore for JsonFileTaskStore {
         }
     }
 
-    fn update(&mut self, mut task: Task) -> Result<(), String> {
-        if !self.tasks.contains_key(&task.id) {
+    async fn update(&self, mut task: Task) -> Result<(), String> {
+        let mut tasks = self.tasks.write().unwrap();
+        if !tasks.contains_key(&task.id) {
             return Err(format!("Task {} not found", task.id));
         }
         task.updated_at = chrono::Utc::now().to_rfc3339();
-        self.tasks.insert(task.id.clone(), task);
+        tasks.insert(task.id.clone(), task);
+        drop(tasks);
         self.persist();
         Ok(())
     }
 
-    fn delete(&mut self, id: &str) -> Result<(), String> {
-        if self.tasks.remove(id).is_some() {
+    async fn delete(&self, id: &str) -> Result<(), String> {
+        let removed = self.tasks.write().unwrap().remove(id).is_some();
+        if removed {
             self.persist();
             Ok(())
         } else {
@@ -347,26 +391,37 @@ impl TaskStore for JsonFileTaskStore {
         }
     }
 
-    fn count(&self) -> usize {
-        self.tasks.len()
+    async fn count(&self) -> usize {
+        self.tasks.read().unwrap().len()
     }
 
-    fn claim(&mut self, id: &str, agent: &str) -> Result<Task, String> {
-        match self.tasks.get_mut(id) {
+    async fn claim(&self, id: &str, agent: &str) -> Result<Task, String> {
+        let mut tasks = self.tasks.write().unwrap();
+        match tasks.get_mut(id) {
             Some(task) => {
                 if task.status != TaskStatus::Pending {
-                    return Err(format!("Task {} is not pending (current status: {:?})", id, task.status));
+                    return Err(format!(
+                        "Task {} is not pending (current status: {:?})",
+                        id, task.status
+                    ));
                 }
                 if task.assigned_to.is_some() {
-                    return Err(format!("Task {} is already assigned to {:?}", id, task.assigned_to));
+                    return Err(format!(
+                        "Task {} is already assigned to {:?}",
+                        id, task.assigned_to
+                    ));
                 }
 
                 task.assigned_to = Some(agent.to_string());
                 task.status = TaskStatus::InProgress;
-                task.started_at = Some(chrono::Utc::now().to_rfc3339());
-                task.updated_at = chrono::Utc::now().to_rfc3339();
+                let now = chrono::Utc::now().to_rfc3339();
+                task.started_at = Some(now.clone());
+                task.updated_at = now;
 
-                Ok(task.clone())
+                let result = task.clone();
+                drop(tasks);
+                self.persist();
+                Ok(result)
             }
             None => Err(format!("Task {} not found", id)),
         }
@@ -377,15 +432,30 @@ impl TaskStore for JsonFileTaskStore {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_task_creation() {
+    #[tokio::test]
+    async fn test_task_creation() {
         let task = Task::new("test-1", "Do something", "Detailed description")
             .with_priority("high")
-            .with_preferred_agent("jules");
+            .with_preferred_agent("grok");
 
         assert_eq!(task.id, "test-1");
         assert_eq!(task.priority, "high");
-        assert_eq!(task.preferred_agent, Some("jules".to_string()));
+        assert_eq!(task.preferred_agent, Some("grok".to_string()));
         assert_eq!(task.status, TaskStatus::Pending);
+    }
+
+    #[tokio::test]
+    async fn test_inmemory_store_basic() {
+        let store = InMemoryTaskStore::new();
+        let task = Task::new("t1", "Test", "desc");
+        let created = store.create(task.clone()).await.unwrap();
+        assert_eq!(created.id, "t1");
+        assert_eq!(store.count().await, 1);
+        let got = store.get("t1").await.unwrap();
+        assert_eq!(got.title, "Test");
+        let pending = store.list_pending().await;
+        assert_eq!(pending.len(), 1);
+        store.delete("t1").await.unwrap();
+        assert_eq!(store.count().await, 0);
     }
 }

@@ -17,8 +17,13 @@ pub use agentforge_core::Outcome;
 /// Transitional alias for legacy code using `learning::CoreOutcome` (same type).
 pub use agentforge_core::Outcome as CoreOutcome;
 
+fn default_failure_outcome() -> Outcome {
+    Outcome::Failure
+}
+
 /// Per-step PRM label (for training process reward models / critics).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
 pub struct PRMStepLabel {
     pub index: usize,
     pub event_type: String,
@@ -29,11 +34,16 @@ pub struct PRMStepLabel {
 
 /// Canonical rich record for learning (one trajectory + rich labels).
 /// Mirrors the Python TrajectoryRecord for easy file-based interop.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Implements Default (via inherent + trait) for ergonomic minimal construction + mutation
+/// in tests, edges and flywheel (e.g. `let mut r = TrajectoryRecord::default(); r.xxx = ...`).
+/// Serde is tolerant to missing fields (defaults applied) for robust Python/JSONL interop.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct TrajectoryRecord {
     pub task_id: String,
     pub benchmark_id: String,
     pub agent: String,
+    #[serde(default = "default_failure_outcome")]
     pub outcome: Outcome,
     pub real_task_id: Option<String>,
 
@@ -64,7 +74,44 @@ pub struct TrajectoryRecord {
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
+impl std::default::Default for TrajectoryRecord {
+    fn default() -> Self {
+        TrajectoryRecord {
+            task_id: String::new(),
+            benchmark_id: String::new(),
+            agent: String::new(),
+            outcome: Outcome::Failure,
+            real_task_id: None,
+            prm_overall: None,
+            prm_high_quality_steps: None,
+            prm_low_quality_steps: None,
+            prm_step_labels: None,
+            prm_suggestions: None,
+            duration_seconds: 0.0,
+            steps_taken: 0,
+            tool_calls: 0,
+            cost_usd: 0.0,
+            error_message: None,
+            events: Vec::new(),
+            judge_notes: None,
+            quality_score: None,
+            learning_value_score: 0.0,
+            trajectory_path: None,
+            evaluated_at: None,
+            metadata: HashMap::new(),
+        }
+    }
+}
+
 impl TrajectoryRecord {
+    /// Inherent `default()` so `TrajectoryRecord::default()` resolves in downstream crates
+    /// (agentforge-flywheel tests etc.) even without `use std::default::Default;` in scope.
+    /// Delegates to the trait impl. Enables the "minimal rec + mutate" pattern used for edges.
+    #[allow(clippy::should_implement_trait)]
+    pub fn default() -> Self {
+        <Self as std::default::Default>::default()
+    }
+
     pub fn is_high_quality(&self, min_prm: f64) -> bool {
         match self.prm_overall {
             Some(score) => score >= min_prm && self.outcome == Outcome::Success,

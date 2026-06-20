@@ -3,7 +3,7 @@
 #
 # Usage (by agents or humans):
 #   agent-worktree create <slug> [base-branch]
-#   agent-worktree cd <slug>
+#   agent-worktree cd <slug>     # emits path for: cd "$(agent-worktree cd <slug>)"
 #   agent-worktree list
 #   agent-worktree cleanup <slug> [--force]
 #   agent-worktree cleanup-all [--force]
@@ -13,14 +13,41 @@
 #
 # This is the critical enabler for extreme parallel agent waves without
 # constant merge conflicts on the main checkout.
+#
+# Concurrency: per-slug mkdir-based locks protect create/cleanup against
+# TOCTOU races, double-registration, and dirty-check races under SWARM load.
+# Orphan lockdirs (no pid) and leaked locks from cleanup-all are now auto-recovered.
 
 set -euo pipefail
 
+CURRENT_LOCKD=""
+CURRENT_LOCKD_PID=""
+LOCK_PREFIX=".lock-"
+
 WORKTREE_ROOT="${AGENT_WORKTREE_ROOT:-/tmp/agentforge-work}"
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve primary (main) repo root robustly: the script file may be invoked via a
+# copy inside an agent worktree (where .git is a file, not dir). We must always
+# operate git worktree commands against the primary checkout that owns the registrations.
+resolve_primary_repo() {
+  local cand="$1"
+  if [ -d "$cand/.git" ]; then
+    # Main checkout: .git is a directory
+    echo "$cand"
+    return 0
+  fi
+  # Worktree or non-repo: ask git for the first listed worktree (always the primary/main)
+  local mainp
+  mainp=$(git -C "$cand" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -1)
+  if [ -n "$mainp" ] && [ -d "$mainp" ]; then
+    echo "$mainp"
+    return 0
+  fi
+  echo "$cand"
+}
+REPO_ROOT="$(resolve_primary_repo "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)")"
 BRANCH_PREFIX="agent/"
 
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
 mkdir -p "$WORKTREE_ROOT"
 
@@ -28,34 +55,148 @@ slugify() {
     echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g' | sed -E 's/^-+|-+$//g' | cut -c1-60
 }
 
+acquire_worktree_lock() {
+    local slug="${1:?slug for lock}"
+    local lockd="$WORKTREE_ROOT/${LOCK_PREFIX}${slug}"
+    local mypid=$$
+    local owner_pid=0
+    local attempts=0
+    while true; do
+        if mkdir "$lockd" 2>/dev/null; then
+            echo "$mypid" > "$lockd/pid" 2>/dev/null || true
+            CURRENT_LOCKD="$lockd"
+            CURRENT_LOCKD_PID="$mypid"
+            return 0
+        fi
+        # mkdir failed: check for stale (owner dead or no pid file = crash before write / orphan)
+        # or self (re-acquire)
+        if [ -f "$lockd/pid" ]; then
+            owner_pid="$(cat "$lockd/pid" 2>/dev/null || echo 0)"
+            if [ "$owner_pid" = "$mypid" ]; then
+                # same pid already holds this (re-acquire harmless)
+                CURRENT_LOCKD="$lockd"
+                CURRENT_LOCKD_PID="$mypid"
+                return 0
+            fi
+            if ! kill -0 "$owner_pid" 2>/dev/null; then
+                # owner dead -> stale lockdir, nuke and retry
+                rm -rf "$lockd" 2>/dev/null || true
+                owner_pid=0
+                continue
+            fi
+        else
+            # dir exists but no pid file -> orphaned (partial create, previous rm -f pid w/o rmdir, or tamper)
+            # treat as stale to prevent permanent lockup under swarm
+            rm -rf "$lockd" 2>/dev/null || true
+            continue
+        fi
+        # live holder (valid pid, process alive), wait poll
+        attempts=$((attempts + 1))
+        if [ "$attempts" -gt 300 ]; then
+            echo -e "${RED}Timeout (~15s) acquiring lock for slug '$slug' (held by pid ${owner_pid:-unknown})${NC}" >&2
+            exit 1
+        fi
+        sleep 0.05
+    done
+}
+
+release_worktree_lock() {
+    local lockd="${1:-${CURRENT_LOCKD:-}}"
+    local did_release=0
+    if [ -n "$lockd" ] && [ -d "$lockd" ]; then
+        if [ -f "$lockd/pid" ]; then
+            local opid
+            opid="$(cat "$lockd/pid" 2>/dev/null || echo 0)"
+            if [ "$opid" = "$$" ] || [ "$opid" = "${CURRENT_LOCKD_PID:-}" ]; then
+                rm -f "$lockd/pid" 2>/dev/null || true
+                did_release=1
+            fi
+        else
+            # no pid: only safe to rmdir if this shell believes it owns (via CURRENT)
+            if [ "$lockd" = "${CURRENT_LOCKD:-}" ]; then
+                did_release=1
+            fi
+        fi
+        if [ "$did_release" = "1" ]; then
+            rmdir "$lockd" 2>/dev/null || true
+        fi
+    fi
+    CURRENT_LOCKD=""
+    CURRENT_LOCKD_PID=""
+}
+
 cmd_create() {
     local raw_slug="${1:?slug required (e.g. cm-02-worktree or task-ff3a7480)}"
-    local base_branch="${2:-$(git -C "$REPO_ROOT" branch --show-current)}"
+    local base_branch="${2:-}"
+    if [ -z "$base_branch" ]; then
+        base_branch="$(git -C "$REPO_ROOT" branch --show-current 2>/dev/null || true)"
+    fi
+    if [ -z "$base_branch" ]; then
+        base_branch="main"
+    fi
+    # resolve to a valid ref (local or origin or HEAD) to avoid create-from-nonexistent
+    local base_ref="$base_branch"
+    if ! git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$base_ref" 2>/dev/null; then
+        if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/remotes/origin/$base_ref" 2>/dev/null; then
+            base_ref="origin/$base_ref"
+        else
+            base_ref="HEAD"
+        fi
+    fi
 
     local slug
     slug="$(slugify "$raw_slug")"
+    if [ -z "$slug" ]; then
+        echo -e "${RED}Empty slug after slugify for '$raw_slug'${NC}" >&2
+        exit 1
+    fi
     local worktree_path="$WORKTREE_ROOT/$slug"
     local branch="${BRANCH_PREFIX}${slug}"
+
+    # Serialize create for this slug (prevents TOCTOU races with parallel creates/cleanups for same slug)
+    acquire_worktree_lock "$slug" >/dev/null
+    trap 'release_worktree_lock' EXIT INT TERM
+
+    # Refuse slugs that would collide with our internal lockdir namespace (after slugify they won't start with dot, but defensive)
+    if [[ "$slug" == ${LOCK_PREFIX}* ]]; then
+        echo -e "${RED}Slug '$raw_slug' produces reserved lock prefix after slugify. Choose a different slug.${NC}" >&2
+        release_worktree_lock
+        trap - EXIT INT TERM 2>/dev/null || true
+        exit 1
+    fi
+
+    # Prune stale registrations so re-using slug after manual rm doesn't falsely claim "exists"
+    git -C "$REPO_ROOT" worktree prune 2>/dev/null || true
 
     if [ -d "$worktree_path" ]; then
         echo -e "${YELLOW}Worktree for '$slug' already exists at $worktree_path${NC}"
         echo "  cd $worktree_path"
+        release_worktree_lock
+        trap - EXIT INT TERM 2>/dev/null || true
         return 0
     fi
+
+    # Extra safety: drop any dangling registration for this exact path
+    git -C "$REPO_ROOT" worktree remove --force "$worktree_path" 2>/dev/null || true
 
     echo -e "${CYAN}Creating isolated worktree for agent task: ${slug}${NC}"
     echo "  Location : $worktree_path"
     echo "  Branch   : $branch (from $base_branch)"
     echo "  Base repo: $REPO_ROOT"
 
-    # Create branch if it doesn't exist
+    # Create branch if it doesn't exist (now safe under lock)
     if ! git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$branch"; then
-        git -C "$REPO_ROOT" branch "$branch" "$base_branch" 2>/dev/null || true
+        git -C "$REPO_ROOT" branch "$branch" "$base_ref" 2>/dev/null || true
     fi
 
-    git -C "$REPO_ROOT" worktree add "$worktree_path" "$branch"
+    if ! git -C "$REPO_ROOT" worktree add "$worktree_path" "$branch"; then
+        echo -e "${RED}git worktree add failed for $worktree_path${NC}" >&2
+        release_worktree_lock
+        trap - EXIT INT TERM 2>/dev/null || true
+        exit 1
+    fi
 
-    # Drop a small README so agents know what to do
+    # Drop a small README so agents know what to do (use dynamic REPO_ROOT, not hardcoded)
     cat > "$worktree_path/.AGENT_WORKTREE" << EOF
 Agent Worktree
 ==============
@@ -69,20 +210,24 @@ Follow the official Branching Strategy (docs/BRANCHING_STRATEGY.md).
 All work must be traceable to a task (62a84821 etc.).
 
 IMMEDIATELY after entering this tree, run:
-  cd /home/eveselove/agentforge && ./bin/install-pre-commit
+  cd "$REPO_ROOT" && ./bin/install-pre-commit
 
 This activates the quality gate (secrets, size, fmt/clippy/ruff/black).
 
 When done with the task:
-  cd /home/eveselove/agentforge && ./bin/agent-worktree cleanup $slug
+  cd "$REPO_ROOT" && ./bin/agent-worktree cleanup $slug
 
 Or from inside this dir:
-  cd /home/eveselove/agentforge && ./bin/agent-worktree cleanup $slug
+  cd "$REPO_ROOT" && ./bin/agent-worktree cleanup $slug
 EOF
 
     echo -e "${GREEN}✅ Worktree ready.${NC}"
     echo "  cd $worktree_path"
-    echo "  (or use: agent-worktree cd $slug)"
+    echo "  (or: cd \"\$(agent-worktree cd $slug)\")"
+
+    # explicit release before normal return; trap will no-op if fires (release is idempotent)
+    release_worktree_lock
+    trap - EXIT INT TERM 2>/dev/null || true
 }
 
 cmd_cd() {
@@ -90,30 +235,40 @@ cmd_cd() {
     slug="$(slugify "${1:?slug required}")"
     local path="$WORKTREE_ROOT/$slug"
 
-    if [ ! -d "$path" ]; then
-        echo -e "${RED}No worktree for '$slug' at $path${NC}"
+    if [[ "$slug" == ${LOCK_PREFIX}* ]] || [ ! -d "$path" ] || [ ! -e "$path/.git" ]; then
+        echo -e "${RED}No valid worktree for '$slug' at $path${NC}"
         echo "Create it first: agent-worktree create $slug"
         exit 1
     fi
 
-    echo "cd $path"
-    # When sourced or eval'ed this works; when run directly we just print
+    # Output ONLY the path so both patterns work:
+    #   cd "$(agent-worktree cd $slug)"
+    #   eval "cd \$(agent-worktree cd $slug)"
+    # (Previously output "cd $path" which broke cd-substitution and polluted eval with hint on stdout)
+    echo "$path"
+    # When sourced (BASH_SOURCE != $0), perform the cd in current shell context
     if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
         cd "$path" || true
     else
-        echo "(run 'eval \"\$(agent-worktree cd $slug)\"' to actually cd)"
+        echo "(hint: cd \"\$(agent-worktree cd $slug)\" or eval \"cd \\\$(agent-worktree cd $slug)\")" >&2
     fi
 }
 
 cmd_list() {
     echo -e "${BOLD}Active agent worktrees:${NC}"
+    # Always prune for accurate view (stale registrations from crashes etc.)
+    git -C "$REPO_ROOT" worktree prune 2>/dev/null || true
     if [ ! -d "$WORKTREE_ROOT" ] || [ -z "$(ls -A "$WORKTREE_ROOT" 2>/dev/null)" ]; then
         echo "  (none)"
         return
     fi
 
+    local has_any=0
+    # nullglob-like safety: skip non-dirs (in case * expands literally)
+    # Also skip internal .lock-* (even though * glob normally hides dotfiles) and any junk dirs without .git
     for d in "$WORKTREE_ROOT"/*; do
         [ -d "$d" ] || continue
+        [ -e "$d/.git" ] || continue
         local slug
         slug="$(basename "$d")"
         local branch
@@ -122,7 +277,11 @@ cmd_list() {
         status="$(git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
         printf "  ${CYAN}%-25s${NC}  branch=%-30s  dirty=%3s files   %s\n" \
             "$slug" "$branch" "$status" "$d"
+        has_any=1
     done
+    if [ "$has_any" = "0" ]; then
+        echo "  (none)"
+    fi
 }
 
 cmd_cleanup() {
@@ -132,20 +291,36 @@ cmd_cleanup() {
     slug="$(slugify "$raw_slug")"
     local path="$WORKTREE_ROOT/$slug"
 
+    # Serialize cleanup vs concurrent create/clean for same slug (race on dirty-check, registration, branch delete)
+    acquire_worktree_lock "$slug" >/dev/null
+    trap 'release_worktree_lock' EXIT INT TERM
+
+    # Defensive: never operate on our internal lockdirs (even if manually targeted)
+    if [[ "$slug" == ${LOCK_PREFIX}* ]]; then
+        echo -e "${YELLOW}Refusing cleanup of internal lock pseudo-slug '$slug'${NC}"
+        release_worktree_lock
+        trap - EXIT INT TERM 2>/dev/null || true
+        return 0
+    fi
+
     if [ ! -d "$path" ]; then
         echo -e "${YELLOW}No worktree at $path — nothing to do.${NC}"
+        release_worktree_lock
+        trap - EXIT INT TERM 2>/dev/null || true
         return 0
     fi
 
     echo -e "${YELLOW}Cleaning up worktree: $slug${NC}"
     echo "  Path: $path"
 
-    # Safety: refuse if dirty unless --force
+    # Safety: refuse if dirty unless --force (check under lock)
     local dirty
     dirty="$(git -C "$path" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
     if [ "$dirty" -gt 0 ] && [ "$force" != "--force" ]; then
         echo -e "${RED}Worktree has uncommitted changes ($dirty files).${NC}"
         echo "  Commit/stash them first, or use --force"
+        release_worktree_lock
+        trap - EXIT INT TERM 2>/dev/null || true
         exit 1
     fi
 
@@ -163,22 +338,30 @@ cmd_cleanup() {
         fi
     fi
 
+    git -C "$REPO_ROOT" worktree prune 2>/dev/null || true
+
     echo -e "${GREEN}✅ Cleanup complete for $slug${NC}"
+
+    release_worktree_lock
+    trap - EXIT INT TERM 2>/dev/null || true
 }
 
 cmd_cleanup_all() {
     local force="${1:-}"
     echo -e "${YELLOW}Cleaning ALL agent worktrees...${NC}"
 
+    # Note: per-slug locks inside cmd_cleanup serialize safely even if somehow concurrent
+    # Only target real worktrees (have .git); * glob skips .lock-* anyway, but be explicit
     for d in "$WORKTREE_ROOT"/*; do
         [ -d "$d" ] || continue
+        [ -e "$d/.git" ] || continue
         local slug
         slug="$(basename "$d")"
         cmd_cleanup "$slug" "$force" || true
     done
 
-    # Also prune any stale worktrees git knows about
-    git -C "$REPO_ROOT" worktree prune || true
+    # Also prune any stale worktrees git knows about (global)
+    git -C "$REPO_ROOT" worktree prune 2>/dev/null || true
     echo -e "${GREEN}All agent worktrees cleaned.${NC}"
 }
 
@@ -188,7 +371,7 @@ agent-worktree — isolated git worktrees for parallel agents (extreme mode)
 
 Commands:
   create <slug> [base-branch]     Create new isolated worktree + branch
-  cd <slug>                       Print (or cd when eval'ed) into a worktree
+  cd <slug>                       Print path (or cd when sourced); use in cd "\$(...)" or eval
   list                            Show all active agent worktrees
   cleanup <slug> [--force]        Remove worktree + its agent/ branch
   cleanup-all [--force]           Nuclear option — clean everything
@@ -198,9 +381,12 @@ Environment:
 
 Examples (inside agent):
   agent-worktree create cm-02-worktree-isolation
-  cd \$(agent-worktree cd cm-02-worktree-isolation)
+  cd "\$(agent-worktree cd cm-02-worktree-isolation)"
   # ... do work ...
   agent-worktree cleanup cm-02-worktree-isolation
+
+  # or with eval:
+  eval "cd \$(agent-worktree cd cm-02-worktree-isolation)"
 EOF
 }
 

@@ -13,7 +13,6 @@ See PHASE4_REMOVAL_PLAN.md (exemptions section + Tier 1) + learning/utils.py (gu
 
 from agentforge.planning import HierarchicalPlanner
 from agentforge.safety import PolicyEngine
-from agentforge.observability import create_spans_from_trajectory
 
 
 def run_goal_with_planning_and_safety(goal: str, executor):
@@ -32,9 +31,13 @@ def run_goal_with_planning_and_safety(goal: str, executor):
     plan = planner.decompose(goal)
 
     for subtask in planner.get_execution_order(plan):
-        decision = policy.evaluate("subtask_execution", {"description": subtask.description})
+        decision = policy.evaluate(
+            "subtask_execution", {"description": subtask.description}
+        )
         if decision.decision.value == "block":
-            print(f"[Safety] Blocked subtask: {subtask.description} — {decision.reason}")
+            print(
+                f"[Safety] Blocked subtask: {subtask.description} — {decision.reason}"
+            )
             continue
 
         print(f"[Executor] Running: {subtask.description}")
@@ -54,13 +57,14 @@ def run_goal_with_planning_and_safety(goal: str, executor):
 
 
 if __name__ == "__main__":
+
     def dummy_executor(subtask):
         print(f"   (simulated work on: {subtask.description})")
         return "success"
 
     plan = run_goal_with_planning_and_safety(
         "Add comprehensive rate limiting and audit logging to the auth service",
-        dummy_executor
+        dummy_executor,
     )
     print("\nFinal plan status:", [s.status for s in plan.subtasks])
 

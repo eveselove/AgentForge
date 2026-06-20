@@ -162,9 +162,9 @@ if [ $DRY_RUN -eq 1 ]; then
     log "[dry] === PATCH TARGETS (aggressive full farm coverage) ==="
     log "[dry]   Marker: .pure_rust_flywheel"
     log "[dry]   Env: bin/rust_flywheel.env  (full canonical rewrite with PURE + ENGINE=rust + release runner + provenance)"
-    log "[dry]   Services (ALL aggressive): agentforge-flywheel.service agentforge-worker.service agentforge-jules-worker.service agentforge-api.service agentforge-watchdog.service agentforge.service"
+    log "[dry]   Services (ALL aggressive): agentforge-flywheel.service agentforge-worker.service agentforge-api.service agentforge-watchdog.service agentforge.service"
     log "[dry]   Timers (ALL): agentforge-flywheel.timer"
-    log "[dry]   Workers/Hooks (expanded): grok_worker.sh jules_worker.sh dispatcher.sh agents/grok_runner.sh agents/jules_runner.sh agents/agy_runner.sh agents/gemini_runner.sh"
+    log "[dry]   Workers/Hooks (expanded): grok_worker.sh dispatcher.sh agents/grok_runner.sh agents/agy_runner.sh agents/gemini_runner.sh"
     log "[dry]   Bin scripts (aggressive): bin/rust_flywheel_after_task.sh bin/run_continuous_flywheel.sh bin/run_continuous_flywheel.py healthcheck.sh bin/enable_rust_flywheel.sh bin/enable_continuous_flywheel.sh bin/disable_rust_flywheel.sh bin/trigger_real_ab_on_farm.sh bin/execute_real_abs_on_promoted.sh install_services.sh"
     log "[dry]   + Future-proof: any file containing 'flywheel' or sourcing rust_flywheel.env gets guarded pure block on re-run"
     log ""
@@ -212,10 +212,8 @@ TIMER_SRC="$AGENTFORGE_ROOT/agentforge-flywheel.timer"
 # === AGGRESSIVE PATCH LISTS (production excellence — full coverage) ===
 WORKER_SH_FILES=(
     "$AGENTFORGE_ROOT/grok_worker.sh"
-    "$AGENTFORGE_ROOT/jules_worker.sh"
     "$AGENTFORGE_ROOT/dispatcher.sh"
     "$AGENTFORGE_ROOT/agents/grok_runner.sh"
-    "$AGENTFORGE_ROOT/agents/jules_runner.sh"
     "$AGENTFORGE_ROOT/agents/agy_runner.sh"
     "$AGENTFORGE_ROOT/agents/gemini_runner.sh"
     # Bin + hooks (aggressive for pure engine propagation everywhere)
@@ -235,7 +233,6 @@ WORKER_SH_FILES=(
 SERVICES_AND_TIMERS=(
     "$AGENTFORGE_ROOT/agentforge-flywheel.service"
     "$AGENTFORGE_ROOT/agentforge-worker.service"
-    "$AGENTFORGE_ROOT/agentforge-jules-worker.service"
     "$AGENTFORGE_ROOT/agentforge-api.service"
     "$AGENTFORGE_ROOT/agentforge-watchdog.service"
     "$AGENTFORGE_ROOT/agentforge.service"
@@ -250,7 +247,7 @@ if [ $DRY_RUN -eq 0 ]; then
     # Regenerate the canonical snippet with both legacy Rust + pure cutover flags (idempotent, safe)
     cat > "$ENV_SNIPPET" << 'SNIP_EOF'
 # AgentForge Rust Flywheel env snippet (auto-generated + pure cutover by make_pure_rust_flywheel_default.sh)
-# Source early in grok_worker.sh / jules_worker.sh / dispatcher.sh / runners / services:
+# Source early in grok_worker.sh / dispatcher.sh / runners / services:
 #   source /home/eveselove/agentforge/bin/rust_flywheel.env 2>/dev/null || true
 #
 # 2026-06 PURE RUST FLYWHEEL DEFAULT (Phase 3 cutover — PRODUCTION EXCELLENCE): sole engine
@@ -362,14 +359,14 @@ if [ $DRY_RUN -eq 0 ]; then
     # Worker note (do not blindly restart on production farm unless --force-restart)
     if [ $FORCE_RESTART -eq 1 ]; then
         log "FORCE_RESTART requested — attempting safe user worker restarts (non-fatal)..."
-        for unit in agentforge-worker agentforge-jules-worker; do
+        for unit in agentforge-worker; do
             if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
                 timeout 15s systemctl --user restart "$unit" 2>/dev/null || log "$unit restart attempted (non-fatal)"
             fi
         done
     else
         log "Worker restart: skipped for safety. Use --force-restart only on low-load dev hosts."
-        log "Manual (when safe): systemctl --user restart agentforge-worker agentforge-jules-worker"
+        log "Manual (when safe): systemctl --user restart agentforge-worker"
     fi
 else
     log "[dry] would perform safe user-mode status checks + conditional restarts only with --force-restart"
@@ -541,11 +538,11 @@ python rust_flywheel_demo.py --help | cat
 /home/eveselove/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run 2>/dev/null | cat || true
 /home/eveselove/agentforge/rust/target/release/agentforge-runner flywheel-step --help | head -4 || true
 
-# === 2. ALL LOCAL WORKERS (grok/jules on same host) ===
+# === 2. ALL LOCAL WORKERS (grok on same host) ===
 # Workers now source the updated snippet + have appended pure sections.
 # After the one-command above, simply (when safe / low load):
-systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || \
-  (pkill -f 'grok_worker.sh|jules_worker.sh' 2>/dev/null; bash grok_worker.sh & bash jules_worker.sh &)
+systemctl --user restart agentforge-worker 2>/dev/null || \
+  (pkill -f 'grok_worker.sh' 2>/dev/null; bash grok_worker.sh &)
 
 # === 3. FARM ROLLOUT PACKAGE — PURE RUST FLYWHEEL DEFAULT (Rust orchestration sole engine) ===
 # Ready-to-use for entire production farm in one go.
@@ -556,7 +553,7 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 # * Prefer PER-HOST rollout first wave (one remote at a time, watch load/dashboard + candidate provenance + engine tags).
 # * Master wrapper (below) ALWAYS does --dry-run per remote (with banners) + short pause + (interactive or --yes).
 # * Only proceed to real after dry output looks clean on that host.
-# * ROLLBACK per remote (instant + stronger): ssh <host> 'export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; rm -f /home/eveselove/agentforge/.pure_rust_flywheel 2>/dev/null || true; systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true'
+# * ROLLBACK per remote (instant + stronger): ssh <host> 'export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; rm -f /home/eveselove/agentforge/.pure_rust_flywheel 2>/dev/null || true; systemctl --user restart agentforge-worker 2>/dev/null || true'
 # * Timer primarily on main Autonomy host(s). Workers + hooks on all remotes.
 # * Low-load window recommended. Monitor with: tail -f logs/*.log + dashboard + healthcheck + pure candidate manifests (engine field) + rust_flywheel_demo.py runs.
 # * All commands are idempotent; re-run make_ script to re-arm pure default anywhere.
@@ -568,7 +565,7 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 # After full rollout (main + all remotes green):
 #   - Run for 60-120 minutes minimum (3-6+ continuous timer ticks + several real task completions)
 #   - Actively monitor:
-#       tail -f logs/continuous_flywheel.log logs/grok_worker.log logs/jules_worker.log
+#       tail -f logs/continuous_flywheel.log logs/grok_worker.log
 #       python -m agentforge.list_pending_candidates list --limit 10 --sort value
 #       /home/eveselove/agentforge/rust/target/release/agentforge-runner candidate list --limit 5
 #       ls -l /tmp/agentforge_rust_flywheel/
@@ -598,7 +595,7 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 #     # ... review output + confirm binary built ...
 #     bash make_pure_rust_flywheel_default.sh --no-timer || bash make_pure_rust_flywheel_default.sh
 #     touch /home/eveselove/agentforge/.pure_rust_flywheel
-#     systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || (pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null; bash /home/eveselove/agentforge/grok_worker.sh & bash /home/eveselove/agentforge/jules_worker.sh &) || true
+#     systemctl --user restart agentforge-worker 2>/dev/null || (pkill -f "grok_worker.sh" 2>/dev/null; bash /home/eveselove/agentforge/grok_worker.sh &) || true
 #     # POST-VERIFY (healthcheck + timer + binary provenance + candidate engine):
 #     bash /home/eveselove/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|pure|✅|⚠️|ONLINE" | head -12 || true
 #     systemctl --user status agentforge-flywheel.timer --no-pager 2>/dev/null | head -6 || true
@@ -634,7 +631,7 @@ PAYLOAD=(
   bin/make_pure_rust_flywheel_default.sh
   bin/rust_flywheel.env
   agentforge-flywheel.service agentforge-flywheel.timer
-  agentforge-worker.service agentforge-jules-worker.service
+  agentforge-worker.service
   .pure_rust_flywheel
   healthcheck.sh
   install_services.sh
@@ -651,7 +648,7 @@ echo "Targets: ${#REMOTES[@]} remotes"
 echo "Mode: dry-first ALWAYS (VERY VISIBLE BANNERS); real only after review (${AUTO_YES:+auto} )"
 echo "Payload files: ${#PAYLOAD[@]} (binary must already exist on each remote!)"
 echo "Safety: per-host dry + binary verify + health/timer/provenance + NEW demo + candidate list + 4s throttle"
-echo "Rollback example (any host): export AGENTFORGE_FLYWHEEL_ENGINE=python; rm -f /home/eveselove/agentforge/.pure_rust_flywheel; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-{worker,jules-worker} || true"
+echo "Rollback example (any host): export AGENTFORGE_FLYWHEEL_ENGINE=python; rm -f /home/eveselove/agentforge/.pure_rust_flywheel; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-worker || true"
 echo "================================================================"
 
 for host in "${REMOTES[@]}"; do
@@ -695,12 +692,11 @@ for host in "${REMOTES[@]}"; do
     bash make_pure_rust_flywheel_default.sh --no-timer 2>&1 | tail -25 || bash make_pure_rust_flywheel_default.sh 2>&1 | tail -20
     touch /home/eveselove/agentforge/.pure_rust_flywheel 2>/dev/null || true
     # Safe worker bounce (user units preferred; fallback direct)
-    if systemctl --user is-active --quiet agentforge-worker 2>/dev/null || systemctl --user is-active --quiet agentforge-jules-worker 2>/dev/null; then
-      systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true
+    if systemctl --user is-active --quiet agentforge-worker 2>/dev/null; then
+      systemctl --user restart agentforge-worker 2>/dev/null || true
     else
-      pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null || true
+      pkill -f "grok_worker.sh" 2>/dev/null || true
       (nohup bash /home/eveselove/agentforge/grok_worker.sh > /dev/null 2>&1 &)
-      (nohup bash /home/eveselove/agentforge/jules_worker.sh > /dev/null 2>&1 &)
     fi
     echo "  Workers + pure defaults signalled on $host"
   ' 2>&1 | tail -30 || echo "     (ssh real warning on $host — check manually)"
@@ -744,7 +740,7 @@ echo "  systemctl --user status agentforge-flywheel.timer || true"
 echo "  ls -l /tmp/agentforge_rust_flywheel/ ; cat /tmp/agentforge_rust_flywheel/flywheel_health.json 2>/dev/null | head -c 800"
 echo ""
 echo "Per-host rollback (example):"
-echo "  ssh agent3 'export AGENTFORGE_FLYWHEEL_ENGINE=python; rm -f /home/eveselove/agentforge/.pure_rust_flywheel; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-worker agentforge-jules-worker || true'"
+echo "  ssh agent3 'export AGENTFORGE_FLYWHEEL_ENGINE=python; rm -f /home/eveselove/agentforge/.pure_rust_flywheel; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-worker || true'"
 echo ""
 echo "Re-arm pure default on any host:"
 echo "  ssh HOST 'bash /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh'"
@@ -785,7 +781,7 @@ touch /home/eveselove/agentforge/.disable_pure_rust_flywheel
 export DISABLE_RUST_FLYWHEEL=1   # ultimate existing killswitch (honored in every guard + binary paths)
 
 # Then restart workers + timer (user mode preferred):
-systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true
+systemctl --user restart agentforge-worker 2>/dev/null || true
 systemctl --user restart agentforge-flywheel.timer 2>/dev/null || true
 
 # =============================================================================
@@ -796,10 +792,8 @@ for f in \
   /home/eveselove/agentforge/agentforge-flywheel.service \
   /home/eveselove/agentforge/agentforge-flywheel.timer \
   /home/eveselove/agentforge/grok_worker.sh \
-  /home/eveselove/agentforge/jules_worker.sh \
   /home/eveselove/agentforge/dispatcher.sh \
   /home/eveselove/agentforge/agents/grok_runner.sh \
-  /home/eveselove/agentforge/agents/jules_runner.sh \
   /home/eveselove/agentforge/agents/agy_runner.sh \
   /home/eveselove/agentforge/agents/gemini_runner.sh \
   /home/eveselove/agentforge/bin/rust_flywheel_after_task.sh \
@@ -809,7 +803,6 @@ for f in \
   /home/eveselove/agentforge/bin/rust_flywheel.env \
   /home/eveselove/agentforge/install_services.sh \
   /home/eveselove/agentforge/agentforge-worker.service \
-  /home/eveselove/agentforge/agentforge-jules-worker.service \
   /home/eveselove/agentforge/agentforge-api.service \
   /home/eveselove/agentforge/agentforge-watchdog.service \
   /home/eveselove/agentforge/agentforge.service \
@@ -847,7 +840,7 @@ bash /home/eveselove/agentforge/bin/make_pure_rust_flywheel_default.sh
 # To restore full Antigravity (non-pure) default: bash bin/make_antigravity_default.sh
 
 # Farm-wide rollback one-liner example (from main):
-# for h in agent1 ssh-3 ...; do ssh $h 'export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-worker agentforge-jules-worker || true'; done
+# for h in agent1 ssh-3 ...; do ssh $h 'export AGENTFORGE_FLYWHEEL_ENGINE=python; touch /home/eveselove/agentforge/.disable_pure_rust_flywheel; export DISABLE_RUST_FLYWHEEL=1; systemctl --user restart agentforge-worker || true'; done
 
 # === POST-ROLLBACK SOAK (symmetric to cutover soak) ===
 # After rollback: 30-60min monitoring to confirm zero pure paths, all candidates via Python/legacy, no engine=rust in new manifests.

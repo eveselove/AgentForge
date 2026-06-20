@@ -8,14 +8,14 @@ import json
 from typing import Optional
 
 
-AGENTFORGE_API = "http://localhost:8080"
+AGENTFORGE_API = "http://localhost:9090"
 
 
 def create_evaluation_task_in_agentforge(
     title: str,
     description: str,
     tags: list[str] = None,
-    preferred_agent: str = "grok",
+    preferred_agent: str = "auto",
 ) -> Optional[str]:
     """
     Helper to create a real task in AgentForge marked as evaluation.

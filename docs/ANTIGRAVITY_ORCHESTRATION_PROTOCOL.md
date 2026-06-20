@@ -19,17 +19,17 @@ Writing code or long thinking documents directly is a **last resort**, not the d
 
 ## Mandatory Operating Rules
 
-### 1. Task Decomposition First (Non-Negotiable)
+### 1. Extreme Task Fragmentation (Lightning-Fast Execution)
 Before doing any substantial work yourself:
 
 1. Create a **Dispatch Plan** (as a task or document).
-2. Break the work into the smallest possible parallelizable units (target: 8–20+ tasks for anything non-trivial).
+2. **Micro-task everything:** Break the work into the absolute smallest possible parallelizable units. With 50+ agent terminals available simultaneously, we aim for **hyper-parallel execution**.
 3. Every task must be:
-   - Small enough that a single competent agent can finish it in one focused session
-   - Clearly scoped with acceptance criteria
-   - Tagged with `preferred_agent`, priority, and estimated complexity
+   - Micro-scoped: A single competent agent should finish it in minutes, not hours.
+   - Clearly scoped with exact file paths and acceptance criteria.
+   - Tagged with `preferred_agent`, priority, and estimated complexity.
 
-**Rule of thumb**: If you cannot create at least 7 parallel tasks from a request, you have not decomposed enough.
+**Rule of thumb**: If you cannot create at least 20-50 parallel micro-tasks from a major request, you are bottlenecking the 50-agent swarm. Decompose until we can write code lightning-fast!
 
 ### 2. Delegation Quota (Hard Target)
 In any significant Antigravity session:
@@ -41,9 +41,10 @@ In any significant Antigravity session:
 ### 3. Use the Full Tooling Stack Aggressively
 You **must** use these mechanisms by default:
 
+- **The new `agentforge-runner`** (Rust-based) as the primary engine for task creation, dispatch, and lifecycle management.
 - `bin/agent-worktree` + short-lived agent branches for parallel local work
 - `bin/launch-jules-parallel` and `agent-team` for volume
-- The central Task Queue as the single source of truth
+- The central Task Queue (via Gateway API / `agentforge-runner`) as the single source of truth
 - `agent-review` skill + handoff packaging after any non-trivial delegated work
 - `bin/consume-handoff-reviews.py` to close review loops at scale
 
@@ -80,7 +81,7 @@ You are allowed (and encouraged) to:
 
 - This protocol will be referenced in Antigravity system prompts and in AGENTS.md.
 - Violations (doing too much solo work on large initiatives) should be called out in agent-review.
-- Over time, we will add tooling (e.g., a `/antigravity-decompose` helper) to make following this protocol easier than violating it.
+- Over time, we will rely on the new `agentforge-runner` (e.g., via `agentforge-runner decompose` or similar subcommands) to make following this protocol natively supported and easier than violating it.
 
 ---
 

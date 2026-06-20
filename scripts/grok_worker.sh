@@ -482,7 +482,7 @@ run_task() {
             log "INFO" "multi-repo isolation: using worktree $worktree_dir (agentforge pattern)"
             REPO_DIR="$worktree_dir"
             # Register for dashboard Co-Pilot live terminal (human+agent shared workspace)
-            curl -s -X POST "http://localhost:8080/api/tasks/${task_id}/worktree" \
+            curl -s -X POST "http://localhost:9090/api/tasks/${task_id}/worktree" \
               -H 'Content-Type: application/json' \
               -d "{\"path\": \"${worktree_dir}\"}" >/dev/null 2>&1 || true
         fi

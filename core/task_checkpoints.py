@@ -10,14 +10,14 @@ repeating expensive work (git clone, full Grok sessions, long CI runs).
 Table schema (as specified):
   checkpoints(task_id, step, data_json, created_at)
 
-+ RAG / Knowledge (tags: rag,knowledge):
++ RAG / Knowledge (WAVE4: gw primary /api/knowledge + blackboard; py tasks.db table DEPRECATED - use migrate_knowledge_from_tasks_db_to_gateway + shims; local fallback on gw fail or DUAL_WRITE=1).
   FTS5-powered full-text search over task titles, descriptions, outcomes and logs.
   Enables "similar past tasks" retrieval for RAG context injection into Grok prompts.
   Search similar engineering tasks by natural language query (e.g. "dark mode crash on login").
 
   Virtual table: tasks_fts (task_id, title, content, tags, outcome)
 
-+ Shared Memory: общая база знаний агентов (memory,knowledge,database,rag)
++ Shared Memory: общая база знаний агентов (memory,knowledge,database,rag) - gw primary via shim.
   Explicit key-value store for agents to persist facts, learnings, decisions across tasks.
   Agents should save important outcomes / extracted knowledge AFTER task completion (done/failed).
   Table in tasks.db: knowledge(id, agent, task_id, key, value, embedding_hash, created_at)
@@ -28,9 +28,11 @@ Table schema (as specified):
 + Team Operational Memory (Blackboard): оперативная память команды (memory,blackboard,communication)
   Live shared board for *active* agents. Agents publish current actions in real time
   (e.g. 'Я меняю структуру БД') so other agents see what teammates are doing *now*.
-  Tables: blackboard_activity in task_checkpoints.db (agent, team_id, task_id, message, created_at)
-  HTTP (via gateway): POST /blackboard/activity , GET /blackboard/feed , GET /blackboard/current
-  Use post_activity() / get_current_actions() from agent code or task_queue.
+  WAVE4: gw primary via /api/blackboard/* (stores to blackboard.json in gw); local task_checkpoints.db fallback on fail or DUAL.
+  Blackboard py table in task_checkpoints.db DEPRECATED for new writes (use shims + migrate when available; gw json canonical).
+  HTTP (via gateway 9090): POST /api/blackboard/activity , GET /api/blackboard/feed?limit=...&team_id=... (filters client-side or server)
+  Use post_activity() / get_blackboard_feed() / get_current_actions() from agent code.
+  Note: no /blackboard/current in gw (ephemeral; get_current_actions does client dedup from feed).
 
 Steps (in order):
   dispatch -> git_clone -> grok_start -> grok_done -> ci_start -> ci_done -> review -> done
@@ -95,17 +97,19 @@ PIPELINE_STEPS = [
     "grok_done",
     "ci_start",
     "ci_done",
-    "ci_failed",     # CI failed on the changes (triggers auto-rollback in grok_worker)
-    "rollback",      # Auto git revert executed by grok_worker to protect main
+    "ci_failed",  # CI failed on the changes (triggers auto-rollback in grok_worker)
+    "rollback",  # Auto git revert executed by grok_worker to protect main
     "review",
-    "done",          # terminal success
-    "failed",        # terminal failure (with error in data_json)
+    "done",  # terminal success
+    "failed",  # terminal failure (with error in data_json)
 ]
 
 # --- Internal helpers ---
 
+
 def _ensure_data_dir() -> None:
     os.makedirs(DATA_DIR, exist_ok=True)
+
 
 def _get_conn() -> sqlite3.Connection:
     """Create a crash-safe SQLite connection (WAL + sane pragmas)."""
@@ -154,8 +158,12 @@ def init_knowledge_db() -> str:
                 created_at      TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_agent ON knowledge (agent)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_task ON knowledge (task_id)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_knowledge_agent ON knowledge (agent)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_knowledge_task ON knowledge (task_id)"
+        )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_key ON knowledge (key)")
 
         # FTS5 for fast search over key+value (agent/task_id also indexed for filters)
@@ -244,14 +252,18 @@ def init_db() -> str:
     init_knowledge_db()
     return DB_PATH
 
+
 def _upsert_task_meta(conn: sqlite3.Connection, task_id: str, step: str) -> None:
-    conn.execute("""
+    conn.execute(
+        """
         INSERT INTO tasks (task_id, last_step, last_updated)
         VALUES (?, ?, datetime('now'))
         ON CONFLICT(task_id) DO UPDATE SET
             last_step = excluded.last_step,
             last_updated = excluded.last_updated
-    """, (task_id, step))
+    """,
+        (task_id, step),
+    )
 
 
 def _ensure_orchestration_schema(conn: sqlite3.Connection) -> None:
@@ -290,10 +302,16 @@ def _ensure_orchestration_schema(conn: sqlite3.Connection) -> None:
             pass  # column may have been added concurrently
 
     # Indexes for hierarchy traversal and team scoping
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks (parent_task_id)")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks (parent_task_id)"
+    )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_team ON tasks (team_id)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_manager ON tasks (manager_agent)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_depends ON tasks (depends_on_json)")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_manager ON tasks (manager_agent)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_depends ON tasks (depends_on_json)"
+    )
 
     # Optional dedicated table for team registry (for dynamic agent team lifecycle)
     conn.execute("""
@@ -306,8 +324,12 @@ def _ensure_orchestration_schema(conn: sqlite3.Connection) -> None:
             updated_at    TEXT
         )
     """)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_teams_manager ON agent_teams (manager_agent)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_teams_status ON agent_teams (status)")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_teams_manager ON agent_teams (manager_agent)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_teams_status ON agent_teams (status)"
+    )
 
 
 def _index_task_fts(conn: sqlite3.Connection, task_id: str) -> None:
@@ -320,7 +342,7 @@ def _index_task_fts(conn: sqlite3.Connection, task_id: str) -> None:
 
     rows = conn.execute(
         "SELECT step, data_json FROM checkpoints WHERE task_id = ? ORDER BY created_at, id",
-        (task_id,)
+        (task_id,),
     ).fetchall()
     if not rows:
         return
@@ -345,7 +367,16 @@ def _index_task_fts(conn: sqlite3.Connection, task_id: str) -> None:
             title = (d.get("title") or d.get("task_title") or d.get("repo") or "")[:400]
 
         # Collect rich text for search (title, errors, reasons, branches, repos, etc.)
-        for key in ("title", "description", "repo", "branch", "error", "reason", "message", "details"):
+        for key in (
+            "title",
+            "description",
+            "repo",
+            "branch",
+            "error",
+            "reason",
+            "message",
+            "details",
+        ):
             if val := d.get(key):
                 content_parts.append(f"{key}:{val}")
 
@@ -365,8 +396,7 @@ def _index_task_fts(conn: sqlite3.Connection, task_id: str) -> None:
 
     # Also pull latest task meta
     meta = conn.execute(
-        "SELECT last_step FROM tasks WHERE task_id = ?",
-        (task_id,)
+        "SELECT last_step FROM tasks WHERE task_id = ?", (task_id,)
     ).fetchone()
     if meta and meta["last_step"] in ("done", "failed"):
         outcome = "success" if meta["last_step"] == "done" else outcome
@@ -377,7 +407,7 @@ def _index_task_fts(conn: sqlite3.Connection, task_id: str) -> None:
     conn.execute(
         """INSERT INTO tasks_fts (task_id, title, content, tags, outcome)
            VALUES (?, ?, ?, ?, ?)""",
-        (task_id, title or task_id, content, tags_str, outcome)
+        (task_id, title or task_id, content, tags_str, outcome),
     )
 
 
@@ -385,17 +415,18 @@ def _index_task_fts(conn: sqlite3.Connection, task_id: str) -> None:
 # SHARED MEMORY / AGENT KNOWLEDGE BASE (memory,knowledge,database,rag)
 # ============================================================
 
+
 def _index_knowledge_fts(conn: sqlite3.Connection, knowledge_id: int) -> None:
     """Index single knowledge row into FTS (called inside save transaction on knowledge DB)."""
     row = conn.execute(
         "SELECT id, agent, task_id, key, value FROM knowledge WHERE id = ?",
-        (knowledge_id,)
+        (knowledge_id,),
     ).fetchone()
     if not row:
         return
     conn.execute(
         "INSERT INTO knowledge_fts (id, agent, task_id, key, value) VALUES (?, ?, ?, ?, ?)",
-        (row["id"], row["agent"] or "", row["task_id"] or "", row["key"], row["value"])
+        (row["id"], row["agent"] or "", row["task_id"] or "", row["key"], row["value"]),
     )
 
 
@@ -423,21 +454,52 @@ def save_knowledge(
     _ensure_data_dir()
     now = datetime.utcnow().isoformat() + "Z"
 
-    conn = _get_knowledge_conn()
+    # WAVE4: gw primary (checkpoints.db via /api/knowledge). Local (tasks.db) ONLY if gw fail OR AGENTFORGE_KNOWLEDGE_DUAL_WRITE=1.
+    # Py knowledge table deprecated (migrate fn below; gw canonical for new).
+    import os
+
+    gw_ok = False
     try:
-        with conn:
-            cur = conn.execute(
-                """
-                INSERT INTO knowledge (agent, task_id, key, value, embedding_hash, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (agent, task_id, key, value, embedding_hash, now),
-            )
-            kid = cur.lastrowid
-            _index_knowledge_fts(conn, kid)
-        return kid
-    finally:
-        conn.close()
+        import urllib.request
+        import json
+
+        api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+        payload = {
+            "key": key,
+            "value": value,
+            "agent": agent or "",
+            "task_id": task_id or "",
+        }
+        if embedding_hash:
+            payload["embedding_hash"] = embedding_hash
+        req = urllib.request.Request(
+            f"{api}/api/knowledge",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=3)
+        gw_ok = True
+    except Exception:
+        pass
+
+    if not gw_ok or os.getenv("AGENTFORGE_KNOWLEDGE_DUAL_WRITE") == "1":
+        conn = _get_knowledge_conn()
+        try:
+            with conn:
+                cur = conn.execute(
+                    """
+                    INSERT INTO knowledge (agent, task_id, key, value, embedding_hash, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (agent, task_id, key, value, embedding_hash, now),
+                )
+                kid = cur.lastrowid
+                _index_knowledge_fts(conn, kid)
+            return kid
+        finally:
+            conn.close()
+    # gw success path (no local write unless DUAL)
+    return 0  # sentinel; callers use .get() tolerant
 
 
 def search_knowledge(
@@ -454,6 +516,27 @@ def search_knowledge(
     Returns list of rows with score when FTS used.
     """
     q = (q or "").strip()
+    # WAVE3 SHIM: try gateway search first (Rust)
+    try:
+        import urllib.request
+        import urllib.parse
+        import json
+        import os
+
+        api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+        qs = f"q={urllib.parse.quote(q)}&limit={limit}"
+        if agent:
+            qs += f"&agent={urllib.parse.quote(agent)}"
+        if task_id:
+            qs += f"&task_id={urllib.parse.quote(task_id)}"
+        with urllib.request.urlopen(
+            f"{api}/api/knowledge/search?{qs}", timeout=5
+        ) as resp:
+            data = json.loads(resp.read())
+            if isinstance(data, list) and data:
+                return data  # return gateway results if any
+    except Exception:
+        pass
     conn = _get_knowledge_conn()
     try:
         init_knowledge_db()  # ensure knowledge tables in tasks.db
@@ -491,13 +574,13 @@ def search_knowledge(
                 for r in rows
             ]
 
-        # FTS5 search with bm25
-        import re
         def _make_fts_query(user_query: str) -> str:
-            tokens = re.findall(r'\S+', user_query)
+            import re  # local FTS tokenization (WAVE4)
+
+            tokens = re.findall(r"\S+", user_query)
             safe = []
             for tok in tokens:
-                if re.search(r'[^a-zA-Z0-9_]', tok):
+                if re.search(r"[^a-zA-Z0-9_]", tok):
                     safe.append('"' + tok.replace('"', '""') + '"')
                 else:
                     safe.append(tok)
@@ -521,16 +604,18 @@ def search_knowledge(
 
         results = []
         for r in rows:
-            results.append({
-                "id": r["id"],
-                "agent": r["agent"],
-                "task_id": r["task_id"],
-                "key": r["key"],
-                "value": r["value"],
-                "embedding_hash": r["embedding_hash"],
-                "created_at": r["created_at"],
-                "score": float(r["score"]) if r["score"] is not None else 0.0,
-            })
+            results.append(
+                {
+                    "id": r["id"],
+                    "agent": r["agent"],
+                    "task_id": r["task_id"],
+                    "key": r["key"],
+                    "value": r["value"],
+                    "embedding_hash": r["embedding_hash"],
+                    "created_at": r["created_at"],
+                    "score": float(r["score"]) if r["score"] is not None else 0.0,
+                }
+            )
         return results
     finally:
         conn.close()
@@ -542,7 +627,10 @@ def clear_knowledge(agent: Optional[str] = None, task_id: Optional[str] = None) 
     try:
         with conn:
             if agent and task_id:
-                res = conn.execute("DELETE FROM knowledge WHERE agent=? AND task_id=?", (agent, task_id))
+                res = conn.execute(
+                    "DELETE FROM knowledge WHERE agent=? AND task_id=?",
+                    (agent, task_id),
+                )
             elif agent:
                 res = conn.execute("DELETE FROM knowledge WHERE agent=?", (agent,))
             elif task_id:
@@ -551,7 +639,7 @@ def clear_knowledge(agent: Optional[str] = None, task_id: Optional[str] = None) 
                 res = conn.execute("DELETE FROM knowledge")
             # FTS is contentless in practice for this use; rebuild not strictly needed (search ignores orphans)
             conn.execute("DELETE FROM knowledge_fts")
-        return res.rowcount if hasattr(res, 'rowcount') else 0
+        return res.rowcount if hasattr(res, "rowcount") else 0
     finally:
         conn.close()
 
@@ -562,6 +650,16 @@ def save_checkpoint(task_id: str, step: str, data: Dict[str, Any]) -> None:
     Always call this at the end of each of:
         dispatch, git_clone, grok_start, grok_done, ci_start, ci_done, review, done/failed
     """
+    from learning.utils import is_pure_rust_flywheel
+
+    if is_pure_rust_flywheel():
+        # gw primary, local optional; skip heavy local under pure for thin
+        try:
+            # still try gw shim if available
+            post_activity("checkpoint", f"step {step} for {task_id}", task_id=task_id)
+        except:
+            pass
+        return
     if step not in PIPELINE_STEPS:
         # allow custom steps but warn in practice
         pass
@@ -575,12 +673,13 @@ def save_checkpoint(task_id: str, step: str, data: Dict[str, Any]) -> None:
         with conn:
             conn.execute(
                 "INSERT INTO checkpoints (task_id, step, data_json, created_at) VALUES (?, ?, ?, ?)",
-                (task_id, step, data_json, now)
+                (task_id, step, data_json, now),
             )
             _upsert_task_meta(conn, task_id, step)
             _index_task_fts(conn, task_id)
     finally:
         conn.close()
+
 
 def get_last_checkpoint(task_id: str) -> Optional[Dict[str, Any]]:
     """
@@ -603,7 +702,7 @@ def get_last_checkpoint(task_id: str) -> Optional[Dict[str, Any]]:
             ORDER BY created_at DESC, id DESC
             LIMIT 1
             """,
-            (task_id,)
+            (task_id,),
         ).fetchone()
         if not row:
             return None
@@ -616,10 +715,12 @@ def get_last_checkpoint(task_id: str) -> Optional[Dict[str, Any]]:
     finally:
         conn.close()
 
+
 def get_last_step(task_id: str) -> Optional[str]:
     """Just the step name of the latest checkpoint (or None)."""
     cp = get_last_checkpoint(task_id)
     return cp["step"] if cp else None
+
 
 def list_recoverable_tasks() -> List[Dict[str, Any]]:
     """
@@ -628,8 +729,7 @@ def list_recoverable_tasks() -> List[Dict[str, Any]]:
     """
     conn = _get_conn()
     try:
-        rows = conn.execute(
-            """
+        rows = conn.execute("""
             SELECT t.task_id, t.last_step, t.last_updated,
                    (SELECT data_json FROM checkpoints c
                     WHERE c.task_id = t.task_id
@@ -637,21 +737,23 @@ def list_recoverable_tasks() -> List[Dict[str, Any]]:
             FROM tasks t
             WHERE t.last_step NOT IN ('done', 'failed')
             ORDER BY t.last_updated DESC
-            """
-        ).fetchall()
+            """).fetchall()
 
         result = []
         for r in rows:
             data = json.loads(r["last_data"]) if r["last_data"] else {}
-            result.append({
-                "task_id": r["task_id"],
-                "last_step": r["last_step"],
-                "last_updated": r["last_updated"],
-                "data": data,
-            })
+            result.append(
+                {
+                    "task_id": r["task_id"],
+                    "last_step": r["last_step"],
+                    "last_updated": r["last_updated"],
+                    "data": data,
+                }
+            )
         return result
     finally:
         conn.close()
+
 
 def get_all_checkpoints(task_id: str) -> List[Dict[str, Any]]:
     """Full history for debugging / audit."""
@@ -659,16 +761,23 @@ def get_all_checkpoints(task_id: str) -> List[Dict[str, Any]]:
     try:
         rows = conn.execute(
             "SELECT step, data_json, created_at FROM checkpoints WHERE task_id = ? ORDER BY created_at, id",
-            (task_id,)
+            (task_id,),
         ).fetchall()
         return [
-            {"step": r["step"], "data": json.loads(r["data_json"]), "created_at": r["created_at"]}
+            {
+                "step": r["step"],
+                "data": json.loads(r["data_json"]),
+                "created_at": r["created_at"],
+            }
             for r in rows
         ]
     finally:
         conn.close()
 
-def resume_or_start(task_id: str, initial_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+
+def resume_or_start(
+    task_id: str, initial_data: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     High-level helper for task runners.
 
@@ -694,7 +803,9 @@ def resume_or_start(task_id: str, initial_data: Optional[Dict[str, Any]] = None)
         # Determine suggested next step (simple linear progression)
         try:
             idx = PIPELINE_STEPS.index(last)
-            next_step = PIPELINE_STEPS[idx + 1] if idx + 1 < len(PIPELINE_STEPS) else "done"
+            next_step = (
+                PIPELINE_STEPS[idx + 1] if idx + 1 < len(PIPELINE_STEPS) else "done"
+            )
         except ValueError:
             next_step = "dispatch"
         return {
@@ -716,6 +827,7 @@ def resume_or_start(task_id: str, initial_data: Optional[Dict[str, Any]] = None)
             "next_step": "dispatch",
         }
 
+
 def clear_task(task_id: str) -> None:
     """Dangerous: remove all history for a task (testing / reset only)."""
     conn = _get_conn()
@@ -727,14 +839,27 @@ def clear_task(task_id: str) -> None:
     finally:
         conn.close()
 
+
 # --- Convenience: mark terminal states ---
 def mark_done(task_id: str, final_data: Optional[Dict[str, Any]] = None) -> None:
-    data = final_data or get_last_checkpoint(task_id)["data"] if get_last_checkpoint(task_id) else {}
+    data = (
+        final_data or get_last_checkpoint(task_id)["data"]
+        if get_last_checkpoint(task_id)
+        else {}
+    )
     data.setdefault("completed_at", datetime.utcnow().isoformat() + "Z")
     save_checkpoint(task_id, "done", data)
 
-def mark_failed(task_id: str, error: str, data: Optional[Dict[str, Any]] = None) -> None:
-    payload = (data or (get_last_checkpoint(task_id)["data"] if get_last_checkpoint(task_id) else {})).copy()
+
+def mark_failed(
+    task_id: str, error: str, data: Optional[Dict[str, Any]] = None
+) -> None:
+    payload = (
+        data
+        or (
+            get_last_checkpoint(task_id)["data"] if get_last_checkpoint(task_id) else {}
+        )
+    ).copy()
     payload["error"] = error
     payload["failed_at"] = datetime.utcnow().isoformat() + "Z"
     save_checkpoint(task_id, "failed", payload)
@@ -747,6 +872,7 @@ def mark_failed(task_id: str, error: str, data: Optional[Dict[str, Any]] = None)
 # Used to build RAG context blocks for Grok prompts so the agent learns from
 # similar historical tasks (success patterns, failure modes, rollback cases, etc).
 # ============================================================
+
 
 def search_similar_tasks(query: str, limit: int = 6) -> List[Dict[str, Any]]:
     """
@@ -778,11 +904,12 @@ def search_similar_tasks(query: str, limit: int = 6) -> List[Dict[str, Any]]:
         # - Quote tokens containing special characters (hyphen, colon, etc.)
         # - This supports both "dark mode" and "ci-failed" / "auto-rollback" style searches
         def _make_fts_query(user_query: str) -> str:
-            import re
-            tokens = re.findall(r'\S+', user_query)
+            import re  # local FTS tokenization
+
+            tokens = re.findall(r"\S+", user_query)
             safe_tokens = []
             for tok in tokens:
-                if re.search(r'[^a-zA-Z0-9_]', tok):
+                if re.search(r"[^a-zA-Z0-9_]", tok):
                     safe_tokens.append('"' + tok.replace('"', '""') + '"')
                 else:
                     safe_tokens.append(tok)
@@ -819,7 +946,7 @@ def search_similar_tasks(query: str, limit: int = 6) -> List[Dict[str, Any]]:
                 WHERE task_id = ?
                 ORDER BY created_at DESC, id DESC LIMIT 1
                 """,
-                (r["task_id"],)
+                (r["task_id"],),
             ).fetchone()
 
             data = {}
@@ -827,24 +954,34 @@ def search_similar_tasks(query: str, limit: int = 6) -> List[Dict[str, Any]]:
                 try:
                     full = json.loads(last["data_json"])
                     # Keep only high-value keys for context injection (avoid huge payloads)
-                    for k in ("title", "repo", "branch", "error", "reason", "grok_session_id", "files_changed"):
+                    for k in (
+                        "title",
+                        "repo",
+                        "branch",
+                        "error",
+                        "reason",
+                        "grok_session_id",
+                        "files_changed",
+                    ):
                         if k in full:
                             data[k] = full[k]
                     data["last_checkpoint_step"] = last["step"]
                 except Exception:
                     pass
 
-            results.append({
-                "task_id": r["task_id"],
-                "title": r["title"] or "",
-                "outcome": r["outcome"] or "unknown",
-                "last_step": r["last_step"],
-                "last_updated": r["last_updated"],
-                "score": float(r["score"]) if r["score"] is not None else 0.0,
-                "tags": r["tags"] or "",
-                "snippet": (r["content"] or "")[:420],
-                "data": data,
-            })
+            results.append(
+                {
+                    "task_id": r["task_id"],
+                    "title": r["title"] or "",
+                    "outcome": r["outcome"] or "unknown",
+                    "last_step": r["last_step"],
+                    "last_updated": r["last_updated"],
+                    "score": float(r["score"]) if r["score"] is not None else 0.0,
+                    "tags": r["tags"] or "",
+                    "snippet": (r["content"] or "")[:420],
+                    "data": data,
+                }
+            )
         return results
     finally:
         conn.close()
@@ -901,7 +1038,11 @@ def perform_git_auto_rollback(
     import subprocess
 
     if not os.path.isdir(os.path.join(clone_path, ".git")):
-        return {"status": "skipped", "reason": "no .git directory", "clone_path": clone_path}
+        return {
+            "status": "skipped",
+            "reason": "no .git directory",
+            "clone_path": clone_path,
+        }
 
     original_cwd = os.getcwd()
     try:
@@ -911,7 +1052,9 @@ def perform_git_auto_rollback(
         if "origin/" in main_ref or main_ref.startswith("origin"):
             subprocess.run(
                 ["git", "fetch", "origin", "main", "--depth=50"],
-                check=False, capture_output=True, text=True
+                check=False,
+                capture_output=True,
+                text=True,
             )
 
         try:
@@ -925,20 +1068,28 @@ def perform_git_auto_rollback(
         rev_list_ref = main_ref
         revs_out = subprocess.run(
             ["git", "rev-list", "--reverse", f"{rev_list_ref}..HEAD"],
-            capture_output=True, text=True
+            capture_output=True,
+            text=True,
         )
         revs = [r for r in revs_out.stdout.strip().splitlines() if r]
 
         # Robust fallback for local test repos or non-standard default branches (master vs main etc.)
         # Critical for reliable "git revert on CI fail" in all environments.
         if not revs:
-            for fallback in (main_ref, "main", "master", "origin/main", "origin/master"):
+            for fallback in (
+                main_ref,
+                "main",
+                "master",
+                "origin/main",
+                "origin/master",
+            ):
                 if fallback == rev_list_ref:
                     continue
                 try:
                     revs_out = subprocess.run(
                         ["git", "rev-list", "--reverse", f"{fallback}..HEAD"],
-                        capture_output=True, text=True
+                        capture_output=True,
+                        text=True,
                     )
                     tmp = [r for r in revs_out.stdout.strip().splitlines() if r]
                     if tmp:
@@ -949,13 +1100,16 @@ def perform_git_auto_rollback(
                     pass
 
         if not revs:
-            return {"status": "no-op", "branch": branch, "reason": f"no commits beyond {main_ref}"}
+            return {
+                "status": "no-op",
+                "branch": branch,
+                "reason": f"no commits beyond {main_ref}",
+            }
 
         reverted: list[str] = []
         for rev in reversed(revs):  # newest → oldest for revert order
             rc = subprocess.run(
-                ["git", "revert", "--no-commit", rev],
-                capture_output=True, text=True
+                ["git", "revert", "--no-commit", rev], capture_output=True, text=True
             )
             if rc.returncode != 0:
                 subprocess.run(["git", "revert", "--abort"], check=False)
@@ -968,7 +1122,9 @@ def perform_git_auto_rollback(
                 }
             reverted.append(rev[:8])
 
-        short = ", ".join(reverted[:5]) + (f" (+{len(reverted)-5} more)" if len(reverted) > 5 else "")
+        short = ", ".join(reverted[:5]) + (
+            f" (+{len(reverted)-5} more)" if len(reverted) > 5 else ""
+        )
         msg = (
             f"Revert: auto-rollback after CI failure (task {task_id})\n\n"
             f"Reason: {reason}\n"
@@ -980,11 +1136,19 @@ def perform_git_auto_rollback(
             f"Generated by grok_worker / perform_git_auto_rollback.\n"
         )
 
-        c_rc = subprocess.run(["git", "commit", "-m", msg], capture_output=True, text=True)
+        c_rc = subprocess.run(
+            ["git", "commit", "-m", msg], capture_output=True, text=True
+        )
         if c_rc.returncode != 0:
-            return {"status": "commit-failed", "branch": branch, "stderr": c_rc.stderr[:400]}
+            return {
+                "status": "commit-failed",
+                "branch": branch,
+                "stderr": c_rc.stderr[:400],
+            }
 
-        new_head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        new_head = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip()
         return {
             "status": "reverted",
             "branch": branch,
@@ -1009,6 +1173,7 @@ def perform_git_auto_rollback(
 # Scope primarily by team_id (or task_id for sub-teams). Short-term operational.
 # Complements the long-term /knowledge store (post-completion facts).
 
+
 def _ensure_blackboard_schema(conn: sqlite3.Connection) -> None:
     """Idempotent: create blackboard_activity table + indexes for live agent status."""
     conn.execute("""
@@ -1021,10 +1186,18 @@ def _ensure_blackboard_schema(conn: sqlite3.Connection) -> None:
             created_at   TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_bba_created ON blackboard_activity (created_at DESC)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_bba_team ON blackboard_activity (team_id, created_at DESC)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_bba_agent ON blackboard_activity (agent, created_at DESC)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_bba_task ON blackboard_activity (task_id, created_at DESC)")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_bba_created ON blackboard_activity (created_at DESC)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_bba_team ON blackboard_activity (team_id, created_at DESC)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_bba_agent ON blackboard_activity (agent, created_at DESC)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_bba_task ON blackboard_activity (task_id, created_at DESC)"
+    )
 
 
 def post_activity(
@@ -1037,18 +1210,46 @@ def post_activity(
     """
     Publish current action/status to the shared team blackboard (operational memory).
     Call this periodically or on major step changes from active agent loops.
-    Other agents read via get_blackboard_feed() or get_current_actions() (or HTTP /blackboard/*).
+    Other agents read via get_blackboard_feed() or get_current_actions() (or HTTP /api/blackboard/* via gateway).
+
+    WAVE4: gw /api/blackboard/activity primary (blackboard.json); returns 0 sentinel on gw success (no dual unless KNOWLEDGE_DUAL_WRITE=1).
+    Local sqlite in task_checkpoints.db only on gw fail or dual.
 
     Example:
         post_activity("grok-worker-3", "Я меняю структуру БД: добавляю колонку blackboard_scope", team_id="team-42")
-        post_activity("jules-1", "Пишу тесты для A2A messaging", task_id="t-991")
+        post_activity("grok-worker-4", "Пишу тесты для A2A messaging", task_id="t-991")
 
-    Returns row id. Tags: memory,blackboard,communication
+    Returns row id (local) or 0 (gw sentinel). Tags: memory,blackboard,communication
     """
     if not agent or not message:
         raise ValueError("agent and message are required")
     _ensure_data_dir()
     now = datetime.utcnow().isoformat() + "Z"
+    # WAVE4: gw blackboard primary (/api/blackboard/activity)
+    try:
+        import urllib.request
+        import json
+        import os
+
+        api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+        payload = {
+            "agent": agent,
+            "message": message,
+            "team_id": team_id,
+            "task_id": task_id,
+        }
+        req = urllib.request.Request(
+            f"{api}/api/blackboard/activity",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=3)
+        # if success, still write local? or return 0; for compat dual if DUAL, else gw success
+        # (uses KNOWLEDGE_DUAL_WRITE for now; blackboard may get dedicated later)
+        if os.getenv("AGENTFORGE_KNOWLEDGE_DUAL_WRITE") != "1":
+            return 0  # sentinel for gw
+    except Exception:
+        pass  # local
     conn = _get_conn()
     try:
         with conn:
@@ -1077,8 +1278,37 @@ def get_blackboard_feed(
     Recent activity log from the team blackboard. Primary way for agents to observe
     what others are doing "right now". Supports team/task scoping + recency filter.
     Returns newest first.
+
+    WAVE4: gw /api/blackboard/feed primary (blackboard.json, limit N newest); qs filters passed but
+    gw may ignore server-side (client-side in get_current_actions dedup, or local fallback does filter).
+    Local task_checkpoints.db fallback (with sqlite filters).
     """
     _ensure_data_dir()
+    # WAVE4: gw blackboard primary
+    try:
+        import urllib.request
+        import urllib.parse
+        import json
+        import os
+
+        api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+        qs = f"limit={min(limit,200)}"
+        if team_id:
+            qs += f"&team_id={urllib.parse.quote(team_id)}"
+        if task_id:
+            qs += f"&task_id={urllib.parse.quote(task_id)}"
+        if agent:
+            qs += f"&agent={urllib.parse.quote(agent)}"
+        if since_minutes is not None and since_minutes > 0:
+            qs += f"&since_minutes={since_minutes}"
+        with urllib.request.urlopen(
+            f"{api}/api/blackboard/feed?{qs}", timeout=5
+        ) as resp:
+            data = json.loads(resp.read())
+            if isinstance(data, list):
+                return data  # gw results
+    except Exception:
+        pass
     conn = _get_conn()
     try:
         _ensure_blackboard_schema(conn)
@@ -1094,7 +1324,9 @@ def get_blackboard_feed(
             where.append("agent = ?")
             params.append(agent)
         if since_minutes is not None and since_minutes > 0:
-            cutoff_dt = datetime.utcnow() - __import__("datetime").timedelta(minutes=since_minutes)
+            cutoff_dt = datetime.utcnow() - __import__("datetime").timedelta(
+                minutes=since_minutes
+            )
             cutoff = cutoff_dt.isoformat() + "Z"
             where.append("created_at >= ?")
             params.append(cutoff)
@@ -1145,7 +1377,9 @@ def clear_blackboard_activity(team_id: Optional[str] = None) -> int:
         with conn:
             _ensure_blackboard_schema(conn)
             if team_id:
-                cur = conn.execute("DELETE FROM blackboard_activity WHERE team_id = ?", (team_id,))
+                cur = conn.execute(
+                    "DELETE FROM blackboard_activity WHERE team_id = ?", (team_id,)
+                )
             else:
                 cur = conn.execute("DELETE FROM blackboard_activity")
             return cur.rowcount or 0
@@ -1159,8 +1393,20 @@ if __name__ == "__main__":
     print("DB:", init_db())
     tid = "test-crash-recovery-001"
     clear_task(tid)
-    save_checkpoint(tid, "dispatch", {"title": "Add dark mode", "repo": "https://github.com/agx/planlytasksko"})
-    save_checkpoint(tid, "git_clone", {"branch": "grok-42", "clone_path": "/tmp/work/app", "repo": "https://github.com/agx/planlytasksko"})
+    save_checkpoint(
+        tid,
+        "dispatch",
+        {"title": "Add dark mode", "repo": "https://github.com/agx/planlytasksko"},
+    )
+    save_checkpoint(
+        tid,
+        "git_clone",
+        {
+            "branch": "grok-42",
+            "clone_path": "/tmp/work/app",
+            "repo": "https://github.com/agx/planlytasksko",
+        },
+    )
     save_checkpoint(tid, "grok_start", {"session": "grok-abc123"})
     cp = get_last_checkpoint(tid)
     print("Last checkpoint:", cp["step"], "at", cp["created_at"])
@@ -1171,12 +1417,16 @@ if __name__ == "__main__":
     # Index another task with different keywords for search test
     tid2 = "test-rag-fts5-002"
     clear_task(tid2)
-    save_checkpoint(tid2, "dispatch", {
-        "title": "Implement git auto-rollback on CI failure",
-        "repo": "https://github.com/agx/planlytasksko",
-        "description": "After CI fails on feature branch we must revert all commits safely so main is never broken",
-        "tags": ["git", "ci", "safety", "rollback"]
-    })
+    save_checkpoint(
+        tid2,
+        "dispatch",
+        {
+            "title": "Implement git auto-rollback on CI failure",
+            "repo": "https://github.com/agx/planlytasksko",
+            "description": "After CI fails on feature branch we must revert all commits safely so main is never broken",
+            "tags": ["git", "ci", "safety", "rollback"],
+        },
+    )
     save_checkpoint(tid2, "ci_failed", {"error": "tests failed"})
     save_checkpoint(tid2, "rollback", {"reverted": True})
     save_checkpoint(tid2, "done", {"completed": True})
@@ -1185,7 +1435,9 @@ if __name__ == "__main__":
     hits = search_similar_tasks("git revert rollback ci failure", limit=5)
     print(f"Found {len(hits)} similar task(s) for 'git revert rollback ci failure':")
     for h in hits:
-        print(f"  [{h['task_id']}] {h['title'][:60]} | outcome={h['outcome']} | score={h['score']:.2f}")
+        print(
+            f"  [{h['task_id']}] {h['title'][:60]} | outcome={h['outcome']} | score={h['score']:.2f}"
+        )
         print(f"      snippet: {h['snippet'][:110]}...")
 
     rag_block = get_rag_context("git auto rollback ci failure", limit=3, max_chars=900)
@@ -1220,7 +1472,9 @@ if __name__ == "__main__":
     mem_hits = search_knowledge("rollback ci_failed", limit=5)
     print(f"Found {len(mem_hits)} knowledge facts for 'rollback ci_failed':")
     for h in mem_hits:
-        print(f"  [{h['id']}] {h['key']}: {h.get('value','')[:70]}... (agent={h.get('agent')}, score={h.get('score',0):.2f})")
+        print(
+            f"  [{h['id']}] {h['key']}: {h.get('value','')[:70]}... (agent={h.get('agent')}, score={h.get('score',0):.2f})"
+        )
 
     recent = search_knowledge("", limit=3, agent="grok-worker")
     print(f"Recent knowledge for grok-worker: {len(recent)} items")
@@ -1230,48 +1484,198 @@ if __name__ == "__main__":
     # --- Git Auto-Rollback local simulation test (no network, real git reverts) ---
     # This directly verifies the core safety primitive requested: "git revert автоматически при падении CI"
     print("\n--- Git Auto-Rollback core logic test (local repo) ---")
-    import tempfile, shutil, subprocess as sp
+    import tempfile
+    import shutil
+    import subprocess as sp
+
     test_dir = tempfile.mkdtemp(prefix="grok_rb_test_")
     try:
         repo = test_dir + "/repo"
         sp.check_call(["git", "init", "-q", repo], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
-        sp.check_call(["git", "-C", repo, "config", "user.email", "test@local"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
-        sp.check_call(["git", "-C", repo, "config", "user.name", "Test"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+        sp.check_call(
+            ["git", "-C", repo, "config", "user.email", "test@local"],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+        sp.check_call(
+            ["git", "-C", repo, "config", "user.name", "Test"],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
 
         # Force "main" as default branch (portable across git versions/configs)
-        sp.check_call(["git", "-C", repo, "checkout", "-q", "-b", "main"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
-        with open(repo + "/README.md", "w") as f: f.write("init\n")
-        sp.check_call(["git", "-C", repo, "add", "README.md"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
-        sp.check_call(["git", "-C", repo, "commit", "-q", "-m", "init main"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+        sp.check_call(
+            ["git", "-C", repo, "checkout", "-q", "-b", "main"],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+        with open(repo + "/README.md", "w") as f:
+            f.write("init\n")
+        sp.check_call(
+            ["git", "-C", repo, "add", "README.md"],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+        sp.check_call(
+            ["git", "-C", repo, "commit", "-q", "-m", "init main"],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
 
         # Simulate Grok feature branch + "bad" change that would fail CI
-        sp.check_call(["git", "-C", repo, "checkout", "-q", "-b", "grok-bad-42"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
-        with open(repo + "/GROK_EDIT.md", "w") as f: f.write("bad change that breaks CI\n")
-        sp.check_call(["git", "-C", repo, "add", "GROK_EDIT.md"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
-        sp.check_call(["git", "-C", repo, "commit", "-q", "-m", "grok: simulate breaking change [task rb-test-42]"], stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+        sp.check_call(
+            ["git", "-C", repo, "checkout", "-q", "-b", "grok-bad-42"],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+        with open(repo + "/GROK_EDIT.md", "w") as f:
+            f.write("bad change that breaks CI\n")
+        sp.check_call(
+            ["git", "-C", repo, "add", "GROK_EDIT.md"],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+        sp.check_call(
+            [
+                "git",
+                "-C",
+                repo,
+                "commit",
+                "-q",
+                "-m",
+                "grok: simulate breaking change [task rb-test-42]",
+            ],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
 
         # Now invoke the safety function (local main, no origin remote)
-        res = perform_git_auto_rollback(repo, task_id="rb-test-42", ci_run_id="ci-local-1", main_ref="main", reason="simulated CI failure in test")
+        res = perform_git_auto_rollback(
+            repo,
+            task_id="rb-test-42",
+            ci_run_id="ci-local-1",
+            main_ref="main",
+            reason="simulated CI failure in test",
+        )
         print(f"  rollback status: {res.get('status')}")
         assert res.get("status") == "reverted", f"expected reverted, got {res}"
         assert "revert_commit" in res
         assert len(res.get("reverted_commits", [])) >= 1
 
         # Verify the revert commit exists and mentions auto-rollback + tags
-        log = sp.check_output(["git", "-C", repo, "log", "-1", "--pretty=%s %b"], text=True)
+        log = sp.check_output(
+            ["git", "-C", repo, "log", "-1", "--pretty=%s %b"], text=True
+        )
         print(f"  revert commit msg head: {log.splitlines()[0][:80]}")
         assert "auto-rollback" in log.lower() or "revert" in log.lower()
         assert "git,ci,safety" in log or "Tags:" in log
 
         # Verify the bad file is gone after revert
-        assert not os.path.exists(repo + "/GROK_EDIT.md"), "bad change should be reverted"
+        assert not os.path.exists(
+            repo + "/GROK_EDIT.md"
+        ), "bad change should be reverted"
 
-        print("✅ perform_git_auto_rollback local simulation: PASS (reverted 1 commit cleanly)")
+        print(
+            "✅ perform_git_auto_rollback local simulation: PASS (reverted 1 commit cleanly)"
+        )
     except Exception as e:
         print(f"❌ rollback test failed: {e}")
-        import traceback; traceback.print_exc()
+        import traceback
+
+        traceback.print_exc()
         raise
     finally:
         shutil.rmtree(test_dir, ignore_errors=True)
 
-    print("\n✅ task_checkpoints self-test passed (including Git Auto-Rollback + Shared Memory knowledge)")
+    print(
+        "\n✅ task_checkpoints self-test passed (including Git Auto-Rollback + Shared Memory knowledge)"
+    )
+
+
+def migrate_knowledge_from_tasks_db_to_gateway(
+    dry_run: bool = True, limit: int = 1000, delete_local: bool = False
+) -> dict:
+    """WAVE4: one-time migrate knowledge from deprecated py tasks.db table to gw (/api/knowledge, gw sqlite + json?).
+    Safe, idempotent (dedup by key+value+ts). Call with dry_run=False to execute.
+    delete_local=True (after success) will DELETE from local py table (for full cutover; use with backup).
+    Returns {'would': N, 'migrated': M, 'errors': E, 'skipped': S, 'deleted': D}.
+    Blackboard: ephemeral (live activity), no migrate implemented (use shims/post_activity going forward; gw /api/blackboard/activity for any one-off).
+    """
+    import os
+
+    stats = {"would": 0, "migrated": 0, "errors": 0, "skipped": 0, "deleted": 0}
+    conn = _get_knowledge_conn()  # tasks.db (deprecated source)
+    try:
+        cur = conn.execute(
+            "SELECT key, value, agent, task_id, embedding_hash, created_at FROM knowledge ORDER BY created_at LIMIT ?",
+            (limit,),
+        )
+        rows = cur.fetchall()
+        seen = set()  # dedup by key+value+ts for robustness
+        for r in rows:
+            key, value, agent, tid, emb, ts = r
+            dedup = (key, value, ts or "")
+            if dedup in seen:
+                stats["skipped"] += 1
+                continue
+            seen.add(dedup)
+            if dry_run:
+                stats["would"] += 1
+                continue
+            try:
+                import urllib.request
+                import json
+
+                api = os.getenv("AGENTFORGE_API", "http://localhost:9090")
+                payload = {"key": key, "value": value, "agent": agent, "task_id": tid}
+                if emb:
+                    payload["embedding_hash"] = emb
+                req = urllib.request.Request(
+                    f"{api}/api/knowledge",
+                    data=json.dumps(payload).encode(),
+                    headers={"Content-Type": "application/json"},
+                )
+                resp = urllib.request.urlopen(req, timeout=5)
+                ok = resp.status == 200 or resp.status == 201
+                if ok:
+                    stats["migrated"] += 1
+                    if delete_local:
+                        try:
+                            conn.execute(
+                                "DELETE FROM knowledge WHERE key=? AND value=? AND (created_at=? OR created_at IS NULL)",
+                                (key, value, ts),
+                            )
+                            stats["deleted"] += 1
+                        except Exception:
+                            pass
+                else:
+                    stats["errors"] += 1
+            except Exception as e:
+                stats["errors"] += 1
+                if os.getenv("AGENTFORGE_DEBUG"):
+                    print(f"[migrate] err for {key}: {e}")
+        print(
+            f"[migrate_knowledge] done dry={dry_run} del_local={delete_local} stats={stats}"
+        )
+        return stats
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    import sys
+
+    dry = "--execute" not in sys.argv
+    dl = "--delete-local" in sys.argv
+    lim = 1000
+    for a in sys.argv:
+        if a.startswith("--limit="):
+            try:
+                lim = int(a.split("=", 1)[1])
+            except Exception:
+                pass
+    print(
+        migrate_knowledge_from_tasks_db_to_gateway(
+            dry_run=dry, limit=lim, delete_local=dl
+        )
+    )

@@ -39,11 +39,11 @@
 #   bash bin/make_antigravity_default.sh --no-timer      # skip continuous (just rust default)
 #   bash bin/make_antigravity_default.sh --help
 #
-# After run: the farm (Antigravity + Grok + Jules) is Antigravity Default locked.
+# After run: the farm (Antigravity + Grok) is Antigravity Default locked.
 # Every task completion feeds the Rust flywheel. 24/7 timer drives promote-and-ab.
 # Rollback is one env var or rm of marker + timer disable.
 #
-# Activation: 2026-05-31 (Final Antigravity Default lockdown — turbo Jules closer)
+# Activation: 2026-05-31 (Final Antigravity Default lockdown)
 # ============================================================
 
 set -u
@@ -107,7 +107,7 @@ if [ $DRY_RUN -eq 0 ]; then
         bash "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" 2>&1 | tail -20 || log "enable_rust non-fatal"
     else
         log "WARNING: enable_rust_flywheel.sh not executable — falling back to python activator"
-        PYTHONPATH=/home/eveselove python3 -m agentforge.enable_rust_flywheel 2>/dev/null || true
+        # DELETED Jules wave: enable_rust_flywheel.py (task f29c675b); Rust default active via .pure or env
     fi
 
     if [ $NO_TIMER -eq 0 ]; then
@@ -138,14 +138,14 @@ if [ $DRY_RUN -eq 0 ]; then
     # Worker note (do not blindly restart on production farm unless --force-restart)
     if [ $FORCE_RESTART -eq 1 ]; then
         log "FORCE_RESTART requested — attempting safe user worker restarts (non-fatal)..."
-        for unit in agentforge-worker agentforge-jules-worker; do
+        for unit in agentforge-worker; do
             if systemctl --user is-active --quiet "$unit" 2>/dev/null; then
                 timeout 15s systemctl --user restart "$unit" 2>/dev/null || log "$unit restart attempted (non-fatal)"
             fi
         done
     else
         log "Worker restart: skipped for safety. Use --force-restart only on low-load dev hosts."
-        log "Manual (when safe): systemctl --user restart agentforge-worker agentforge-jules-worker"
+        log "Manual (when safe): systemctl --user restart agentforge-worker"
     fi
 else
     log "[dry] would perform safe user-mode status checks + conditional restarts only with --force-restart"
@@ -225,11 +225,11 @@ bash healthcheck.sh | grep -E 'Flywheel|Timer|Rust'
 systemctl --user status agentforge-flywheel.timer || true
 python -m agentforge.list_pending_candidates list --limit 3
 
-# === 2. ALL LOCAL WORKERS (grok/jules on same host) ===
+# === 2. ALL LOCAL WORKERS (grok on same host) ===
 # Workers auto-source ENABLE + rust_flywheel.env on startup (already wired).
 # After the one-command above, simply (when safe / low load):
-systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || \
-  (pkill -f 'grok_worker.sh|jules_worker.sh' 2>/dev/null; bash grok_worker.sh & bash jules_worker.sh &)
+systemctl --user restart agentforge-worker 2>/dev/null || \
+  (pkill -f 'grok_worker.sh' 2>/dev/null; bash grok_worker.sh &)
 
 # === 3. FARM ROLLOUT PACKAGE — ANTIGRAVITY DEFAULT (Rust self-improving flywheel now DEFAULT) ===
 # Ready-to-use for entire production farm in one go.
@@ -240,7 +240,7 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 # * Prefer PER-HOST rollout first wave (one remote at a time, watch load/dashboard).
 # * Master wrapper (below) ALWAYS does --dry-run per remote + short pause + (interactive or --yes).
 # * Only proceed to real after dry output looks clean on that host.
-# * ROLLBACK per remote (instant): ssh <host> 'DISABLE_RUST_FLYWHEEL=1 bash /home/eveselove/agentforge/bin/disable_rust_flywheel.sh 2>/dev/null || true; systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true; rm -f /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || true'
+# * ROLLBACK per remote (instant): ssh <host> 'DISABLE_RUST_FLYWHEEL=1 bash /home/eveselove/agentforge/bin/disable_rust_flywheel.sh 2>/dev/null || true; systemctl --user restart agentforge-worker 2>/dev/null || true; rm -f /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || true'
 # * Timer primarily on main Autonomy host(s). Workers + hooks on all remotes.
 # * Low-load window recommended. Monitor with: tail -f logs/*.log + dashboard + healthcheck.
 # * All commands are idempotent; re-run make_ script to re-arm default anywhere.
@@ -264,7 +264,7 @@ systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null |
 #     # ... review output ...
 #     bash make_antigravity_default.sh --no-timer || bash make_antigravity_default.sh
 #     touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
-#     systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || (pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null; bash /home/eveselove/agentforge/grok_worker.sh & bash /home/eveselove/agentforge/jules_worker.sh &) || true
+#     systemctl --user restart agentforge-worker 2>/dev/null || (pkill -f "grok_worker.sh" 2>/dev/null; bash /home/eveselove/agentforge/grok_worker.sh &) || true
 #     # POST-VERIFY (healthcheck + timer + default probe):
 #     bash /home/eveselove/agentforge/healthcheck.sh 2>/dev/null | grep -E "Flywheel|Timer|Rust|✅|⚠️|ONLINE" | head -12 || true
 #     systemctl --user status agentforge-flywheel.timer --no-pager 2>/dev/null | head -6 || systemctl --user list-timers 2>/dev/null | grep -iE "flywheel|NEXT" || true
@@ -314,7 +314,7 @@ echo "Targets: ${#REMOTES[@]} remotes"
 echo "Mode: dry-first ALWAYS; real only after review (${AUTO_YES:+auto} )"
 echo "Payload files: ${#PAYLOAD[@]}"
 echo "Safety: per-host dry + verify (health/timer/probe) + 4s throttle"
-echo "Rollback example (any host): DISABLE_RUST_FLYWHEEL=1 bash bin/disable_rust_flywheel.sh; systemctl --user restart agentforge-{worker,jules-worker} || true"
+echo "Rollback example (any host): DISABLE_RUST_FLYWHEEL=1 bash bin/disable_rust_flywheel.sh; systemctl --user restart agentforge-worker || true"
 echo "================================================================"
 
 for host in "${REMOTES[@]}"; do
@@ -354,12 +354,11 @@ for host in "${REMOTES[@]}"; do
     bash make_antigravity_default.sh --no-timer 2>&1 | tail -20 || bash make_antigravity_default.sh 2>&1 | tail -15
     touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL 2>/dev/null || true
     # Safe worker bounce (user units preferred; fallback direct)
-    if systemctl --user is-active --quiet agentforge-worker 2>/dev/null || systemctl --user is-active --quiet agentforge-jules-worker 2>/dev/null; then
-      systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true
+    if systemctl --user is-active --quiet agentforge-worker 2>/dev/null; then
+      systemctl --user restart agentforge-worker 2>/dev/null || true
     else
-      pkill -f "grok_worker.sh|jules_worker.sh" 2>/dev/null || true
+      pkill -f "grok_worker.sh" 2>/dev/null || true
       (nohup bash /home/eveselove/agentforge/grok_worker.sh > /dev/null 2>&1 &)
-      (nohup bash /home/eveselove/agentforge/jules_worker.sh > /dev/null 2>&1 &)
     fi
     echo "  Workers signalled on $host"
   ' 2>&1 | tail -25 || echo "     (ssh real warning on $host — check manually)"
@@ -395,7 +394,7 @@ echo "  python -m agentforge.list_pending_candidates list --limit 5 --sort value
 echo "  systemctl --user status agentforge-flywheel.timer || true"
 echo ""
 echo "Per-host rollback (example):"
-echo "  ssh agent3 'DISABLE_RUST_FLYWHEEL=1 bash /home/eveselove/agentforge/bin/disable_rust_flywheel.sh || true; systemctl --user restart agentforge-worker agentforge-jules-worker || true'"
+echo "  ssh agent3 'DISABLE_RUST_FLYWHEEL=1 bash /home/eveselove/agentforge/bin/disable_rust_flywheel.sh || true; systemctl --user restart agentforge-worker || true'"
 echo ""
 echo "Re-arm default on any host:"
 echo "  ssh HOST 'bash /home/eveselove/agentforge/bin/make_antigravity_default.sh'"
@@ -427,7 +426,7 @@ cat << 'DISABLE_BLOCK'
 # Global per-process (affects dispatch, post_process, hooks, workers immediately):
 export DISABLE_RUST_FLYWHEEL=1
 # Then restart workers:
-systemctl --user restart agentforge-worker agentforge-jules-worker 2>/dev/null || true
+systemctl --user restart agentforge-worker 2>/dev/null || true
 
 # Permanent (systemd units — edit or via env in unit files):
 # In [Service] section: Environment=DISABLE_RUST_FLYWHEEL=1

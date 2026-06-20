@@ -1,1 +1,1 @@
-{"agent":"a","benchmark_id":"bench","duration":0.0,"events":[],"prm":0.8,"task_id":"r1"}
+{"task_id":"r1","benchmark_id":"bench","agent":"a","outcome":"Success","real_task_id":null,"prm_overall":0.8,"prm_high_quality_steps":2,"prm_low_quality_steps":0,"prm_step_labels":null,"prm_suggestions":null,"duration_seconds":1.23,"steps_taken":3,"tool_calls":1,"cost_usd":0.0,"error_message":null,"events":[],"judge_notes":null,"quality_score":0.8,"learning_value_score":0.64,"trajectory_path":null,"evaluated_at":null,"metadata":{},"prm":0.8,"duration":1.23}

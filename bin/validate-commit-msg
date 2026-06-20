@@ -1,26 +1,58 @@
 #!/bin/bash
 # bin/validate-commit-msg
-# Reusable validator for Task ID / Jules session traceability.
-# Used by: pre-commit, CI (future), and manual checks.
-# Exit 0 = good, 1 = missing reference.
+# Reusable validator for Task ID / legacy Jules session traceability. (Jules farm removed 2026-06; ID support retained for history + old PRs)
+# Used by: commit-msg hook (primary), pre-commit (no longer), CI (future), manual.
+# Supports PRECOMMIT_BYPASS_TRACE=1 for granular emergency bypass (see AGENTS.md).
+# Exit 0 = good, 1 = missing reference (unless bypassed).
 
 set -euo pipefail
 
-MSG_FILE="${1:-}"
-if [ -z "$MSG_FILE" ]; then
-    # Read from stdin or last commit
-    if [ -t 0 ]; then
-        MSG="$(git log -1 --pretty=%B 2>/dev/null || true)"
-    else
-        MSG="$(cat)"
-    fi
-else
-    MSG="$(cat "$MSG_FILE")"
+# Bypass support (per AGENTS.md policy): PRECOMMIT_BYPASS_TRACE=1 skips ONLY the Task/Jules ID check.
+# Allows emergency commits without --no-verify (keeps other pre-commit gates).
+# Must be followed by post-bypass task + note in body + follow-up clean commit (no bypass).
+if [ "${PRECOMMIT_BYPASS_TRACE:-0}" = "1" ]; then
+  echo "⚠️  PRECOMMIT_BYPASS_TRACE=1 active — skipping Task ID / Jules traceability check (emergency only per AGENTS.md)."
+  exit 0
 fi
 
-PATTERN='(task[[:space:]]*[0-9a-fA-F]{6,}|jules[[:space:]]*[0-9]{10,}|JULES_[0-9]+|Jules[[:space:]]*[0-9]+|task[[:space:]]*[0-9a-zA-Z_-]{6,})'
+# Read message preferring explicit $1 (git commit-msg hook), else piped stdin (e.g. git log -1 --pretty=%B | this),
+# else tty/manual: prefer draft .git/COMMIT_EDITMSG (if present) else last commit.
+# Always strip ^# comment lines (prevents false OK from .gitmessage template examples in comments).
+MSG_FILE="${1:-}"
 
-if echo "$MSG" | grep -qE "$PATTERN"; then
+clean_comments() {
+  sed '/^[[:space:]]*#/d'
+}
+
+if [ -z "$MSG_FILE" ]; then
+    if [ -t 0 ]; then
+        GD=$(git rev-parse --git-dir 2>/dev/null || echo .git)
+        if [[ "$GD" != /* ]]; then
+            TOP=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+            GD="$TOP/$GD"
+        fi
+        if [ -f "$GD/COMMIT_EDITMSG" ]; then
+            MSG=$(clean_comments < "$GD/COMMIT_EDITMSG")
+            if [ -z "${MSG//[[:space:]]/}" ]; then
+                MSG="$(git log -1 --pretty=%B 2>/dev/null || true)"
+            fi
+        else
+            MSG="$(git log -1 --pretty=%B 2>/dev/null || true)"
+        fi
+    else
+        MSG="$(cat | clean_comments)"
+    fi
+else
+    MSG="$(clean_comments < "$MSG_FILE")"
+fi
+
+# Fixed PATTERN (supports all documented + common variants):
+# - "task 90fcbf89", "task-092030bf", "task/xxx", "task:xxx", "(task ...)", "Task XXX", "TASK_.."
+# - "jules 1223...", "jules/11158842600384206278", "jules-xxx", "Jules ...", "JULES_1234567890123456789"
+# Uses optional seps after keyword, hex/digits, case-insensitive match via -i.
+PATTERN='(task[[:space:]/:._-]*[0-9a-fA-F]{6,}|jules[[:space:]/:._-]*[0-9]{8,}|jules_[0-9]+)'
+
+if echo "$MSG" | grep -qiE "$PATTERN"; then
     echo "✅ Traceability OK (Task ID or Jules session found)"
     exit 0
 else

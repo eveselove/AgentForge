@@ -1,3 +1,4 @@
+# PHASE4_REMOVAL_PLAN AGGRESSIVE FINAL DEPRECATION SWEEP (marker for audit): this service has no flywheel exec, listed due to broad grep; keep.
 [Unit]
 Description=Qwen3-30B-A3B MoE LLM Judge (vLLM + TurboQuant, port 8400)
 After=network.target
@@ -11,6 +12,9 @@ Restart=always
 RestartSec=15
 Environment=CUDA_VISIBLE_DEVICES=0
 Environment=VLLM_ATTENTION_BACKEND=CUSTOM
+# task-5af0e350: propagate pure rust flywheel default
+Environment=AGENTFORGE_PURE_RUST_FLYWHEEL=1
+Environment=FLYWHEEL_PROVENANCE=rust-agentforge-runner
 
 [Install]
 WantedBy=multi-user.target

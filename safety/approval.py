@@ -21,11 +21,15 @@ Supports:
 
 from dataclasses import dataclass, field
 from typing import List, Callable, Dict, Any, Optional
-from .policy_engine import PolicyEngine, ActionDecision, Decision, create_default_policy_engine
+from .policy_engine import (
+    PolicyEngine,
+    ActionDecision,
+    Decision,
+    create_default_policy_engine,
+)
 from .sandbox import create_recommended_sandbox_bundle, SandboxPolicy
 
-
-RiskScorer = Callable[[str, Dict[str, Any]], float]   # returns [0.0, 1.0]
+RiskScorer = Callable[[str, Dict[str, Any]], float]  # returns [0.0, 1.0]
 
 
 @dataclass
@@ -39,7 +43,9 @@ class ActionApprovalLayer:
     sandboxes: List[SandboxPolicy] = field(default_factory=list)
     extra_risk_scorers: List[RiskScorer] = field(default_factory=list)
     # Optional callback: (action_type, context, tentative_decision) -> bool (True = human approved)
-    human_approval_hook: Optional[Callable[[str, Dict[str, Any], ActionDecision], bool]] = None
+    human_approval_hook: Optional[
+        Callable[[str, Dict[str, Any], ActionDecision], bool]
+    ] = None
 
     def register_sandbox(self, sb: SandboxPolicy):
         self.sandboxes.append(sb)
@@ -47,7 +53,9 @@ class ActionApprovalLayer:
     def add_risk_scorer(self, scorer: RiskScorer):
         self.extra_risk_scorers.append(scorer)
 
-    def _compute_risk(self, action_type: str, context: Dict[str, Any], base: float) -> float:
+    def _compute_risk(
+        self, action_type: str, context: Dict[str, Any], base: float
+    ) -> float:
         risk = base
         for scorer in self.extra_risk_scorers:
             try:
@@ -140,10 +148,13 @@ def create_default_approval_layer(
     if enable_human_hook:
         # Default hook just prints and waits (demo). Real impl talks to dashboard / HITL queue.
         def _demo_hook(action_type, context, decision):
-            print(f"[SAFETY] ⚠️  Human approval required for {action_type}: {decision.reason}")
+            print(
+                f"[SAFETY] ⚠️  Human approval required for {action_type}: {decision.reason}"
+            )
             print(f"         Context keys: {list(context.keys())[:6]}")
             resp = input("Approve? [y/N]: ").strip().lower()
             return resp in ("y", "yes")
+
         layer.human_approval_hook = _demo_hook
 
     return layer

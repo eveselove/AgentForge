@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Бонусные карты | Аналитика</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f3f4f6; --surface: #ffffff; --border: #e5e7eb;
+            --text: #1f2937; --text-muted: #6b7280;
+            --primary: #6366f1; --primary-light: rgba(99,102,241,0.1);
+            --green: #16a34a; --orange: #d97706; --red: #dc2626;
+            --radius: 12px; --glow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 24px; }
+        .container { max-width: 1600px; margin: 0 auto; }
+        .header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+        .header-title h1 { font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .header-title p { color: var(--text-muted); margin-top: 6px; font-size: 14px; }
+        .nav-links { display: flex; gap: 12px; align-items: center; }
+        .nav-links a { color: var(--text-muted); text-decoration: none; font-size: 13px; transition: all 0.2s; padding: 6px 12px; border-radius: 6px; }
+        .nav-links a:hover { color: var(--text); background: #f9fafb; }
+        .nav-links a.active { color: var(--primary); background: var(--primary-light); }
+
+        .filters-bar {
+            display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;
+            background: var(--surface); padding: 14px 18px; border-radius: var(--radius);
+            box-shadow: var(--glow); border: 1px solid var(--border);
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 3px; }
+        .filter-group label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; }
+        .filter-group select, .filter-group input {
+            padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+            font-size: 13px; font-family: inherit; background: var(--bg);
+            outline: none; transition: border-color 0.2s, box-shadow 0.2s; min-width: 130px;
+        }
+        .filter-group select:focus, .filter-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+        .filter-group input { min-width: 160px; }
+        .filter-actions { display: flex; gap: 6px; align-self: flex-end; }
+        .btn-filter { padding: 7px 14px; border: 1px solid var(--primary); border-radius: 6px; background: var(--primary); color: white; font-size: 13px; font-family: inherit; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+        .btn-filter:hover { background: #5558e6; }
+        .btn-reset { padding: 7px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-muted); font-size: 13px; font-family: inherit; cursor: pointer; transition: all 0.15s; }
+        .btn-reset:hover { border-color: var(--red); color: var(--red); }
+        .page-info { font-size: 13px; color: var(--text-muted); margin-left: auto; }
+
+        .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--glow); border: 1px solid var(--border); overflow: hidden; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        th {
+            background: #f9fafb; font-weight: 600; color: var(--text-muted); font-size: 11px;
+            text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; user-select: none;
+            transition: background 0.15s, color 0.15s; position: sticky; top: 0; z-index: 1;
+        }
+        th:hover { background: #f0f1f3; color: var(--text); }
+        th.sorted { color: var(--primary); background: var(--primary-light); }
+        th.sorted::after { margin-left: 4px; font-size: 10px; }
+        th.sort-desc::after { content: '▼'; }
+        th.sort-asc::after { content: '▲'; }
+        th .sort-arrow { display: none; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #fafbfc; }
+        td { font-size: 13px; }
+        .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .card-col { font-weight: 500; font-family: 'Courier New', monospace; font-size: 12px; color: var(--primary); cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; transition: color 0.15s; }
+        .card-col:hover { color: #4338ca; }
+        .filial-col { font-size: 12px; color: var(--text-muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+        .seller-col { font-size: 12px; color: #4b5563; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+        .margin-good { color: var(--green); } .margin-ok { color: var(--orange); } .margin-bad { color: var(--red); }
+        .bonus-add { color: var(--green); } .bonus-del { color: var(--red); }
+        .row-num { color: var(--text-muted); font-size: 11px; text-align: center; width: 36px; }
+
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 4px; padding: 14px; border-top: 1px solid var(--border); }
+        .pagination button { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; font-size: 13px; font-family: inherit; transition: all 0.15s; }
+        .pagination button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+        .pagination button:disabled { opacity: 0.4; cursor: default; }
+        .pagination button.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .pagination .page-text { font-size: 13px; color: var(--text-muted); padding: 0 6px; }
+
+        .loading { padding: 48px; text-align: center; color: var(--text-muted); }
+        .loading .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 100;
+            justify-content: center; align-items: flex-start; padding: 40px 20px;
+            overflow-y: auto;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--surface); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%; max-width: 1400px; max-height: 85vh; display: flex; flex-direction: column;
+            animation: modalIn 0.2s ease-out;
+        }
+        @keyframes modalIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 24px; border-bottom: 1px solid var(--border);
+        }
+        .modal-header h2 { font-size: 18px; font-weight: 700; }
+        .modal-header h2 span { color: var(--primary); font-family: 'Courier New', monospace; }
+        .modal-header .badge { font-size: 12px; background: var(--primary-light); color: var(--primary); padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted); padding: 4px 8px; border-radius: 6px; transition: all 0.15s; }
+        .modal-close:hover { background: #fee2e2; color: var(--red); }
+        .modal-body { overflow: auto; flex: 1; }
+        .modal-body table { font-size: 12px; }
+        .modal-body th { font-size: 10px; }
+        .modal-body td { padding: 8px 10px; font-size: 12px; }
+        .modal-body .sku-name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .modal-loading { padding: 32px; text-align: center; color: var(--text-muted); }
+
+        @media (max-width: 768px) { body { padding: 12px; } .header { flex-direction: column; align-items: flex-start; } .modal { max-width: 100%; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-title">
+                <h1>Отчёт: Бонусные карты</h1>
+                <p>Кликните на карту для просмотра чеков</p>
+            </div>
+            <div class="nav-links">
+                <a href="/analytics/index.html">Уровень сервиса</a>
+                <a href="/analytics/revenue.html" class="active">Бонусные карты</a>
+                <a href="/analytics/departments.html">Продажи по отделам</a>
+                <a href="/monitoring/index.html">Мониторинг</a>
+                <a href="/merchandising/index.html">Мерчандайзинг</a>
+                <a href="/parsing/index.html">Парсинг</a>
+                <a href="/">← Приложение</a>
+            </div>
+        </div>
+
+        <div class="filters-bar">
+            <div class="filter-group">
+                <label>Поиск по карте</label>
+                <input type="text" id="searchInput" placeholder="V000..." />
+            </div>
+            <div class="filter-group">
+                <label>Филиал</label>
+                <select id="filterFilial"><option value="">Все</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Тип клиента</label>
+                <select id="filterClientType"><option value="">Все</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Способ продажи</label>
+                <select id="filterSaleMethod"><option value="">Все</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Оплата</label>
+                <select id="filterPayMethod"><option value="">Все</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Торг. площадь</label>
+                <select id="filterTradeArea"><option value="">Все</option></select>
+            </div>
+            <div class="filter-actions">
+                <button class="btn-filter" onclick="applyFilters()">Применить</button>
+                <button class="btn-reset" onclick="resetFilters()">Сброс</button>
+            </div>
+            <div class="page-info" id="pageInfo"></div>
+        </div>
+
+        <div class="card">
+            <div id="loading" class="loading"><div class="spinner"></div>Загрузка данных...</div>
+            <div class="table-wrap" style="display:none;" id="tableWrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="row-num">#</th>
+                            <th data-sort="card">Bonus Card <span class="sort-arrow">▼</span></th>
+                            <th>Филиал</th>
+                            <th>Seller</th>
+                            <th data-sort="checks" class="num">Чеки <span class="sort-arrow">▼</span></th>
+                            <th data-sort="unique_skus" class="num">SKU <span class="sort-arrow">▼</span></th>
+                            <th data-sort="revenue" class="num sorted">Выручка (₽) <span class="sort-arrow">▼</span></th>
+                            <th data-sort="profit" class="num">Прибыль (₽) <span class="sort-arrow">▼</span></th>
+                            <th data-sort="margin" class="num">Маржа <span class="sort-arrow">▼</span></th>
+                            <th data-sort="bonus_add" class="num">B+ <span class="sort-arrow">▼</span></th>
+                            <th data-sort="bonus_del" class="num">B− <span class="sort-arrow">▼</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- Card Detail Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal">
+            <div class="modal-header">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <h2>Карта: <span id="modalCardId"></span></h2>
+                    <span class="badge" id="modalBadge"></span>
+                </div>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="modal-loading"><div class="spinner" style="width:24px;height:24px;border-width:2px;margin-bottom:8px;"></div>Загрузка чеков...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fmtNum = v => new Intl.NumberFormat('ru-RU').format(Math.round(v));
+        const fmtRub = v => new Intl.NumberFormat('ru-RU', { style:'currency', currency:'RUB', maximumFractionDigits:0 }).format(v);
+        const fmtPct = v => (v * 100).toFixed(1) + '%';
+        const fmtQty = v => v % 1 === 0 ? v.toString() : v.toFixed(2);
+        const RU_MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+        const fmtDate = d => { if (!d) return '—'; const p = d.split('-'); return `${+p[2]} ${RU_MONTHS[+p[1]-1]} ${p[0]}`; };
+
+        let currentPage = 1, currentSort = 'revenue', sortDir = 'desc', filtersPopulated = false, searchTimeout = null;
+
+        document.getElementById('searchInput').addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => { currentPage = 1; loadData(); }, 400);
+        });
+
+        document.querySelectorAll('th[data-sort]').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.dataset.sort;
+                if (currentSort === col) { sortDir = sortDir === 'desc' ? 'asc' : 'desc'; }
+                else { currentSort = col; sortDir = 'desc'; }
+                currentPage = 1;
+                document.querySelectorAll('th[data-sort]').forEach(h => { h.classList.remove('sorted','sort-asc','sort-desc'); });
+                th.classList.add('sorted', 'sort-' + sortDir);
+                loadData();
+            });
+        });
+
+        function getFilterParams() {
+            const p = new URLSearchParams({ page: currentPage, per_page: 100, sort_by: currentSort, sort_dir: sortDir });
+            const s = document.getElementById('searchInput').value.trim();
+            if (s) p.set('search', s);
+            for (const [id, key] of [['filterFilial','filial'],['filterClientType','client_type'],['filterSaleMethod','sale_method'],['filterPayMethod','pay_method'],['filterTradeArea','trade_area']]) {
+                const v = document.getElementById(id).value;
+                if (v) p.set(key, v);
+            }
+            return p;
+        }
+
+        function applyFilters() { currentPage = 1; loadData(); }
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            for (const id of ['filterFilial','filterClientType','filterSaleMethod','filterPayMethod','filterTradeArea'])
+                document.getElementById(id).value = '';
+            currentPage = 1; loadData();
+        }
+
+        function populateSelect(id, items) {
+            const sel = document.getElementById(id), cur = sel.value;
+            sel.innerHTML = '<option value="">Все</option>';
+            items.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+            sel.value = cur;
+        }
+
+        async function loadData() {
+            document.getElementById('loading').style.display = 'block';
+            try {
+                const res = await fetch('/api/analytics/revenue?' + getFilterParams());
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                if (!filtersPopulated && data.filters) {
+                    populateSelect('filterFilial', data.filters.filials || []);
+                    populateSelect('filterClientType', data.filters.client_types || []);
+                    populateSelect('filterSaleMethod', data.filters.sale_methods || []);
+                    populateSelect('filterPayMethod', data.filters.pay_methods || []);
+                    populateSelect('filterTradeArea', data.filters.trade_areas || []);
+                    filtersPopulated = true;
+                }
+
+                const tbody = document.getElementById('tableBody');
+                const offset = (data.page - 1) * data.per_page;
+                let html = '';
+                for (let i = 0; i < data.rows.length; i++) {
+                    const r = data.rows[i];
+                    const mc = r.margin >= 0.2 ? 'margin-good' : (r.margin >= 0.1 ? 'margin-ok' : 'margin-bad');
+                    html += `<tr>
+                        <td class="row-num">${offset + i + 1}</td>
+                        <td class="card-col" onclick="openCard('${r.bonus_card}')">${r.bonus_card}</td>
+                        <td class="filial-col" title="${r.filials || ''}">${r.filials || '—'}</td>
+                        <td class="seller-col" title="${r.seller_codes || ''}">${r.seller_codes || '—'}</td>
+                        <td class="num">${fmtNum(r.checks)}</td>
+                        <td class="num">${fmtNum(r.unique_skus)}</td>
+                        <td class="num" style="color:#16a34a;font-weight:500">${fmtRub(r.revenue)}</td>
+                        <td class="num" style="color:#6366f1">${fmtRub(r.profit)}</td>
+                        <td class="num ${mc}">${fmtPct(r.margin)}</td>
+                        <td class="num bonus-add">${r.bonus_add > 0 ? '+' + fmtRub(r.bonus_add) : '—'}</td>
+                        <td class="num bonus-del">${r.bonus_del > 0 ? '-' + fmtRub(r.bonus_del) : '—'}</td>
+                    </tr>`;
+                }
+                tbody.innerHTML = html;
+                document.getElementById('pageInfo').textContent = `Стр. ${data.page} из ${data.pages} · ${fmtNum(data.total)} карт`;
+                renderPagination(data.page, data.pages);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('tableWrap').style.display = 'block';
+                document.getElementById('pagination').style.display = 'flex';
+            } catch (err) {
+                document.getElementById('loading').innerHTML = `<div style="color:#dc2626">Ошибка: ${err.message}</div>`;
+            }
+        }
+
+        // ---- Card detail modal ----
+        async function openCard(cardId) {
+            document.getElementById('modalCardId').textContent = cardId;
+            document.getElementById('modalBadge').textContent = '...';
+            document.getElementById('modalBody').innerHTML = '<div class="modal-loading"><div class="spinner" style="width:24px;height:24px;border-width:2px;margin:0 auto 8px;border-color:var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite;"></div>Загрузка чеков...</div>';
+            document.getElementById('modalOverlay').classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            try {
+                const res = await fetch(`/api/analytics/revenue/card/${encodeURIComponent(cardId)}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                // Deduplicate rows
+                const seen = new Set();
+                const unique = data.rows.filter(r => {
+                    const key = `${r.check_number}|${r.sku_code}|${r.qty}|${r.revenue}`;
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+
+                // Sort by date ASC, then check_number
+                unique.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.check_number || '').localeCompare(b.check_number || ''));
+
+                // Group by check
+                const checks = [];
+                let curCheck = null;
+                for (const r of unique) {
+                    if (!curCheck || curCheck.number !== r.check_number) {
+                        curCheck = { number: r.check_number, date: r.date, filial: r.filial, seller: r.seller_code, items: [] };
+                        checks.push(curCheck);
+                    }
+                    curCheck.items.push(r);
+                }
+
+                const totalUnique = unique.length;
+                document.getElementById('modalBadge').textContent = `${checks.length} чеков · ${totalUnique} позиций`;
+
+                // Compute grand totals
+                const tRev = unique.reduce((s,r) => s + r.revenue, 0);
+                const tProfit = unique.reduce((s,r) => s + r.profit, 0);
+                const tMargin = tRev > 0 ? tProfit / tRev : 0;
+                const tBonusAdd = unique.reduce((s,r) => s + r.bonus_add, 0);
+                const tBonusDel = unique.reduce((s,r) => s + r.bonus_del, 0);
+
+                let html = `<div style="background:#1e1b4b;color:white;padding:14px 20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;font-size:13px;">
+                    <div style="font-weight:700;font-size:14px;">ИТОГО</div>
+                    <div><span style="color:rgba(255,255,255,0.6)">Выручка:</span> <b style="color:#4ade80">${fmtRub(tRev)}</b></div>
+                    <div><span style="color:rgba(255,255,255,0.6)">Прибыль:</span> <b style="color:#a5b4fc">${fmtRub(tProfit)}</b></div>
+                    <div><span style="color:rgba(255,255,255,0.6)">Маржа:</span> <b style="color:${tMargin >= 0.2 ? '#4ade80' : tMargin >= 0.1 ? '#fbbf24' : '#f87171'}">${fmtPct(tMargin)}</b></div>
+                    <div><span style="color:rgba(255,255,255,0.6)">B+:</span> <b style="color:#4ade80">${tBonusAdd > 0 ? fmtRub(tBonusAdd) : '—'}</b></div>
+                    <div><span style="color:rgba(255,255,255,0.6)">B−:</span> <b style="color:#f87171">${tBonusDel > 0 ? fmtRub(tBonusDel) : '—'}</b></div>
+                    <div style="margin-left:auto;color:rgba(255,255,255,0.5);font-size:11px;">${totalUnique} поз. · ${checks.length} чеков</div>
+                </div>`;
+                html += '<div class="table-wrap"><table>';
+                html += '<thead><tr>';
+                html += '<th style="cursor:default">#</th>';
+                html += '<th style="cursor:default">Код SKU</th>';
+                html += '<th style="cursor:default">Наименование</th>';
+                html += '<th style="cursor:default" class="num">Кол-во</th>';
+                html += '<th style="cursor:default" class="num">Выручка</th>';
+                html += '<th style="cursor:default" class="num">Прибыль</th>';
+                html += '<th style="cursor:default" class="num">Маржа</th>';
+                html += '<th style="cursor:default" class="num">B+</th>';
+                html += '<th style="cursor:default" class="num">B−</th>';
+                html += '</tr></thead><tbody>';
+
+                let rowNum = 0;
+                for (const check of checks) {
+                    // Check totals
+                    const cRev = check.items.reduce((s,r) => s + r.revenue, 0);
+                    const cProfit = check.items.reduce((s,r) => s + r.profit, 0);
+                    const cMargin = cRev > 0 ? cProfit / cRev : 0;
+                    const cBonusAdd = check.items.reduce((s,r) => s + r.bonus_add, 0);
+                    const cBonusDel = check.items.reduce((s,r) => s + r.bonus_del, 0);
+                    const mc = cMargin >= 0.2 ? 'margin-good' : (cMargin >= 0.1 ? 'margin-ok' : 'margin-bad');
+
+                    html += `<tr style="background:linear-gradient(135deg,#f0f0ff,#faf9ff);border-top:2px solid var(--primary);">
+                        <td colspan="2" style="font-weight:700;font-size:13px;color:var(--primary);padding:10px 12px;">
+                            📋 Чек #${check.number}
+                            <span style="font-weight:400;color:var(--text-muted);font-size:11px;margin-left:8px;">${fmtDate(check.date)} · ${check.filial || ''} ${check.seller ? '· Seller: '+check.seller : ''}</span>
+                        </td>
+                        <td style="font-size:11px;color:var(--text-muted)">${check.items.length} поз.</td>
+                        <td></td>
+                        <td class="num" style="font-weight:600;color:#16a34a;font-size:12px">${fmtRub(cRev)}</td>
+                        <td class="num" style="font-weight:600;color:#6366f1;font-size:12px">${fmtRub(cProfit)}</td>
+                        <td class="num ${mc}" style="font-weight:600;font-size:12px">${fmtPct(cMargin)}</td>
+                        <td class="num bonus-add" style="font-weight:600;font-size:12px">${cBonusAdd > 0 ? '+' + fmtRub(cBonusAdd) : '—'}</td>
+                        <td class="num bonus-del" style="font-weight:600;font-size:12px">${cBonusDel > 0 ? '-' + fmtRub(cBonusDel) : '—'}</td>
+                    </tr>`;
+
+                    for (const r of check.items) {
+                        rowNum++;
+                        const imc = r.margin >= 0.2 ? 'margin-good' : (r.margin >= 0.1 ? 'margin-ok' : 'margin-bad');
+                        html += `<tr>
+                            <td class="row-num">${rowNum}</td>
+                            <td style="font-family:monospace;font-size:11px">${r.sku_code}</td>
+                            <td class="sku-name" title="${r.sku_name}">${r.sku_name}</td>
+                            <td class="num">${fmtQty(r.qty)}</td>
+                            <td class="num" style="color:#16a34a">${fmtRub(r.revenue)}</td>
+                            <td class="num" style="color:#6366f1">${fmtRub(r.profit)}</td>
+                            <td class="num ${imc}">${fmtPct(r.margin)}</td>
+                            <td class="num bonus-add">${r.bonus_add > 0 ? '+' + fmtRub(r.bonus_add) : '—'}</td>
+                            <td class="num bonus-del">${r.bonus_del > 0 ? '-' + fmtRub(r.bonus_del) : '—'}</td>
+                        </tr>`;
+                    }
+                }
+                html += '</tbody></table></div>';
+                document.getElementById('modalBody').innerHTML = html;
+            } catch (err) {
+                document.getElementById('modalBody').innerHTML = `<div style="padding:24px;color:#dc2626;text-align:center">Ошибка: ${err.message}</div>`;
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+        function renderPagination(page, pages) {
+            const el = document.getElementById('pagination');
+            if (pages <= 1) { el.style.display = 'none'; return; }
+            let html = `<button ${page<=1?'disabled':''} onclick="goPage(1)">⏮</button>`;
+            html += `<button ${page<=1?'disabled':''} onclick="goPage(${page-1})">◀</button>`;
+            const r = 3; let s = Math.max(1, page-r), e = Math.min(pages, page+r);
+            if (s > 1) html += `<button onclick="goPage(1)">1</button>`;
+            if (s > 2) html += `<span class="page-text">…</span>`;
+            for (let p = s; p <= e; p++) html += `<button class="${p===page?'active':''}" onclick="goPage(${p})">${p}</button>`;
+            if (e < pages-1) html += `<span class="page-text">…</span>`;
+            if (e < pages) html += `<button onclick="goPage(${pages})">${pages}</button>`;
+            html += `<button ${page>=pages?'disabled':''} onclick="goPage(${page+1})">▶</button>`;
+            html += `<button ${page>=pages?'disabled':''} onclick="goPage(${pages})">⏭</button>`;
+            el.innerHTML = html;
+        }
+        function goPage(p) { currentPage = p; loadData(); window.scrollTo({top:0,behavior:'smooth'}); }
+        loadData();
+    </script>
+</body>
+</html>

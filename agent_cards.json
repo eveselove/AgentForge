@@ -33,37 +33,6 @@
       "worker": "antigravity_worker.py",
       "status_endpoint": "/tasks/for/antigravity",
       "invoke": "Antigravity IDE chat / autonomous worker"
-    },
-    {
-      "id": "grok",
-      "name": "Grok Build",
-      "description": "Быстрый мультиагентный исполнитель. Rust, Python, серверные задачи.",
-      "capabilities": [
-        "file_edit",
-        "terminal",
-        "git",
-        "multi_agent"
-      ],
-      "models": [
-        "grok-3"
-      ],
-      "max_parallel": 5,
-      "strengths": [
-        "speed",
-        "rust",
-        "debugging",
-        "fixes",
-        "multi_file"
-      ],
-      "location": "erbox_eveselove",
-      "worker": "grok_worker_remote.sh",
-      "invoke": "grok --always-approve -p \"task\"",
-      "flags": {
-        "headless": "--print",
-        "auto_approve": "--always-approve",
-        "self_check": "--check",
-        "best_of_n": "--best-of-n N"
-      }
     }
   ]
 }

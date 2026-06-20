@@ -12,38 +12,51 @@
 
 set -e
 
-AGENTFORGE_DIR="/home/eveselove/agentforge"
+AGENTFORGE_DIR="${AGENTFORGE_DIR:-/home/eveselove/agentforge}"
+# task-5af0e350: PURE RUST FLYWHEEL DEFAULT - marker + env enforced at install time for soak start.
+# Note: when run from worktree, caller should set AGENTFORGE_DIR to worktree path and sync marker back to main if needed.
 
 echo "🔧 Установка systemd сервисов AgentForge..."
 
 # Останавливаем старые процессы
 pkill -f grok_worker.sh 2>/dev/null || true
 pkill -f "uvicorn task_queue" 2>/dev/null || true
+pkill -f "agentforge-gateway" 2>/dev/null || true
 sleep 2
 
-# Копируем юниты
-sudo cp "$AGENTFORGE_DIR/agentforge-api.service" /etc/systemd/system/
+# Копируем юниты (WAVE4: gateway primary; NO legacy api copy here - rollback only via manual if ever needed)
+sudo cp "$AGENTFORGE_DIR/agentforge-gateway.service" /etc/systemd/system/ || true
 sudo cp "$AGENTFORGE_DIR/agentforge-worker.service" /etc/systemd/system/
-sudo cp "$AGENTFORGE_DIR/agentforge-jules-worker.service" /etc/systemd/system/ 2>/dev/null || echo "  (jules-worker service не найден — пропускаем, можно установить позже)"
+sudo cp "$AGENTFORGE_DIR/agentforge-antigravity.service" /etc/systemd/system/ || true
+sudo cp "$AGENTFORGE_DIR/agentforge-watchdog.service" /etc/systemd/system/ || true
+sudo cp "$AGENTFORGE_DIR/agentforge-flywheel.service" /etc/systemd/system/ || true
+# legacy api.service cp REMOVED (full drop per review; only for true rollback emergencies: manual cp from archive or git)
 
 # Перезагружаем systemd
 sudo systemctl daemon-reload
 
-# Активируем автозапуск при загрузке
-sudo systemctl enable agentforge-api
-sudo systemctl enable agentforge-worker
-sudo systemctl enable agentforge-jules-worker 2>/dev/null || true
+# Активируем автозапуск (gateway primary - explicit)
+sudo systemctl enable agentforge-gateway || true
+sudo systemctl enable agentforge-worker || true
+sudo systemctl enable agentforge-antigravity || true
+sudo systemctl enable agentforge-watchdog || true
+sudo systemctl enable agentforge-flywheel || true
+# api enable REMOVED (legacy drop)
 
-# Запускаем
-sudo systemctl start agentforge-api
+# task-5af0e350 + ff2e2174: enforce .pure_rust_flywheel marker + provenance for pure default (14d REMOVED, immediate launch per user)
+touch "$AGENTFORGE_DIR/.pure_rust_flywheel" || true
+echo "PURE RUST FLYWHEEL DEFAULT ENABLED - task-5af0e350 - $(date -Iseconds)" >> "$AGENTFORGE_DIR/.pure_rust_flywheel" || true
+# also ensure rust_flywheel.env is sourced in workers if not (idempotent append check left to callers)
+
+# Запускаем (explicit gateway first + status)
+sudo systemctl start agentforge-gateway || true
 sleep 3
 sudo systemctl start agentforge-worker
-sudo systemctl start agentforge-jules-worker 2>/dev/null || true
 
-# Проверяем статус
+# Проверяем статус (gateway lead, no api)
 echo ""
 echo "📊 Статус сервисов:"
-sudo systemctl status agentforge-api --no-pager -l | head -10
+sudo systemctl status agentforge-gateway --no-pager -l | head -10 || true
 echo "---"
 sudo systemctl status agentforge-worker --no-pager -l | head -10
 
@@ -87,24 +100,24 @@ fi
 
 echo ""
 echo "✅ Готово! AgentForge теперь полностью автономен:"
-echo "   • API запускается при загрузке Erbox"
-echo "   • Grok Worker запускается после API (основной исполнитель)"
-echo "   • Jules Worker запускается (для PR / документации)"
+echo "   • Gateway (task API on 9090) запускается при загрузке (primary)"
+echo "   • Grok Worker запускается после gateway (основной исполнитель)"
 echo "   • При падении — автоматический перезапуск"
 echo "   • Watchdog каждые 5 минут эскалирует зависшие задачи"
 echo "   • Ноутбук можно закрывать — Erbox работает 24/7"
 echo ""
-echo "Команды управления:"
-echo "   sudo systemctl status agentforge-api"
+echo "Команды управления (WAVE4: gateway 9090 primary; runner direct for flywheel):"
+echo "   sudo systemctl status agentforge-gateway"
 echo "   sudo systemctl status agentforge-worker"
-echo "   sudo systemctl status agentforge-jules-worker"
 echo "   sudo systemctl restart agentforge-worker"
 echo "   journalctl -u agentforge-worker -f   # live логи"
+echo "   # Legacy api (true rollback ONLY, not installed by this script anymore):"
+echo "   #   sudo systemctl status agentforge-api 2>/dev/null || true"
 echo ""
 echo "После рефакторинга routing (2026-06):"
 echo "   • Большинство задач теперь идёт на Grok автоматически"
 echo "   • Antigravity получает только явно предназначенные задачи"
-echo "   • Используй: python agentforge/fix_antigravity_tasks.py --dry-run"
+echo "   • Используй: agentforge-runner task reassign --from antigravity --to grok --dry-run  (or equivalent; old py deleted in Jules wave 2026-06-13 task f29c675b)"
 
 # ============================================
 # AUTONOMY TIMER PRODUCTION ROLLOUT (2026-05-31)
@@ -174,7 +187,7 @@ echo "   Ops commands: cat $AGENTFORGE_DIR/ENABLE_RUST_FLYWHEEL.md"
 echo "   New symmetric disable helper: bash $AGENTFORGE_DIR/bin/disable_rust_flywheel.sh"
 echo ""
 echo "   This install already wires the continuous timer that drives the meta autonomy loop."
-echo "   Watch live candidates: python -m agentforge.list_pending_candidates"
+echo "   Watch live candidates: agentforge-runner candidate list --top 5 --sort value --json  (old py deleted in Jules wave 2026-06-13 task f29c675b)"
 echo "================================================"
 
 # === PURE RUST FLYWHEEL DEFAULT (injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00) ===

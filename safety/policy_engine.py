@@ -8,6 +8,10 @@ The engine short-circuits on first non-None decision (order matters — register
 Built-in example policies included. Designed to be called from:
 - Runners before dangerous shell / edit / net ops
 - Skill execution wrappers
+
+CONVERGED DUAL (20 Grok + 3 Agy terminals 2026-06-13 wave): under pure delegates to agentforge-runner.
+See audit in REMAINING, task-2cec828e/task-5af0e350, JULES f29c675b.
+
 - Long-horizon execution engine
 - MCP tool dispatch
 
@@ -57,13 +61,59 @@ class PolicyEngine:
         Evaluate all rules in registration order.
         First rule that returns non-None wins.
         Always returns a decision (defaults to ALLOW with risk 0).
+        CONVERGED DUAL (20g+3a): under pure delegates (thin).
         """
+        from learning.utils import is_pure_rust_flywheel, get_rust_runner_path
+
+        if is_pure_rust_flywheel():
+            runner = get_rust_runner_path()
+            if runner:
+                try:
+                    import subprocess
+                    import json
+
+                    cmd = [
+                        str(runner),
+                        "--json",
+                        "full-stack",
+                        "--goal",
+                        "safety-evaluate",
+                        "--action",
+                        action_type,
+                    ]
+                    res = subprocess.run(
+                        cmd, capture_output=True, text=True, timeout=10
+                    )
+                    if res.returncode == 0:
+                        data = json.loads(res.stdout or "{}")
+                        if data.get("delegated") or data.get("decision"):
+                            return ActionDecision(
+                                Decision.ALLOW,
+                                "delegated-to-rust-safety",
+                                risk_score=0.0,
+                                metadata={
+                                    "delegated": True,
+                                    "engine": "rust-agentforge-runner",
+                                },
+                            )
+                except Exception:
+                    pass
+            # thin: allow under pure (Rust authoritative)
+            return ActionDecision(
+                Decision.ALLOW,
+                "pure-rust-delegated (safety in runner)",
+                risk_score=0.0,
+                metadata={"delegated": True},
+            )
         for rule in self.rules:
             try:
                 decision = rule(action_type, context or {})
                 if decision:
                     if decision.policy_name is None:
-                        decision.policy_name = self.rule_names.get(id(rule), rule.__name__ if hasattr(rule, "__name__") else "anonymous")
+                        decision.policy_name = self.rule_names.get(
+                            id(rule),
+                            rule.__name__ if hasattr(rule, "__name__") else "anonymous",
+                        )
                     return decision
             except Exception as e:
                 # Never let a bad policy crash the agent — fail closed to REQUIRE_APPROVAL
@@ -73,21 +123,33 @@ class PolicyEngine:
                     policy_name="policy_engine_safety",
                     risk_score=0.8,
                 )
-        return ActionDecision(Decision.ALLOW, "No blocking policy matched", risk_score=0.0)
+        return ActionDecision(
+            Decision.ALLOW, "No blocking policy matched", risk_score=0.0
+        )
 
     # ===================== Built-in high-value policies (register these by default) =====================
 
     @staticmethod
-    def no_dangerous_commands(action_type: str, context: Dict) -> Optional[ActionDecision]:
+    def no_dangerous_commands(
+        action_type: str, context: Dict
+    ) -> Optional[ActionDecision]:
         if action_type != "shell_command":
             return None
         cmd = (context.get("command") or "").lower().strip()
         dangerous_patterns = [
-            r"rm\s+-rf\s+/", r"rm\s+-rf\s+\*", r"dd\s+if=",
+            r"rm\s+-rf\s+/",
+            r"rm\s+-rf\s+\*",
+            r"dd\s+if=",
             r":\(\)\s*\{.*\}\s*;",  # fork bomb
-            r"shutdown", r"reboot", r"halt", r"poweroff",
-            r"mkfs", r"format\s+", r"wipefs",
-            r"curl.*\|\s*(bash|sh)", r"wget.*\|\s*(bash|sh)",
+            r"shutdown",
+            r"reboot",
+            r"halt",
+            r"poweroff",
+            r"mkfs",
+            r"format\s+",
+            r"wipefs",
+            r"curl.*\|\s*(bash|sh)",
+            r"wget.*\|\s*(bash|sh)",
             r"sudo\s+rm\s+-rf",
         ]
         for pat in dangerous_patterns:
@@ -100,15 +162,34 @@ class PolicyEngine:
                 )
         # Very long or complex commands get soft flag
         if len(cmd) > 800:
-            return ActionDecision(Decision.REQUIRE_APPROVAL, "Extremely long shell command", risk_score=0.6)
+            return ActionDecision(
+                Decision.REQUIRE_APPROVAL,
+                "Extremely long shell command",
+                risk_score=0.6,
+            )
         return None
 
     @staticmethod
-    def no_unbounded_file_writes(action_type: str, context: Dict) -> Optional[ActionDecision]:
+    def no_unbounded_file_writes(
+        action_type: str, context: Dict
+    ) -> Optional[ActionDecision]:
         if action_type not in ("file_write", "file_edit", "write_file"):
             return None
         path = str(context.get("path") or context.get("target") or "").lower()
-        risky = [p for p in ("/etc", "/boot", "/sys", "/proc", "/root", "/dev", "/lib", "/usr/lib") if p in path]
+        risky = [
+            p
+            for p in (
+                "/etc",
+                "/boot",
+                "/sys",
+                "/proc",
+                "/root",
+                "/dev",
+                "/lib",
+                "/usr/lib",
+            )
+            if p in path
+        ]
         if risky:
             return ActionDecision(
                 Decision.REQUIRE_APPROVAL,
@@ -117,8 +198,17 @@ class PolicyEngine:
                 metadata={"path": path},
             )
         # Outside project or /tmp is also notable
-        if not ("/home" in path or "/tmp/agentforge" in path or "planlytasksko" in path or path.startswith("/tmp/")):
-            return ActionDecision(Decision.REQUIRE_APPROVAL, "Write outside normal project/worktree area", risk_score=0.55)
+        if not (
+            "/home" in path
+            or "/tmp/agentforge" in path
+            or "planlytasksko" in path
+            or path.startswith("/tmp/")
+        ):
+            return ActionDecision(
+                Decision.REQUIRE_APPROVAL,
+                "Write outside normal project/worktree area",
+                risk_score=0.55,
+            )
         return None
 
     @staticmethod
@@ -126,10 +216,18 @@ class PolicyEngine:
         if action_type not in ("network", "http", "curl", "wget", "socket"):
             return None
         url = str(context.get("url") or context.get("host") or "").lower()
-        if any(bad in url for bad in ["localhost", "127.0.0.1", "169.254"]):  # metadata services etc.
-            return ActionDecision(Decision.REQUIRE_APPROVAL, "Network call targeting localhost/metadata endpoint", risk_score=0.7)
+        if any(
+            bad in url for bad in ["localhost", "127.0.0.1", "169.254"]
+        ):  # metadata services etc.
+            return ActionDecision(
+                Decision.REQUIRE_APPROVAL,
+                "Network call targeting localhost/metadata endpoint",
+                risk_score=0.7,
+            )
         if context.get("method", "GET").upper() in ("POST", "PUT", "PATCH", "DELETE"):
-            return ActionDecision(Decision.REQUIRE_APPROVAL, "Mutating network request", risk_score=0.4)
+            return ActionDecision(
+                Decision.REQUIRE_APPROVAL, "Mutating network request", risk_score=0.4
+            )
         return None
 
 

@@ -15,15 +15,17 @@
 ├── REPO_STRUCTURE.md                    # This file
 │
 ├── bin/                                 # Automation and helper scripts
-│   ├── jules-watch.sh                   # Monitors completed Jules sessions and creates acceptance tasks
-│   ├── launch-jules-parallel            # Launches many Jules sessions in parallel using multiple accounts
-│   ├── agent-worktree                   # Git worktree helper for safe parallel agent work
-│   ├── pre-commit                       # Local quality gates
-│   └── install-pre-commit               # One-command installer for the hook
+│   ├── agent-worktree                   # Git worktree helper for safe parallel agent work (MANDATORY for waves)
+│   ├── pre-commit                       # Local quality gates (secrets/size/fmt/clippy/ruff etc)
+│   ├── commit-msg                       # Traceability gate (Task/Jules ID; see validate-commit-msg)
+│   ├── install-pre-commit               # One-command installer for pre-commit + commit-msg (worktree-safe post-bypass)
+│   ├── validate-commit-msg              # Reusable validator (used by commit-msg hook)
+│   └── ... (grok focused + rust flywheel tools)
 │
-├── agents/                              # Agent runner scripts
+├── agents/                              # Agent runner scripts (current: grok + agy + gemini; jules farm removed)
 │   ├── grok_runner.sh
-│   ├── jules_runner.sh
+│   ├── agy_runner.sh
+│   ├── gemini_runner.sh
 │   └── ...
 │
 ├── .github/
@@ -47,12 +49,9 @@
 ## Key Components
 
 ### Agent Orchestration
-- **Task Queue** (`task_queue.py` + `tasks.db`): Central system for creating, routing, and tracking work for agents. Tasks support `preferred_agent`.
-- **Jules Automation**:
-  - `bin/launch-jules-parallel` — Primary tool for high-volume parallel Jules work using two accounts.
-  - `bin/jules-watch.sh` — Background watcher that turns completed Jules sessions into review/acceptance tasks.
-- **Local Agents**:
-  - `agent-team` (or `at`) — Tool for launching parallel Grok/Jules/Gemini agents in tmux.
+- **Task Queue / Gateway** (localhost:9090, agentforge-runner + grok_worker.sh): Central system for creating, routing (preferred_agent: grok|antigravity|auto), and tracking work. Jules farm/launchers removed (2026-06 cleanup).
+- **Current workers**: grok_worker.sh (polls for grok/auto, worktrees, dynamic model, Rust flywheel post-task).
+- **Parallel local**: `agent-team` (tmux), `bin/agent-worktree` for isolated agent branches.
 
 ### Rust Core
 The majority of the production logic lives in the Rust workspace under `rust/`.
@@ -67,11 +66,13 @@ All major process documents live at the root:
 
 Most real work in this repository happens through one of these paths:
 
-1. **Internal Task Queue** → Agent picks up task (via `preferred_agent`) → Works in short-lived branch → PR → Review → Merge
-2. **Jules sessions** → Work happens in the cloud → `jules-watch.sh` creates an acceptance task → Review + apply
-3. **Direct human work** (rare during active agent waves)
+1. **Internal Task Queue (Gateway 9090 + agentforge-runner)** → grok_worker or dispatched agents pick task (preferred grok/antigravity/auto) → worktree/branch → PR → mandatory agent-review (Jules persona reviewer) + handoff → Merge
+2. **Local parallel agents** via agent-team / tmux agents session + bin/agent-worktree (Grok focused post Jules farm removal)
+3. **Direct / human** (rare during waves)
 
-See `AGENTS.md` and `CONTRIBUTING.md` for detailed workflows.
+Jules sessions / jules-watch / launch-jules-parallel removed (JULES CLEANUP wave 2026-06-13). Traceability still supports legacy "Jules <id>" for history.
+
+See `AGENTS.md` and `CONTRIBUTING.md` for detailed (updated) workflows.
 
 ---
 

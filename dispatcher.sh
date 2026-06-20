@@ -12,7 +12,7 @@
 # Phase 1 (RUST_FULL_MIGRATION_PLAN.md): Pure Rust flywheel (agentforge-runner flywheel-step)
 # is the canonical self-improvement engine. Python flywheel orchestration (rust_flywheel_step.py etc)
 # is deprecated and short-circuited under default Antigravity (AGENTFORGE_FLYWHEEL_ENGINE=rust).
-# After-task hooks in grok_runner/jules_runner now prefer the Rust path when enabled.
+# After-task hooks in grok_runner now prefer the Rust path when enabled.
 # Rollback: DISABLE_RUST_FLYWHEEL=1 or .disable_rust_flywheel file.
 #
 # PHASE 3 FINAL SWEEP: escalated deprecation banners + stronger is_pure_rust_flywheel() guards
@@ -59,29 +59,102 @@ DESC="$3"
 PRIORITY="${4:-medium}"
 SKILL="${5:-}"
 
+# === БЕЗОПАСНОСТЬ: санитизация входных данных ===
+# Валидация TASK_ID (только alnum, дефисы, подчёркивания)
+if [[ ! "$TASK_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "[AgentForge] ❌ Невалидный TASK_ID: содержит запрещённые символы"
+    exit 1
+fi
+
+# Сохраняем DESC в файл вместо передачи через shell (защита от injection)
+DESC_DIR="/home/eveselove/agentforge/logs/task_desc"
+mkdir -p "$DESC_DIR"
+DESC_FILE="$DESC_DIR/${TASK_ID}.desc"
+printf '%s' "$DESC" > "$DESC_FILE"
+
+# === TMUX-ИЗОЛЯЦИЯ: каждый агент в отдельном терминале ===
+TMUX_SESSION="agents"
+TASK_SHORT="${TASK_ID:0:8}"
+LOG_DIR="/home/eveselove/agentforge/logs"
+
+# Создаём tmux-сессию если не существует
+if ! tmux has-session -t "$TMUX_SESSION" 2>/dev/null; then
+    tmux new-session -d -s "$TMUX_SESSION" -x 220 -y 50
+    echo "[AgentForge] 📺 Создана tmux-сессия '$TMUX_SESSION'"
+fi
+
+# Лимиты параллельности по типу агента
+# 2026-06-14: raised to 300 per user request for 300+ parallel Grok agents (PROBLEM_GROK_TMUX_DISPATCH)
+MAX_GROK=300
+MAX_AGY=3
+
 case $AGENT in
   grok)
-    bash /home/eveselove/agentforge/agents/grok_runner.sh "$TASK_ID" "$DESC" "/home/eveselove/planlytasksko" "$PRIORITY" "$SKILL" &
-    ;;
-  jules)
-    bash /home/eveselove/agentforge/agents/jules_runner.sh "$TASK_ID" "$DESC" &
+    # === ДЕДУПЛИКАЦИЯ: не запускаем если задача уже выполняется ===
+    if pgrep -f "grok_runner.sh $TASK_ID" > /dev/null 2>&1; then
+        echo "[AgentForge] Task $TASK_ID already running, skipping duplicate dispatch"
+        exit 0
+    fi
+    # Проверяем общее количество grok_runner процессов
+    RUNNING_COUNT=$(pgrep -cf "grok_runner.sh" 2>/dev/null || echo 0)
+    if [ "$RUNNING_COUNT" -ge "$MAX_GROK" ]; then
+        echo "[AgentForge] Too many grok runners ($RUNNING_COUNT/$MAX_GROK), skipping $TASK_ID"
+        exit 0
+    fi
+
+    # Запуск в отдельном tmux-окне (DESC читается из файла — без injection)
+    WINDOW_NAME="grok-${TASK_SHORT}"
+    tmux new-window -t "$TMUX_SESSION" -n "$WINDOW_NAME" \
+        "DESC=\$(cat '$DESC_FILE' 2>/dev/null); \
+         echo '[AgentForge] 🟦 Grok Build → $TASK_ID ($PRIORITY)'; \
+         bash /home/eveselove/agentforge/agents/grok_runner.sh '$TASK_ID' \"\$DESC\" '/home/eveselove/planlytasksko' '$PRIORITY' '$SKILL'; \
+         echo ''; echo '--- Grok $TASK_SHORT завершён ---'; \
+         rm -f '$DESC_FILE'; sleep 10" 2>/dev/null || {
+        echo "[AgentForge] ⚠️ tmux fallback — запуск в фоне"
+        DESC_SAFE=$(cat "$DESC_FILE" 2>/dev/null)
+        bash /home/eveselove/agentforge/agents/grok_runner.sh "$TASK_ID" "$DESC_SAFE" "/home/eveselove/planlytasksko" "$PRIORITY" "$SKILL" &
+    }
+    echo "[AgentForge] 📺 Grok → tmux окно '$WINDOW_NAME' (${RUNNING_COUNT}/${MAX_GROK} активных)"
     ;;
   agy)
-    bash /home/eveselove/agentforge/agents/agy_runner.sh "$TASK_ID" "$DESC" &
+    # Проверяем лимит параллельных AGY
+    AGY_RUNNING=$(pgrep -cf "agy_runner.sh" 2>/dev/null || echo 0)
+    if [ "$AGY_RUNNING" -ge "$MAX_AGY" ]; then
+        echo "[AgentForge] Too many AGY runners ($AGY_RUNNING/$MAX_AGY), skipping $TASK_ID"
+        exit 0
+    fi
+
+    WINDOW_NAME="agy-${TASK_SHORT}"
+    tmux new-window -t "$TMUX_SESSION" -n "$WINDOW_NAME" \
+        "DESC=\$(cat '$DESC_FILE' 2>/dev/null); \
+         echo '[AgentForge] 🟩 AGY → $TASK_ID'; \
+         bash /home/eveselove/agentforge/agents/agy_runner.sh '$TASK_ID' \"\$DESC\"; \
+         echo ''; echo '--- AGY $TASK_SHORT завершён ---'; \
+         rm -f '$DESC_FILE'; sleep 10" 2>/dev/null || {
+        DESC_SAFE=$(cat "$DESC_FILE" 2>/dev/null)
+        bash /home/eveselove/agentforge/agents/agy_runner.sh "$TASK_ID" "$DESC_SAFE" &
+    }
+    echo "[AgentForge] 📺 AGY → tmux окно '$WINDOW_NAME' (${AGY_RUNNING}/${MAX_AGY} активных)"
     ;;
   gemini)
-    bash /home/eveselove/agentforge/agents/gemini_runner.sh "$TASK_ID" "$DESC" &
+    WINDOW_NAME="gem-${TASK_SHORT}"
+    tmux new-window -t "$TMUX_SESSION" -n "$WINDOW_NAME" \
+        "DESC=\$(cat '$DESC_FILE' 2>/dev/null); \
+         echo '[AgentForge] 🟨 Gemini → $TASK_ID'; \
+         bash /home/eveselove/agentforge/agents/gemini_runner.sh '$TASK_ID' \"\$DESC\"; \
+         echo ''; echo '--- Gemini $TASK_SHORT завершён ---'; \
+         rm -f '$DESC_FILE'; sleep 10" 2>/dev/null || {
+        DESC_SAFE=$(cat "$DESC_FILE" 2>/dev/null)
+        bash /home/eveselove/agentforge/agents/gemini_runner.sh "$TASK_ID" "$DESC_SAFE" &
+    }
+    echo "[AgentForge] 📺 Gemini → tmux окно '$WINDOW_NAME'"
     ;;
   antigravity)
-    # Вариант A (см. AGENTFORGE_ROUTING_AND_EXECUTION_REFACTOR_PLAN.md)
-    # Antigravity сейчас в основном human-in-the-loop режим.
-    # Мы не пускаем задачу в автоматический раннер, а явно сигнализируем,
-    # что требуется глубокий разбор человеком / через Antigravity IDE чат.
+    # Antigravity — human-in-the-loop через IDE чат
     echo "[AgentForge] ⚠️  Задача $TASK_ID назначена на Antigravity (требует человеческого/архитектурного внимания)"
     echo "[AgentForge]     Открой Antigravity IDE чат и возьми задачу вручную."
 
-    # Помечаем задачу понятным образом, чтобы она не висела в limbo
-    curl -s -X PATCH "http://localhost:8080/tasks/$TASK_ID" \
+    curl -s -X PATCH "http://127.0.0.1:9090/tasks/$TASK_ID" \
       -H 'Content-Type: application/json' \
       -d "{
         \"status\": \"dispatched\",

@@ -36,7 +36,7 @@ REPORTS_DIR = Path(
 )
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-AGENTFORGE_API = "http://localhost:8080"
+AGENTFORGE_API = "http://localhost:9090"
 
 
 def calculate_health_score(

@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PLANLYTASK — Мерчандайзинг · Развеска товара</title>
+  <script src="echarts.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#f3f4f6;--surface:#ffffff;--surface2:#f9fafb;--surface3:#f0f0f0;
+      --border:#e5e7eb;--text:#1f2937;--text-muted:#6b7280;
+      --primary:#6366f1;--primary-bg:rgba(99,102,241,0.1);
+      --danger:#dc2626;--danger-bg:rgba(220,38,38,0.08);
+      --success:#16a34a;--success-bg:rgba(22,163,74,0.08);
+      --warning:#d97706;--warning-bg:rgba(217,119,6,0.08);
+      --radius:12px;--glow:0 2px 12px rgba(0,0,0,0.08);
+      --shelf-bg:#e8e8e8;--shelf-frame:#7a7a7a;--shelf-grid:#b0b0b0;
+      --hook-color:#555;--hook-shadow:rgba(0,0,0,0.2);
+    }
+    body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+    ::selection{background:var(--primary);color:#fff}
+
+    /* Header */
+    .header{
+      background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);
+      border-bottom:1px solid var(--border);padding:16px 32px;
+      display:flex;align-items:center;justify-content:space-between;
+      position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);
+    }
+    .header h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,#6366f1,#8b5cf6,#a855f7);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .header .nav-links{display:flex;gap:16px;align-items:center}
+    .header a{color:var(--text-muted);text-decoration:none;font-size:13px;transition:color 0.2s;padding:6px 12px;border-radius:6px}
+    .header a:hover{color:var(--text);background:var(--surface2)}
+    .header a.active{color:var(--primary);background:var(--primary-bg)}
+
+    /* Layout */
+    .main-layout{display:flex;height:calc(100vh - 64px);overflow:hidden}
+    
+    /* Left panel — product catalog */
+    .catalog-panel{
+      width:320px;min-width:280px;background:var(--surface);border-right:1px solid var(--border);
+      display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;
+    }
+    .catalog-header{
+      padding:16px 20px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:10px;flex-shrink:0;
+    }
+    .catalog-header h2{font-size:15px;font-weight:700;color:var(--text)}
+    .catalog-search{
+      margin:12px 16px;padding:8px 14px;border:1px solid var(--border);border-radius:8px;
+      font-size:13px;font-family:inherit;background:var(--surface2);color:var(--text);outline:none;
+      transition:border-color 0.2s;
+    }
+    .catalog-search:focus{border-color:var(--primary)}
+    .catalog-list{flex:1;overflow-y:auto;padding:8px 12px;scrollbar-width:thin}
+    .catalog-list::-webkit-scrollbar{width:6px}
+    .catalog-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+    
+    .product-item{
+      display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+      cursor:grab;transition:all 0.2s;border:1px solid transparent;margin-bottom:4px;
+      user-select:none;
+    }
+    .product-item:hover{background:var(--primary-bg);border-color:rgba(99,102,241,0.2)}
+    .product-item:active{cursor:grabbing;transform:scale(0.97)}
+    .product-item .pi-thumb{width:36px;height:36px;border-radius:6px;flex-shrink:0;object-fit:contain;background:var(--surface2)}
+    .product-item .pi-info{flex:1;min-width:0}
+    .product-item .pi-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .product-item .pi-meta{font-size:10px;color:var(--text-muted);margin-top:2px}
+    .product-item .pi-size{font-size:10px;color:var(--primary);font-weight:600;white-space:nowrap}
+
+    /* Center — shelf canvas */
+    .shelf-area{
+      flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      padding:20px;background:linear-gradient(180deg,#eef0f4 0%,#e2e5ea 100%);
+      position:relative;overflow:auto;
+    }
+    .shelf-toolbar{
+      display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-shrink:0;
+    }
+    .shelf-btn{
+      background:var(--surface);color:var(--text-muted);border:1px solid var(--border);
+      border-radius:8px;padding:7px 14px;font-size:12px;font-family:inherit;
+      cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;
+    }
+    .shelf-btn:hover{border-color:var(--primary);color:var(--text);transform:translateY(-1px);box-shadow:var(--glow)}
+    .shelf-btn.active{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
+    .shelf-btn.danger:hover{border-color:var(--danger);color:var(--danger)}
+    .shelf-info{font-size:11px;color:var(--text-muted);margin-left:8px}
+    
+    .shelf-canvas-wrap{
+      position:relative;
+      box-shadow:0 8px 40px rgba(0,0,0,0.15),0 2px 8px rgba(0,0,0,0.1);
+      border-radius:4px;
+      background:#d4d4d4;
+    }
+    #shelfCanvas{display:block;border-radius:4px}
+
+    /* Right panel — properties */
+    .props-panel{
+      width:280px;min-width:240px;background:var(--surface);border-left:1px solid var(--border);
+      display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;
+    }
+    .props-header{
+      padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;
+    }
+    .props-header h2{font-size:15px;font-weight:700;color:var(--text)}
+    .props-content{flex:1;overflow-y:auto;padding:16px 20px;scrollbar-width:thin}
+    
+    .prop-group{margin-bottom:16px}
+    .prop-group label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px}
+    .prop-group .prop-value{font-size:14px;font-weight:600;color:var(--text)}
+    .prop-group input[type="number"],.prop-group select{
+      width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;
+      font-size:13px;font-family:inherit;background:var(--surface2);color:var(--text);outline:none;
+    }
+    .prop-group input:focus,.prop-group select:focus{border-color:var(--primary)}
+    
+    .stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--surface2)}
+    .stat-row .stat-label{font-size:12px;color:var(--text-muted)}
+    .stat-row .stat-val{font-size:13px;font-weight:600}
+
+    .kpi-mini{
+      display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;
+    }
+    .kpi-mini-card{
+      background:var(--surface2);border-radius:8px;padding:10px 12px;text-align:center;
+    }
+    .kpi-mini-card .km-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px}
+    .kpi-mini-card .km-value{font-size:18px;font-weight:700;margin-top:2px}
+    .kpi-mini-card .km-value.primary{color:var(--primary)}
+    .kpi-mini-card .km-value.success{color:var(--success)}
+    .kpi-mini-card .km-value.warning{color:var(--warning)}
+
+    /* Tooltip */
+    .shelf-tooltip{
+      position:absolute;pointer-events:none;z-index:50;
+      background:var(--surface);border:1px solid var(--border);border-radius:8px;
+      padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.15);
+      font-size:12px;max-width:220px;opacity:0;transition:opacity 0.15s;
+    }
+    .shelf-tooltip.visible{opacity:1}
+    .shelf-tooltip .tt-name{font-weight:600;margin-bottom:4px}
+    .shelf-tooltip .tt-meta{color:var(--text-muted);font-size:11px}
+
+    /* Drag ghost */
+    .drag-ghost{
+      position:fixed;pointer-events:none;z-index:9999;
+      background:var(--surface);border:2px solid var(--primary);border-radius:8px;
+      padding:6px 12px;font-size:11px;font-weight:600;color:var(--primary);
+      box-shadow:0 8px 24px rgba(99,102,241,0.3);
+      transform:translate(-50%,-50%);
+    }
+
+    /* Bottom analytics bar */
+    .analytics-bar{
+      position:absolute;bottom:0;left:0;right:0;
+      background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);
+      border-top:1px solid var(--border);padding:12px 24px;
+      display:flex;align-items:center;gap:20px;
+    }
+    .analytics-bar .ab-chart{width:200px;height:60px}
+
+    /* Animations */
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    .animate-in{animation:fadeIn 0.3s ease-out}
+
+    /* Print */
+    @media print{.header,.catalog-panel,.props-panel,.shelf-toolbar{display:none!important}.main-layout{display:block}.shelf-area{padding:0}}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 id="headerTitle">🏪 Мерчандайзинг · СТ-001</h1>
+    <div class="nav-links">
+      <a href="/analytics/index.html">Уровень сервиса</a>
+      <a href="/analytics/revenue.html">Продажи / Выручка</a>
+      <a href="/monitoring/index.html">Мониторинг</a>
+      <a href="/merchandising/index.html" class="active">Мерчандайзинг</a>
+      <a href="/parsing/index.html">Парсинг</a>
+      <a href="/">← Приложение</a>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <!-- Left: Product Catalog -->
+    <div class="catalog-panel">
+      <div class="catalog-header">
+        <span style="font-size:20px">📦</span>
+        <h2>Каталог товаров</h2>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:auto" id="catalogCount">0</span>
+      </div>
+      <input type="text" class="catalog-search" id="catalogSearch" placeholder="🔍 Поиск товара..." oninput="filterCatalog()">
+      <div class="catalog-list" id="catalogList"></div>
+    </div>
+
+    <!-- Center: Shelf Visualization -->
+    <div class="shelf-area">
+      <div class="shelf-toolbar">
+        <button class="shelf-btn" onclick="zoomShelf(1.15)" title="Приблизить">🔍+</button>
+        <button class="shelf-btn" onclick="zoomShelf(1/1.15)" title="Отдалить">🔍−</button>
+        <button class="shelf-btn" onclick="resetZoom()" title="Сбросить масштаб">⊡ 1:1</button>
+        <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+        <button class="shelf-btn" onclick="clearAllProducts()" title="Очистить стеллаж">🗑️ Очистить</button>
+        <button class="shelf-btn" onclick="autoFill()" style="background:var(--primary);color:white;border:none">🤖 Развесить</button>
+        <button class="shelf-btn" onclick="exportShelfImage()" title="Экспорт PNG">📸 Экспорт</button>
+        <span style="width:1px;height:20px;background:var(--border)"></span>
+        <span class="shelf-info" id="shelfDimInfo">1330 × 1645 мм · 4 ряда</span>
+      </div>
+      <div class="shelf-canvas-wrap">
+        <canvas id="shelfCanvas" width="800" height="1000"></canvas>
+      </div>
+      <div class="shelf-tooltip" id="shelfTooltip"></div>
+    </div>
+
+    <!-- Right: Properties & Stats -->
+    <div class="props-panel">
+      <div class="props-header">
+        <h2>⚙️ Параметры стеллажа</h2>
+      </div>
+      <div class="props-content">
+        <div class="kpi-mini">
+          <div class="kpi-mini-card"><div class="km-label">Товаров</div><div class="km-value primary" id="kpiProducts">0</div></div>
+          <div class="kpi-mini-card"><div class="km-label">Заполнение</div><div class="km-value success" id="kpiFill">0%</div></div>
+          <div class="kpi-mini-card"><div class="km-label">Крючков</div><div class="km-value" id="kpiHooks">0</div></div>
+          <div class="kpi-mini-card"><div class="km-label">Свободно</div><div class="km-value warning" id="kpiFree">0</div></div>
+        </div>
+
+        <div class="prop-group">
+          <label>Виртуальный стеллаж</label>
+          <input type="text" id="shelfNumber" value="СТ-001" onchange="updateShelfTitle()">
+        </div>
+        <div class="prop-group">
+          <label>Город</label>
+          <select id="shelfCity" onchange="changeCity()">
+            <option value="Вологда">Вологда</option>
+            <option value="Череповец">Череповец</option>
+            <option value="Ярославль">Ярославль</option>
+            <option value="Кострома">Кострома</option>
+            <option value="Иваново">Иваново</option>
+          </select>
+        </div>
+        <div class="prop-group">
+          <label>Привязка категорий</label>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <select id="shelfCategoryAdd" style="flex:1">
+              <option value="Отвертки">Отвертки</option>
+              <option value="Перфораторы">Перфораторы</option>
+              <option value="Молотки">Молотки</option>
+              <option value="Рулетки">Рулетки</option>
+              <option value="Плоскогубцы">Плоскогубцы</option>
+              <option value="Ключи гаечные">Ключи гаечные</option>
+            </select>
+            <button class="shelf-btn" onclick="addCategoryUI()" style="padding:0 12px;font-size:16px;font-weight:bold">+</button>
+          </div>
+          <div id="boundCategories" style="display:flex;flex-direction:column;gap:4px">
+            <!-- Bound categories appear here -->
+          </div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+
+        <div class="prop-group">
+          <label>Ширина стеллажа (мм)</label>
+          <input type="number" id="shelfWidth" value="1330" min="500" max="3000" step="10" onchange="rebuildShelf()">
+        </div>
+        <div class="prop-group">
+          <label>Высота стеллажа (мм)</label>
+          <input type="number" id="shelfHeight" value="1645" min="500" max="3000" step="10" onchange="rebuildShelf()">
+        </div>
+        <div class="prop-group">
+          <label>Кол-во рядов крючков</label>
+          <input type="number" id="hookRows" value="4" min="1" max="10" step="1" onchange="rebuildShelf()">
+        </div>
+        <div class="prop-group">
+          <label>Длина крючка (мм)</label>
+          <input type="number" id="hookLength" value="150" min="50" max="400" step="10" onchange="rebuildShelf()">
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+
+        <div id="selectedProductInfo" style="display:none">
+          <div class="prop-group">
+            <label>Выбранный товар</label>
+            <div class="prop-value" id="selProdName" style="font-size:13px;font-weight:600">—</div>
+          </div>
+          <div class="prop-group">
+            <label>Артикул</label>
+            <div class="prop-value" id="selProdSku" style="font-size:12px;color:var(--text-muted)">—</div>
+          </div>
+          <div class="prop-group">
+            <label>Позиция на стеллаже</label>
+            <div class="prop-value" id="selProdPos" style="font-size:12px">—</div>
+          </div>
+          <button class="shelf-btn danger" onclick="removeSelectedProduct()" style="width:100%;justify-content:center;margin-top:8px">🗑️ Убрать со стеллажа</button>
+        </div>
+
+        <div id="emptySelectionHint" style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px 0">
+          Перетащите товар из каталога<br>на крючок стеллажа
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+        
+        <div class="prop-group">
+          <label>Статистика по рядам</label>
+        </div>
+        <div id="rowStats"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ========== SHELF CONFIGURATION ==========
+const SHELF = {
+  widthMM: 1330,
+  heightMM: 1645,
+  rows: 4,
+  hookLengthMM: 150,
+  frameMM: 35,
+  gridCellMM: 50,   // grid mesh cell size
+  topMarginMM: 120,
+  bottomMarginMM: 80,
+};
+
+// Scale: mm → px
+let SCALE = 0.55;
+let baseScale = 0.55;
+
+// Placed products on continuous rails: {id, row, xMM, product}
+let placedProducts = [];
+let selectedPlacement = null; // id of selected product
+let boundCategories = []; // list of bound categories
+
+// Drag state
+let dragProduct = null;
+let dragGhost = null;
+let mouseX = 0, mouseY = 0;
+let dragHover = null; // { row, xMM, valid }
+
+// Canvas
+const canvas = document.getElementById('shelfCanvas');
+const ctx = canvas.getContext('2d');
+
+// ========== PRODUCT CATALOG (Real data from API) ==========
+let PRODUCT_CATALOG = [];
+const productImages = {}; // sku -> Image object cache
+
+function extractDimensions(p) {
+  let chars = p.characteristics || {};
+  let wVal = 0, hVal = 0, lVal = 0;
+  
+  Object.keys(chars).forEach(k => {
+    const key = k.toLowerCase();
+    const valStr = chars[k].toString().replace(',', '.');
+    const val = parseFloat(valStr);
+    if (isNaN(val) || val <= 0) return;
+    
+    let mult = 1;
+    if (key.includes('см.') || key.includes('см ') || key.endsWith('см') || key === 'см') mult = 10;
+    else if (key.includes('мм.') || key.includes('мм ') || key.endsWith('мм') || key === 'мм') mult = 1;
+    else if (key.includes(' м.') || key.endsWith(' м') || key.endsWith('м') || key === 'м') mult = 1000;
+    
+    if (key.includes('ширина')) wVal = val * mult;
+    else if (key.includes('высота')) hVal = val * mult;
+    else if (key.includes('длина') && !key.includes('стержня')) lVal = val * mult;
+  });
+
+  let bestH = Math.max(hVal, lVal);
+  if (!bestH && chars['Длина стержня, мм']) {
+    bestH = parseInt(chars['Длина стержня, мм']) + 90;
+  }
+
+  // Fallbacks if one is missing
+  if (wVal > 0 && bestH === 0) bestH = wVal * 3;
+  // Make the default width fallback look like a standard blister package for tools (approx 35-40% of height, min 50mm)
+  if (bestH > 0 && wVal === 0) wVal = Math.max(50, bestH * 0.35);
+
+  let wMM = wVal;
+  let hMM = bestH;
+
+  // Fallback to weight if both missing
+  if (!wMM && !hMM && p.weight_kg) {
+    if (p.weight_kg <= 0.05) { wMM=35; hMM=160; }
+    else if (p.weight_kg <= 0.1)  { wMM=40; hMM=200; }
+    else if (p.weight_kg <= 0.15) { wMM=45; hMM=220; }
+    else if (p.weight_kg <= 0.3)  { wMM=55; hMM=250; }
+    else if (p.weight_kg <= 0.5)  { wMM=65; hMM=280; }
+    else if (p.weight_kg <= 1.0)  { wMM=80; hMM=200; }
+    else { wMM=90; hMM=180; }
+  }
+
+  // Final fallback
+  wMM = wMM || 40;
+  hMM = hMM || 200;
+
+  // Sanity limits to prevent giant/invisible products
+  wMM = Math.min(Math.max(wMM, 10), 400);
+  hMM = Math.min(Math.max(hMM, 30), 800);
+
+  return { widthMM: Math.round(wMM), heightMM: Math.round(hMM) };
+}
+
+const BRAND_COLORS = {'REXANT':'#e53e3e','Gross':'#3182ce','Sparta':'#d69e2e','Sanitoo':'#38a169','Сибртех':'#805ad5','Matrix':'#dd6b20'};
+
+function updateShelfTitle() {
+  const shelfNo = document.getElementById('shelfNumber').value;
+  document.getElementById('headerTitle').textContent = `🏪 Мерчандайзинг · ${shelfNo}`;
+}
+
+async function addCategoryUI() {
+  const cat = document.getElementById('shelfCategoryAdd').value;
+  if (!cat || boundCategories.includes(cat)) return;
+  await addCategory(cat);
+}
+
+async function changeCity() {
+  const currentCats = [...boundCategories];
+  boundCategories = [];
+  PRODUCT_CATALOG = [];
+  placedProducts = [];
+  renderBoundCategories();
+  buildCatalog();
+  autoFill();
+  
+  for (let cat of currentCats) {
+    await addCategory(cat);
+  }
+}
+
+async function addCategory(cat) {
+  if (boundCategories.includes(cat)) return;
+  try {
+    const city = document.getElementById('shelfCity').value;
+    const r = await fetch(`/api/products?store=Аксон&category=${encodeURIComponent(cat)}&city=${encodeURIComponent(city)}&per_page=200`);
+    const data = await r.json();
+    const seen = new Set(PRODUCT_CATALOG.map(p => p.sku));
+    
+    const newProducts = (data.products || []).filter(p => {
+      if (seen.has(p.sku)) return false;
+      const inStock = p.shops_with_stock > 0 || p.max_stock > 0 || 
+                      (p.availability && String(p.availability).toLowerCase().includes('в наличии'));
+      return inStock;
+    }).map((p, i) => {
+      const dims = extractDimensions(p);
+      const brand = p.brand || 'Прочее';
+      const color = BRAND_COLORS[brand] || '#6366f1';
+      const prod = {
+        id: Date.now() + Math.random(), name: p.name, sku: p.sku, article: p.article,
+        price: p.price, brand, category: cat,
+        photo: p.photo_main || '', weight_kg: p.weight_kg || 0,
+        widthMM: dims.widthMM, heightMM: dims.heightMM, color,
+        url: p.url || '', characteristics: p.characteristics || {}
+      };
+      if (prod.photo) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = prod.photo;
+        img.onload = () => { productImages[prod.sku] = img; drawShelf(); };
+      }
+      return prod;
+    });
+    
+    PRODUCT_CATALOG.push(...newProducts);
+    boundCategories.push(cat);
+    
+    renderBoundCategories();
+    document.getElementById('catalogCount').textContent = PRODUCT_CATALOG.length + ' шт';
+    buildCatalog();
+    autoFill();
+  } catch(e) { console.error('API error:', e); }
+}
+
+function removeCategory(cat) {
+  boundCategories = boundCategories.filter(c => c !== cat);
+  PRODUCT_CATALOG = PRODUCT_CATALOG.filter(p => p.category !== cat);
+  
+  renderBoundCategories();
+  document.getElementById('catalogCount').textContent = PRODUCT_CATALOG.length + ' шт';
+  buildCatalog();
+  autoFill();
+}
+
+function renderBoundCategories() {
+  const container = document.getElementById('boundCategories');
+  container.innerHTML = '';
+  boundCategories.forEach(cat => {
+    const count = PRODUCT_CATALOG.filter(p => p.category === cat).length;
+    const el = document.createElement('div');
+    el.style = "display:flex;justify-content:space-between;align-items:center;background:var(--surface2);padding:6px 10px;border-radius:6px;font-size:12px;border:1px solid var(--border)";
+    el.innerHTML = `
+      <span><b>${cat}</b> <span style="color:var(--text-muted);margin-left:4px">(${count} SKU)</span></span>
+      <button onclick="removeCategory('${cat}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:0 4px" title="Отвязать">&times;</button>
+    `;
+    container.appendChild(el);
+  });
+}
+
+// ========== INIT ==========
+function init() {
+  rebuildShelf();
+  setupDragDrop();
+  window.addEventListener('resize', () => { rebuildShelf(); });
+  
+  // Wheel zoom
+  document.querySelector('.shelf-area').addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const zoomAmount = e.deltaY > 0 ? 1/1.1 : 1.1;
+      zoomShelf(zoomAmount);
+    }
+  }, { passive: false });
+
+  addCategory('Отвертки');
+}
+
+// ========== CATALOG ==========
+function buildCatalog() {
+  const list = document.getElementById('catalogList');
+  list.innerHTML = '';
+  PRODUCT_CATALOG.forEach(p => {
+    const el = document.createElement('div');
+    el.className = 'product-item animate-in';
+    el.setAttribute('data-product-id', p.id);
+    el.draggable = true;
+    const thumbSrc = p.photo || '';
+    el.innerHTML = `
+      <img class="pi-thumb" src="${thumbSrc}" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 36 36%22><text y=%2228%22 font-size=%2228%22>🔧</text></svg>'">
+      <div class="pi-info">
+        <div class="pi-name">${p.name}</div>
+        <div class="pi-meta">${p.brand} · ${p.price.toLocaleString('ru-RU')} ₽</div>
+      </div>
+      <div class="pi-size">${p.widthMM}×${p.heightMM}</div>
+    `;
+    el.addEventListener('dragstart', (e) => startDragProduct(e, p));
+    el.addEventListener('dragend', endDragProduct);
+    list.appendChild(el);
+  });
+}
+
+function filterCatalog() {
+  const q = document.getElementById('catalogSearch').value.toLowerCase().trim();
+  document.querySelectorAll('.product-item').forEach(el => {
+    const id = parseInt(el.getAttribute('data-product-id'));
+    const p = PRODUCT_CATALOG.find(x => x.id === id);
+    if (!p) return;
+    const match = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+    el.style.display = match ? 'flex' : 'none';
+  });
+}
+
+// ========== SHELF BUILD ==========
+function rebuildShelf() {
+  SHELF.widthMM = parseInt(document.getElementById('shelfWidth').value) || 1330;
+  SHELF.heightMM = parseInt(document.getElementById('shelfHeight').value) || 1645;
+  SHELF.rows = parseInt(document.getElementById('hookRows').value) || 4;
+  SHELF.hookLengthMM = parseInt(document.getElementById('hookLength').value) || 150;
+
+  // Calculate canvas size with scale
+  const areaW = document.querySelector('.shelf-area').clientWidth - 40;
+  const areaH = document.querySelector('.shelf-area').clientHeight - 100;
+  baseScale = Math.min(areaW / SHELF.widthMM, areaH / SHELF.heightMM);
+  
+  if (!window.hasUserZoomed) {
+    SCALE = baseScale;
+  }
+  
+  canvas.width = Math.round(SHELF.widthMM * SCALE) + 2;
+  canvas.height = Math.round(SHELF.heightMM * SCALE) + 2;
+
+  autoFill(); // Automatically redistribute
+  
+  document.getElementById('shelfDimInfo').textContent = 
+    `${SHELF.widthMM} × ${SHELF.heightMM} мм · ${SHELF.rows} ряд${SHELF.rows > 4 ? 'ов' : SHELF.rows > 1 ? 'а' : ''}`;
+}
+
+function getRowY(row) {
+  const usableHeight = SHELF.heightMM - SHELF.topMarginMM - SHELF.bottomMarginMM;
+  const rowSpacing = usableHeight / SHELF.rows;
+  return SHELF.topMarginMM + (row + 0.5) * rowSpacing;
+}
+
+function roundRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+// ========== DRAWING ==========
+function drawShelf() {
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // Background — shelf back panel
+  ctx.fillStyle = '#d9dce1';
+  ctx.fillRect(0, 0, w, h);
+
+  // Mesh grid pattern
+  drawMeshGrid();
+
+  // Frame
+  drawFrame();
+
+  // Hook row rails (horizontal bars)
+  drawHookRails();
+
+  // Hooks and products
+  placedProducts.forEach(pp => {
+    drawHook({ x: pp.xMM * SCALE, y: getRowY(pp.row) * SCALE, occupied: true });
+    drawProductOnHook(pp);
+  });
+
+  // Drop highlight during drag
+  if (dragProduct && dragHover) {
+    if (dragHover.valid) {
+      drawHook({ x: dragHover.xMM * SCALE, y: getRowY(dragHover.row) * SCALE, occupied: false });
+      ctx.save();
+      const pw = dragProduct.widthMM * SCALE;
+      const ph = dragProduct.heightMM * SCALE;
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.2)';
+      ctx.strokeStyle = '#6366f1';
+      ctx.setLineDash([4,4]);
+      ctx.lineWidth = 2;
+      roundRect(ctx, dragHover.xMM * SCALE - pw/2, getRowY(dragHover.row) * SCALE + 10, pw, ph, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.save();
+      const pw = dragProduct.widthMM * SCALE;
+      const ph = dragProduct.heightMM * SCALE;
+      ctx.fillStyle = 'rgba(220, 38, 38, 0.3)';
+      roundRect(ctx, dragHover.xMM * SCALE - pw/2, getRowY(dragHover.row) * SCALE + 10, pw, ph, 4);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+function drawMeshGrid() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const cellPx = SHELF.gridCellMM * SCALE;
+  const frameOff = SHELF.frameMM * SCALE;
+
+  ctx.save();
+  ctx.strokeStyle = '#b8bcc3';
+  ctx.lineWidth = 0.5;
+
+  // Vertical grid lines
+  for (let x = frameOff; x <= w - frameOff; x += cellPx) {
+    ctx.beginPath();
+    ctx.moveTo(x, frameOff);
+    ctx.lineTo(x, h - frameOff);
+    ctx.stroke();
+  }
+  // Horizontal grid lines
+  for (let y = frameOff; y <= h - frameOff; y += cellPx) {
+    ctx.beginPath();
+    ctx.moveTo(frameOff, y);
+    ctx.lineTo(w - frameOff, y);
+    ctx.stroke();
+  }
+
+  // Grid node dots (wire intersections)
+  ctx.fillStyle = '#a0a4ab';
+  for (let x = frameOff; x <= w - frameOff; x += cellPx) {
+    for (let y = frameOff; y <= h - frameOff; y += cellPx) {
+      ctx.beginPath();
+      ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawFrame() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const f = SHELF.frameMM * SCALE;
+
+  ctx.save();
+  
+  // Outer frame — thick metal border
+  ctx.strokeStyle = '#6b6f76';
+  ctx.lineWidth = f;
+  ctx.lineJoin = 'miter';
+  ctx.strokeRect(f / 2, f / 2, w - f, h - f);
+
+  // Frame highlight (gradient effect)
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(255,255,255,0.3)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.1)');
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = f - 2;
+  ctx.strokeRect(f / 2, f / 2, w - f, h - f);
+
+  // Corner bolts
+  const corners = [
+    [f * 0.8, f * 0.8],
+    [w - f * 0.8, f * 0.8],
+    [f * 0.8, h - f * 0.8],
+    [w - f * 0.8, h - f * 0.8],
+  ];
+  corners.forEach(([cx, cy]) => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#4a4d53';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#8a8d93';
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
+function drawHookRails() {
+  const w = canvas.width;
+  const f = SHELF.frameMM * SCALE;
+  const usableHeight = SHELF.heightMM - SHELF.topMarginMM - SHELF.bottomMarginMM;
+  const rowSpacing = usableHeight / SHELF.rows;
+
+  ctx.save();
+  for (let r = 0; r < SHELF.rows; r++) {
+    const yMM = SHELF.topMarginMM + (r + 0.5) * rowSpacing;
+    const y = yMM * SCALE;
+
+    // Rail bar
+    ctx.fillStyle = '#7a7e86';
+    ctx.fillRect(f - 2, y - 3, w - f * 2 + 4, 6);
+
+    // Rail highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(f - 2, y - 3, w - f * 2 + 4, 2);
+
+    // Row label
+    ctx.fillStyle = '#50545c';
+    ctx.font = `bold ${Math.max(10, 11 * SCALE / baseScale)}px Inter, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`Ряд ${r + 1}`, f - 8, y);
+  }
+  ctx.restore();
+}
+
+function drawHook(hp) {
+  const hookLen = 12;
+  const x = hp.x;
+  const y = hp.y;
+
+  ctx.save();
+
+  // Hook base (circle on rail)
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = hp.occupied ? '#6366f1' : '#888c94';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Hook prong
+  if (!hp.occupied) {
+    ctx.beginPath();
+    ctx.moveTo(x, y + 4);
+    ctx.lineTo(x, y + 4 + hookLen);
+    ctx.lineTo(x + 4, y + 4 + hookLen + 4);
+    ctx.strokeStyle = '#888c94';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawProductOnHook(pp) {
+  const p = pp.product;
+  const pw = p.widthMM * SCALE;
+  const ph = p.heightMM * SCALE;
+  const px = pp.xMM * SCALE;
+  const py = getRowY(pp.row) * SCALE;
+  const x = px - pw / 2;
+  const y = py + 10;
+  const isSelected = selectedPlacement === pp.id;
+
+  ctx.save();
+
+  // Product shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
+  roundRect(ctx, x + 2, y + 2, pw, ph, 4);
+  ctx.fill();
+
+  // Product body bg
+  ctx.fillStyle = '#ffffff';
+  roundRect(ctx, x, y, pw, ph, 4);
+  ctx.fill();
+  ctx.strokeStyle = isSelected ? '#6366f1' : p.color;
+  ctx.lineWidth = isSelected ? 2.5 : 1.5;
+  roundRect(ctx, x, y, pw, ph, 4);
+  ctx.stroke();
+
+  if (isSelected) {
+    ctx.shadowColor = '#6366f1';
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = '#6366f1';
+    ctx.lineWidth = 2;
+    roundRect(ctx, x, y, pw, ph, 4);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Draw product photo if loaded
+  const img = productImages[p.sku];
+  if (img && img.complete && img.naturalWidth > 0) {
+    const pad = 3;
+    const imgW = pw - pad*2;
+    const imgH = ph * 0.7;
+    const ratio = Math.min(imgW / img.naturalWidth, imgH / img.naturalHeight);
+    const dw = img.naturalWidth * ratio;
+    const dh = img.naturalHeight * ratio;
+    ctx.drawImage(img, px - dw/2, y + pad, dw, dh);
+  } else {
+    ctx.font = `${Math.max(12, pw * 0.4)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = p.color;
+    ctx.fillText('🔧', px, y + ph * 0.35);
+  }
+
+  // Price tag
+  ctx.font = `600 ${Math.max(6, Math.min(8, pw * 0.14))}px Inter, sans-serif`;
+  ctx.fillStyle = '#374151';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const priceStr = p.price >= 1000 ? (p.price/1000).toFixed(1)+'т₽' : p.price+'₽';
+  ctx.fillText(priceStr, px, y + ph * 0.78, pw - 4);
+
+  // Hanging wire
+  ctx.beginPath();
+  ctx.moveTo(px, py + 4);
+  ctx.lineTo(px, y);
+  ctx.strokeStyle = '#999';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 2]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.restore();
+}
+
+// ========== DRAG & DROP ==========
+function checkPlacementValid(row, xMM, widthMM) {
+  const gap = 5;
+  const left = xMM - widthMM/2 - gap;
+  const right = xMM + widthMM/2 + gap;
+  
+  if (left < SHELF.frameMM || right > SHELF.widthMM - SHELF.frameMM) return false;
+  
+  for (let pp of placedProducts) {
+    if (pp.row !== row) continue;
+    const pLeft = pp.xMM - pp.product.widthMM/2;
+    const pRight = pp.xMM + pp.product.widthMM/2;
+    if (!(right <= pLeft || left >= pRight)) return false; // overlap
+  }
+  return true;
+}
+
+function setupDragDrop() {
+  canvas.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (!dragProduct) return;
+    e.dataTransfer.dropEffect = 'copy';
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+    
+    // Find nearest row
+    let bestRow = 0;
+    let bestDist = Infinity;
+    for (let r = 0; r < SHELF.rows; r++) {
+      const dist = Math.abs(mouseY - getRowY(r) * SCALE);
+      if (dist < bestDist) { bestDist = dist; bestRow = r; }
+    }
+    
+    const xMM = mouseX / SCALE;
+    const valid = checkPlacementValid(bestRow, xMM, dragProduct.widthMM);
+    dragHover = { row: bestRow, xMM: xMM, valid: valid };
+    
+    drawShelf();
+  });
+
+  canvas.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (dragProduct && dragHover && dragHover.valid) {
+      placedProducts.push({
+        id: Date.now() + Math.random(),
+        row: dragHover.row,
+        xMM: dragHover.xMM,
+        product: { ...dragProduct }
+      });
+      updateKPIs();
+    }
+    dragProduct = null;
+    dragHover = null;
+    drawShelf();
+  });
+
+  canvas.addEventListener('dragleave', () => {
+    dragHover = null;
+    drawShelf();
+  });
+
+  // Click on canvas to select / deselect product
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    let found = null;
+    placedProducts.forEach(pp => {
+      const p = pp.product;
+      const pw = p.widthMM * SCALE;
+      const ph = p.heightMM * SCALE;
+      const px = pp.xMM * SCALE - pw / 2;
+      const py = getRowY(pp.row) * SCALE + 10;
+      if (mx >= px && mx <= px + pw && my >= py && my <= py + ph) {
+        found = pp;
+      }
+    });
+
+    if (found) {
+      selectedPlacement = found.id;
+      showProductProperties(found);
+    } else {
+      selectedPlacement = null;
+      hideProductProperties();
+    }
+    drawShelf();
+  });
+
+  // Tooltip on hover
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    let foundHook = null;
+    placedProducts.forEach(pp => {
+      const d = Math.hypot(mx - pp.xMM * SCALE, my - getRowY(pp.row) * SCALE);
+      if (d < 25) foundHook = pp;
+    });
+
+    const tt = document.getElementById('shelfTooltip');
+    if (foundHook) {
+      canvas.style.cursor = 'pointer';
+      tt.innerHTML = `
+        <div class="tt-name">🔧 ${foundHook.product.name}</div>
+        <div class="tt-meta">${foundHook.product.brand} · ${foundHook.product.price.toLocaleString('ru-RU')} ₽</div>
+        <div class="tt-meta">Ряд ${foundHook.row + 1}</div>
+      `;
+      tt.classList.add('visible');
+      tt.style.left = (e.clientX - canvas.getBoundingClientRect().left + document.querySelector('.shelf-area').scrollLeft + 16) + 'px';
+      tt.style.top = (e.clientY - canvas.getBoundingClientRect().top + document.querySelector('.shelf-area').scrollTop - 10) + 'px';
+    } else {
+      canvas.style.cursor = 'default';
+      tt.classList.remove('visible');
+    }
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    document.getElementById('shelfTooltip').classList.remove('visible');
+  });
+}
+
+function startDragProduct(e, product) {
+  dragProduct = product;
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('text/plain', product.id.toString());
+  
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost';
+  ghost.textContent = '🔧 ' + product.name.slice(0, 20);
+  document.body.appendChild(ghost);
+  e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2);
+  setTimeout(() => ghost.remove(), 0);
+}
+
+function endDragProduct() {
+  dragProduct = null;
+  drawShelf();
+}
+
+function removeProduct(id) {
+  placedProducts = placedProducts.filter(p => p.id !== id);
+  drawShelf();
+  updateKPIs();
+}
+
+function clearAllProducts() {
+  if (placedProducts.length === 0) return;
+  if (!confirm('Убрать все товары со стеллажа?')) return;
+  placedProducts = [];
+  selectedPlacement = null;
+  hideProductProperties();
+  drawShelf();
+  updateKPIs();
+}
+
+function removeSelectedProduct() {
+  if (!selectedPlacement) return;
+  removeProduct(selectedPlacement);
+  selectedPlacement = null;
+  hideProductProperties();
+}
+
+// ========== AUTO-FILL ==========
+function autoFill() {
+  try {
+    placedProducts = [];
+    if (PRODUCT_CATALOG.length === 0) {
+      alert('Нет товаров в каталоге! Сначала добавьте категорию (с наличием).');
+      return;
+    }
+
+    // 1. Group by brand, calculate avg price
+    const brandStats = {};
+    PRODUCT_CATALOG.forEach(p => {
+      const bName = p.brand || 'Без бренда';
+      if (!brandStats[bName]) brandStats[bName] = { name: bName, count: 0, sumPrice: 0, products: [] };
+      brandStats[bName].count++;
+      brandStats[bName].sumPrice += p.price || 0;
+      brandStats[bName].products.push(p);
+    });
+  
+  Object.values(brandStats).forEach(b => b.avgPrice = b.sumPrice / b.count);
+  
+  // 2. Sort brands by average price ascending (cheap to expensive)
+  const sortedBrands = Object.values(brandStats).sort((a, b) => a.avgPrice - b.avgPrice);
+  
+  // 3. Sort products inside brands by size (height then width)
+  sortedBrands.forEach(b => {
+    b.products.sort((p1, p2) => {
+      if (p1.heightMM !== p2.heightMM) return p1.heightMM - p2.heightMM;
+      return p1.widthMM - p2.widthMM;
+    });
+  });
+
+  // 4. Distribute to rows: start from BOTTOM row (SHELF.rows - 1), move UP (currentRow--)
+  let currentRow = SHELF.rows - 1; 
+  let currentX = SHELF.frameMM + 10;
+  
+  for (let b of sortedBrands) {
+    for (let p of b.products) {
+      let pWidth = p.widthMM || 50;
+      const gap = 15; // dense layout gap
+      
+      // If row is full, move to the row above
+      if (currentX + pWidth + gap > SHELF.widthMM - SHELF.frameMM) {
+        currentRow--;
+        if (currentRow < 0) break; // shelf is completely full
+        currentX = SHELF.frameMM + 10;
+      }
+      
+      placedProducts.push({
+        id: Date.now() + Math.random(),
+        row: currentRow,
+        xMM: currentX + pWidth / 2,
+        product: { ...p }
+      });
+      
+      currentX += pWidth + gap;
+    }
+    if (currentRow < 0) break;
+  }
+
+  drawShelf();
+  updateKPIs();
+  
+  // Visual feedback for the button
+  const btn = document.querySelector('button[onclick="autoFill()"]');
+  if (btn) {
+    const origText = btn.innerHTML;
+    btn.innerHTML = '✅ Готово!';
+    btn.style.opacity = '0.8';
+    setTimeout(() => {
+      btn.innerHTML = origText;
+      btn.style.opacity = '1';
+    }, 800);
+  }
+  } catch (e) {
+    alert("Ошибка: " + e.message);
+  }
+}
+
+// ========== UI UPDATES ==========
+function updateKPIs() {
+  const occupied = placedProducts.length;
+  // Estimate max capacity based on average width
+  const avgWidth = placedProducts.length ? placedProducts.reduce((sum, p) => sum + p.product.widthMM, 0) / placedProducts.length : 60;
+  const usableWidth = SHELF.widthMM - SHELF.frameMM * 2;
+  const capacityPerRow = Math.floor(usableWidth / (avgWidth + 10));
+  const maxHooks = capacityPerRow * SHELF.rows;
+  
+  const fill = maxHooks > 0 ? Math.round(Math.min(100, occupied / maxHooks * 100)) : 0;
+  const freePct = Math.max(0, 100 - fill);
+
+  document.getElementById('kpiProducts').textContent = occupied;
+  document.getElementById('kpiFill').textContent = fill + '%';
+  document.getElementById('kpiHooks').textContent = occupied; // Hooks exactly match products now
+  document.getElementById('kpiFree').textContent = freePct + '%';
+
+  // Row stats
+  const rowStatsEl = document.getElementById('rowStats');
+  let html = '';
+  for (let r = 0; r < SHELF.rows; r++) {
+    const rowOcc = placedProducts.filter(p => p.row === r).length;
+    const pct = capacityPerRow > 0 ? Math.round(rowOcc / capacityPerRow * 100) : 0;
+    const barColor = pct >= 80 ? '#10b981' : pct >= 40 ? '#f59e0b' : pct > 0 ? '#6366f1' : '#d1d5db';
+    html += `
+      <div class="stat-row">
+        <span class="stat-label">Ряд ${r + 1}</span>
+        <span class="stat-val" style="display:flex;align-items:center;gap:8px">
+          <span style="width:60px;height:6px;background:#e5e7eb;border-radius:3px;display:inline-block;position:relative;overflow:hidden">
+            <span style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100,pct)}%;background:${barColor};border-radius:3px;transition:width 0.4s"></span>
+          </span>
+          ${rowOcc} шт
+        </span>
+      </div>
+    `;
+  }
+  rowStatsEl.innerHTML = html;
+}
+
+function showProductProperties(pp) {
+  document.getElementById('selectedProductInfo').style.display = 'block';
+  document.getElementById('emptySelectionHint').style.display = 'none';
+  document.getElementById('selProdName').textContent = '🔧 ' + pp.product.name;
+  document.getElementById('selProdSku').textContent = pp.product.brand + ' · ' + pp.product.price.toLocaleString('ru-RU') + ' ₽ · ' + (pp.product.weight_kg||0) + 'кг';
+  document.getElementById('selProdPos').textContent = `Ряд ${pp.row + 1}`;
+}
+
+function hideProductProperties() {
+  document.getElementById('selectedProductInfo').style.display = 'none';
+  document.getElementById('emptySelectionHint').style.display = 'block';
+}
+
+// ========== ZOOM ==========
+function zoomShelf(factor) {
+  window.hasUserZoomed = true;
+  SCALE = Math.max(0.1, Math.min(2.0, SCALE * factor));
+  canvas.width = Math.round(SHELF.widthMM * SCALE) + 2;
+  canvas.height = Math.round(SHELF.heightMM * SCALE) + 2;
+  drawShelf();
+}
+
+function resetZoom() {
+  window.hasUserZoomed = false;
+  SCALE = baseScale;
+  rebuildShelf();
+}
+
+// ========== EXPORT ==========
+function exportShelfImage() {
+  const link = document.createElement('a');
+  link.download = `shelf_${SHELF.widthMM}x${SHELF.heightMM}_${new Date().toISOString().slice(0,10)}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+// ========== START ==========
+init();
+</script>
+</body>
+</html>

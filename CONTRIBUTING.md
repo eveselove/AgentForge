@@ -18,11 +18,11 @@ We practice **dogfooding**:
 # 1. Hard quality + traceability gate (REQUIRED — the hook will block non-compliant commits)
 ./bin/install-pre-commit
 
-# 2. (Recommended for autonomy) Jules watcher in background
-nohup ./bin/jules-watch.sh --loop >/dev/null 2>&1 &
-#    tail -f ~/.config/jules/jules-watch.log
+# 2. (Recommended) Start grok_worker if not running (polls 9090 for tasks):
+# nohup bash ~/agentforge/grok_worker.sh > /dev/null 2>&1 &
+#    tail -f ~/agentforge/logs/grok_worker.log
 
-# 3. For safe parallel agent work (recommended):
+# 3. For safe parallel agent work (recommended / mandatory for waves):
 ./bin/agent-worktree create cm-p2-docs-14c220fc
 ```
 
@@ -49,61 +49,62 @@ For the full branching + traceability rules see `docs/BRANCHING_STRATEGY.md`.
    - Tasks have `preferred_agent`, priority, and tags. Reference the Task ID in every commit and PR.
 
 2. **Agent execution**
-   - Use `agent-team` (or `at`) to launch parallel agents in tmux.
-   - Use `bin/launch-jules-parallel` for high-volume / maximum-speed Jules work (uses both keys).
-   - Use `bin/agent-worktree` when you need many isolated checkouts in parallel.
-   - Jules sessions are tracked and automatically turned into acceptance tasks by `bin/jules-watch.sh` (run it in `--loop` mode for full autonomy).
+   - Use `agent-team` (or `at`) to launch parallel Grok agents in tmux.
+   - Use `bin/agent-worktree` when you need many isolated checkouts in parallel (primary now).
+   - (Jules farm launchers + jules-watch removed 2026-06; tasks now mainly via gateway + grok_worker.sh or agentforge-runner.)
 
 3. **Review & Acceptance (HARD GATES)**
    - All changes to `main` **require** a Pull Request. Never push directly.
-   - **Pre-commit hook (hard gate)**: Must be installed and must have passed on every commit in the branch. It enforces formatting, linting, no secrets, size limits, **and traceability**.
-   - **Traceability (hard)**: Every commit message **must** contain a Task ID (`task <hex>`) or Jules session ID (`Jules <digits>` or `jules/<id>`). Enforced by `bin/validate-commit-msg` called from pre-commit. PR template also requires it.
+   - **Pre-commit hook (hard gate)**: Must be installed and must have passed on every commit in the branch. It enforces formatting, linting, no secrets, size limits.
+   - **commit-msg hook (hard gate for traceability)**: Enforces Task ID (or legacy Jules) via `bin/validate-commit-msg`. (Moved here in post-bypass cleanup/MICRO-05 fix so that `git commit -m "task <id> ..."` and worktree cases see the msg; pre-commit phase ran too early.) PR template also requires it. (Jules farm removed but ID format supported.)
    - **Mandatory agent-review (hard, non-negotiable final step)**: After *any* work is complete (including documentation updates), **BEFORE** you may consider the task done or open a PR, you **MUST**:
-     - Invoke the `agent-review` skill (or `/agent-review --to-jules`).
-     - Obtain an independent review from Jules (or another Grok) running in a separate context.
+     - Invoke the `agent-review` skill (or `/agent-review --to-jules` / `grok --agent jules`).
+     - Obtain an independent review from the Jules reviewer persona (or another Grok) running in a separate context.
      - Record the handoff package (`~/.grok/handoffs/<id>/`) + a summary record (see `docs/*_AGENT_REVIEW_HANDOFF.md` examples).
      - Only after the review is received and recorded may you finalize commits for PR and update the task.
-   - Link PRs to task IDs and/or Jules session IDs (use the PR template). The "Related (MANDATORY)" section and checklist items for pre-commit + agent-review are required.
+     - *Note*: If a task was created via the API or `agentforge-runner` with `requires_agent_review: true`, a follow-up review task will be automatically generated upon completion.
+   - Link PRs to task IDs (and/or legacy Jules session IDs). The "Related (MANDATORY)" section and checklist items for pre-commit + agent-review are required.
    - Use the Pull Request template.
 
 4. **Branching** (see full details in [docs/BRANCHING_STRATEGY.md](docs/BRANCHING_STRATEGY.md), v1.0 from task 62a84821 [CM-03])
    - Prefer short-lived branches from latest `main`.
    - Naming convention (canonical for agent/CM work): `agent/cm-xxx-description` (e.g. `agent/cm-03-branching-strategy-62a84821`) or `agent/<slug>`.
-   - Alternative good forms: `task/<id>-slug`, `jules/<session-id>`.
+   - Alternative good forms: `task/<id>-slug`, `jules/<session-id>` (legacy).
    - Use `./bin/agent-worktree create <slug>` for parallel isolated work (creates `agent/` branches automatically).
-   - **Install pre-commit hook immediately** in the worktree/branch: `./bin/install-pre-commit`.
+   - **Install hooks immediately** in the worktree/branch: `./bin/install-pre-commit` (installs pre-commit + commit-msg for traceability; now robust for worktrees).
 
 5. **Commit style (enforced)**
-   - Every commit **must** reference at least one Task ID or Jules session:
-     - `feat: add JsonFileTaskStore (Jules 12237721410778183159, task 14c220fc)`
+   - Every commit **must** reference at least one Task ID (or legacy Jules session):
+     - `feat: add JsonFileTaskStore (task 14c220fc)`
      - `docs: strengthen mandatory gates (task 14c220fc)`
      - `fix: ... (task 1870c84c)`
-   - The pre-commit hook will reject commits missing the reference (unless emergency bypass env var is used).
+   - The commit-msg hook will reject commits missing the reference (unless emergency bypass env var `PRECOMMIT_BYPASS_TRACE=1` is used). (pre-commit no longer performs the msg check.)
 
 ## Running Agents Locally
 
 ```bash
-# Launch multiple agents (Grok / Jules / Gemini)
+# Launch multiple agents (Grok primary + Antigravity/Gemini)
 agent-team grok "task 1" "task 2"
-agent-team jules "implement feature X"
 
-# Launch many Jules sessions in true parallel (both keys)
-./bin/launch-jules-parallel "task A" "task B" --count 6 --parallel 2
+# High volume: use worktrees + grok_worker (polls queue) or agentforge-runner
+# (Jules farm launch-parallel + watch removed)
 
-# Monitor everything
-ta                    # attach to agents tmux
-tail -f ~/.config/jules/jules-watch.log
+# Monitor
+ta                    # attach to agents tmux session
+tail -f ~/agentforge/logs/grok_worker.log
+curl -s http://localhost:9090/api/tasks | jq '.[0:5]'
 ./bin/agent-worktree list
 ```
 
 ## Code Style (Hard Gates)
 
-- **Pre-commit hook installation is mandatory** (not "once" — on every environment/branch): `./bin/install-pre-commit`
-- The `bin/pre-commit` hook **runs automatically and hard-blocks** `git commit` on violations:
+- **Hooks installation is mandatory** (not "once" — on every environment/branch/worktree): `./bin/install-pre-commit`
+- The `bin/pre-commit` hook **runs automatically and hard-blocks** `git commit` on quality violations:
   - Secrets or files > ~800KB
   - **Rust**: `cargo fmt -- --check` + `cargo clippy --workspace -D warnings` (warnings = fail)
   - **Python**: `ruff check --fix` + `black --check`
-  - **Traceability**: Task ID or Jules session required in the commit message (see `bin/validate-commit-msg`)
+- The `bin/commit-msg` hook **hard-blocks** on missing traceability:
+  - **Traceability**: Task ID (or legacy Jules session) required in the commit message (see `bin/validate-commit-msg` + `bin/commit-msg`). Enforced at correct git phase.
 - Run formatters manually during dev, but the gate is the hook.
 - Keep agent-related code (especially docs/AGENTS.md, CONTRIBUTING.md, runners) well documented — future agents and the self-improving system will read and enforce them.
 - After any style or content change to process docs: the full mandatory agent-review step still applies (see AGENTS.md).
@@ -113,8 +114,8 @@ tail -f ~/.config/jules/jules-watch.log
 Open a task in the queue (preferred) or ping the current coordinator. All process questions should themselves follow the workflow (traceable task + agent-review on changes).
 
 **Summary of hard requirements (non-negotiable)**:
-- `./bin/install-pre-commit` before any work on a checkout/branch.
-- Traceability in **every** commit message (enforced locally + in PRs).
+- `./bin/install-pre-commit` before any work on a checkout/branch/worktree (installs pre+commit-msg hooks).
+- Traceability in **every** commit message (enforced by commit-msg hook locally + in PRs).
 - `agent-review` skill invocation + recorded independent review **after completing work and before PR** (mandatory for agent changes; see full details + examples in AGENTS.md).
 
 This process itself is part of the Code Management Professionalization effort (dogfooding). Violations are caught by tooling.

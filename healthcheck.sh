@@ -16,7 +16,7 @@ export PATH=/home/eveselove/.grok/bin:/home/eveselove/.cargo/bin:/home/eveselove
 export NVM_DIR=/home/eveselove/.nvm
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-API="http://localhost:8080"
+API="http://localhost:9090"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -58,13 +58,6 @@ else
     echo -e "  ${RED}❌${NC} Grok CLI            NOT INSTALLED"
 fi
 
-# 5. Jules CLI
-JULES_PATH=$(find /home/eveselove/.nvm -name 'jules' -type f 2>/dev/null | head -1)
-if [ -n "$JULES_PATH" ]; then
-    echo -e "  ${GREEN}✅${NC} Jules CLI           $JULES_PATH"
-else
-    echo -e "  ${RED}❌${NC} Jules CLI           NOT INSTALLED"
-fi
 
 # 6. GEMINI.md
 if [ -f "$HOME/.gemini/GEMINI.md" ]; then

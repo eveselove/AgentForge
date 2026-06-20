@@ -8,7 +8,7 @@
 # for the Autonomy Timer (agentforge-flywheel.timer + .service)
 #
 # Makes 24/7 continuous flywheel (prioritizer + promote-and-ab + winner detection)
-# live across the ENTIRE FARM (grok/jules workers + dispatcher + API + Autonomy host).
+# live across the ENTIRE FARM (grok workers + dispatcher + API + Autonomy host).
 #
 # Usage:
 #   bash bin/enable_continuous_flywheel.sh                 # safe default: --user mode, full verify
@@ -87,18 +87,13 @@ if [ ! -f "$AGENTFORGE_ROOT/ENABLE_RUST_FLYWHEEL" ]; then
     fi
 fi
 
-# Source / invoke existing rust enable (idempotent, full reuse)
-if [ -x "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" ]; then
-    log "Invoking existing enable_rust_flywheel.sh for env + snippet + post_process patch..."
-    if [ $DRY_RUN -eq 0 ]; then
-        # shellcheck disable=SC1091
-        source "$AGENTFORGE_ROOT/bin/enable_rust_flywheel.sh" 2>/dev/null || true
-        # Also python activator
-        PYTHONPATH=/home/eveselove python3 -m agentforge.enable_rust_flywheel 2>/dev/null || true
-    else
-        log "[dry] would source + invoke enable_rust_flywheel.sh + python activator"
-    fi
+# Ensure pure Rust flywheel env is active
+if [ -f "$AGENTFORGE_ROOT/bin/rust_flywheel.env" ]; then
+    log "Sourcing rust_flywheel.env..."
+    # shellcheck disable=SC1091
+    source "$AGENTFORGE_ROOT/bin/rust_flywheel.env" 2>/dev/null || true
 fi
+export AGENTFORGE_PURE_RUST_FLYWHEEL=1
 
 # === Prepare paths ===
 if [ "$MODE" = "system" ]; then
@@ -147,10 +142,15 @@ if [ $DRY_RUN -eq 0 ] && [ $VERIFY_ONLY -eq 0 ]; then
         mkdir -p "$TARGET_DIR" 2>/dev/null || true
     fi
 
-    # Function: install one unit with header + optional strip
+    if [ ! -f "$SRC_SERVICE" ] || [ ! -f "$SRC_TIMER" ]; then
+        log "FATAL: source units missing ($SRC_SERVICE / $SRC_TIMER) — abort to prevent partial/broken unit install"
+        exit 1
+    fi
+
+    # Function: install one unit with header + optional strip. ATOMIC via same-dir .tmp + mv (prevents partial-file races on concurrent runs from dispatcher/subagents/farm).
     install_unit() {
         local src="$1" tgt="$2" unit_name="$3"
-        local header
+        local header tmp
         header="# ============================================================
 # Installed by bin/enable_continuous_flywheel.sh
 # Rolled out: 2026-05-31 — AUTONOMY TIMER PRODUCTION ROLLOUT (24/7 flywheel)
@@ -163,27 +163,31 @@ if [ $DRY_RUN -eq 0 ] && [ $VERIFY_ONLY -eq 0 ]; then
 # Re-run this script to refresh headers / re-enable.
 # ============================================================
 "
+        tmp="${tgt}.tmp.$$"
         if [ "$MODE" = "user" ]; then
             # Strip User/Group for clean --user install (prevents warnings)
             if [ $DRY_RUN -eq 0 ]; then
-                { echo "$header"; grep -v '^User=' "$src" | grep -v '^Group=' ; } | $SUDO tee "$tgt" >/dev/null
+                { echo "$header"; grep -v '^User=' "$src" | grep -v '^Group=' ; } > "$tmp"
+                mv -f "$tmp" "$tgt" 2>/dev/null || true
             fi
         else
             if [ $DRY_RUN -eq 0 ]; then
-                { echo "$header"; cat "$src" ; } | $SUDO tee "$tgt" >/dev/null
+                { echo "$header"; cat "$src" ; } | $SUDO tee "$tmp" >/dev/null
+                $SUDO mv -f "$tmp" "$tgt" 2>/dev/null || true
             fi
         fi
+        rm -f "$tmp" 2>/dev/null || $SUDO rm -f "$tmp" 2>/dev/null || true
         log "Installed (with header): $tgt"
     }
 
     install_unit "$SRC_SERVICE" "$TGT_SERVICE" "service"
     install_unit "$SRC_TIMER" "$TGT_TIMER" "timer"
 
-    # Daemon reload + enable (with timeouts)
+    # Daemon reload + enable (with timeouts). Note: timeout wraps $SUDO for correct privilege+timeout semantics.
     log "Daemon-reload + enable --now (timeouts 15s)..."
     if command -v timeout >/dev/null 2>&1; then
-        $SUDO timeout 15s systemctl daemon-reload 2>&1 | tail -3 || log "daemon-reload timeout or non-fatal"
-        $SUDO timeout 15s systemctl enable --now agentforge-flywheel.timer 2>&1 | tail -5 || log "enable timer non-fatal (may need manual)"
+        timeout 15s $SUDO systemctl daemon-reload 2>&1 | tail -3 || log "daemon-reload timeout or non-fatal"
+        timeout 15s $SUDO systemctl enable --now agentforge-flywheel.timer 2>&1 | tail -5 || log "enable timer non-fatal (may need manual)"
     else
         $SUDO systemctl daemon-reload 2>&1 | tail -3 || true
         $SUDO systemctl enable --now agentforge-flywheel.timer 2>&1 | tail -5 || true
@@ -192,7 +196,7 @@ if [ $DRY_RUN -eq 0 ] && [ $VERIFY_ONLY -eq 0 ]; then
     # Safe first trigger (uses dry-run default in unit)
     log "Safe first trigger of service (dry-run by default in unit)..."
     if command -v timeout >/dev/null 2>&1; then
-        $SUDO timeout 30s systemctl start agentforge-flywheel.service 2>&1 | tail -5 || true
+        timeout 30s $SUDO systemctl start agentforge-flywheel.service 2>&1 | tail -5 || true
     else
         $SUDO systemctl start agentforge-flywheel.service 2>&1 | tail -5 || true
     fi
@@ -222,17 +226,7 @@ for f in /tmp/agentforge_rust_flywheel/flywheel_health.json /tmp/agentforge_rust
     fi
 done
 
-# Quick python health probe (reuses same logic)
-PYTHONPATH=/home/eveselove python3 -c '
-import json
-from pathlib import Path
-p = Path("/tmp/agentforge_rust_flywheel/watchdog_flywheel_status.json")
-if p.exists():
-    try:
-        s = json.loads(p.read_text())
-        print("  watchdog_flywheel_status:", {k:s.get(k) for k in ["ts","flywheel_candidates_last_hour","timer_active","timer_next","timer_mode"] if k in s})
-    except: pass
-' 2>/dev/null || true
+# Health probe removed. Check watchdog_flywheel_status.json manually if needed.
 
 # Journal example (always printed for copy-paste)
 log "Journal live tail example (run in another shell):"
@@ -248,7 +242,7 @@ echo "  ${SUDO:+$SUDO }systemctl daemon-reload"
 echo "  # Or global disable: rm -f $AGENTFORGE_ROOT/ENABLE_RUST_FLYWHEEL   (makes everything no-op)"
 
 # === Farm-wide activation commands (exact copy-paste for entire farm) ===
-log "=== FARM-WIDE ACTIVATION (grok/jules workers + dispatcher + API + Autonomy hosts) ==="
+log "=== FARM-WIDE ACTIVATION (grok workers + dispatcher + API + Autonomy hosts) ==="
 cat << 'FARM_EOF'
 
 # === 1. THIS HOST (main Autonomy / API / dispatcher host) ===
@@ -262,17 +256,15 @@ bash bin/enable_continuous_flywheel.sh                 # user mode (recommended)
 bash healthcheck.sh | grep -E 'Flywheel|Timer'
 systemctl --user status agentforge-flywheel.timer || sudo systemctl status agentforge-flywheel.timer
 
-# === 2. ALL GROK / JULES WORKERS (local or remote) ===
-# Workers already source ENABLE + rust_flywheel.env on startup (grok_worker.sh, jules_worker.sh, agents/*_runner.sh, dispatcher.sh)
+# === 2. ALL GROK WORKERS (local or remote) ===
+# Workers already source ENABLE + rust_flywheel.env on startup (grok_worker.sh, agents/*_runner.sh, dispatcher.sh)
 # Just ensure marker + (re)start workers. Timer itself runs on main host(s).
-for w in grok jules; do
-  touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL
-  # If running via systemd user:
-  #   systemctl --user restart agentforge-${w}-worker   (or whatever unit)
-  # If direct:
-  #   pkill -f ${w}_worker.sh || true
-  #   bash /home/eveselove/agentforge/${w}_worker.sh &   # or via start.sh / tmux
-done
+touch "$AGENTFORGE_ROOT/ENABLE_RUST_FLYWHEEL"
+# If running via systemd user:
+#   systemctl --user restart agentforge-grok-worker   (or whatever unit)
+# If direct:
+#   pkill -f grok_worker.sh || true
+#   bash "$AGENTFORGE_ROOT/grok_worker.sh" &   # or via start.sh / tmux
 
 # === 3. REMOTE / MULTI-HOST FARM (grok-work/ ssh-* teams, other Erboxs, etc.) ===
 # On each remote (example for one ssh-N or agentN):
@@ -283,14 +275,14 @@ done
 #       remote-host:/tmp/agentforge-rollout/
 #   ssh remote-host 'cd /tmp/agentforge-rollout && cp *.service *.timer ~/.config/systemd/user/ 2>/dev/null || sudo cp *.service *.timer /etc/systemd/system/; bash enable_continuous_flywheel.sh --user || bash enable_continuous_flywheel.sh --system; touch /home/eveselove/agentforge/ENABLE_RUST_FLYWHEEL'
 # Repeat for every grok-work/agent* , ssh-1..N , team-* hosts.
-# (Also ensure their grok_worker.sh / jules_worker.sh have the ENABLE guard + source lines — already present in main tree.)
+# (Also ensure grok_worker.sh has the ENABLE guard + source lines — jules_worker removed.)
 
 # === 4. API / TASK QUEUE HOST (same as main usually) ===
 # Already covered by step 1. Ensure uvicorn / task_queue sees PYTHONPATH + env (via agentforge-api.service or user unit).
 
 # === 5. After any farm change: re-verify everywhere ===
 #   bash /home/eveselove/agentforge/healthcheck.sh
-#   PYTHONPATH=/home/eveselove ENABLE_RUST_FLYWHEEL=1 python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run
+#   /home/eveselove/agentforge/rust/target/release/agentforge-runner continuous --top-n 1 --dry-run
 #   journalctl --user -u agentforge-flywheel.service --since "10 min ago" | tail -20
 
 FARM_EOF
@@ -301,25 +293,30 @@ log "All paths reuse ENABLE_RUST_FLYWHEEL exactly — zero breakage risk."
 
 # Final safe manual one-shot dry test (always safe)
 if [ $DRY_RUN -eq 0 ]; then
-    log "Final safe dry test invocation (reuses all paths)..."
-    env PYTHONPATH=/home/eveselove ENABLE_RUST_FLYWHEEL=1 timeout 25s python -m agentforge.bin.run_continuous_flywheel --top-n 1 --dry-run 2>&1 | tail -15 || true
+    log "Final safe dry test invocation (uses runner)..."
+    _RUNNER="${AGENTFORGE_RUST_RUNNER:-/home/eveselove/agentforge/rust/target/release/agentforge-runner}"
+    env ENABLE_RUST_FLYWHEEL=1 timeout 25s "$_RUNNER" continuous --top-n 1 --dry-run 2>&1 | tail -15 || true
 fi
 
-exit 0
-
-# === PURE RUST FLYWHEEL DEFAULT (injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00) ===
+# === PURE RUST FLYWHEEL DEFAULT (relocated from post-exit dead code; now active + var-based for consistency) ===
 # Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
 # force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
 # Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
+PURE_MARKER="$AGENTFORGE_ROOT/.pure_rust_flywheel"
 if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
     export AGENTFORGE_PURE_RUST_FLYWHEEL=1
     export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
+    if [ -x "$AGENTFORGE_ROOT/rust/target/release/agentforge-runner" ]; then
+        export AGENTFORGE_RUST_RUNNER="$AGENTFORGE_ROOT/rust/target/release/agentforge-runner"
     fi
     export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
     # shellcheck disable=SC1091
-    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
+    [ -f "$AGENTFORGE_ROOT/bin/rust_flywheel.env" ] && source "$AGENTFORGE_ROOT/bin/rust_flywheel.env" 2>/dev/null || true
 fi
 # End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.
+
+# If this script was *executed directly* (not `source`d), exit 0. Prevents killing parent shell on source (was unconditional exit + dead pure code = logic bug).
+# Safe for inclusion in other scripts / dispatchers.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    exit 0
+fi

@@ -20,13 +20,13 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-pub mod store;
 pub mod prioritizer;
 pub mod promote;
+pub mod store;
 
 // Re-exports for convenient use from runner (and future consumers)
 pub use prioritizer::{list_high_value_candidates, CandidatePriority, Prioritizer};
-pub use promote::{promote_candidate, ab_prep, PromotionResult};
+pub use promote::{ab_prep, promote_candidate, PromotionResult};
 
 // Primary public API items are defined directly in this lib.rs (skeleton).
 // Submodules provide organization + inherent impl extensions (store.rs etc).
@@ -111,9 +111,16 @@ impl CandidateStore {
         proposal: &serde_json::Value,
     ) -> Result<IngestResult> {
         // SKELETON: real logic (hash, subdir, copy key files + candidate_meta.json, rich merge) next.
-        let skill = proposal.get("skill").and_then(|v| v.as_str()).unwrap_or("unknown-skill");
+        let skill = proposal
+            .get("skill")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown-skill");
         let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S").to_string();
-        let candidate_id = format!("{}_{}_skeleton", ts, skill.replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "_"));
+        let candidate_id = format!(
+            "{}_{}_skeleton",
+            ts,
+            skill.replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "_")
+        );
         let dest = self.root.join(&candidate_id);
         let _ = std::fs::create_dir_all(&dest);
 
@@ -135,14 +142,18 @@ impl CandidateStore {
             Err(_) => return Ok(vec![]),
         };
         // Sort reverse by dir name (recency-ish, matches Python sorted(..., reverse=True) on name)
-        entries.sort_by(|a, b| b.file_name().cmp(&a.file_name()));
+        entries.sort_by_key(|b| std::cmp::Reverse(b.file_name()));
 
         for entry in entries {
             let dir = entry.path();
             if !dir.is_dir() {
                 continue;
             }
-            let id = dir.file_name().unwrap_or_default().to_string_lossy().to_string();
+            let id = dir
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
 
             let mut skill = String::from("unknown");
             let mut impact = String::from("medium");
@@ -163,12 +174,22 @@ impl CandidateStore {
                             // keep dir name as id for consistency, but meta has it
                         }
                         skill = if m.skill.is_empty() { skill } else { m.skill };
-                        impact = if m.estimated_impact.is_empty() { impact } else { m.estimated_impact };
-                        high_value_count = m.high_learning_value_records.max(m.rich_high_value_count.unwrap_or(0));
+                        impact = if m.estimated_impact.is_empty() {
+                            impact
+                        } else {
+                            m.estimated_impact
+                        };
+                        high_value_count = m
+                            .high_learning_value_records
+                            .max(m.rich_high_value_count.unwrap_or(0));
                         promoted = m.promoted;
                         rich_avg = m.rich_avg_learning_value;
                         success_rate = m.rich_success_rate;
-                        timestamp = if m.timestamp.is_empty() { None } else { Some(m.timestamp) };
+                        timestamp = if m.timestamp.is_empty() {
+                            None
+                        } else {
+                            Some(m.timestamp)
+                        };
                         // meta may have top-level avg in future; rich preferred in prioritizer
                     }
                     // Robust promoted extraction even if full CandidateMeta deserial fails (partial metas in tests / old data / future fields)
@@ -191,7 +212,10 @@ impl CandidateStore {
                             }
                         }
                         if high_value_count == 0 {
-                            if let Some(h) = pval.get("high_learning_value_records").and_then(|v| v.as_u64()) {
+                            if let Some(h) = pval
+                                .get("high_learning_value_records")
+                                .and_then(|v| v.as_u64())
+                            {
                                 high_value_count = h;
                             }
                         }
@@ -201,7 +225,8 @@ impl CandidateStore {
                             }
                         }
                         if avg_lv.is_none() {
-                            if let Some(v) = pval.get("avg_learning_value").and_then(|x| x.as_f64()) {
+                            if let Some(v) = pval.get("avg_learning_value").and_then(|x| x.as_f64())
+                            {
                                 avg_lv = Some(v);
                             }
                         }
@@ -226,12 +251,15 @@ impl CandidateStore {
                                 }
                             }
                             if avg_lv.is_none() || avg_lv == Some(0.0) {
-                                if let Some(alv) = bs.get("avg_learning_value").and_then(|v| v.as_f64()) {
+                                if let Some(alv) =
+                                    bs.get("avg_learning_value").and_then(|v| v.as_f64())
+                                {
                                     avg_lv = Some(alv);
                                 }
                             }
                             if high_value_count == 0 {
-                                if let Some(h) = bs.get("high_value_count").and_then(|v| v.as_u64()) {
+                                if let Some(h) = bs.get("high_value_count").and_then(|v| v.as_u64())
+                                {
                                     high_value_count = h;
                                 }
                             }
@@ -259,7 +287,10 @@ impl CandidateStore {
 }
 
 /// Convenience top-level ingest (matches Python import surface).
-pub fn ingest_flywheel_artifacts(artifacts_dir: &Path, proposal: &serde_json::Value) -> Result<PathBuf> {
+pub fn ingest_flywheel_artifacts(
+    artifacts_dir: &Path,
+    proposal: &serde_json::Value,
+) -> Result<PathBuf> {
     let store = CandidateStore::new(None);
     let res = store.ingest(artifacts_dir, proposal)?;
     Ok(res.dest_dir)
@@ -284,7 +315,11 @@ mod tests {
             assert!(!first.id.is_empty());
             assert!(!first.path.as_os_str().is_empty());
             // high_value_count or rich fields may be 0 but fields present
-            println!("list_pending found {} candidates; sample id={}", cands.len(), first.id);
+            println!(
+                "list_pending found {} candidates; sample id={}",
+                cands.len(),
+                first.id
+            );
         }
     }
 
@@ -301,7 +336,14 @@ mod tests {
             assert!(ranked[0].score.is_finite());
             // Top from list fn should match prefix of ranked non-promoted
             if !tops.is_empty() {
-                assert_eq!(tops[0].id, ranked.iter().find(|p| !p.summary.promoted).map(|p| p.summary.id.clone()).unwrap_or_default());
+                assert_eq!(
+                    tops[0].id,
+                    ranked
+                        .iter()
+                        .find(|p| !p.summary.promoted)
+                        .map(|p| p.summary.id.clone())
+                        .unwrap_or_default()
+                );
             }
         }
         // Also exercise the other store method (now real via list_pending)
@@ -317,17 +359,22 @@ mod tests {
         // Seed one non-promoted synthetic for deterministic filter test
         let cdir = custom.join("20260531_envtest_cand");
         let _ = std::fs::create_dir_all(&cdir);
-        let _ = std::fs::write(cdir.join("candidate_meta.json"), r#"{"candidate_id":"20260531_envtest_cand","skill":"envtest","promoted":false,"high_learning_value_records":4,"rich_avg_learning_value":0.65}"#);
+        let _ = std::fs::write(
+            cdir.join("candidate_meta.json"),
+            r#"{"candidate_id":"20260531_envtest_cand","skill":"envtest","promoted":false,"high_learning_value_records":4,"rich_avg_learning_value":0.65}"#,
+        );
 
         std::env::set_var("AGENTFORGE_PENDING_CANDIDATES_DIR", &custom);
-        let store = CandidateStore::new(None);  // should respect env
+        let store = CandidateStore::new(None); // should respect env
         std::env::remove_var("AGENTFORGE_PENDING_CANDIDATES_DIR");
 
         let pending = store.list_pending().unwrap_or_default();
         assert!(pending.iter().any(|c| c.id.contains("envtest")));
 
         let high = store.list_high_value(3);
-        assert!(high.iter().all(|c| c.high_value_count >= 3 || c.id.contains("envtest")));  // filter applied
+        assert!(high
+            .iter()
+            .all(|c| c.high_value_count >= 3 || c.id.contains("envtest"))); // filter applied
         assert!(high.iter().all(|c| !c.promoted));
 
         let tops = list_high_value_candidates(&store, 5);

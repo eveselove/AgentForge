@@ -10,28 +10,57 @@ Antigravity Worker — автономный воркер для выполнен
 
 import json
 import os
+import random
 import signal
 import subprocess
-import sys
+import threading
 import time
-import urllib.request
-import urllib.error
-from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import requests
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+
+# Глобальная сессия для переиспользования TCP-соединений (Keep-Alive)
+_session = requests.Session()
 
 # === Конфигурация (загружается из файла или дефолты) ===
 DEFAULT_CONFIG = {
-    "api_base": "http://localhost:8080",
+    "api_base": "http://localhost:9090",
     "poll_interval": 15,
-    "max_parallel": 3,
-    "task_timeout": 600,
-    "project_dir": "/home/eveselove/planlytasksko",
+    "max_parallel": 10,
+    "task_timeout": 1800,
+    "project_dir": "/home/eveselove/agentforge",
     "log_dir": "/home/eveselove/agentforge/logs",
-    "grok_bin": "/home/eveselove/.grok/bin/grok",
-    "default_model": "gemini-2.5-pro",
-    "fallback_model": "grok-3",
+    "agy_bin": "/home/eveselove/.local/bin/agy",
     "agent_id": "antigravity",
 }
+
+# === 3 группы моделей Antigravity CLI (agy) — 3 разных лимита ===
+# У каждой группы свой независимый rate limit.
+# При исчерпании лимита группа уходит на cooldown, следующая вступает.
+# Порядок замещения (fallback_order):
+#   Claude исчерпан → Flash → Pro
+#   Flash исчерпан  → Pro   → Claude
+#   Pro исчерпан    → Flash → Claude
+MODEL_GROUPS = [
+    {
+        "name": "A-gemini-pro-high",
+        "model": "Gemini 3.1 Pro (High)",
+        "cooldown": 120,
+        "fallback_order": [1],     # при лимите: Opus
+    },
+    {
+        "name": "B-claude-opus",
+        "model": "Claude Opus 4.6 (Thinking)",
+        "cooldown": 300,
+        "fallback_order": [0],     # при лимите: Gemini Pro High
+    },
+]
+
+# Глобальное состояние rate-limit для каждой группы (thread-safe)
+_rate_limit_lock = threading.Lock()
+_rate_limit_until = {}   # group_name → timestamp когда cooldown истекает
+_current_group_idx = 0   # текущая предпочтительная группа
+
 
 def load_config():
     """Загрузка конфигурации из JSON файла или дефолты"""
@@ -49,26 +78,28 @@ def load_config():
             log(f"\u26a0\ufe0f Ошибка загрузки конфига: {e}")
     return config
 
+
 CFG = load_config()
-API_BASE = CFG["api_base"]
-POLL_INTERVAL = CFG["poll_interval"]
-MAX_PARALLEL = CFG["max_parallel"]
-TASK_TIMEOUT = CFG["task_timeout"]
-PROJECT_DIR = CFG["project_dir"]
-LOG_DIR = CFG["log_dir"]
-GROK_BIN = CFG["grok_bin"]
-DEFAULT_MODEL = CFG["default_model"]
-FALLBACK_MODEL = CFG["fallback_model"]
-AGENT_ID = CFG["agent_id"]
+API_BASE = os.environ.get("AGENTFORGE_API", CFG["api_base"])
+POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", CFG["poll_interval"]))
+MAX_PARALLEL = int(os.environ.get("MAX_PARALLEL", CFG["max_parallel"]))
+TASK_TIMEOUT = int(os.environ.get("TASK_TIMEOUT", CFG["task_timeout"]))
+PROJECT_DIR = os.environ.get("PROJECT_DIR", CFG["project_dir"])
+LOG_DIR = os.environ.get("LOG_DIR", CFG["log_dir"])
+AGY_BIN = os.environ.get("AGY_BIN", CFG.get("agy_bin", "/home/eveselove/.local/bin/agy"))
+AGENT_ID = os.environ.get("AGENT_ID", CFG["agent_id"])
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # Graceful shutdown
 _shutdown = False
+
+
 def _handle_signal(signum, frame):
     global _shutdown
     _shutdown = True
     log("\u23f9\ufe0f Получен сигнал остановки, завершаю текущие задачи...")
+
 
 signal.signal(signal.SIGTERM, _handle_signal)
 signal.signal(signal.SIGINT, _handle_signal)
@@ -86,72 +117,128 @@ def log(msg):
         pass
 
 
-def api_request(method, path, data=None):
-    """HTTP запрос к AgentForge API"""
+def api_request(method, path, data=None, timeout=30):
+    """HTTP запрос к AgentForge API через Keep-Alive сессию"""
     url = f"{API_BASE}{path}"
-    req = urllib.request.Request(url, method=method)
-    if data:
-        req.data = json.dumps(data).encode("utf-8")
-        req.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="ignore")[:200]
-        log(f"\u26a0\ufe0f API HTTP {e.code}: {body}")
+        resp = _session.request(method, url, json=data, timeout=timeout)
+        if resp.status_code == 204:
+            return None
+        if resp.status_code >= 400:
+            log(f"⚠️ API HTTP {resp.status_code}: {resp.text[:200]}")
+            return None
+        return resp.json()
+    except requests.RequestException as e:
+        log(f"⚠️ API ошибка сети: {e}")
         return None
-    except Exception as e:
-        log(f"\u26a0\ufe0f API ошибка: {e}")
-        return None
-
-
-def get_tasks_for_antigravity():
-    """
-    Получить задачи для Antigravity.
-    Сначала новый endpoint /tasks/for/antigravity,
-    если нет — фильтруем вручную.
-    """
-    # Новый endpoint
-    tasks = api_request("GET", f"/tasks/for/{AGENT_ID}")
-    if tasks and isinstance(tasks, list):
-        return [t for t in tasks if t.get("status") == "pending"]
-
-    # Фоллбэк: фильтруем вручную
-    all_tasks = api_request("GET", "/tasks")
-    if not all_tasks or not isinstance(all_tasks, list):
-        return []
-
-    result = []
-    for t in all_tasks:
-        if t.get("status") != "pending":
-            continue
-        pref = (t.get("preferred_agent") or "").lower()
-        if pref == "antigravity":
-            result.append(t)
-        elif pref == "auto":
-            tags = t.get("tags", [])
-            if isinstance(tags, str):
-                try:
-                    tags = json.loads(tags)
-                except Exception:
-                    tags = []
-            tags_lower = [str(tg).lower() for tg in tags]
-            
-            if "build" in tags_lower or "compile" in tags_lower:
-                continue
-
-            # Берем все задачи, чтобы работать параллельно с Grok
-            result.append(t)
-    return result
 
 
 def select_model(task):
-    """Выбор модели на основе сложности задачи"""
+    """
+    Выбор модели с учётом rate-limit cooldown по группам.
+
+    Логика:
+    1. Определяем предпочтительную группу по сложности задачи
+    2. Если предпочтительная группа на cooldown — берём из её fallback_order
+    3. Если все группы на cooldown — ждём ту, у которой cooldown истекает раньше
+
+    Порядок замещения:
+      Flash исчерпан  → Pro → Claude
+      Pro исчерпан    → Flash → Claude
+      Claude исчерпан → Flash → Pro
+    """
+    global _current_group_idx
     complexity = (task.get("complexity") or "").lower()
     priority = (task.get("priority") or "").lower()
-    if complexity == "complex" or priority == "critical":
-        return FALLBACK_MODEL
-    return DEFAULT_MODEL
+    tags = task.get("tags", [])
+    if isinstance(tags, str):
+        try:
+            tags = json.loads(tags)
+        except Exception:
+            tags = []
+    tags_lower = [str(t).lower() for t in tags]
+
+    # Определяем предпочтительную группу по сложности задачи
+    COMPLEX_TAGS = {"architecture", "analysis", "refactor", "complex",
+                    "security", "perf", "performance", "design", "protocol"}
+    if complexity == "complex" or priority == "critical" or any(t in COMPLEX_TAGS for t in tags_lower):
+        preferred_group = 1  # B-claude-opus
+    else:
+        preferred_group = 0  # A-gemini-pro-high
+
+    now = time.time()
+    with _rate_limit_lock:
+        # Порядок: preferred → fallback_order этой группы (не глобальный round-robin)
+        preferred = MODEL_GROUPS[preferred_group]
+        order = [preferred_group] + preferred.get("fallback_order", [
+            i for i in range(len(MODEL_GROUPS)) if i != preferred_group
+        ])
+
+        for idx in order:
+            grp = MODEL_GROUPS[idx]
+            until = _rate_limit_until.get(grp["name"], 0)
+            if now >= until:
+                model = grp["model"]
+                if idx != preferred_group:
+                    log(f"🔀 Замещение: {preferred['name']} на cooldown → {grp['name']} ({model})")
+                else:
+                    log(f"🎲 Модель: {model} (группа {grp['name']})")
+                return model
+
+        # Все группы на cooldown — ждём ту, у которой cooldown истекает раньше
+        best_idx = min(range(len(MODEL_GROUPS)),
+                       key=lambda i: _rate_limit_until.get(MODEL_GROUPS[i]["name"], 0))
+        grp = MODEL_GROUPS[best_idx]
+        wait = max(0, _rate_limit_until.get(grp["name"], 0) - now)
+        log(f"⏳ Все группы на cooldown, жду {wait:.0f}s → {grp['name']} ({grp['model']})")
+        time.sleep(wait + 1)
+        return grp["model"]
+
+
+def detect_rate_limit(log_path, exit_code, duration):
+    """
+    Определяет тип завершения задачи:
+    - 'rate_limit': hit rate limit (задача слишком быстрая или сообщение в логе)
+    - 'timeout': таймаут
+    - 'error': ошибка
+    - 'success': успех
+    """
+    # Быстрое завершение (<5s) = почти всегда rate limit или auth error
+    if 0 < duration <= 5 and exit_code != 0:
+        return 'rate_limit'
+
+    # Проверяем лог на признаки rate limit
+    rate_limit_markers = [
+        'rate limit', 'rate_limit', '429', 'too many requests',
+        'quota exceeded', 'quota_exceeded', 'limit exceeded',
+        'throttled', 'slowdown', 'ratelimit',
+    ]
+    try:
+        with open(log_path, 'r', errors='ignore') as f:
+            content = f.read(4096).lower()  # Читаем только начало
+        for marker in rate_limit_markers:
+            if marker in content:
+                return 'rate_limit'
+    except Exception:
+        pass
+
+    if exit_code == -9 or duration >= TASK_TIMEOUT:
+        return 'timeout'
+    if exit_code != 0:
+        return 'error'
+    return 'success'
+
+
+def apply_rate_limit_cooldown(model):
+    """Ставим cooldown на группу модели после rate limit"""
+    with _rate_limit_lock:
+        for grp in MODEL_GROUPS:
+            if model == grp["model"]:
+                until = time.time() + grp["cooldown"]
+                _rate_limit_until[grp["name"]] = until
+                log(f"🚫 Rate limit: группа {grp['name']} ({model}) на cooldown {grp['cooldown']}s")
+                return
+    log(f"⚠️ Модель {model} не найдена в группах, cooldown не применён")
 
 
 def execute_task(task):
@@ -180,33 +267,59 @@ def execute_task(task):
     # Выбираем модель
     model = select_model(task)
 
-    # Флаги Agy
-    agy_flags = ["--dangerously-skip-permissions"]
+    # Флаги Antigravity CLI (agy)
+    # --add-dir worktree: agy знает о worktree файлах, но запускается из PROJECT_DIR (где есть auth)
+    agy_flags = ["--dangerously-skip-permissions", "--model", model]
 
     # Обновляем статус → in_progress
-    api_request("PATCH", f"/tasks/{task_id}", {
-        "status": "in_progress",
-        "assigned_agent": AGENT_ID,
-    })
+    api_request(
+        "PATCH",
+        f"/tasks/{task_id}",
+        {
+            "status": "in_progress",
+            "assigned_agent": AGENT_ID,
+        },
+    )
 
     start_time = time.time()
 
-    AGY_BIN = "/home/eveselove/.local/bin/agy"
-    
     # Создаем изолированный git worktree
     branch_name = f"agentforge/{task_id}"
-    worktree_dir = os.path.join(os.path.dirname(PROJECT_DIR), f"planlytasksko_{task_id}")
+    proj_name = os.path.basename(PROJECT_DIR)
+    worktree_dir = os.path.join(
+        os.path.dirname(PROJECT_DIR), f"{proj_name}_{task_id}"
+    )
     try:
-        subprocess.run(["git", "branch", branch_name], cwd=PROJECT_DIR, check=False, capture_output=True)
-        subprocess.run(["git", "worktree", "add", worktree_dir, branch_name], cwd=PROJECT_DIR, check=False, capture_output=True)
+        subprocess.run(
+            ["git", "branch", branch_name],
+            cwd=PROJECT_DIR,
+            check=False,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "worktree", "add", worktree_dir, branch_name],
+            cwd=PROJECT_DIR,
+            check=False,
+            capture_output=True,
+        )
         log(f"🌿 Создан worktree {worktree_dir} (ветка {branch_name})")
     except Exception as e:
         log(f"⚠️ Ошибка создания worktree: {e}")
         worktree_dir = PROJECT_DIR
 
-    # Запускаем Antigravity CLI
-    cmd = [AGY_BIN, *agy_flags, "--model", model, "-p", prompt]
-    log(f"⚡ Antigravity CLI запуск: {task_id} (model={model}, priority={priority}) в {worktree_dir}")
+    # Запускаем Antigravity CLI (agy) из PROJECT_DIR (где есть auth)
+    # --add-dir worktree_dir: даёт agy доступ к файлам в изолированном worktree
+    run_from = PROJECT_DIR  # запускаем отсюда — здесь есть OAuth токен
+    if worktree_dir != PROJECT_DIR:
+        # В промпте явно указываем worktree чтобы агент работал в нём
+        full_prompt = f"WORKING DIRECTORY: {worktree_dir}\n\n{prompt}"
+        cmd = [AGY_BIN, *agy_flags, "--add-dir", worktree_dir, "--print", full_prompt]
+    else:
+        full_prompt = prompt
+        cmd = [AGY_BIN, *agy_flags, "--print", full_prompt]
+    log(
+        f"⚡ AGY запуск: {task_id} (model={model}, priority={priority}) worktree={worktree_dir}"
+    )
 
     try:
         with open(task_log, "w") as logf:
@@ -220,7 +333,12 @@ def execute_task(task):
                 cmd,
                 stdout=logf,
                 stderr=subprocess.STDOUT,
-                cwd=worktree_dir,
+                cwd=run_from,        # запуск из PROJECT_DIR — там есть auth
+                env={
+                    **os.environ,
+                    "HOME": os.path.expanduser("~"),  # гарантируем HOME
+                    "SSH_TTY": os.environ.get("SSH_TTY", "/dev/pts/0"),  # file-based token (не keyring)
+                },
                 timeout=TASK_TIMEOUT,
             )
             exit_code = proc.returncode
@@ -229,57 +347,106 @@ def execute_task(task):
         log(f"\u23f1\ufe0f Таймаут задачи {task_id} ({TASK_TIMEOUT}s)")
     except Exception as e:
         log(f"\u274c Ошибка запуска задачи {task_id}: {e}")
-        api_request("PATCH", f"/tasks/{task_id}", {
-            "status": "failed",
-            "result": f"AntigravityWorker: ошибка запуска — {str(e)[:200]}",
-            "assigned_agent": AGENT_ID,
-        })
+        api_request(
+            "PATCH",
+            f"/tasks/{task_id}",
+            {
+                "status": "failed",
+                "result": f"AntigravityWorker: ошибка запуска — {str(e)[:200]}",
+                "assigned_agent": AGENT_ID,
+            },
+        )
         return
 
     duration = time.time() - start_time
 
-    # Определяем результат
-    if exit_code == -9 or duration >= TASK_TIMEOUT:
-        status = "failed"
-        result = f"AntigravityWorker: timeout ({int(duration)}s, model={model})"
-    elif exit_code != 0 or duration <= 3:
-        status = "failed"
-        result = f"AntigravityWorker: exit={exit_code}, {int(duration)}s, model={model}"
-    else:
-        status = "review"
-        result = f"AntigravityWorker: {int(duration)}s (model={model}) \u2705"
+    try:
+        # Детектируем тип завершения (в т.ч. rate limit)
+        finish_type = detect_rate_limit(task_log, exit_code, duration)
 
-    # Обновляем задачу
-    api_request("PATCH", f"/tasks/{task_id}", {
-        "status": status,
-        "result": result,
-        "assigned_agent": AGENT_ID,
-        "duration_seconds": round(duration, 1),
-    })
+        if finish_type == 'rate_limit':
+            # Rate limit: применяем cooldown на эту группу моделей
+            apply_rate_limit_cooldown(model)
+            # Возвращаем задачу в pending чтобы другой воркер/модель подхватила
+            log(f"⚡ Rate limit на {model}, возвращаю {task_id} в pending")
+            api_request(
+                "PATCH",
+                f"/tasks/{task_id}",
+                {
+                    "status": "pending",
+                    "assigned_agent": None,
+                    "result": f"rate_limit:{model}:{int(duration)}s — переключаю модель",
+                },
+            )
+            return
+        elif finish_type == 'timeout':
+            status = "failed"
+            result = f"AntigravityWorker: timeout ({int(duration)}s, model={model})"
+        elif finish_type == 'error':
+            status = "failed"
+            result = f"AntigravityWorker: exit={exit_code}, {int(duration)}s, model={model}"
+        else:  # success
+            status = "review"
+            result = f"AntigravityWorker: {int(duration)}s (model={model}) ✅"
 
-    icon = '\u2705' if status == 'review' else '\u274c'
-    log(f"{icon} {task_id}: {result}")
+        # Обновляем задачу
+        api_request(
+            "PATCH",
+            f"/tasks/{task_id}",
+            {
+                "status": status,
+                "result": result,
+                "assigned_agent": AGENT_ID,
+                "duration_seconds": round(duration, 1),
+            },
+        )
 
-    # Guardian auto-review для успешных
-    if status == "review":
-        time.sleep(1)
-        api_request("POST", f"/tasks/{task_id}/review")
-        log(f"\U0001f6e1\ufe0f Guardian запрошен для {task_id}")
+        icon = "✅" if status == "review" else "❌"
+        log(f"{icon} {task_id}: {result}")
 
-    # Auto-retry для failed (если включено)
-    if status == "failed":
-        api_request("POST", f"/tasks/{task_id}/retry")
-        log(f"\U0001f504 Auto-retry запрошен для {task_id}")
+        # Guardian auto-review для успешных
+        if status == "review":
+            time.sleep(1)
+            api_request("POST", f"/tasks/{task_id}/review")
+            log(f"🛡️ Guardian запрошен для {task_id}")
+
+        # Auto-retry для failed
+        if status == "failed":
+            api_request("POST", f"/tasks/{task_id}/retry")
+            log(f"🔄 Auto-retry запрошен для {task_id}")
+            
+    finally:
+        # Cleanup worktree
+        if worktree_dir != PROJECT_DIR and os.path.exists(worktree_dir):
+            try:
+                subprocess.run(
+                    ["git", "worktree", "remove", "-f", worktree_dir],
+                    cwd=PROJECT_DIR,
+                    check=False,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "branch", "-D", branch_name],
+                    cwd=PROJECT_DIR,
+                    check=False,
+                    capture_output=True,
+                )
+                log(f"🧹 Worktree и ветка {branch_name} удалены")
+            except Exception as e:
+                log(f"⚠️ Ошибка удаления worktree {worktree_dir}: {e}")
+
 
 
 def main():
     """Главный цикл воркера с ThreadPoolExecutor"""
-    log(f"\U0001f680 Antigravity Worker запущен")
+    log("🚀 Antigravity Worker запущен (agy + Model Rate-Limit Rotation)")
     log(f"   API: {API_BASE}")
     log(f"   Параллельность: {MAX_PARALLEL}")
     log(f"   Таймаут: {TASK_TIMEOUT}s")
-    log(f"   Модель: {DEFAULT_MODEL} (fallback: {FALLBACK_MODEL})")
+    log(f"   AGY bin: {AGY_BIN}")
     log(f"   Проект: {PROJECT_DIR}")
+    for grp in MODEL_GROUPS:
+        log(f"   Группа {grp['name']}: model={grp['model']} cooldown={grp['cooldown']}s")
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL) as executor:
         futures = {}  # future → task_id
@@ -301,38 +468,35 @@ def main():
                     time.sleep(5)
                     continue
 
-                # Получаем задачи для Antigravity
-                tasks = get_tasks_for_antigravity()
-
-                if not tasks:
-                    time.sleep(POLL_INTERVAL)
-                    continue
-
-                log(f"\U0001f4cb Найдено {len(tasks)} задач, свободно {free_slots} слотов")
-
-                for task in tasks[:free_slots]:
-                    task_id = task["id"]
-
-                    # Диспатчим через API
-                    dispatch_result = api_request("POST", f"/tasks/{task_id}/dispatch")
-                    if not dispatch_result:
-                        continue
-
-                    # Проверяем назначение
-                    assigned = (dispatch_result.get("assigned_agent") or "").lower()
-                    if assigned != AGENT_ID:
-                        log(f"\u23ed\ufe0f {task_id} назначена {assigned}, пропускаю")
-                        continue
-
-                    # Запускаем в пуле потоков
-                    future = executor.submit(execute_task, task)
+                # === Получаем задачи по 1 атомарно через POST /claim ===
+                claimed_any = False
+                for _ in range(free_slots):
+                    if _shutdown:
+                        break
+                        
+                    claim_result = api_request(
+                        "POST",
+                        "/claim",
+                        {"agent": AGENT_ID}
+                    )
+                    
+                    if not claim_result:
+                        break # Очередь пуста
+                        
+                    task_id = claim_result["id"]
+                    log(f"🎯 Claim: {task_id} — {claim_result.get('title', '')[:60]}")
+                    
+                    future = executor.submit(execute_task, claim_result)
                     futures[future] = task_id
-                    log(f"\U0001f500 Задача {task_id} запущена в потоке")
-                    time.sleep(1)
+                    claimed_any = True
+                    time.sleep(1) # Небольшая пауза между стартами
+                    
+                if not claimed_any:
+                    time.sleep(POLL_INTERVAL + random.uniform(0, POLL_INTERVAL * 0.3))
 
             except Exception as e:
                 log(f"\u26a0\ufe0f Ошибка в главном цикле: {e}")
-                time.sleep(POLL_INTERVAL)
+                time.sleep(POLL_INTERVAL + random.uniform(0, 10))
 
     # Ждём завершения текущих задач
     log("\u23f3 Ожидаю завершения текущих задач...")
