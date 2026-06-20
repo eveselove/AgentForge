@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# forge — thin wrapper around forge.py so Claude can call `forge <subcommand>`.
+# Lives at /home/eveselove/agentforge/forge (chmod +x). Uses the system python3.
+set -euo pipefail
+FORGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec python3 "${FORGE_DIR}/forge.py" "$@"

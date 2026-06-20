@@ -176,7 +176,7 @@ def _get_log_excerpt(task_id: str, max_chars: int = 3500) -> str:
     """Извлечь хвост лога задачи (самое релевантное для анализа failure)."""
     candidates = [
         f"/home/eveselove/agentforge/logs/grok_{task_id}.log",
-        f"/home/eveselove/agentforge/logs/jules_{task_id}.log",
+        f"/home/eveselove/agentforge/logs/jules_{task_id}.log",  # legacy (jules farm removed; kept for old task logs)
         f"/home/eveselove/agentforge/logs/agy_{task_id}.log",
         f"/home/eveselove/agentforge/logs/gemini_{task_id}.log",
     ]

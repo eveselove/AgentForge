@@ -77,6 +77,7 @@ async fn main() {
                 completed_at: row.get(15).ok(),
                 metadata,
                 result,
+                requires_agent_review: false,
             })
         })
         .expect("Failed to query tasks");

@@ -5,6 +5,7 @@ use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 #[derive(Deserialize, Debug)]
 struct RpcRequest {
+    #[allow(dead_code)]
     jsonrpc: String,
     id: Option<Value>,
     method: String,
@@ -22,41 +23,74 @@ struct RpcResponse {
     error: Option<Value>,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
     let mut reader = BufReader::new(stdin).lines();
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(45))
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let api_base =
         std::env::var("AGENTFORGE_API").unwrap_or_else(|_| "http://127.0.0.1:9090".to_string());
 
     while let Ok(Some(line)) = reader.next_line().await {
-        let req: Result<RpcRequest, _> = serde_json::from_str(&line);
-        if let Ok(request) = req {
-            if let Some(id) = request.id.clone() {
-                let result =
-                    handle_request(&client, &request.method, request.params, &api_base).await;
-                let response = match result {
-                    Ok(res) => RpcResponse {
-                        jsonrpc: "2.0".to_string(),
-                        id,
-                        result: Some(res),
-                        error: None,
-                    },
-                    Err(e) => RpcResponse {
+        let request: RpcRequest = match serde_json::from_str(&line) {
+            Ok(r) => r,
+            Err(e) => {
+                // JSON-RPC parse error: always respond (id=null per spec)
+                let err_resp = RpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    id: Value::Null,
+                    result: None,
+                    error: Some(json!({
+                        "code": -32700,
+                        "message": format!("Parse error: {}", e),
+                    })),
+                };
+                let out = serde_json::to_string(&err_resp)
+                    .unwrap_or_else(|_| r#"{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"parse error"}}"#.to_string())
+                    + "\n";
+                if stdout.write_all(out.as_bytes()).await.is_err() || stdout.flush().await.is_err()
+                {
+                    break;
+                }
+                continue;
+            }
+        };
+        if let Some(id) = request.id.clone() {
+            let result = handle_request(&client, &request.method, request.params, &api_base).await;
+            let response = match result {
+                Ok(res) => RpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    id,
+                    result: Some(res),
+                    error: None,
+                },
+                Err(e) => {
+                    let msg = e.to_string();
+                    let code = if msg.starts_with("Method not found") {
+                        -32601
+                    } else {
+                        -32603
+                    };
+                    RpcResponse {
                         jsonrpc: "2.0".to_string(),
                         id,
                         result: None,
                         error: Some(json!({
-                            "code": -32603,
-                            "message": e.to_string(),
+                            "code": code,
+                            "message": msg,
                         })),
-                    },
-                };
-                let out = serde_json::to_string(&response).unwrap() + "\n";
-                let _ = stdout.write_all(out.as_bytes()).await;
-                let _ = stdout.flush().await;
+                    }
+                }
+            };
+            let out = serde_json::to_string(&response)
+                .unwrap_or_else(|_| r#"{"jsonrpc":"2.0","id":null,"error":{"code":-32603,"message":"serialization failed"}}"#.to_string())
+                + "\n";
+            if stdout.write_all(out.as_bytes()).await.is_err() || stdout.flush().await.is_err() {
+                break;
             }
         }
     }
@@ -167,11 +201,19 @@ async fn handle_request(
                     let parsed: Value = serde_json::from_str(&res).unwrap_or(json!({"error": res}));
 
                     let mut text = String::new();
-                    if let Some(tasks) = parsed.get("tasks").and_then(|t| t.as_array()) {
-                        text.push_str(&format!("📋 Найдено задач: {}\n\n", tasks.len()));
-                        for task in tasks {
-                            let id = task.get("id").and_then(|i| i.as_str()).unwrap_or("")[0..8]
-                                .to_string();
+                    if let Some(tasks) = parsed
+                        .as_array()
+                        .or_else(|| parsed.get("tasks").and_then(|t| t.as_array()))
+                    {
+                        let total = tasks.len();
+                        let show = if total > 40 { 40 } else { total };
+                        text.push_str(&format!(
+                            "📋 Найдено задач: {} (показаны первые {})\n\n",
+                            total, show
+                        ));
+                        for task in tasks.iter().take(show) {
+                            let id_str = task.get("id").and_then(|i| i.as_str()).unwrap_or("");
+                            let id = id_str.get(..8).unwrap_or(id_str);
                             let st = task
                                 .get("status")
                                 .and_then(|s| s.as_str())
@@ -196,6 +238,12 @@ async fn handle_request(
                                 id, desc_short, st, ag
                             ));
                         }
+                        if total > show {
+                            text.push_str(&format!(
+                                "... и ещё {} задач (используйте фильтр status=...)\n",
+                                total - show
+                            ));
+                        }
                     } else {
                         text = res;
                     }
@@ -204,7 +252,7 @@ async fn handle_request(
                 "agentforge_get_task" => {
                     let task_id = args.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
                     client
-                        .get(&format!("{}/tasks/{}", api_base, task_id))
+                        .get(format!("{}/tasks/{}", api_base, task_id))
                         .send()
                         .await?
                         .text()
@@ -212,7 +260,7 @@ async fn handle_request(
                 }
                 "agentforge_create_task" => {
                     client
-                        .post(&format!("{}/tasks", api_base))
+                        .post(format!("{}/tasks", api_base))
                         .json(&args)
                         .send()
                         .await?
@@ -223,7 +271,7 @@ async fn handle_request(
                     let task_id = args.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
                     let agent = args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
                     client
-                        .post(&format!("{}/tasks/{}/dispatch", api_base, task_id))
+                        .post(format!("{}/tasks/{}/dispatch", api_base, task_id))
                         .json(&json!({"agent": agent}))
                         .send()
                         .await?
@@ -237,7 +285,7 @@ async fn handle_request(
                         obj.remove("task_id");
                     }
                     client
-                        .patch(&format!("{}/tasks/{}", api_base, task_id))
+                        .patch(format!("{}/tasks/{}", api_base, task_id))
                         .json(&payload)
                         .send()
                         .await?
@@ -246,7 +294,7 @@ async fn handle_request(
                 }
                 "agentforge_metrics" => {
                     client
-                        .get(&format!("{}/metrics", api_base))
+                        .get(format!("{}/metrics", api_base))
                         .send()
                         .await?
                         .text()

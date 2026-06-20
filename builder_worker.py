@@ -19,7 +19,7 @@ DEFAULT_CONFIG = {
     "poll_interval": 10,
     "max_parallel": 2,  # Билдеру даём 2 потока
     "task_timeout": 600,
-    "project_dir": "/home/eveselove/planlytasksko",
+    "project_dir": "/home/eveselove/agentforge",
     "log_dir": "/home/eveselove/agentforge/logs",
     "agent_id": "builder",
 }
@@ -134,8 +134,9 @@ def execute_build(task):
     )
 
     start_time = time.time()
+    proj_name = os.path.basename(PROJECT_DIR)
     worktree_dir = os.path.join(
-        os.path.dirname(PROJECT_DIR), f"planlytasksko_build_{task_id}"
+        os.path.dirname(PROJECT_DIR), f"{proj_name}_build_{task_id}"
     )
 
     try:

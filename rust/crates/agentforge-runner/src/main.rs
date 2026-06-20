@@ -610,7 +610,16 @@ fn main() {
             let rt = tokio::runtime::Runtime::new()
                 .expect("failed to create tokio runtime for task subcommand");
             rt.block_on(async {
-                let client = if !use_local { Some(reqwest::Client::new()) } else { None };
+                let client = if !use_local {
+                    Some(
+                        reqwest::Client::builder()
+                            .timeout(std::time::Duration::from_secs(30))
+                            .build()
+                            .unwrap_or_else(|_| reqwest::Client::new())
+                    )
+                } else {
+                    None
+                };
                 let store_path = std::path::PathBuf::from("/tmp/agentforge_tasks.json");
                 let mut local_store = if use_local { Some(JsonFileTaskStore::new(Some(store_path))) } else { None };
 
@@ -1163,16 +1172,18 @@ echo $? > "{}"
                                 format!(
                                     r#"#!/bin/bash
 # Auto-generated task launcher for AgentForge Grok
-set -euo pipefail
 cd "{}" || {{ echo 1 > "{}"; exit 1; }}
-grok {} {} --no-alt-screen --prompt-file "{}"
-echo $? > "{}"
+script -q -c "grok {} {} --no-alt-screen --prompt-file \"{}\"" "/tmp/grok-out-{}.log"
+CODE=$?
+echo $CODE > "{}"
+exit $CODE
 "#,
                                     run_dir,
                                     exit_file,
                                     if always_approve { "--always-approve" } else { "" },
                                     if no_plan { "--no-plan" } else { "" },
                                     prompt_path,
+                                    id,
                                     exit_file
                                 )
                             };

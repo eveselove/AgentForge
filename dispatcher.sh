@@ -84,7 +84,8 @@ if ! tmux has-session -t "$TMUX_SESSION" 2>/dev/null; then
 fi
 
 # Лимиты параллельности по типу агента
-MAX_GROK=5
+# 2026-06-14: raised to 300 per user request for 300+ parallel Grok agents (PROBLEM_GROK_TMUX_DISPATCH)
+MAX_GROK=300
 MAX_AGY=3
 
 case $AGENT in

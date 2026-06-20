@@ -16,7 +16,7 @@ WorkingDirectory=/home/eveselove/agentforge
 Environment=PATH=/home/eveselove/.local/bin:/home/eveselove/.cargo/bin:/home/eveselove/.grok/bin:/home/eveselove/.nvm/versions/node/v20.20.1/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PROTOC=/home/eveselove/.local/bin/protoc
 Environment=HOME=/home/eveselove
-# Rust Flywheel live farm integration (Jules track): enable + runner path for post-task auto fire
+# Rust Flywheel live farm integration: enable + runner path for post-task auto fire (Jules track removed)
 # 2026-06 + task-5af0e350: PURE RUST FLYWHEEL HARD DEFAULT for 14d soak. Prefers release binary for production speed.
 Environment=AGENTFORGE_RUST_FLYWHEEL=1
 Environment=AGENTFORGE_USE_RUST=1

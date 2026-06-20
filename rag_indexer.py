@@ -81,7 +81,7 @@ def chunk_text(
 def extract_task_id(filename: str) -> str:
     """
     Извлекает task_id из имени лог-файла.
-    Формат: grok_TASKID.log, jules_TASKID.log, и т.д.
+    Формат: grok_TASKID.log, antigravity_TASKID.log, и т.д.
     """
     basename = os.path.basename(filename)
     name_no_ext = os.path.splitext(basename)[0]

@@ -9,12 +9,41 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 use tower_http::cors::CorsLayer;
 use tracing::{info, warn};
 use futures::{sink::SinkExt, stream::StreamExt};
+use rand::seq::SliceRandom;
 
 // Re-export from agentforge-core
 use agentforge_core::{LanceTaskStore, Task, TaskStatus, TaskStore};
+
+mod task_cache;
+use task_cache::{new_task_cache, SharedTaskCache};
+
+// Кэш метрик с TTL — позволяет дашборду работать без зависания на Mutex<LanceTaskStore>.
+// При 1490+ задачах list_all() занимает 24-30с (конкуренция grok-агентов за LanceDB).
+// Кэш обновляется незаметно в фоне, читатели не блокируются.
+const METRICS_CACHE_TTL_SECS: u64 = 3;
+
+#[derive(Clone, Default)]
+struct MetricsCache {
+    payload: Option<serde_json::Value>,
+    updated_at: Option<Instant>,
+    refreshing: bool,
+}
+
+impl MetricsCache {
+    fn is_fresh(&self) -> bool {
+        self.updated_at
+            .map(|t| t.elapsed().as_secs() < METRICS_CACHE_TTL_SECS)
+            .unwrap_or(false)
+    }
+    fn is_usable(&self) -> bool {
+        // Если есть хоть какие-то данные и им за 60с — всё равно отвечаем (как сталые данные пока DB занята)
+        self.payload.is_some() && self.updated_at.map(|t| t.elapsed().as_secs() < 60).unwrap_or(false)
+    }
+}
 
 // ═══════════════════════════════════════════════════════
 //  Types
@@ -22,8 +51,12 @@ use agentforge_core::{LanceTaskStore, Task, TaskStatus, TaskStore};
 
 #[derive(Clone)]
 struct AppState {
-    // Tasks: LanceDB (async-native — no spawn_blocking needed!)
-    tasks: Arc<tokio::sync::Mutex<LanceTaskStore>>,
+    // Tasks: LanceDB (встроенная поддержка конкурентной записи/чтения, глобальный лок больше не нужен)
+    tasks: Arc<LanceTaskStore>,
+    // Внутренний кэш всех задач с TTL и фоновым обновлением
+    task_cache: SharedTaskCache,
+    // Кэш метрик: читатели используют RwLock — не блокируют друг друга
+    metrics_cache: Arc<tokio::sync::RwLock<MetricsCache>>,
     // Agents: JSON file store
     agents: Arc<tokio::sync::Mutex<JsonStore<Agent>>>,
     // Blackboard: JSON file store
@@ -183,6 +216,19 @@ struct TaskReject {
     feedback: String,
 }
 
+/// Query params для POST /tasks/claim — атомарный захват задачи
+#[derive(Debug, Deserialize)]
+struct ClaimQuery {
+    /// ID воркера (обязательно)
+    agent: String,
+    /// Фильтр по preferred_agent (опционально, default: берём auto/grok/пустые)
+    #[serde(default)]
+    preferred: Option<String>,
+    /// Сколько задач забрать батчем (для снижения HTTP roundtrips). Default 1.
+    #[serde(default)]
+    count: Option<u32>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Agent {
     agent_id: String,
@@ -271,6 +317,12 @@ struct SearchQuery {
 struct ListTasksQuery {
     #[serde(default)]
     status: Option<String>,
+    /// Ограничение количества возвращаемых задач (для пагинации)
+    #[serde(default)]
+    limit: Option<usize>,
+    /// Смещение (для пагинации)
+    #[serde(default)]
+    offset: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -299,6 +351,8 @@ fn status_str_to_enum(s: &str) -> TaskStatus {
 }
 
 fn resolve_agent(preferred_agent: &str, complexity: &str, tags: &[String]) -> String {
+    // Jules-specific routing removed (JULES CLEANUP Task 3). See AGENTS.md: Jules writes code + opens PRs externally.
+    // No aliases or special checks for "jules" remain here; unknown preferred falls through to default.
     if preferred_agent != "auto" {
         return preferred_agent.to_string();
     }
@@ -345,23 +399,185 @@ async fn health_api() -> Json<HealthResponse> {
     })
 }
 
+async fn get_tasks_cached(state: &AppState) -> Arc<Vec<Task>> {
+    // === read path: never block caller on LanceDB under load ===
+    {
+        let cache = state.task_cache.read().await;
+        let has_data = !cache.all.tasks.is_empty();
+        if cache.all.is_fresh() || (cache.all.is_stale_ok() && has_data) {
+            // kick background refresh if not fresh (stale-while-revalidate)
+            if !cache.all.is_fresh() && !cache.refreshing {
+                let state_clone = state.clone();
+                tokio::spawn(async move {
+                    refresh_tasks_cache(&state_clone).await;
+                });
+            }
+            return cache.snapshot(); // Arc clone = 1 atomic op
+        }
+        if cache.refreshing && has_data {
+            return cache.snapshot();
+        }
+    }
+
+    // Cold start: sync fetch
+    refresh_tasks_cache(state).await
+}
+
+async fn refresh_tasks_cache(state: &AppState) -> Arc<Vec<Task>> {
+    {
+        let mut c = state.task_cache.write().await;
+        if c.refreshing {
+            if !c.all.tasks.is_empty() {
+                return c.snapshot();
+            }
+        }
+        c.refreshing = true;
+    }
+
+    let tasks = {
+        state.tasks.list_all().await
+    };
+
+    let snapshot = {
+        let mut c = state.task_cache.write().await;
+        c.set_tasks(tasks);
+        c.refreshing = false;
+        c.snapshot()
+    };
+    snapshot
+}
+
 async fn list_tasks_api(
     State(state): State<AppState>,
     Query(q): Query<ListTasksQuery>,
-) -> impl IntoResponse {
-    let store = state.tasks.lock().await;
-    let all_tasks = if let Some(ref status_str) = q.status {
-        let target_status = status_str_to_enum(status_str);
-        let all = store.list_all().await;
-        all.into_iter()
-            .filter(|t| t.status == target_status)
-            .collect::<Vec<_>>()
-    } else {
-        store.list_all().await
-    };
+    headers: axum::http::HeaderMap,
+) -> axum::response::Response {
+    let all_tasks_arc = get_tasks_cached(&state).await;
 
-    let responses: Vec<TaskResponse> = all_tasks.iter().map(TaskResponse::from).collect();
-    Json(responses).into_response()
+    // ETag: cheap cache version = Arc pointer address + len (changes on every set_tasks)
+    let etag = format!("\"{:p}-{}\"", Arc::as_ptr(&all_tasks_arc), all_tasks_arc.len());
+    if let Some(inm) = headers.get(axum::http::header::IF_NONE_MATCH) {
+        if inm.as_bytes() == etag.as_bytes() {
+            return StatusCode::NOT_MODIFIED.into_response();
+        }
+    }
+
+    // Фильтруем по индексам — не клонируем Task до последнего момента
+    let mut indices: Vec<usize> = (0..all_tasks_arc.len())
+        .filter(|&i| {
+            if let Some(ref status_str) = q.status {
+                let target = status_str_to_enum(status_str);
+                all_tasks_arc[i].status == target
+            } else {
+                true
+            }
+        })
+        .collect();
+
+    let total_count = indices.len();
+
+    // Сортируем индексы по updated_at (новые вначале)
+    indices.sort_by(|&a, &b| all_tasks_arc[b].updated_at.cmp(&all_tasks_arc[a].updated_at));
+
+    // Пагинация
+    let offset = q.offset.unwrap_or(0);
+    let limit = q.limit.unwrap_or(2000);
+
+    // Создаём TaskResponse только для финального среза (200 из 1493)
+    let responses: Vec<TaskResponse> = indices.into_iter()
+        .skip(offset)
+        .take(limit)
+        .map(|i| TaskResponse::from(&all_tasks_arc[i]))
+        .collect();
+
+    let mut resp = Json(responses).into_response();
+    resp.headers_mut().insert("X-Total-Count", total_count.to_string().parse().unwrap());
+    resp.headers_mut().insert("X-Offset", offset.to_string().parse().unwrap());
+    resp.headers_mut().insert("X-Limit", limit.to_string().parse().unwrap());
+    resp.headers_mut().insert(axum::http::header::ETAG, etag.parse().unwrap());
+    resp.headers_mut().insert(
+        axum::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
+        "X-Total-Count, X-Offset, X-Limit, ETag".parse().unwrap(),
+    );
+    resp
+}
+
+/// POST /tasks/claim — атомарный захват случайной pending задачи.
+/// Один HTTP запрос вместо GET all + parse + PATCH.
+/// Воркеру не нужно скачивать 186KB JSON — получает ровно одну задачу.
+async fn claim_task_api(
+    State(state): State<AppState>,
+    Json(payload): Json<ClaimQuery>,
+) -> axum::response::Response {
+    let cached_tasks = get_tasks_cached(&state).await;
+
+    // Собираем ID подходящих pending задач (клонируем чтобы не держать borrow)
+    let mut candidate_ids: Vec<String> = cached_tasks
+        .iter()
+        .filter(|t| t.status == TaskStatus::Pending)
+        .filter(|t| {
+            let pref = t.preferred_agent.as_deref().unwrap_or("").to_lowercase();
+            if let Some(ref wanted) = payload.preferred {
+                pref.is_empty() || pref == "auto" || pref == wanted.to_lowercase()
+            } else {
+                pref.is_empty() || pref == "auto" || pref == "grok" || pref == "antigravity"
+            }
+        })
+        .filter(|t| {
+            let tags_lower: Vec<String> = t.tags.iter().map(|s| s.to_lowercase()).collect();
+            !tags_lower.contains(&"build".to_string()) && !tags_lower.contains(&"compile".to_string())
+        })
+        .map(|t| t.id.clone())
+        .collect();
+    drop(cached_tasks); // освобождаем
+
+    if candidate_ids.is_empty() {
+        return (StatusCode::NO_CONTENT, Json(serde_json::json!({"error": "no pending tasks available"}))).into_response();
+    }
+
+    // Случайный выбор — предотвращает thundering herd
+    candidate_ids.shuffle(&mut rand::rng());
+
+    let n = payload.count.filter(|&c| c > 0).unwrap_or(1) as usize;
+
+    // Пробуем захватить до N задач (батч) или 1 для обратной совместимости.
+    // Для count=1 возвращаем объект как раньше; для count>1 — массив.
+    let mut claimed: Vec<TaskResponse> = Vec::new();
+    for task_id in candidate_ids.iter() {
+        if claimed.len() >= n { break; }
+        // Optimistic CAS: try to claim in-memory first
+        let claimed_task = {
+            let mut cache = state.task_cache.write().await;
+            cache.try_claim(task_id, &payload.agent)
+        };
+
+        if let Some(task) = claimed_task {
+            // Memory claim succeeded! We own this task now.
+            // Asynchronously update LanceDB without any global lock
+            let _ = state.tasks.update(task.clone()).await;
+
+            let resp = TaskResponse::from(&task);
+            let ws_msg = TaskUpdateMsg {
+                r#type: "task_update".into(),
+                task_id: task_id.clone(),
+                data: serde_json::to_value(&resp).unwrap(),
+            };
+            let _ = state.ws_tx.send(ws_msg);
+
+            claimed.push(resp);
+        }
+    }
+
+    if claimed.is_empty() {
+        // Все попытки провалились (высокий contention) или не смогли
+        return (StatusCode::CONFLICT, Json(serde_json::json!({"error": "could not claim task, try again"}))).into_response();
+    }
+
+    if n <= 1 {
+        Json(claimed.into_iter().next().unwrap()).into_response()
+    } else {
+        Json(claimed).into_response()
+    }
 }
 
 async fn create_task_api(
@@ -393,9 +609,23 @@ async fn create_task_api(
         task.metadata.insert("repo".into(), serde_json::json!(repo));
     }
 
-    let mut store = state.tasks.lock().await;
-    let created = store.create(task).await.unwrap();
+    let created = match state.tasks.create(task).await {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("Failed to create task in LanceDB: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to create task: {}", e),
+            ).into_response();
+        }
+    };
     let resp = TaskResponse::from(&created);
+
+    // Update cache in-place (no invalidation — prevents thundering herd)
+    {
+        let mut cache = state.task_cache.write().await;
+        cache.add_task(&created);
+    }
 
     // Broadcast via WebSocket
     let ws_msg = TaskUpdateMsg {
@@ -412,8 +642,15 @@ async fn get_task_api(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    let store = state.tasks.lock().await;
-    match store.get(&id).await {
+    // Fast path via list cache (stale-while-revalidate 3s); fallback to direct Lance point-query (id filter)
+    {
+        let cached = get_tasks_cached(&state).await;
+        if let Some(task) = cached.iter().find(|t| t.id == id) {
+            return Json(TaskResponse::from(task)).into_response();
+        }
+    }
+    // Fallback (e.g. brand new task before next refresh, or id not exist)
+    match state.tasks.get(&id).await {
         Some(task) => Json(TaskResponse::from(&task)).into_response(),
         None => (
             StatusCode::NOT_FOUND,
@@ -428,9 +665,7 @@ async fn update_task_api(
     Path(task_id): Path<String>,
     Json(payload): Json<TaskUpdate>,
 ) -> impl IntoResponse {
-    let mut store = state.tasks.lock().await;
-
-    let mut task = match store.get(&task_id).await {
+    let mut task = match state.tasks.get(&task_id).await {
         Some(t) => t,
         None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "task not found"}))).into_response(),
     };
@@ -440,8 +675,7 @@ async fn update_task_api(
         && payload.assigned_agent.as_ref().map_or(false, |v| v.is_string());
 
     if is_claim && task.status != TaskStatus::Pending {
-        println!("[AgentForge] ⚔️ CAS reject: {} already {:?} (agent={:?}), rejecting claim from {:?}",
-            task_id, task.status, task.assigned_to, payload.assigned_agent);
+        warn!(task_id = %task_id, current_status = ?task.status, current_agent = ?task.assigned_to, rejected_agent = ?payload.assigned_agent, "CAS reject: task already claimed");
         return Json(TaskResponse::from(&task)).into_response();
     }
 
@@ -468,7 +702,7 @@ async fn update_task_api(
             review_task.preferred_agent = Some("auto".into());
             
             // We ignore errors here as it's best-effort auto-creation
-            let _ = store.create(review_task).await;
+            let _ = state.tasks.create(review_task).await;
         }
 
         task.status = new_status;
@@ -484,8 +718,9 @@ async fn update_task_api(
     if let Some(ref res_val) = payload.result {
         if res_val.is_null() {
             task.result = None;
-        } else if let Some(s) = res_val.as_str() {
-            task.result = Some(serde_json::json!(s));
+        } else {
+            // Принимаем любой JSON (строки, объекты, массивы) — BUG-11 fix
+            task.result = Some(res_val.clone());
         }
     }
 
@@ -510,7 +745,14 @@ async fn update_task_api(
     }
 
     task.updated_at = now;
-    let _ = store.update(task.clone()).await;
+    let _ = state.tasks.update(task.clone()).await;
+    // compact_if_needed() moved to background timer — don't hold write lock on hot path
+
+    // Update cache in-place (no invalidation — prevents thundering herd)
+    {
+        let mut cache = state.task_cache.write().await;
+        cache.upsert_task(&task);
+    }
 
     let resp = TaskResponse::from(&task);
     let ws_msg = TaskUpdateMsg {
@@ -527,11 +769,12 @@ async fn dispatch_task_api(
     State(state): State<AppState>,
     Path(task_id): Path<String>,
 ) -> impl IntoResponse {
-    let mut store = state.tasks.lock().await;
-
-    let mut task = match store.get(&task_id).await {
-        Some(t) => t,
-        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "task not found"}))).into_response(),
+    let mut task = {
+        let c = get_tasks_cached(&state).await;
+        match c.iter().find(|t| t.id == task_id).cloned() {
+            Some(t) => t,
+            None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "task not found"}))).into_response(),
+        }
     };
 
     if task.status != TaskStatus::Pending && task.status != TaskStatus::Failed {
@@ -555,7 +798,13 @@ async fn dispatch_task_api(
     task.assigned_to = Some(agent.clone());
     task.started_at = Some(now.clone());
     task.updated_at = now;
-    let _ = store.update(task.clone()).await;
+    let _ = state.tasks.update(task.clone()).await;
+
+    // Update cache in-place (no invalidation — prevents thundering herd)
+    {
+        let mut cache = state.task_cache.write().await;
+        cache.upsert_task(&task);
+    }
 
     let resp = TaskResponse::from(&task);
     let ws_msg = TaskUpdateMsg {
@@ -602,11 +851,13 @@ async fn review_task_api(
     State(state): State<AppState>,
     Path(task_id): Path<String>,
 ) -> impl IntoResponse {
-    let mut store = state.tasks.lock().await;
-
-    let mut task = match store.get(&task_id).await {
-        Some(t) => t,
-        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "task not found"}))).into_response(),
+    let mut task = if let Some(t) = get_tasks_cached(&state).await.iter().find(|t| t.id == task_id).cloned() {
+        t
+    } else {
+        match state.tasks.get(&task_id).await {
+            Some(t) => t,
+            None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "task not found"}))).into_response(),
+        }
     };
 
     let result_str = task.result.as_ref().and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -639,7 +890,13 @@ async fn review_task_api(
     }
 
     task.updated_at = now;
-    let _ = store.update(task.clone()).await;
+    let _ = state.tasks.update(task.clone()).await;
+
+    // Update cache in-place (no invalidation — prevents thundering herd)
+    {
+        let mut cache = state.task_cache.write().await;
+        cache.upsert_task(&task);
+    }
 
     let resp = TaskResponse::from(&task);
     let ws_msg = TaskUpdateMsg {
@@ -659,8 +916,8 @@ async fn review_task_api(
 }
 
 async fn review_all_tasks_api(State(state): State<AppState>) -> impl IntoResponse {
-    let mut store = state.tasks.lock().await;
-    let all = store.list_all().await;
+    // Используем кэш для получения списка, не держим write-lock всё время.
+    let all = get_tasks_cached(&state).await;
     let review_ids: Vec<String> = all
         .iter()
         .filter(|t| t.status == TaskStatus::Review)
@@ -669,7 +926,7 @@ async fn review_all_tasks_api(State(state): State<AppState>) -> impl IntoRespons
 
     let mut results = Vec::new();
     for id in review_ids {
-        if let Some(mut task) = store.get(&id).await {
+        if let Some(mut task) = state.tasks.get(&id).await {
             let result_str = task.result.as_ref().and_then(|v| v.as_str()).unwrap_or("").to_string();
             let mut issues: Vec<String> = Vec::new();
             if result_str.is_empty() { issues.push("No result".into()); }
@@ -680,12 +937,18 @@ async fn review_all_tasks_api(State(state): State<AppState>) -> impl IntoRespons
                 let comment = format!("{} | Guardian: approved ✅", result_str);
                 task.result = Some(serde_json::json!(comment));
                 task.updated_at = Utc::now().to_rfc3339();
-                let _ = store.update(task).await;
+                let _ = state.tasks.update(task).await;
                 results.push(serde_json::json!({"task_id": id, "verdict": "approved"}));
             } else {
                 results.push(serde_json::json!({"task_id": id, "verdict": "needs_attention", "issues": issues}));
             }
         }
+    }
+
+    // Mark cache stale after bulk review (tasks already updated in LanceDB)
+    {
+        let mut cache = state.task_cache.write().await;
+        cache.all.mark_stale();
     }
 
     Json(serde_json::json!({
@@ -699,9 +962,7 @@ async fn reject_task_api(
     Path(task_id): Path<String>,
     Json(payload): Json<TaskReject>,
 ) -> impl IntoResponse {
-    let mut store = state.tasks.lock().await;
-
-    let mut task = match store.get(&task_id).await {
+    let mut task = match state.tasks.get(&task_id).await {
         Some(t) => t,
         None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "task not found"}))).into_response(),
     };
@@ -712,7 +973,13 @@ async fn reject_task_api(
     task.assigned_to = None;
     task.updated_at = Utc::now().to_rfc3339();
 
-    let _ = store.update(task.clone()).await;
+    let _ = state.tasks.update(task.clone()).await;
+
+    // Update cache in-place (no invalidation — prevents thundering herd)
+    {
+        let mut cache = state.task_cache.write().await;
+        cache.upsert_task(&task);
+    }
 
     let resp = TaskResponse::from(&task);
     let ws_msg = TaskUpdateMsg {
@@ -725,76 +992,117 @@ async fn reject_task_api(
     Json(resp).into_response()
 }
 
+/// DELETE /tasks/{id} — удаление одной задачи
+async fn delete_task_api(
+    State(state): State<AppState>,
+    Path(task_id): Path<String>,
+) -> impl IntoResponse {
+    // Удаляем из LanceDB
+    match state.tasks.delete(&task_id).await {
+        Ok(_) => {
+            // Удаляем из кэша
+            {
+                let mut cache = state.task_cache.write().await;
+                let mut tasks = (*cache.all.tasks).clone();
+                tasks.retain(|t| t.id != task_id);
+                cache.all.tasks = Arc::new(tasks);
+                cache.all.mark_stale();
+            }
+            Json(serde_json::json!({"ok": true, "deleted": task_id})).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e})),
+        ).into_response(),
+    }
+}
+
+/// POST /tasks/purge — массовое удаление done/cancelled/failed задач
+async fn purge_tasks_api(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let cached = get_tasks_cached(&state).await;
+    let to_delete: Vec<String> = cached.iter()
+        .filter(|t| matches!(t.status, TaskStatus::Done | TaskStatus::Cancelled | TaskStatus::Failed))
+        .map(|t| t.id.clone())
+        .collect();
+    
+    let total = to_delete.len();
+    let mut deleted = 0;
+    
+    for id in &to_delete {
+        if state.tasks.delete(id).await.is_ok() {
+            deleted += 1;
+        }
+    }
+    
+    // Обновляем кэш — оставляем только active
+    {
+        let mut cache = state.task_cache.write().await;
+        let mut tasks = (*cache.all.tasks).clone();
+        tasks.retain(|t| !matches!(t.status, TaskStatus::Done | TaskStatus::Cancelled | TaskStatus::Failed));
+        cache.all.tasks = Arc::new(tasks);
+        cache.all.mark_stale();
+    }
+
+    info!("🧹 Purge: deleted {}/{} tasks", deleted, total);
+    Json(serde_json::json!({"purged": deleted, "total_found": total})).into_response()
+}
+
 async fn metrics_api(State(state): State<AppState>) -> impl IntoResponse {
-    let store = state.tasks.lock().await;
-    let all_tasks = store.list_all().await;
-
-    let mut by_status: HashMap<String, i64> = HashMap::new();
-    let mut by_agent: HashMap<String, i64> = HashMap::new();
-    let mut by_priority: HashMap<String, i64> = HashMap::new();
-    let mut completed_durations: Vec<f64> = Vec::new();
-    let mut agent_durations: HashMap<String, Vec<f64>> = HashMap::new();
-
-    for task in &all_tasks {
-        let status = format!("{:?}", task.status).to_lowercase();
-        *by_status.entry(status.clone()).or_default() += 1;
-        *by_priority.entry(task.priority.clone()).or_default() += 1;
-
-        if let Some(ref agent) = task.assigned_to {
-            *by_agent.entry(agent.clone()).or_default() += 1;
-        }
-
-        if task.status == TaskStatus::Done || task.status == TaskStatus::Review {
-            if let (Ok(c_dt), Ok(u_dt)) = (
-                chrono::DateTime::parse_from_rfc3339(&task.created_at),
-                chrono::DateTime::parse_from_rfc3339(&task.updated_at),
-            ) {
-                let dur = u_dt.signed_duration_since(c_dt).num_seconds() as f64;
-                if dur > 0.0 {
-                    completed_durations.push(dur);
-                }
+    // === Кэш: мгновенный ответ если данные свежие ===
+    {
+        let cache = state.metrics_cache.read().await;
+        if cache.is_fresh() {
+            if let Some(ref v) = cache.payload {
+                return Json(v.clone()).into_response();
             }
         }
-
-        if let Some(dur) = task.metadata.get("duration_seconds").and_then(|v| v.as_f64()) {
-            if let Some(ref agent) = task.assigned_to {
-                agent_durations.entry(agent.clone()).or_default().push(dur);
+        if cache.refreshing && cache.is_usable() {
+            if let Some(ref v) = cache.payload {
+                return Json(v.clone()).into_response();
             }
         }
     }
+    { let mut c = state.metrics_cache.write().await; c.refreshing = true; }
 
-    let avg_completion_seconds = if !completed_durations.is_empty() {
-        Some(
-            (completed_durations.iter().sum::<f64>() / completed_durations.len() as f64 * 10.0)
-                .round()
-                / 10.0,
-        )
-    } else {
-        None
-    };
+    // === count_all_statuses() — один open_table() + 7 параллельных count_rows ===
+    // Было: 7 отдельных count_by_status (7 × open_table = ~35ms).
+    // Стало: 1 × open_table + 7 параллельных count_rows (~5ms).
+    let counts = state.tasks.count_all_statuses().await;
 
-    let mut agent_performance = serde_json::json!({});
-    for (agent, durs) in agent_durations {
-        let avg = if !durs.is_empty() {
-            (durs.iter().sum::<f64>() / durs.len() as f64 * 10.0).round() / 10.0
-        } else {
-            0.0
-        };
-        agent_performance[agent] = serde_json::json!({
-            "avg_seconds": avg,
-            "completed": durs.len()
-        });
-    }
+    let n_pending = *counts.get("Pending").unwrap_or(&0);
+    let n_dispatched = *counts.get("Dispatched").unwrap_or(&0);
+    let n_inprog = *counts.get("InProgress").unwrap_or(&0);
+    let n_review = *counts.get("Review").unwrap_or(&0);
+    let n_done = *counts.get("Done").unwrap_or(&0);
+    let n_failed = *counts.get("Failed").unwrap_or(&0);
+    let n_cancelled = *counts.get("Cancelled").unwrap_or(&0);
 
-    Json(serde_json::json!({
-        "total_tasks": all_tasks.len(),
-        "by_status": by_status,
-        "by_agent": by_agent,
-        "by_priority": by_priority,
-        "avg_completion_seconds": avg_completion_seconds,
-        "agent_performance": agent_performance,
+    let total = n_pending + n_dispatched + n_inprog + n_review + n_done + n_failed + n_cancelled;
+
+    let result = serde_json::json!({
+        "total_tasks": total,
+        "by_status": {
+            "pending":    n_pending,
+            "dispatched": n_dispatched,
+            "inprogress": n_inprog,
+            "review":     n_review,
+            "done":       n_done,
+            "failed":     n_failed,
+            "cancelled":  n_cancelled,
+        },
         "timestamp": Utc::now().to_rfc3339()
-    }))
+    });
+
+    {
+        let mut cache = state.metrics_cache.write().await;
+        cache.payload = Some(result.clone());
+        cache.updated_at = Some(Instant::now());
+        cache.refreshing = false;
+    }
+
+    Json(result).into_response()
 }
 
 async fn get_agents_api() -> impl IntoResponse {
@@ -978,8 +1286,7 @@ async fn handle_ws(socket: WebSocket, task_id: String, state: AppState) {
     let (mut sender, mut receiver) = socket.split();
 
     if task_id != "*" {
-        let store = state.tasks.lock().await;
-        if let Some(task) = store.get(&task_id).await {
+        if let Some(task) = state.tasks.get(&task_id).await {
             let resp = TaskResponse::from(&task);
             let initial = serde_json::json!({
                 "type": "initial_state",
@@ -990,7 +1297,6 @@ async fn handle_ws(socket: WebSocket, task_id: String, state: AppState) {
                 return;
             }
         }
-        drop(store);
     }
 
     let send_task = tokio::spawn(async move {
@@ -1035,10 +1341,22 @@ async fn ws_tasks_stream(socket: WebSocket, state: AppState, agent: String) {
     let mut rx = state.ws_tx.subscribe();
     let (mut sender, mut receiver) = socket.split();
 
-    // Send current pending tasks
+    // Send current pending tasks (via cache to avoid extra Lance scan + contention)
     {
-        let store = state.tasks.lock().await;
-        let pending = store.list_pending().await;
+        let all = get_tasks_cached(&state).await;
+        let mut pending: Vec<_> = all.iter()
+            .filter(|t| t.status == TaskStatus::Pending)
+            .cloned()
+            .collect();
+        pending.sort_by(|a, b| {
+            let prio = |p: &str| match p {
+                "critical" => 0,
+                "high" => 1,
+                "medium" => 2,
+                _ => 3,
+            };
+            prio(&a.priority).cmp(&prio(&b.priority))
+        });
         for task in pending {
             let pref = task.preferred_agent.as_deref().unwrap_or("auto");
             if agent.is_empty() || pref == agent || pref == "auto" {
@@ -1121,13 +1439,90 @@ async fn main() {
     let (ws_tx, _) = tokio::sync::broadcast::channel(100);
 
     let state = AppState {
-        tasks: Arc::new(tokio::sync::Mutex::new(task_store)),
+        tasks: Arc::new(task_store),
+        task_cache: new_task_cache(),
+        metrics_cache: Arc::new(tokio::sync::RwLock::new(MetricsCache::default())),
         agents: Arc::new(tokio::sync::Mutex::new(agents_store)),
         blackboard: Arc::new(tokio::sync::Mutex::new(blackboard_store)),
         knowledge: Arc::new(tokio::sync::Mutex::new(knowledge_store)),
         data_dir: data_dir.clone(),
         ws_tx,
     };
+
+    // Pre-warm task list cache in background so first /tasks requests are never cold (no 25s delay on restart)
+    {
+        let state_prewarm = state.clone();
+        tokio::spawn(async move {
+            // fire and forget; ignore result
+            let _ = get_tasks_cached(&state_prewarm).await;
+            // also touch metrics (uses fast counts)
+            let _ = metrics_api(State(state_prewarm)).await;
+        });
+    }
+
+    // ── Background LanceDB compaction (every 5 min) ──
+    {
+        let state_compact = state.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(300)).await;
+                state_compact.tasks.compact_if_needed().await;
+                info!("🗜️ Background compaction tick");
+            }
+        });
+    }
+
+    // ── Background zombie reclaimer for stuck in_progress (FIX-01) ──
+    // Problem: worker death (OOM, rate-limit, network) leaves task in InProgress forever -> leakage.
+    // Solution: bg tokio::spawn (placed next to compaction) that returns stale in_progress -> pending.
+    {
+        let state_zombie = state.clone();
+        tokio::spawn(async move {
+            let timeout_mins: i64 = std::env::var("ZOMBIE_TIMEOUT_MINUTES")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(25);
+            let timeout_secs = timeout_mins * 60;
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                let inprog = state_zombie.tasks.list_by_status(&TaskStatus::InProgress).await;
+                if inprog.is_empty() {
+                    continue;
+                }
+                let now = Utc::now();
+                for mut t in inprog {
+                    if let Ok(updated) = chrono::DateTime::parse_from_rfc3339(&t.updated_at) {
+                        let age = now.timestamp() - updated.timestamp();
+                        if age > timeout_secs {
+                            warn!(
+                                task_id = %t.id,
+                                assigned = ?t.assigned_to,
+                                age_min = age / 60,
+                                timeout = timeout_mins,
+                                "FIX-01 zombie: returning stuck in_progress task to pending"
+                            );
+                            t.status = TaskStatus::Pending;
+                            t.assigned_to = None;
+                            let rc = t.metadata.get("retry_count")
+                                .and_then(|v| v.as_i64())
+                                .unwrap_or(0) + 1;
+                            t.metadata.insert("retry_count".into(), serde_json::json!(rc));
+                            t.metadata.insert("zombie_reclaimed".into(), serde_json::json!(true));
+                            t.metadata.insert("reclaimed_at".into(), serde_json::json!(now.to_rfc3339()));
+                            t.updated_at = now.to_rfc3339();
+                            if let Err(e) = state_zombie.tasks.update(t.clone()).await {
+                                warn!(task_id = %t.id, "zombie update err: {}", e);
+                            } else {
+                                // keep cache coherent
+                                let mut c = state_zombie.task_cache.write().await;
+                                c.upsert_task(&t);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     // ── Proxy handler for old Planly API ──────────────
     async fn proxy_to_planly(req: axum::extract::Request) -> impl IntoResponse {
@@ -1192,8 +1587,10 @@ async fn main() {
         // Tasks
         .route("/tasks", get(list_tasks_api).post(create_task_api))
         .route("/api/tasks", get(list_tasks_api).post(create_task_api))
-        .route("/tasks/{id}", get(get_task_api).patch(update_task_api))
-        .route("/api/tasks/{id}", get(get_task_api).patch(update_task_api))
+        .route("/claim", post(claim_task_api))
+        .route("/api/claim", post(claim_task_api))
+        .route("/tasks/{id}", get(get_task_api).patch(update_task_api).delete(delete_task_api))
+        .route("/api/tasks/{id}", get(get_task_api).patch(update_task_api).delete(delete_task_api))
         .route("/tasks/{id}/dispatch", post(dispatch_task_api))
         .route("/api/tasks/{id}/dispatch", post(dispatch_task_api))
         .route("/tasks/{id}/review", post(review_task_api))
@@ -1202,6 +1599,8 @@ async fn main() {
         .route("/api/tasks/{id}/reject", post(reject_task_api))
         .route("/review/all", post(review_all_tasks_api))
         .route("/api/review/all", post(review_all_tasks_api))
+        .route("/tasks/purge", post(purge_tasks_api))
+        .route("/api/tasks/purge", post(purge_tasks_api))
         // Metrics
         .route("/metrics", get(metrics_api))
         .route("/api/metrics", get(metrics_api))

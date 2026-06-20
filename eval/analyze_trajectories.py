@@ -1,18 +1,32 @@
 #!/usr/bin/env python3
 """
-Trajectory Analyzer for AgentForge Evaluation Framework
+DEPRECATED — PROPOSE REMOVAL (SWARM task analysis)
 
-This tool analyzes the structured .jsonl logs produced by the runners.
-It is a key component for moving from "we run tasks" to "we understand and improve our agents".
+Trajectory Analyzer for AgentForge Evaluation Framework (legacy Python).
 
-!!! AGGRESSIVE FINAL DEPRECATION SWEEP (RUST_FULL_MIGRATION_PLAN.md + PHASE4_REMOVAL_PLAN.md) !!!
-This file is CORE EVAL (prm/trajectory analysis) — EXEMPT from Phase 4 Python DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) orchestration removal.
-Only DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) glue (e.g. in post_process.py, runner.py orchestration entrypoints) is deprecated.
-Trajectory analysis for pure eval paths remains fully supported + independent of DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) proposal/candidate/continuous.
-Guard logic + banners apply only to orchestration (see learning/utils.py + PHASE4_* docs for full targets list).
-Non-orchestration eval/ is out of Phase 4 DEPRECATED (Tier 2 surgical, see docs/JULES_PY_REMOVAL_HANDOFF_f29c675b.md and PHASE4 checklist) scope (see PLAN exemptions).
+ANALYSIS CONCLUSION:
+We have FULLY switched to Rust (agentforge-runner, gateway@9090, flywheel in Rust,
+agentforge-observability for spans/replay, learning crates, etc.).
+Trajectory event logging still occurs via eval/log_trajectory.sh (bash-invoked from py workers)
+for compat, and Rust side consumes eval/trajectories/*.jsonl + *.prm.json sidecars
+(via --trajectories for flywheel-export etc).
 
-Usage:
+However:
+- This analyzer + report is ONLY used inside the remaining legacy Python eval/ harness
+  (cli.py, insights.py, suggest.py, generate_evaluation_report.py + tests).
+- No production services invoke `analyze_trajectories` directly.
+- Per REMAINING_PYTHON...md: "Eval harness kept for benchmark value" but "Port or sunset eval harness (keep minimal... use Rust obs)".
+- In PHASE4 checklist this was "surgical" for flywheel refs only; core "data value kept" — but per this SWARM directive and full Rust migration:
+  the code is old Python, no longer core to active Rust paths.
+
+RECOMMENDATION: DELETE this file.
+  rm eval/analyze_trajectories.py
+  (Follow with surgical cleanup of its 5 importers + update of docs/eval/READMEs + consider
+   porting PRM/report value to Rust subcommand or retire.)
+
+This is the ONLY file modified per strict SWARM rule. Lightning analysis complete.
+
+Original usage (for reference only):
     python -m agentforge.eval.analyze_trajectories
     python -m agentforge.eval.analyze_trajectories --agent grok --json
 """

@@ -1054,44 +1054,7 @@
             </div>
         </section>
 
-        <!-- === Kanban-доска === -->
-        <section class="kanban" id="kanban">
-            <!-- Колонка: Очередь -->
-            <div class="kanban-column">
-                <div class="column-header">
-                    <span class="column-title">📋 Очередь</span>
-                    <span class="column-count" id="countPending">0</span>
-                </div>
-                <div class="column-cards" id="colPending"></div>
-            </div>
-
-            <!-- Колонка: В работе -->
-            <div class="kanban-column">
-                <div class="column-header">
-                    <span class="column-title">🚀 В работе</span>
-                    <span class="column-count" id="countProgress">0</span>
-                </div>
-                <div class="column-cards" id="colProgress"></div>
-            </div>
-
-            <!-- Колонка: На ревью -->
-            <div class="kanban-column">
-                <div class="column-header">
-                    <span class="column-title">👁️ На ревью</span>
-                    <span class="column-count" id="countReview">0</span>
-                </div>
-                <div class="column-cards" id="colReview"></div>
-            </div>
-
-            <!-- Колонка: Готово -->
-            <div class="kanban-column">
-                <div class="column-header">
-                    <span class="column-title">✅ Готово</span>
-                    <span class="column-count" id="countDone">0</span>
-                </div>
-                <div class="column-cards" id="colDone"></div>
-            </div>
-        </section>
+        <!-- Kanban removed -->
 
         <!-- Форма добавления задачи отключена -->
 
@@ -1145,7 +1108,7 @@
             console.warn('[AgentForge] Ни один API-сервер не отвечает');
         }
         let refreshTimer = null;
-        let allTasks = []; // Кэш всех задач
+        // Kanban кэш удалён, используем только метрики
 
         // === DOM-элементы ===
         const dom = {
@@ -1159,16 +1122,6 @@
             statProgress: document.getElementById('statProgress'),
             statDone: document.getElementById('statDone'),
             statPending: document.getElementById('statPending'),
-            // Kanban колонки
-            colPending: document.getElementById('colPending'),
-            colProgress: document.getElementById('colProgress'),
-            colReview: document.getElementById('colReview'),
-            colDone: document.getElementById('colDone'),
-            // Счётчики колонок
-            countPending: document.getElementById('countPending'),
-            countProgress: document.getElementById('countProgress'),
-            countReview: document.getElementById('countReview'),
-            countDone: document.getElementById('countDone'),
 
         };
 
@@ -1201,11 +1154,7 @@
          * @param {'success'|'error'} type - Тип уведомления
          */
         function showToast(message, type = 'success') {
-            dom.toast.textContent = message;
-            dom.toast.className = `toast ${type} visible`;
-            setTimeout(() => {
-                dom.toast.classList.remove('visible');
-            }, 3000);
+            // Disabled popup notification
         }
 
         /**
@@ -1316,63 +1265,47 @@
 
         async function fetchTasks() {
             try {
-                // КЛЮЧЕВОЙ ФИКС: относительный URL + retry+backoff вместо прямого fetch
-                // Больше нет alert() popup, который блокировал UI при таймауте туннеля.
-                const resp = await fetchWithRetry('/tasks', { signal: AbortSignal.timeout(8000) });
+                // ОГРОМНАЯ ОПТИМИЗАЦИЯ: Так как Kanban доска удалена, нам не нужны все 1500 задач.
+                // Вместо скачивания 186KB массива каждые 2 секунды, запрашиваем 200 байт из /api/metrics!
+                const resp = await fetchWithRetry('/api/metrics', { signal: AbortSignal.timeout(8000) });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                allTasks = await resp.json();
-                renderAll();
+                
+                const metrics = await resp.json();
+                renderAll(metrics);
+                
                 // Обновляем время последнего успешного обновления
                 const now = new Date();
                 dom.lastUpdate.textContent = `Обновлено: ${now.toLocaleTimeString('ru-RU')}`;
             } catch (e) {
-                // ФИКС: заменено alert() на console.warn + (опционально) не-блокирующий toast
-                console.warn('[AgentForge] Ошибка загрузки задач после всех ретраев:', e.message || e);
-                // Не используем alert — это было причиной UX проблемы на port 9090
+                console.warn('[AgentForge] Ошибка загрузки метрик после всех ретраев:', e.message || e);
                 if (typeof showToast === 'function') {
-                    showToast('⚠️ Не удалось загрузить задачи: ' + (e.message || 'таймаут'), 'alert');
-                } else {
-                    console.error('[AgentForge] Полная ошибка fetchTasks:', e);
+                    showToast('⚠️ Не удалось загрузить статистику: ' + (e.message || 'таймаут'), 'alert');
                 }
             }
         }
 
         // === Рендеринг ===
 
-        /**
-         * Перерисовать статистику и Kanban-доску
-         */
-        function renderAll() {
-            // Распределяем задачи по колонкам
-            const pending = allTasks.filter(t => t.status === 'pending');
-            const inWork = allTasks.filter(t => t.status === 'dispatched' || t.status === 'in_progress');
-            const review = allTasks.filter(t => t.status === 'review');
-            const done = allTasks.filter(t => t.status === 'done' || t.status === 'failed' || t.status === 'cancelled');
+        function renderAll(metrics) {
+            const stats = metrics.by_status || {};
+            
+            // Распределяем метрики по нашим логическим блокам
+            const pending = stats.pending || 0;
+            const inWork = (stats.inprogress || 0) + (stats.dispatched || 0);
+            const done = (stats.done || 0) + (stats.failed || 0) + (stats.cancelled || 0);
+            const total = metrics.total_tasks || 0;
 
-            // Обновляем статистику
-            animateCounter(dom.statTotal, allTasks.length);
-            animateCounter(dom.statProgress, inWork.length);
-            animateCounter(dom.statDone, done.length);
-            animateCounter(dom.statPending, pending.length);
+            // Обновляем статистику с анимацией
+            animateCounter(dom.statTotal, total);
+            animateCounter(dom.statProgress, inWork);
+            animateCounter(dom.statDone, done);
+            animateCounter(dom.statPending, pending);
+            
             // Отдельные счётчики failed и cancelled
-            const failedTasks = allTasks.filter(t => t.status === 'failed');
-            const cancelledTasks = allTasks.filter(t => t.status === 'cancelled');
             const sfailed = document.getElementById('statFailed');
             const scancelled = document.getElementById('statCancelled');
-            if (sfailed) animateCounter(sfailed, failedTasks.length);
-            if (scancelled) animateCounter(scancelled, cancelledTasks.length);
-
-            // Обновляем счётчики колонок
-            dom.countPending.textContent = pending.length;
-            dom.countProgress.textContent = inWork.length;
-            dom.countReview.textContent = review.length;
-            dom.countDone.textContent = done.length;
-
-            // Рендерим карточки в колонки
-            renderColumn(dom.colPending, pending, true);
-            renderColumn(dom.colProgress, inWork, false);
-            renderColumn(dom.colReview, review, false);
-            renderColumn(dom.colDone, done, false);
+            if (sfailed) animateCounter(sfailed, stats.failed || 0);
+            if (scancelled) animateCounter(scancelled, stats.cancelled || 0);
         }
 
         /**
@@ -1384,69 +1317,7 @@
             el.textContent = target;
         }
 
-        /**
-         * Рендерить карточки в колонку
-         * @param {HTMLElement} container - Контейнер колонки
-         * @param {Array} tasks - Массив задач для этой колонки
-         * @param {boolean} showDispatch - Показывать кнопку диспетчеризации
-         */
-        function renderColumn(container, tasks, showDispatch) {
-            if (tasks.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-column">
-                        <div class="empty-column-icon">📭</div>
-                        <div>Нет задач</div>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = tasks.map((task, index) => {
-                // Определяем агента для бейджа
-                const agent = task.assigned_agent || task.preferred_agent || 'auto';
-                const agentClass = ['grok', 'antigravity'].includes(agent) ? agent : 'auto';
-                // Имя агента без нумерации
-                const agentName = agent === 'auto' ? 'АВТО' : agent.toUpperCase();
-
-                // Теги
-                const tags = (task.tags || []);
-                const tagsHtml = tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('');
-
-                // Кнопка диспетчеризации (только для pending)
-                const dispatchHtml = showDispatch
-                    ? `<button class="dispatch-btn" onclick="dispatchTask('${task.id}')" title="Назначить агенту">▶ Запуск</button>`
-                    : '';
-
-                // Иконки и кнопки для review (HITL)
-                const reviewHtml = task.status === 'review'
-                    ? `<div class="review-actions">
-                           <button class="approve-btn" onclick="approveTask('${task.id}')">Approve ✅</button>
-                           <button class="reject-btn" onclick="promptRejectTask('${task.id}')">Reject ❌</button>
-                       </div>`
-                    : '';
-
-                // Иконка статуса для done/failed
-                const statusIcon = task.status === 'failed' ? '❌ ' : '';
-
-                return `
-                    <div class="task-card" data-priority="${task.priority}" style="animation-delay: ${index * 0.05}s">
-                        <div class="task-title">${statusIcon}${escapeHtml(task.title)}</div>
-                        ${task.result ? `<div class="task-result">${escapeHtml(task.result)}</div>` : ''}
-                        <div class="task-meta">
-                            <span class="agent-badge ${agentClass}">${agentName}</span>
-                            <span class="priority-dot ${task.priority}" title="${priorityLabel(task.priority)}"></span>
-                            <span class="complexity-badge ${task.complexity}">${complexityLabel(task.complexity)}</span>
-                        </div>
-                        ${tags.length > 0 ? `<div class="task-tags">${tagsHtml}</div>` : ''}
-                        ${reviewHtml}
-                        <div class="task-footer">
-                            <span class="task-time" title="${task.id}">#${task.id.substring(0, 8)} · ${timeAgo(task.created_at)}</span>
-                            ${dispatchHtml}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
+        // renderColumn removed
 
         /**
          * Экранирование HTML для предотвращения XSS

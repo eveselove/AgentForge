@@ -21,6 +21,7 @@ dependencies = [
  "lancedb",
  "serde",
  "serde_json",
+ "tokio",
  "uuid",
 ]
 
@@ -33,6 +34,7 @@ dependencies = [
  "chrono",
  "dotenv",
  "futures",
+ "rand 0.9.4",
  "reqwest",
  "rusqlite",
  "serde",

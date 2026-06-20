@@ -28,6 +28,27 @@ impl Default for TrainingConfig {
     }
 }
 
+impl TrainingConfig {
+    /// Lightweight validation for common misconfigs that would cause downstream
+    /// training (or even dry-run bookkeeping) to misbehave. Called from trainers.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.method.trim().is_empty() {
+            return Err("training method must not be empty".to_string());
+        }
+        if self.batch_size == 0 {
+            return Err("batch_size must be > 0".to_string());
+        }
+        if self.epochs == 0 {
+            return Err("epochs must be > 0".to_string());
+        }
+        if self.learning_rate <= 0.0 {
+            return Err("learning_rate must be > 0".to_string());
+        }
+        // model_name and extra are intentionally permissive
+        Ok(())
+    }
+}
+
 /// Result of a training run (or dry-run / preparation).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrainingRun {
@@ -66,38 +87,57 @@ impl BaseTrainer for DPOTrainer {
         dataset: &TrajectoryDataset,
         output_dir: Option<PathBuf>,
     ) -> Result<PathBuf, String> {
-        let out_dir = output_dir.unwrap_or_else(|| PathBuf::from("training_ready/dpo"));
+        // Swarm safety: for default output_dir (None) use unique run- subdir so concurrent
+        // prepares (e.g. from multiple swarm tasks) never race on the *same* preference_pairs.jsonl.
+        // When explicit output_dir provided, caller is responsible for uniqueness; we still protect
+        // the final file from partial writes via tmp+rename.
+        let out_dir = if let Some(d) = output_dir {
+            d
+        } else {
+            let base = PathBuf::from("training_ready/dpo");
+            let rid: String = uuid::Uuid::new_v4().simple().to_string();
+            base.join(format!("run-{}", &rid[..8]))
+        };
         std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
 
         let pairs = dataset.export_preference_pairs();
         let path = out_dir.join("preference_pairs.jsonl");
 
-        let mut file = std::fs::File::create(&path).map_err(|e| e.to_string())?;
-        for p in pairs {
+        // Atomic buffered write: prevents interleaved corrupt JSONL on concurrent writers to same target
+        // (last writer wins with a *complete* valid file; no torn writes).
+        let tmp = out_dir.join(format!(".pref.tmp-{}", uuid::Uuid::new_v4()));
+        {
+            let file = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+            let mut w = std::io::BufWriter::new(file);
             use std::io::Write;
-            writeln!(file, "{}", serde_json::to_string(&p).unwrap()).map_err(|e| e.to_string())?;
+            for p in pairs {
+                writeln!(w, "{}", serde_json::to_string(&p).unwrap()).map_err(|e| e.to_string())?;
+            }
+            w.flush().map_err(|e| e.to_string())?;
         }
+        std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
 
         Ok(path)
     }
 
     fn train(
         &self,
-        _prepared_data: &Path,
+        prepared_data: &Path,
         config: &TrainingConfig,
         output_dir: Option<PathBuf>,
     ) -> Result<TrainingRun, String> {
+        config.validate()?;
         // In real implementation: call TRL / axolotl / etc.
         // For now: dry-run artifact.
         Ok(TrainingRun {
             run_id: uuid::Uuid::new_v4().to_string(),
             method: config.method.clone(),
             config: config.clone(),
-            prepared_data_path: Some(_prepared_data.to_path_buf()),
+            prepared_data_path: Some(prepared_data.to_path_buf()),
             output_dir,
             status: "dry_run".to_string(),
             started_at: chrono::Utc::now().to_rfc3339(),
-            finished_at: None,
+            finished_at: Some(chrono::Utc::now().to_rfc3339()),
         })
     }
 }
@@ -111,32 +151,41 @@ impl BaseTrainer for KTOTrainer {
         dataset: &TrajectoryDataset,
         output_dir: Option<PathBuf>,
     ) -> Result<PathBuf, String> {
-        let out_dir = output_dir.unwrap_or_else(|| PathBuf::from("training_ready/kto"));
+        // Swarm safety: unique run- subdir on implicit default (see DPOTrainer for rationale).
+        let out_dir = if let Some(d) = output_dir {
+            d
+        } else {
+            let base = PathBuf::from("training_ready/kto");
+            let rid: String = uuid::Uuid::new_v4().simple().to_string();
+            base.join(format!("run-{}", &rid[..8]))
+        };
         std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
 
-        let kto_examples: Vec<_> = dataset
-            .records
-            .iter()
-            .map(|rec| {
+        // Stream directly over records (no Vec<json> allocation) + buffered atomic write:
+        // eliminates the main memory/alloc bottleneck for large trajectory datasets.
+        let path = out_dir.join("kto_examples.jsonl");
+        let tmp = out_dir.join(format!(".kto.tmp-{}", uuid::Uuid::new_v4()));
+        {
+            let file = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+            let mut w = std::io::BufWriter::new(file);
+            use std::io::Write;
+            for rec in &dataset.records {
                 let desirable = rec.outcome == crate::types::Outcome::Success
                     && rec.prm_overall.unwrap_or(0.0) >= 0.6;
-                serde_json::json!({
+                let ex = serde_json::json!({
                     "task_id": rec.task_id,
                     "benchmark_id": rec.benchmark_id,
                     "events": rec.events,
                     "label": if desirable { "desirable" } else { "undesirable" },
                     "prm": rec.prm_overall,
                     "outcome": rec.outcome,
-                })
-            })
-            .collect();
-
-        let path = out_dir.join("kto_examples.jsonl");
-        let mut file = std::fs::File::create(&path).map_err(|e| e.to_string())?;
-        for ex in kto_examples {
-            use std::io::Write;
-            writeln!(file, "{}", serde_json::to_string(&ex).unwrap()).map_err(|e| e.to_string())?;
+                });
+                writeln!(w, "{}", serde_json::to_string(&ex).unwrap())
+                    .map_err(|e| e.to_string())?;
+            }
+            w.flush().map_err(|e| e.to_string())?;
         }
+        std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
         Ok(path)
     }
 
@@ -146,15 +195,20 @@ impl BaseTrainer for KTOTrainer {
         config: &TrainingConfig,
         output_dir: Option<PathBuf>,
     ) -> Result<TrainingRun, String> {
+        config.validate()?;
         Ok(TrainingRun {
             run_id: uuid::Uuid::new_v4().to_string(),
-            method: "kto".to_string(),
+            method: if config.method.is_empty() {
+                "kto".to_string()
+            } else {
+                config.method.clone()
+            },
             config: config.clone(),
             prepared_data_path: Some(prepared_data.to_path_buf()),
             output_dir,
             status: "dry_run".to_string(),
             started_at: chrono::Utc::now().to_rfc3339(),
-            finished_at: None,
+            finished_at: Some(chrono::Utc::now().to_rfc3339()),
         })
     }
 }
@@ -168,31 +222,41 @@ impl BaseTrainer for SFTTrainer {
         dataset: &TrajectoryDataset,
         output_dir: Option<PathBuf>,
     ) -> Result<PathBuf, String> {
-        let out_dir = output_dir.unwrap_or_else(|| PathBuf::from("training_ready/sft"));
+        // Swarm safety: unique run- subdir on implicit default (see DPOTrainer for rationale).
+        let out_dir = if let Some(d) = output_dir {
+            d
+        } else {
+            let base = PathBuf::from("training_ready/sft");
+            let rid: String = uuid::Uuid::new_v4().simple().to_string();
+            base.join(format!("run-{}", &rid[..8]))
+        };
         std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
 
-        let successes: Vec<_> = dataset
-            .records
-            .iter()
-            .filter(|r| r.outcome == crate::types::Outcome::Success)
-            .map(|rec| {
-                serde_json::json!({
+        // Stream directly (filter+map iterator, no intermediate Vec allocation) + BufWriter + atomic rename.
+        let path = out_dir.join("sft_success_trajectories.jsonl");
+        let tmp = out_dir.join(format!(".sft.tmp-{}", uuid::Uuid::new_v4()));
+        {
+            let file = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+            let mut w = std::io::BufWriter::new(file);
+            use std::io::Write;
+            for rec in dataset
+                .records
+                .iter()
+                .filter(|r| r.outcome == crate::types::Outcome::Success)
+            {
+                let s = serde_json::json!({
                     "task_id": rec.task_id,
                     "benchmark_id": rec.benchmark_id,
                     "agent": rec.agent,
                     "events": rec.events,
                     "prm": rec.prm_overall,
                     "duration": rec.duration_seconds,
-                })
-            })
-            .collect();
-
-        let path = out_dir.join("sft_success_trajectories.jsonl");
-        let mut file = std::fs::File::create(&path).map_err(|e| e.to_string())?;
-        for s in successes {
-            use std::io::Write;
-            writeln!(file, "{}", serde_json::to_string(&s).unwrap()).map_err(|e| e.to_string())?;
+                });
+                writeln!(w, "{}", serde_json::to_string(&s).unwrap()).map_err(|e| e.to_string())?;
+            }
+            w.flush().map_err(|e| e.to_string())?;
         }
+        std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
         Ok(path)
     }
 
@@ -202,15 +266,20 @@ impl BaseTrainer for SFTTrainer {
         config: &TrainingConfig,
         output_dir: Option<PathBuf>,
     ) -> Result<TrainingRun, String> {
+        config.validate()?;
         Ok(TrainingRun {
             run_id: uuid::Uuid::new_v4().to_string(),
-            method: "sft".to_string(),
+            method: if config.method.is_empty() {
+                "sft".to_string()
+            } else {
+                config.method.clone()
+            },
             config: config.clone(),
             prepared_data_path: Some(prepared_data.to_path_buf()),
             output_dir,
             status: "dry_run".to_string(),
             started_at: chrono::Utc::now().to_rfc3339(),
-            finished_at: None,
+            finished_at: Some(chrono::Utc::now().to_rfc3339()),
         })
     }
 }
@@ -259,6 +328,7 @@ mod tests {
         let p = dpo.prepare_dataset(&ds, None).unwrap();
         let run = dpo.train(&p, &cfg, None).unwrap();
         assert_eq!(run.status, "dry_run");
+        assert!(run.finished_at.is_some());
 
         let kto = KTOTrainer;
         let p2 = kto.prepare_dataset(&ds, None).unwrap();
@@ -266,5 +336,13 @@ mod tests {
 
         let sft = SFTTrainer;
         let _ = sft.prepare_dataset(&ds, None).unwrap();
+
+        // Validation coverage (new in audit fix)
+        let mut bad = cfg.clone();
+        bad.batch_size = 0;
+        assert!(dpo.train(&p, &bad, None).is_err());
+        bad = cfg.clone();
+        bad.learning_rate = 0.0;
+        assert!(kto.train(&p2, &bad, None).is_err());
     }
 }

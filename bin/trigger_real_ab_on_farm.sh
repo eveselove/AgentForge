@@ -7,13 +7,13 @@
 # bin/trigger_real_ab_on_farm.sh — PRODUCTION-READY REAL A/B FARM DISPATCHER & EXECUTOR
 # =============================================================================
 # Mission: Trigger *actual live* A/B evaluations on the production farm using
-#          real task dispatch to grok/jules workers via LearningEvaluator +
+#          real task dispatch to grok workers via LearningEvaluator +
 #          eval/runner.py (simulate=False, wait_for_real=True).
 #
 # Targets:
-#   - The 3 promoted flywheel candidates (have dedicated real-mode scripts)
-#   - + Top 3 current high-value (HV) candidates from the Rust rich flywheel
-#     (dynamic + hardcoded recent for immediate exec)
+#   - The 3 promoted flywheel candidates (have dedicated real-mode scripts) + top HV (hardcoded)
+#   - + ANY additional current candidates under pending_candidates/*/ that carry run_ab_real_farm.py or run_ab_after_promote.py
+#     (auto-discovered for resilience; dups avoided). See code for list_high_value etc.
 #
 # Features (based on actual code in eval/runner.py + learning/evaluator.py):
 #   - Exact env: PYTHONPATH=., ENABLE_RUST_FLYWHEEL=1, AGENTFORGE_USE_RUST=1
@@ -39,8 +39,8 @@
 #   - **FARM LOAD**: Only run when worker utilization is low (<~40% tasks
 #     pending). Real A/B with n=3 x 6 cands x 3 benches = ~36 real tasks.
 #     Each may take 5-25min on grok (timeout 20m default). Monitor queue.
-#   - **DISPATCH**: Requires live agentforge API (localhost:8080) + active
-#     grok_worker / jules_worker processes that can pick "evaluation" tagged
+#   - **DISPATCH**: Requires live agentforge API (localhost:9090) + active
+#     grok_worker processes that can pick "evaluation" tagged
 #     tasks and honor SKILL=... (for yaml-injected prompts from promoted files).
 #   - **RATE LIMITS**: Cleanup is safe/best-effort (old artifacts + specific
 #     flywheel counters). Does NOT touch live worker locks or DB. If active
@@ -50,7 +50,7 @@
 #       # or per-task: python reassign.py <task_id> --to jules (or whatever)
 #       # Real tasks remain visible in dashboard / API; no data loss.
 #   - **MONITORING** (run in parallel tmux pane):
-#       tail -f logs/real_ab_*.log logs/jules_worker.log logs/grok_worker.log
+#       tail -f logs/real_ab_*.log logs/grok_worker.log
 #       watch -n 10 'curl -s http://localhost:9090/tasks?limit=5 | python -m json.tool; ls -l /tmp/agentforge_rust_flywheel/ 2>/dev/null | tail -5; python -m agentforge.list_pending_candidates list --limit 3 --sort value'
 #   - **ROLLBACK / NO-OP**: Entirely non-destructive to prod skills (A/B uses
 #     SKILL= temp or .promoted.*.yaml paths; baseline always "general-refactor").
@@ -68,7 +68,7 @@
 #     updates, no clobber of existing real results.
 #
 # Usage (LIVE FARM — run exactly like this):
-#   cd /home/eveselove/agentforge
+#   cd /path/to/agentforge   # or from anywhere: the script auto-resolves its root via BASH_SOURCE (worktree-safe)
 #   ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 \
 #     PYTHONPATH=. bash bin/trigger_real_ab_on_farm.sh 2>&1 | tee logs/trigger_real_ab_$(date +%Y%m%d_%H%M%S).log
 #
@@ -92,25 +92,41 @@
 
 set -euo pipefail
 
-AGENTFORGE_ROOT="/home/eveselove/agentforge"
-cd "$AGENTFORGE_ROOT"
+# Resolve AGENTFORGE_ROOT robustly (works from worktrees /tmp/agentforge/*, bin/ subdir, symlinks, or when overridden).
+# Prevents hard-coded main-tree lock-in for SWARM/isolated agents (see AGENTS.md worktree isolation).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+AGENTFORGE_ROOT="${AGENTFORGE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd -P)}"
+cd "$AGENTFORGE_ROOT" || { echo "FATAL: cannot cd to AGENTFORGE_ROOT=$AGENTFORGE_ROOT (from $0)"; exit 1; }
+
+# === RACE PREVENTION: exclusive lock (portable mkdir lockdir, auto-released on exit) ===
+# Guards against concurrent runs -> thundering herd on farm + races on /tmp/*rate*/counters + meta + patching.
+LOCK_DIR="/tmp/trigger_real_ab_on_farm.lockdir"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    echo "ERROR: another trigger_real_ab_on_farm.sh is running (lock at $LOCK_DIR). Abort to avoid data races."
+    exit 1
+fi
+trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM HUP
 
 echo "==================================================================="
 echo "=== AgentForge REAL A/B FARM DISPATCHER (trigger_real_ab_on_farm.sh) ==="
 echo "Date: $(date -Iseconds)"
 echo "Host: $(hostname)"
+echo "Root: $AGENTFORGE_ROOT"
 echo "Release binary: $(ls -l rust/target/release/agentforge-runner 2>/dev/null | awk '{print $5, $6, $7, $8}' || echo 'NOT FOUND — build first!')"
 echo "==================================================================="
 
 # === 1. Full correct environment (from enable_rust_flywheel + evaluator/runner requirements) ===
-export PYTHONPATH=".:/home/eveselove"
+PARENT_DIR="$(dirname "$AGENTFORGE_ROOT")"
+export PYTHONPATH="${PYTHONPATH:-.:$PARENT_DIR}"
 export ENABLE_RUST_FLYWHEEL=1
 export AGENTFORGE_USE_RUST=1
 export AGENTFORGE_RUST_FLYWHEEL=1
 
 # Prefer explicit release runner (fast path for any Rust hooks)
-if [ -x "rust/target/release/agentforge-runner" ]; then
-    export AGENTFORGE_RUST_RUNNER="$(realpath rust/target/release/agentforge-runner)"
+RUST_BIN="rust/target/release/agentforge-runner"
+if [ -x "$RUST_BIN" ]; then
+    AGENTFORGE_RUST_RUNNER="$(realpath "$RUST_BIN")"
+    export AGENTFORGE_RUST_RUNNER
     echo "  Using release Rust runner: $AGENTFORGE_RUST_RUNNER"
 fi
 
@@ -119,38 +135,58 @@ source bin/rust_flywheel.env 2>/dev/null || true
 source bin/enable_rust_flywheel.sh 2>/dev/null || true
 
 echo "Env ready:"
-env | grep -E '^(PYTHONPATH|ENABLE_RUST|AGENTFORGE_RUST|AGENTFORGE_USE)' | sort | cat
+env | grep -E '^(PYTHONPATH|ENABLE_RUST|AGENTFORGE_RUST|AGENTFORGE_USE)' | sort
 echo
 
 # === 2. Safe rate-limit + flywheel state cleanup (production safe, non-destructive) ===
+FLYWHEEL_DIR="/tmp/agentforge_rust_flywheel"
 echo ">>> SAFE RATE-LIMIT / FLYWHEEL STATE CLEANUP (for reliable dispatch)..."
 python3 - <<'PYEOF' 2>/dev/null || true
 from learning.pending_candidates import cleanup_old_flywheel_artifacts
-import time
 n = cleanup_old_flywheel_artifacts(2)  # aggressive short window only for A/B prep dispatch
 print(f"  Python cleanup_old_flywheel_artifacts(2h): removed {n} old items")
 PYEOF
 
 # Targeted non-destructive rm (exact patterns from production master + watchdog)
-rm -f /tmp/agentforge_rust_flywheel/.last_after_task_run \
-      /tmp/agentforge_rust_flywheel/.flywheel*counter* \
-      /tmp/agentforge_rust_flywheel/.rate* \
-      /tmp/agentforge_rust_flywheel/.*rate* 2>/dev/null || true
-rm -rf /tmp/agentforge_rust_flywheel/locks 2>/dev/null || true
+# Note: globs intentionally unquoted so shell expands them (dir var has no spaces).
+rm -f $FLYWHEEL_DIR/.last_after_task_run \
+      $FLYWHEEL_DIR/.flywheel*counter* \
+      $FLYWHEEL_DIR/.rate* \
+      $FLYWHEEL_DIR/.*rate* 2>/dev/null || true
+rm -rf $FLYWHEEL_DIR/locks 2>/dev/null || true
 
-# Light touch on very recent counter files only if they look stale (>5min)
-find /tmp/agentforge_rust_flywheel -maxdepth 1 -name '.*rate*' -o -name '*counter*' -mmin +5 -delete 2>/dev/null || true
+# Light touch on stale counter/rate files only (>5min) — FIXED: proper grouping, was deleting only counters due to -o precedence (logical bug).
+if [ -d "$FLYWHEEL_DIR" ]; then
+  find "$FLYWHEEL_DIR" -maxdepth 1 \( -name '.*rate*' -o -name '*counter*' \) -mmin +5 -delete 2>/dev/null || true
+fi
 
 echo "    Cleanup complete. (Live worker rate windows untouched if active.)"
 echo
 
-# Quick API sanity (non-fatal)
+# Quick API sanity (non-fatal) — real API port is 9090 (per workers, AGENTS.md, eval/utils.py etc)
+PENDING_TASKS=0
 if command -v curl >/dev/null; then
     if curl -sf --max-time 3 http://localhost:9090/ >/dev/null 2>&1; then
-        echo "  [OK] AgentForge API reachable at localhost:8080 (real dispatch path active)"
+        echo "  [OK] AgentForge API reachable at localhost:9090 (real dispatch path active)"
+        # Bottleneck guard: sample pending queue size (farm overload risk for ~36 extra tasks)
+        PENDING_TASKS=$(curl -sf --max-time 3 'http://localhost:9090/tasks?limit=200' 2>/dev/null | python3 -c '
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    if isinstance(data, list):
+        print(sum(1 for t in data if isinstance(t, dict) and t.get("status") in ("pending", "running")))
+    else:
+        print(0)
+except Exception:
+    print(0)
+' || echo 0)
+        echo "  Current pending+running tasks: $PENDING_TASKS (dispatching more only if <~30 recommended)"
     else
-        echo "  [WARN] API not responding on localhost:8080 — real tasks may queue or fail. (Proceed anyway for farm readiness.)"
+        echo "  [WARN] API not responding on localhost:9090 — real tasks may queue or fail. (Proceed anyway for farm readiness.)"
     fi
+fi
+if [[ ${PENDING_TASKS:-0} -gt 30 ]]; then
+    echo "  [LOAD WARN] High queue ($PENDING_TASKS). Consider waiting or pkill if needed. Continuing per original design."
 fi
 echo
 
@@ -171,10 +207,23 @@ HV_CIDS=(
 
 ALL_CIDS=("${PROMOTED_CIDS[@]}" "${HV_CIDS[@]}")
 
+# Dynamic discovery of *current* candidates carrying A/B scripts (addresses stale hardcoded CIDs logical issue).
+# Any pending_candidates/* with run_ab_real_farm.py or run_ab_after_promote.py get included (no dups).
+# Makes trigger future-proof vs cleanup/phase4 sweeps while preserving the explicit promoted+HV targets.
+if [ -d pending_candidates ]; then
+  while IFS= read -r d; do
+    c="${d#pending_candidates/}"
+    # dedup against existing
+    found=0
+    for e in "${ALL_CIDS[@]}"; do [[ "$e" == "$c" ]] && found=1; done
+    [[ $found -eq 0 ]] && ALL_CIDS+=("$c")
+  done < <(find pending_candidates -mindepth 1 -maxdepth 1 -type d \( -exec test -f "{}/run_ab_real_farm.py" \; -o -exec test -f "{}/run_ab_after_promote.py" \; \) -print 2>/dev/null | sort || true)
+fi
+
 echo "Targets (${#ALL_CIDS[@]} candidates):"
 for c in "${ALL_CIDS[@]}"; do echo "  - $c"; done
 echo
-echo ">>> SAFETY REMINDER: ~36 real farm tasks will be dispatched."
+echo ">>> SAFETY REMINDER: ~36 real farm tasks will be dispatched (more if discovered)."
 echo "    Monitor load. Abort with: pkill -f LearningEvaluator || kill the shell."
 echo "    Full monitoring: tail -f logs/real_ab_*.log + dashboard / API"
 echo
@@ -185,10 +234,10 @@ COMMANDS_FILE="bin/real_ab_farm_commands.txt"
 cat > "$COMMANDS_FILE" <<CMDEOF
 # =============================================================================
 # REAL A/B FARM DISPATCH — EXACT COMMANDS (production-ready, 2026-05-31+)
-# Generated by bin/trigger_real_ab_on_farm.sh
+# Generated by bin/trigger_real_ab_on_farm.sh (root resolved dynamically at gen time)
 # =============================================================================
 # Full dispatcher (covers promoted + top HV, with cleanup + patching + logging + meta updates)
-cd /home/eveselove/agentforge
+cd $AGENTFORGE_ROOT
 ENABLE_RUST_FLYWHEEL=1 AGENTFORGE_USE_RUST=1 PYTHONPATH=. \
   bash bin/trigger_real_ab_on_farm.sh
 
@@ -215,7 +264,7 @@ cfg = ABTestConfig(
     timeout_minutes=20,
     use_temp_skill_files=True,
 )
-promoted_yaml = "/home/eveselove/agentforge/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml"
+promoted_yaml = "$AGENTFORGE_ROOT/skills/general-refactor-flywheel-202605310534.promoted.20260531_053640.yaml"
 print(e.ab_test_skill_versions(
     ["example_rust_refactor", "lancedb_parser_bottleneck", "adaptive_throttle_tuning"],
     "general-refactor",
@@ -226,7 +275,7 @@ print(e.ab_test_skill_versions(
 
 # Rate cleanup (standalone, safe to run anytime before dispatch):
 python -c 'from learning.pending_candidates import cleanup_old_flywheel_artifacts; print(cleanup_old_flywheel_artifacts(2))'
-rm -f /tmp/agentforge_rust_flywheel/.last_after_task_run /tmp/agentforge_rust_flywheel/.flywheel*counter* /tmp/agentforge_rust_flywheel/.rate* 2>/dev/null || true
+rm -f $FLYWHEEL_DIR/.last_after_task_run $FLYWHEEL_DIR/.flywheel*counter* $FLYWHEEL_DIR/.rate* 2>/dev/null || true
 
 # Monitoring during run:
 #   tail -f logs/real_ab_*.log
@@ -259,22 +308,43 @@ for cid in "${ALL_CIDS[@]}"; do
     elif [[ -f "$AFTER_SCRIPT" ]]; then
         # Patch in-place for real dispatch (production pattern from existing master)
         echo ">>> [$cid] Patching run_ab_after_promote.py → REAL (simulate=False, wait=True, n=3, timeout=20)"
-        cp -f "$AFTER_SCRIPT" "$CAND_DIR/run_ab_after_promote.py.pre-real.$(date +%s)" 2>/dev/null || true
+        # Use ns for unique backup name (avoids rare same-second clobber if concurrent on same cid; race fix)
+        PRE_TS="$(date +%s%N)"
+        cp -f "$AFTER_SCRIPT" "$CAND_DIR/run_ab_after_promote.py.pre-real.${PRE_TS}" 2>/dev/null || true
 
-        # Multiple sed passes (robust to current formatting)
-        sed -i 's/simulate=True/simulate=False/g' "$AFTER_SCRIPT" || true
-        sed -i 's/wait_for_real=False/wait_for_real=True/g' "$AFTER_SCRIPT" || true
-        sed -i 's/n_runs_per_arm=1/n_runs_per_arm=3/g' "$AFTER_SCRIPT" || true
-        sed -i 's/n_runs_per_arm=2/n_runs_per_arm=3/g' "$AFTER_SCRIPT" || true
-        sed -i 's/timeout_minutes=45/timeout_minutes=20/g' "$AFTER_SCRIPT" || true
-        sed -i 's/timeout_minutes=30/timeout_minutes=20/g' "$AFTER_SCRIPT" || true
-        sed -i 's/timeout_minutes=60/timeout_minutes=20/g' "$AFTER_SCRIPT" || true
-        sed -i 's/"simulate": true/"simulate": false/g' "$AFTER_SCRIPT" || true
-        sed -i 's/"wait_for_real": false/"wait_for_real": true/g' "$AFTER_SCRIPT" || true
+        # ROBUST PATCHING (was fragile s/ exact; added -E + \s* + more patterns to cover " = True", dicts, no-space etc.
+        # Prevents logical error where simulate stays True -> A/B runs fake instead of real farm dispatch.
+        sed -i -E 's/simulate\s*=\s*True/simulate=False/gI' "$AFTER_SCRIPT" || true
+        sed -i -E 's/wait_for_real\s*=\s*False/wait_for_real=True/gI' "$AFTER_SCRIPT" || true
+        sed -i -E 's/n_runs_per_arm\s*=\s*1/n_runs_per_arm=3/g' "$AFTER_SCRIPT" || true
+        sed -i -E 's/n_runs_per_arm\s*=\s*2/n_runs_per_arm=3/g' "$AFTER_SCRIPT" || true
+        sed -i -E 's/timeout_minutes\s*=\s*45/timeout_minutes=20/g' "$AFTER_SCRIPT" || true
+        sed -i -E 's/timeout_minutes\s*=\s*30/timeout_minutes=20/g' "$AFTER_SCRIPT" || true
+        sed -i -E 's/timeout_minutes\s*=\s*60/timeout_minutes=20/g' "$AFTER_SCRIPT" || true
+        sed -i -E 's/"simulate"\s*:\s*true/"simulate": false/gI' "$AFTER_SCRIPT" || true
+        sed -i -E 's/"wait_for_real"\s*:\s*false/"wait_for_real": true/gI' "$AFTER_SCRIPT" || true
 
-        # Patch the ABTestConfig(...) construction line if present (one-liner style)
-        sed -i 's/simulate=True, wait_for_real=False/simulate=False, wait_for_real=True/g' "$AFTER_SCRIPT" || true
-        sed -i 's/n_runs_per_arm=1, /n_runs_per_arm=3, /g' "$AFTER_SCRIPT" || true
+        # Patch common one-liner ABTestConfig ctor (with/without spaces)
+        sed -i -E 's/simulate\s*=\s*True\s*,\s*wait_for_real\s*=\s*False/simulate=False, wait_for_real=True/gI' "$AFTER_SCRIPT" || true
+        sed -i -E 's/n_runs_per_arm\s*=\s*1\s*,/n_runs_per_arm=3,/g' "$AFTER_SCRIPT" || true
+
+        # Python fallback patch (most reliable for nested/dict cases the seds miss). Idempotent.
+        python3 - "$AFTER_SCRIPT" <<'PYPATCH' 2>/dev/null || true
+import sys, re
+p = sys.argv[1]
+with open(p, 'r', encoding='utf-8') as f:
+    src = f.read()
+src2 = re.sub(r'(?i)\bsimulate\s*=\s*True\b', 'simulate=False', src)
+src2 = re.sub(r'(?i)\bwait_for_real\s*=\s*False\b', 'wait_for_real=True', src2)
+src2 = re.sub(r'\bn_runs_per_arm\s*=\s*[12]\b', 'n_runs_per_arm=3', src2)
+src2 = re.sub(r'\btimeout_minutes\s*=\s*(?:45|30|60)\b', 'timeout_minutes=20', src2)
+src2 = re.sub(r'"simulate"\s*:\s*true', '"simulate": false', src2, flags=re.I)
+src2 = re.sub(r'"wait_for_real"\s*:\s*false', '"wait_for_real": true', src2, flags=re.I)
+if src2 != src:
+    with open(p, 'w', encoding='utf-8') as f:
+        f.write(src2)
+    print("    python-patch applied extra flips")
+PYPATCH
 
         SCRIPT_TO_RUN="$AFTER_SCRIPT"
         echo "    Patch complete. Will run real dispatch."
@@ -290,7 +360,7 @@ for cid in "${ALL_CIDS[@]}"; do
     echo "    (Real tasks will be created on farm; waiting up to 20m per run...)"
 
     set +e
-    PYTHONPATH=".:/home/eveselove" \
+    PYTHONPATH="${PYTHONPATH:-.:$PARENT_DIR}" \
     ENABLE_RUST_FLYWHEEL=1 \
     AGENTFORGE_USE_RUST=1 \
     AGENTFORGE_RUST_FLYWHEEL=1 \
@@ -361,20 +431,3 @@ echo "Production-safe. Evidence in logs/ + updated metas + history/."
 echo "==================================================================="
 
 exit $(( FAILED > 0 ? 1 : 0 ))
-
-# === PURE RUST FLYWHEEL DEFAULT (injected by make_pure_rust_flywheel_default.sh @ 2026-05-31T10:42:02+03:00) ===
-# Pure Rust cutover (production excellence): when .pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust,
-# force sole use of agentforge-runner binary for ALL flywheel/candidate/continuous orchestration.
-# Complements env snippet + unit patches. Idempotent + guarded. Ultimate killswitch: DISABLE_RUST_FLYWHEEL=1.
-PURE_MARKER="/home/eveselove/agentforge/.pure_rust_flywheel"
-if [[ -f "$PURE_MARKER" ]] || [[ "${AGENTFORGE_PURE_RUST_FLYWHEEL:-0}" = "1" ]] || [[ "${AGENTFORGE_FLYWHEEL_ENGINE:-}" = "rust" ]]; then
-    export AGENTFORGE_PURE_RUST_FLYWHEEL=1
-    export AGENTFORGE_FLYWHEEL_ENGINE=rust
-    if [ -x "/home/eveselove/agentforge/rust/target/release/agentforge-runner" ]; then
-        export AGENTFORGE_RUST_RUNNER="/home/eveselove/agentforge/rust/target/release/agentforge-runner"
-    fi
-    export AGENTFORGE_FLYWHEEL_PROVENANCE="rust-agentforge-runner"
-    # shellcheck disable=SC1091
-    [ -f "/home/eveselove/agentforge/bin/rust_flywheel.env" ] && source "/home/eveselove/agentforge/bin/rust_flywheel.env" 2>/dev/null || true
-fi
-# End pure section — DISABLE_RUST_FLYWHEEL remains ultimate global off-switch everywhere.

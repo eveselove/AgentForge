@@ -50,8 +50,8 @@
                         |
            +------------+---------------+
            v            v               v
-    grok_runner.sh  jules_runner.sh  gemini_runner.sh
-    (Grok Build)    (Jules async)    (Gemini agent)
+    grok_runner.sh  (jules_runner.sh removed)  gemini_runner.sh
+    (Grok Build)                       (Gemini agent)
 ```
 
 ### Жизненный цикл задачи (текущий)
@@ -415,7 +415,7 @@ $AGENTFORGE_RUST_RUNNER candidate promote \
 3. **Устанавливайте приоритеты** — `critical > high > medium > low`.
 4. **Указывайте `preferred_agent`** когда точно знаете кто лучше справится:
    - `grok` — быстрые фиксы, Rust, серверная работа
-   - `jules` — асинхронные GitHub PR, фоновые задачи
+   - `jules` — (legacy) асинхронные GitHub PR, фоновые задачи (farm removed)
    - `antigravity` — архитектура, сложный анализ (human-in-the-loop!)
 
 ---

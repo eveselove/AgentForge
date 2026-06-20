@@ -2,9 +2,9 @@
 # ============================================================
 # rust_flywheel_after_task.sh — Robust, idempotent, rate-limited
 # hook for live auto-execution of the Rust flywheel after real
-# task completions (Jules/Grok farm track).
+# task completions (Grok / agent farm track).
 #
-# Called from workers (grok_worker.sh, jules_worker.sh) or runners
+# Called from workers (grok_worker.sh) or runners
 # AFTER post_process on a real task.
 #
 # - Takes task_id (preferred) or trajectory path as $1.
@@ -41,7 +41,7 @@
 #
 # DEPRECATION WAVE 2 + RUNNER UX POLISH COMPLETE (RUST_FULL_MIGRATION_PLAN.md):
 #   Pure Rust surface (agentforge-runner) is now the canonical path.
-#   This hook is the farm after-task integration point (called by grok/jules workers post post_process).
+#   This hook is the farm after-task integration point (called by grok_worker post post_process).
 #   === PURE MODE (is_pure_rust_flywheel or AGENTFORGE_PURE_RUST_FLYWHEEL=1 or FLYWHEEL_ENGINE=rust) ===
 #     Direct (no Python orchestration):
 #       $AGENTFORGE_RUST_RUNNER --json flywheel-step --real-data --ingest [--shadow]
@@ -222,7 +222,6 @@ log "See also: ls -l $AGENTFORGE_ROOT/pending_candidates/ | tail -5 ; agentforge
 
 # Summary line for easy grepping in worker logs (now reflects pure runner direct path + v5 shadow)
 echo "[AgentForge] Rust flywheel after-task hook finished for $TASK_REF (pure runner: step+continuous+shadow; promote via candidate; RUNNER UX AND INTEGRATION PRODUCTION-POLISHED)" >> "$LOG_DIR/grok_worker.log" 2>/dev/null || true
-echo "[AgentForge] Rust flywheel after-task hook finished for $TASK_REF (pure runner: step+continuous+shadow; promote via candidate; RUNNER UX AND INTEGRATION PRODUCTION-POLISHED)" >> "$LOG_DIR/jules_worker.log" 2>/dev/null || true
 
 # === 14d SOAK MONITORING (simple ongoing, logs every after-task hook on real data) ===
 # Engine provenance in new manifests + health JSON + fidelity aggregate for daily audit.

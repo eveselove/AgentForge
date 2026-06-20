@@ -1,34 +1,97 @@
 #!/bin/bash
 # One-command setup for new agents/humans working on AgentForge
 
-set -e
+# Supports direct execution, sourcing (without polluting caller with set -euo), native git worktrees,
+# and grok-SWARM custom "worktree copies" (via .git/grok-worktree-source marker for canonical hooks/config).
 
-echo "🚀 Setting up AgentForge development environment..."
-
-# Install pre-commit hook
-if [ -f "bin/install-pre-commit" ]; then
-    ./bin/install-pre-commit
-else
-    echo "⚠️  bin/install-pre-commit not found"
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    set -euo pipefail
 fi
 
-# Set commit template for mandatory traceability
-if [ -f ".gitmessage" ]; then
-    git config commit.template .gitmessage || true
-    echo "✅ Git commit template set (.gitmessage — enforces Task/Jules ID)"
+# Compute script location robustly (supports bash foo/bin/setup-agent-dev, sourcing, worktree copies etc).
+# Then locate the *canonical main checkout root* that owns .git/hooks (critical for worktrees under SWARM).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CANDIDATE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$CANDIDATE_ROOT"
+
+# Priority 1 for SWARM: grok custom worktree copies have their *own* full .git/ (not a gitlink) + marker.
+# git-common-dir would resolve to the isolated copy's .git; marker tells us the real canonical root.
+MARKER_FILE="$CANDIDATE_ROOT/.git/grok-worktree-source"
+if [ -f "$MARKER_FILE" ]; then
+    CANONICAL_ROOT="$(head -c 1024 "$MARKER_FILE" | tr -d '[:space:]' || true)"
+    if [ -n "$CANONICAL_ROOT" ] && [ -d "$CANONICAL_ROOT" ] && [ -d "$CANONICAL_ROOT/.git" ]; then
+        REPO_ROOT="$CANONICAL_ROOT"
+    else
+        echo "⚠️  $MARKER_FILE points to invalid or missing path '$CANONICAL_ROOT'; falling back to candidate."
+    fi
+fi
+
+# Priority 2 (only if still on candidate): native git worktree detection via common-dir.
+if [ "$REPO_ROOT" = "$CANDIDATE_ROOT" ]; then
+    if git -C "$CANDIDATE_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+        GIT_COMMON="$(git -C "$CANDIDATE_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git -C "$CANDIDATE_ROOT" rev-parse --git-common-dir 2>/dev/null || true)"
+        if [ -n "$GIT_COMMON" ]; then
+            # Absolutize fallback for old git returning relative ".git" (when -C from main).
+            case "$GIT_COMMON" in
+                /*) ;;
+                *) GIT_COMMON="$(cd "$CANDIDATE_ROOT" && cd "$GIT_COMMON" 2>/dev/null && pwd || echo "$GIT_COMMON")" ;;
+            esac
+        fi
+        if [ -n "$GIT_COMMON" ] && [ -d "$GIT_COMMON" ]; then
+            MAIN_ROOT="$(dirname "$GIT_COMMON")"
+            if [ -d "$MAIN_ROOT/.git" ]; then
+                REPO_ROOT="$MAIN_ROOT"
+            fi
+        fi
+    fi
+fi
+# Final absolutize of whatever REPO_ROOT we selected (handles "." or any relative edge)
+REPO_ROOT="$(cd "$REPO_ROOT" && pwd 2>/dev/null || echo "$REPO_ROOT")"
+
+echo "🚀 Setting up AgentForge development environment..."
+echo "   Canonical repo root (for .git/hooks + shared config): $REPO_ROOT"
+
+# Fail fast if not a git tree at all (prevents confusing downstream errors)
+if ! git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "❌ Error: $REPO_ROOT is not inside a git repository. Run from an AgentForge clone or worktree."
+    exit 1
+fi
+
+# Install pre-commit hook — *always delegate to the canonical main copy of install-pre-commit*.
+# This guarantees its internal REPO_ROOT (from BASH_SOURCE) points at real .git/hooks, not a worktree gitlink.
+# Non-fatal: install-pre-commit may exit 1 on hook conflict (user safety); we still set template + report complete.
+# Serialize via flock to prevent data races / torn hook installs when many SWARM sub-agents invoke setup in parallel.
+LOCK_FILE="/tmp/agentforge-install-pre-commit.lock"
+(
+    if command -v flock >/dev/null 2>&1; then
+        flock -x -w 10 9 || echo "⚠️  could not acquire setup lock (concurrent?); proceeding (narrow race window possible on hook)."
+    fi
+    if [ -f "$REPO_ROOT/bin/install-pre-commit" ]; then
+        "$REPO_ROOT/bin/install-pre-commit" || echo "⚠️  install-pre-commit returned non-zero (likely hook conflict; re-run with --force if desired). Continuing to template + workflow info."
+    else
+        echo "⚠️  $REPO_ROOT/bin/install-pre-commit not found"
+    fi
+) 9>"$LOCK_FILE"
+
+# Set commit template for mandatory traceability (absolute path from canonical root; robust across cd's)
+if [ -f "$REPO_ROOT/.gitmessage" ]; then
+    git -C "$REPO_ROOT" config commit.template "$REPO_ROOT/.gitmessage" || true
+    echo "✅ Git commit template set ($REPO_ROOT/.gitmessage — enforces Task ID (legacy Jules ID ok))"
 fi
 
 # Show current recommended workflow
 echo ""
 echo "✅ Setup complete. Recommended workflow:"
 echo "1. Always pull latest main before starting work"
-echo "2. Create short-lived branch (see docs/BRANCHING_STRATEGY.md)"
-echo "3. Work with task ID or Jules session ID in commits (enforced by pre-commit + CI)"
-echo "4. Open PR with links to task/Jules session"
+echo "2. Create short-lived branch (see docs/BRANCHING_STRATEGY.md) or ./bin/agent-worktree create <slug>"
+echo "3. Work with task ID (or legacy Jules session ID) in commits (enforced by pre-commit + CI)"
+echo "4. Open PR with links to task (legacy Jules session ok)"
 echo "5. ALWAYS run agent-review skill before merge (default path)"
 echo ""
 echo "Key documents:"
 echo "  - docs/BRANCHING_STRATEGY.md"
 echo "  - AGENTS.md"
 echo "  - CONTRIBUTING.md"
-echo "  - docs/PHASE{1,2,3}_TASK_BREAKDOWN.md (current closure work)"
+echo "  - docs/PHASE1_TASK_BREAKDOWN.md, PHASE2_*, PHASE3_* (current closure work)"
+echo ""
+echo "   (Worktree note: setup always targets the shared main .git/ for hooks, even if invoked from a worktree copy of this script.)"

@@ -77,7 +77,7 @@ async def list_tools() -> list[Tool]:
                     "task_id": {"type": "string"},
                     "agent": {
                         "type": "string",
-                        "description": "ID агента (например, grok, jules, antigravity-subagent)",
+                        "description": "ID агента (например, grok, antigravity-subagent, и др.)",
                     },
                 },
                 "required": ["task_id", "agent"],

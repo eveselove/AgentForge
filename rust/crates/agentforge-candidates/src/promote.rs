@@ -102,7 +102,7 @@ pub fn promote_candidate(
                 }
             }
         }
-        let base: String = base
+        let mapped: String = base
             .chars()
             .map(|c| {
                 if c.is_alphanumeric() || c == '-' || c == '_' {
@@ -112,6 +112,26 @@ pub fn promote_candidate(
                 }
             })
             .collect();
+        // Collapse runs of '_' and trim leading/trailing for clean py-parity filenames.
+        let mut collapsed = String::with_capacity(mapped.len());
+        let mut prev_us = false;
+        for c in mapped.chars() {
+            if c == '_' {
+                if !prev_us {
+                    collapsed.push('_');
+                }
+                prev_us = true;
+            } else {
+                collapsed.push(c);
+                prev_us = false;
+            }
+        }
+        let base = collapsed.trim_matches('_').to_string();
+        let base = if base.is_empty() {
+            "skill".to_string()
+        } else {
+            base
+        };
 
         let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S").to_string();
         let dest_name = format!("{}.promoted.{}.yaml", base, ts);
@@ -228,8 +248,19 @@ pub fn promote_candidate(
 
     // 4) Append to promotions.jsonl (the canonical py-parity live log under pending) + update skills/promotion_history.json (rolling array)
     // (history_path points to promotions.jsonl; we also explicitly ensure the promotions name for clarity)
+    // Skill name (py-parity audit field in promotions.jsonl).
+    let skill_name = fs::read_to_string(&meta_p)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| {
+            v.get("skill")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_default();
     let entry = serde_json::json!({
         "candidate_id": candidate_id,
+        "skill": skill_name,
         "promoted_at": promoted_at.replace("+00:00", "Z"),
         "promoted_to": promoted_to.as_ref().map(|p| p.to_string_lossy().to_string()),
         "copy_to_skills": copy_to_skills,
@@ -515,7 +546,7 @@ mod tests {
                 || hp.contains("promotions.jsonl")
                 || r.history_path
                     .file_name()
-                    .map_or(false, |n| n.to_string_lossy().contains("promotions"))
+                    .is_some_and(|n| n.to_string_lossy().contains("promotions"))
         );
         assert!(!r.marker_created); // dry
         let _ = fs::remove_dir_all(&tmp);
@@ -868,13 +899,13 @@ mod tests {
         let _ = fs::write(d.join("candidate_skill.yaml"), "name: cross");
 
         // Pre-promote: visible to continuous
-        let pre_high = store.list_high_value(10);
+        let pre_high = store.list_high_value(1);
         assert!(pre_high.iter().any(|c| c.id == cid && !c.promoted));
 
         let _ = promote_candidate(&store, cid, false, false).expect("cross promote");
 
         // Post-promote: continuous high-value list (used by continuous cmd) MUST exclude it
-        let post_high = store.list_high_value(10);
+        let post_high = store.list_high_value(1);
         assert!(
             post_high.iter().all(|c| c.id != cid),
             "promote must disable from continuous high-value for production loop safety"
@@ -940,7 +971,8 @@ mod tests {
         let _ = fs::write(d.join("candidate_skill.yaml"), "");
 
         for i in 0..3 {
-            let res = promote_candidate(&store, cid, false, false).expect(&format!("repro {}", i));
+            let res = promote_candidate(&store, cid, false, false)
+                .unwrap_or_else(|_| panic!("repro {}", i));
             assert!(res.history_updated);
         }
         let hist = fs::read_to_string(tmp.join("promotions.jsonl")).unwrap_or_default();

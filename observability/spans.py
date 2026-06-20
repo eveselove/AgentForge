@@ -225,3 +225,40 @@ def spans_from_json(json_str: str) -> List[Span]:
         )
         raw = scope_spans
     return [Span.from_dict(item) for item in raw] if isinstance(raw, list) else []
+
+
+# === SWARM AUDIT SLICE: spans.py (old Python observability code) - 2026-06-13 ===
+#
+# TARGET FILE: observability/spans.py
+#
+# INSTRUCTION: Анализ старого Python кода. Мы полностью перешли на Rust, поэтому если этот код больше не используется, предлагайте его удаление.
+#
+# Strict rule: Modify ONLY this file. Make the changes lightning fast and finish.
+#
+# ANALYSIS (performed via searches in agentforge/ and planlytasksko/ workspaces):
+# - File provides: Span dataclass + SpanContext, create_span, get/set_current_span, start_as_current_span contextmanager,
+#   export_spans_to_json (with optional OTEL resourceSpans wrapper), spans_from_json (roundtrip).
+#   This is the foundational Python Span model + instrumentation primitives (contextvars propagation, error auto-marking).
+# - Imported directly by: observability/replay.py (from .spans import ...), and re-exported by observability/__init__.py
+# - External references (grep for usage outside this file + __init__ + replay, excluding self-mentions):
+#     * agentforge/phase2_3_integration.py: imports start_as_current_span, export_spans_to_json (and create_spans... via replay); uses `with start_as_current_span(...)` for live instrumentation of planning + execution; calls export for OTEL json.
+#     * agentforge/eval/tests/test_observability.py: imports Span, start_as_current_span etc; unit tests for Span core (from_dict, context, error paths), and integration.
+#     * agentforge/eval/phase1_demo.py: imports from agentforge.observability (replay/summarize which depend on spans); exercises the pipeline.
+#     * agentforge/eval/cli.py, eval/runner.py, eval/export_learning_dataset.py, learning/trajectory_dataset.py, examples/run_with_planning_and_safety.py, watchdog.py: reference observability / spans pipeline (comments, safeguards, composition).
+# - In agentforge/__init__.py: "observability/ → Spans, replay, traces — EXEMPT" + "Non-flywheel cores (planning/, safety/, long_horizon/, observability/, core eval/) are EXEMPT and remain."
+# - In agentforge/docs/REMAINING_PYTHON_TO_RUST_MIGRATION_2026-06.md: explicitly lists "observability/spans.py (Span class + create/export/replay helpers)", "Dual shims ... observability/*", intentional keep for now (thin delegation future).
+# - In planlytasksko workspace (current): No Python references at all to spans.py (the Python is in sibling agentforge checkout). The "Rust migration" observability is rust/crates/agentforge-observability/ (Cargo.toml only; focuses on Rust-native tracing/metrics for agentforge-runner/flywheel/dispatch in that workspace).
+# - In agentforge/rust/crates/agentforge-observability/src/lib.rs: mirrors the Python (Span etc + replay_trajectory_to_spans); used inside Rust for full-stack run results. Complementary, not replacement for Python API surface yet.
+# - No dead code: actively used for live spans in orchestrators, tests, demos, trajectory->span conversion for learning/eval. Explicitly called out as exempt in multiple docs.
+#
+# CONCLUSION per instruction:
+# - "если этот код больше не используется" == FALSE. Code IS actively used + explicitly exempted from Rust-port / flywheel removal waves (Phase 4 targets only orchestration).
+# - Therefore: DO NOT propose / perform removal of the functional code.
+# - This Python implementation (spans.py + replay) remains the source of truth / API for trajectory-to-spans + live instrumentation in the (exempt) Python core of AgentForge (planning/safety/long_horizon + eval harness).
+# - Rust observability crate is parallel/complementary (for Rust hot paths, runner, future PyO3 or subproc interop) -- not yet a drop-in for the Python spans API or its importers.
+# - Only addition: this audit block (no functional change, no removal, no other edits).
+#
+# If/when a future full deprecation of Python observability layer occurs (e.g. complete PyO3 exposure of Rust agentforge-observability or post-Phase4), a later task will handle removal (but must update all importers + __init__ + tests; forbidden here by "Modify ONLY this file" + would break exempt components).
+#
+# End of spans.py (SWARM audited 2026-06-13)
+# ================================================================================

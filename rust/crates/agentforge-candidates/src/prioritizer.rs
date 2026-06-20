@@ -79,8 +79,9 @@ impl Default for Prioritizer {
 /// Mirrors Python list_high_value_candidates + the sort in print_pending_summary("value").
 pub fn list_high_value_candidates(store: &CandidateStore, top_n: usize) -> Vec<CandidateSummary> {
     let mut list = store.list_pending().unwrap_or_default();
-    // Filter out already-promoted for "high value pending" view (matches store.list_high_value intent)
-    list.retain(|c| !c.promoted);
+    // "High value pending" view: exclude already-promoted AND zero-high-value-record
+    // candidates (shadow/continuous edge) - matches store.list_high_value intent.
+    list.retain(|c| !c.promoted && c.high_value_count > 0);
     let ranked = Prioritizer::new().rank(&list);
     ranked.into_iter().take(top_n).map(|p| p.summary).collect()
 }

@@ -1,6 +1,7 @@
 use crate::types::TrajectoryRecord;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 /// Result of proposing an improved skill.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,6 +22,39 @@ impl SkillImprover {
         Self
     }
 
+    /// Bounded exec for LLM_CMD (or sh) to prevent hangs on slow/unresponsive external
+    /// (e.g. model servers, network). Uses std-only poll+kill; 25ms tick.
+    /// Critical for reliability (bottleneck + liveness fix).
+    fn run_with_timeout(
+        mut command: std::process::Command,
+        timeout_ms: u64,
+    ) -> Option<std::process::Output> {
+        let mut child = match command.spawn() {
+            Ok(ch) => ch,
+            Err(_) => return None,
+        };
+        let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+        loop {
+            match child.try_wait() {
+                Ok(Some(_)) => break,
+                Ok(None) => {
+                    if Instant::now() >= deadline {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return None;
+                    }
+                    std::thread::sleep(Duration::from_millis(25));
+                }
+                Err(_) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return None;
+                }
+            }
+        }
+        child.wait_with_output().ok()
+    }
+
     /// Analyze failures and propose improvements (heuristic version).
     /// Now emits richer signals for flywheel emission (more proposal variety).
     pub fn propose_improvements(
@@ -37,8 +71,10 @@ impl SkillImprover {
 
         for failure in failures {
             if let Some(error) = &failure.error_message {
-                *error_signatures.entry(error.clone()).or_insert(0) += 1;
-                if error.to_lowercase().contains("tool") || error.to_lowercase().contains("call") {
+                let err_l = error.to_lowercase();
+                let sig = error.chars().take(140).collect::<String>();
+                *error_signatures.entry(sig).or_insert(0) += 1;
+                if err_l.contains("tool") || err_l.contains("call") {
                     tool_related_errors += 1;
                 }
             }
@@ -57,7 +93,8 @@ impl SkillImprover {
             }
 
             // scan events loosely for recovery/tool signals (events are json values)
-            for ev in &failure.events {
+            // Bounded take(25) to prevent CPU blowup on huge event lists (bottleneck guard)
+            for ev in failure.events.iter().take(25) {
                 let s = ev.to_string().to_lowercase();
                 if s.contains("recover") || s.contains("retry") || s.contains("fallback") {
                     recovery_mentions += 1;
@@ -68,10 +105,14 @@ impl SkillImprover {
             }
         }
 
+        // Dedup low_prm for clean rationale + less noise downstream
+        low_prm_steps.sort();
+        low_prm_steps.dedup();
+
         let top_error = error_signatures
             .iter()
             .max_by_key(|(_, &count)| count)
-            .map(|(k, _)| k.clone())
+            .map(|(k, _)| k.chars().take(80).collect::<String>())
             .unwrap_or_else(|| "unknown_error".to_string());
 
         let mut rationale = format!(
@@ -81,10 +122,11 @@ impl SkillImprover {
         );
 
         if !low_prm_steps.is_empty() {
-            rationale.push_str(&format!(
-                "Weak steps frequently seen: {:?}. ",
-                low_prm_steps
-            ));
+            let shown: Vec<_> = low_prm_steps.iter().take(4).cloned().collect();
+            rationale.push_str(&format!("Weak steps frequently seen: {:?}. ", shown));
+            if low_prm_steps.len() > 4 {
+                rationale.push_str("(+more) ");
+            }
         }
         if tool_related_errors > 0 {
             rationale.push_str(&format!(
@@ -134,6 +176,12 @@ impl SkillImprover {
         // New richer signals for even higher emission quality (guarded for compile)
         if failures.len() > 4 {
             suggestions.push("Maintain compact state checkpoints every 2-3 actions for safe resume on error/long horizon.".to_string());
+        }
+
+        // Dedup suggestions (overlapping rule conditions are common); keeps prompt compact (bottleneck for downstream LLM emission size)
+        {
+            let mut seen: HashSet<String> = HashSet::new();
+            suggestions.retain(|s| seen.insert(s.clone()));
         }
 
         // enrich base prompt with suggestions for better emission
@@ -267,7 +315,7 @@ impl SkillImprover {
                     }
                 }
                 c.stderr(std::process::Stdio::null());
-                if let Ok(output) = c.output() {
+                if let Some(output) = Self::run_with_timeout(c, 8500) {
                     if output.status.success() {
                         let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
                         if let Some(parsed) = Self::parse_critique_output(&raw) {
@@ -280,18 +328,20 @@ impl SkillImprover {
         }
 
         // === Robust shell fallback (complex wrappers, pipes, quoted envs) ===
+        // Use single-quoted printf + ' -> '\'' escape for DATA (prompt) to prevent $ ` ( ) expansion / shell injection from error msgs/trajectories (was using " " which expands).
+        // Timeout applied uniformly.
         if llm_text.is_none() {
+            let prompt_for_shell = safe_prompt.replace('\'', "'\\''");
             let shell = format!(
-                r#"printf '%s' "{}" | {} 2>/dev/null | head -c 1100 | tr -d '\n' | cut -c1-800"#,
-                safe_prompt.replace('"', "'"),
-                cmd
+                r#"printf '%s' '{}' | {} 2>/dev/null | head -c 1100 | tr -d '\n' | cut -c1-800"#,
+                prompt_for_shell, cmd
             );
-            if let Ok(output) = std::process::Command::new("sh")
+            let mut sh_cmd = std::process::Command::new("sh");
+            sh_cmd
                 .arg("-c")
                 .arg(&shell)
-                .stderr(std::process::Stdio::null())
-                .output()
-            {
+                .stderr(std::process::Stdio::null());
+            if let Some(output) = Self::run_with_timeout(sh_cmd, 8500) {
                 if output.status.success() {
                     let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
                     llm_text = Self::parse_critique_output(&raw);
@@ -310,11 +360,11 @@ impl SkillImprover {
             return None;
         }
         let lower = t.to_lowercase();
-        if lower.contains("error")
-            || lower.contains("usage")
-            || lower.contains("command not found")
+        // Relaxed reject: drop broad "error"/"not found" (valid critiques discuss error handling/recovery/tool errors).
+        // Only reject clear CLI failures (command not found, usage headers). Prevents dropping good rules like "better error classification after tool".
+        if lower.contains("command not found")
             || lower.starts_with("usage:")
-            || lower.contains("not found")
+            || lower.contains("command is not recognized")
         {
             return None;
         }
@@ -337,11 +387,8 @@ impl SkillImprover {
             }
         }
         // Plain high-signal text (basic LLM critique path output)
-        let cleaned: String = t
-            .chars()
-            .filter(|c| c.is_ascii() || c.is_whitespace())
-            .take(620)
-            .collect();
+        // Allow non-ascii/unicode (drop only controls); previous ascii-only dropped valid intl chars.
+        let cleaned: String = t.chars().filter(|c| !c.is_control()).take(620).collect();
         let cleaned = cleaned.trim().to_string();
         if cleaned.len() > 7
             && !cleaned.to_lowercase().contains("i am an ai")
@@ -369,24 +416,14 @@ impl SkillImprover {
             base.overall_rationale,
             failures.len()
         );
-        let has_llm = std::env::var("AGENTFORGE_LLM_CMD")
-            .map(|v| !v.trim().is_empty())
-            .unwrap_or(false)
-            || std::env::var("AGENTFORGE_LLM")
-                .map(|v| !v.trim().is_empty())
-                .unwrap_or(false)
-            || std::env::var("LLM_CMD")
-                .map(|v| !v.trim().is_empty())
-                .unwrap_or(false)
-            || std::env::var("GROK_CMD")
-                .map(|v| !v.trim().is_empty())
-                .unwrap_or(false);
-        let critique = self
-            .try_llm_critique_stub(skill_name, &summary)
-            .unwrap_or_else(|| {
-                self.structured_fallback_critique(skill_name, &summary, failures.len())
-            });
-        let source = if has_llm && self.try_llm_critique_stub(skill_name, &summary).is_some() {
+        // Call try_llm_critique_stub ONCE only (was: 1 in unwrap_or + 1 re-call for source).
+        // Eliminates redundant external process spawns (major bottleneck when AGENTFORGE_LLM_CMD is slow).
+        // Also fixes logical error: source could disagree with actual critique used on flaky external.
+        let critique_opt = self.try_llm_critique_stub(skill_name, &summary);
+        let critique = critique_opt.clone().unwrap_or_else(|| {
+            self.structured_fallback_critique(skill_name, &summary, failures.len())
+        });
+        let source = if critique_opt.is_some() {
             "llm"
         } else {
             "structured_fallback"
@@ -579,7 +616,7 @@ mod tests {
     fn skill_improver_propose_supports_runner_subcommand_flywheel_export_and_cutover() {
         // Used by runner flywheel-export + promote cutover flows: produces fields for rich candidate yaml
         let imp = SkillImprover::new();
-        let recs = vec![
+        let recs = [
             dummy_rec(
                 "r1",
                 Outcome::Failure,
@@ -602,7 +639,7 @@ mod tests {
                 .collect::<Vec<_>>(),
         );
         assert_eq!(prop.skill_name, "export-cutover");
-        assert!(prop.estimated_impact.len() > 0);
+        assert!(!prop.estimated_impact.is_empty());
         assert!(prop.new_system_prompt.is_some() || !prop.overall_rationale.is_empty());
     }
 
@@ -755,10 +792,10 @@ mod tests {
             reps in 2usize..4
         ) {
             let imp = SkillImprover::new();
-            let rec = dummy_rec("rep", Outcome::Failure, Some(0.25), Some(seed_err.into()));
+            let rec = dummy_rec("rep", Outcome::Failure, Some(0.25), Some(seed_err));
             let mut first_rationale = String::new();
             for i in 0..reps {
-                let p = imp.propose_with_llm_stub("fidelity-skill", &[rec.clone()]);
+                let p = imp.propose_with_llm_stub("fidelity-skill", std::slice::from_ref(&rec));
                 if i == 0 { first_rationale = p.overall_rationale.clone(); }
                 // Always contains core critique tag for parity in shadow dual runs
                 prop_assert!(p.overall_rationale.contains("CRITIQUE"));

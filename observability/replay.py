@@ -311,3 +311,5 @@ def create_spans_from_trajectory(
             pass  # never break caller for export side-effect
 
     return spans
+
+

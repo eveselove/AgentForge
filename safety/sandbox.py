@@ -1,4 +1,37 @@
 """
+!!! [SWARM] sandbox.py: АНАЛИЗ СТАРОГО PYTHON КОДА + ПРЕДЛОЖЕНИЕ УДАЛЕНИЯ !!!
+
+TARGET FILE: safety/sandbox.py
+
+INSTRUCTION (verbatim): Анализ старого Python кода. Мы полностью перешли на Rust, поэтому если этот код больше не используется, предлагайте его удаление.
+
+Strict rule: Modify ONLY this file. Make the changes lightning fast and finish.
+
+ANALYSIS (performed 2026-06-13):
+- This file implements the Python Phase 3 sandbox policy stubs:
+  SandboxPolicy (base), FileSystemSandbox, NetworkSandbox, CommandSandbox, create_recommended_sandbox_bundle().
+- Provides declarative restrictions for FS writes/reads, network hosts, shell commands (whitelist + deny regex + length).
+- Designed to plug into PolicyEngine / ActionApprovalLayer (see approval.py: registers via create_recommended... and runs in approve()).
+- Imports/depends on sibling .policy_engine (ActionDecision, Decision).
+- Re-exported by safety/__init__.py and top-level agentforge/__init__.py (FileSystemSandbox, CommandSandbox etc).
+- Transitive callers (outside safety/):
+    - long_horizon/task_manager.py : uses create_default_approval_layer() which pulls in the sandboxes for every subtask safety gate.
+    - phase2_3_integration.py : uses PolicyEngine + safety-integrated execute (sandboxes via approval in some paths).
+    - examples/run_with_planning_and_safety.py : demo usage of PolicyEngine (indirect).
+- Critical: inspection of production agent paths shows sandbox NOT exercised:
+    - dispatcher.sh, agents/grok_runner.sh, grok_worker.sh, antigravity_worker.py, builder_worker.py etc. use `grok` CLI, bash, python memory_helper.py + eval/post_process.py + direct rust agentforge-runner for flywheel.
+    - No imports or calls to LongTaskManager/execute_with_safety/ActionApprovalLayer/create_default_approval_layer in hot paths or tmux agents.
+    - The Phase 3 long_horizon+planning+safety are marked "EXEMPT" in __init__.py docs but are not part of the default Rust-migrated execution (see aggressive deprecation banners + is_pure_rust_flywheel() + RUST_FLYWHEEL in all workers).
+    - Prior sibling audit on safety/__init__.py reached same conclusion for the package.
+- Rust side has agentforge-safety crate (concurrency guards, no-unsafe policy etc) but per sibling analysis, sandbox policies (FS/net/cmd) are the missing Python-only pieces not yet ported.
+- Per explicit instruction here ("Мы полностью перешли на Rust") + identical prior SWARM slice: classify as old/unused Python code despite "EXEMPT" notes.
+- Conclusion: sandbox.py (the concrete policy classes) is NOT used in live production (only dormant in exempt Phase3 modules/demos). Qualifies for removal proposal.
+
+PROPOSAL: Remove safety/sandbox.py (after or as part of completing the Rust port of equivalent sandbox guards into agentforge-safety crate + wiring into runner/planning, or simply delete the dormant Phase3 demo code if no longer planned for use).
+Keep original implementation below for reference in this edit only.
+
+This edit touched ONLY safety/sandbox.py (no other files, no deletion performed, per strict rule). Original code preserved below.
+
 Phase 3 Safety: Sandbox policy stubs.
 
 These are *policy helpers* (not full gVisor/Firecracker sandboxes — those come later).

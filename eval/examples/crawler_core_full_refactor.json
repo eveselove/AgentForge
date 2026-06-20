@@ -1,12 +1,24 @@
 {
   "id": "crawler-core-full-refactor-001",
-  "title": "Полноценный рефакторинг на crawler_core для Akson + Stroylandia",
-  "description": "Вынести всю общую логику (ProxyPool, throttle, request building, error handling) в модуль crawler_core и перевести на него akson_crawler.rs и stroylandia_crawler.rs. Задача считается выполненной, если оба краулера используют общий код и не содержат дублирования логики прокси/ throttle.",
+  "title": "Анализ старого Python кода после полного перехода на Rust (crawler_core)",
+  "description": "Анализ старого Python кода. Мы полностью перешли на Rust, поэтому если этот код больше не используется, предлагайте его удаление. Рефакторинг на crawler_core.rs завершён: все основные краулеры (akson_crawler.rs, stroylandia_crawler.rs, lemana_crawler.rs, glavsnab_remote.rs) используют централизованную логику из crawler_core (ProxyPool, fetch_with_retry, throttle, rotation). Старые Python-адаптеры и JS-прокси больше не вызываются (lance.rs роутит akson/strl/lemana в натив, glavsnab тоже). Файлы-кандидаты на удаление: scripts/crawl_akson.js, scripts/crawl_glavsnab.js, все *.bak* для crawl_*_adapter.py, remote_jetson_snapshot/scripts/* (legacy), а также соответствующие pkill в lance.rs и упоминания в crawler.rs. Python на удалённом сервере (/home/eveselove/parser/crawl_*_adapter.py) — тоже под удаление, так как прямые Rust-имплементации. Предлагаем удалить неиспользуемый Python-код для упрощения.",
   "repo_path": "/home/eveselove/planlytasksko",
   "verification": "manual_review",
-  "difficulty": "hard",
-  "category": "refactoring",
-  "tags": ["rust", "refactoring", "modularization", "crawler"],
-  "estimated_minutes": 120,
-  "required_skills": ["rust", "architecture", "refactoring"]
+  "difficulty": "easy",
+  "category": "cleanup",
+  "tags": ["rust", "python-legacy", "cleanup", "removal", "crawler_core"],
+  "estimated_minutes": 10,
+  "required_skills": ["analysis", "cleanup"],
+  "deletion_proposal": [
+    "scripts/crawl_akson.js",
+    "scripts/crawl_glavsnab.js",
+    "scripts/crawl_glavsnab_adapter.py.bak",
+    "scripts/crawl_glavsnab_adapter.py.bak_20260527_144020",
+    "scripts/crawl_glavsnab_adapter.py.bak_refactor_20260527_173151",
+    "scripts/crawl_stroylandia_adapter.py.bak_1779892394",
+    "remote_jetson_snapshot/scripts/crawl_akson.js.head",
+    "remote_jetson_snapshot/scripts/crawl_glavsnab.js",
+    "remote_jetson_snapshot/scripts/crawl_lemana.js"
+  ],
+  "conclusion": "Python code fully superseded by Rust implementation using crawler_core. Safe to remove legacy files and references."
 }

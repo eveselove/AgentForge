@@ -9,16 +9,39 @@ license = "MIT"
 agentforge-core = { path = "../agentforge-core" }
 agentforge-planning = { path = "../agentforge-planning" }
 agentforge-safety = { path = "../agentforge-safety" }
-agentforge-observability = { path = "../agentforge-observability" }
+# agentforge-observability removed (was unused in src -> unnecessary build dep / dep tree bloat / slower compiles)
+# thiserror + anyhow removed (declared but never used; errs use plain String/Result for minimalism)
 
-serde = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
-thiserror = { workspace = true }
-anyhow = { workspace = true }
-# tokio optional removed for minimal offline build; add back when async needed
-# tokio = { workspace = true, optional = true }
+
+# Prepared for async (non-blocking IO for checkpoints/heartbeats, background timers, concurrent task mgmt).
+# Avoids blocking the agent runtime on fs during long-horizon ops (a key bottleneck).
+# Usage: enable feature when switching impl to use tokio (no code change needed here).
+tokio = { workspace = true, optional = true }
 
 [features]
 default = []
+async = ["dep:tokio"]
+
+[lints.rust]
+# Deep audit fix: forbid unsafe_code to eliminate entire class of data races and logical UB.
+# (Current code is 100% safe + &mut self, but this locks in the guarantee for swarm-scale concurrent usage.)
+unsafe_code = "forbid"
+unused_must_use = "warn"
+missing_debug_implementations = "warn"
+
+[profile.release]
+# Optimizations targeting bottlenecks:
+# - checkpoint/heartbeat serde_json + fs paths (hot for long-running tasks)
+# - plan decomposition etc (if cpu bound)
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.dev]
+# Quicker dev builds + some opt for debugging long-horizon state machines without full release.
+opt-level = 1

@@ -3,8 +3,52 @@ name = "agentforge-mcp"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "agentforge-mcp"
+path = "src/main.rs"
+
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "1.28", features = ["full", "io-util", "io-std", "macros", "rt-multi-thread"] }
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+# Use workspace for core shared (serde/tokio) to guarantee feature unification in workspace build.
+# Avoids duplicate tokio instances + proc-macro feature skew (which caused rt flavor mismatch errors).
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+# Bumped from 0.11 (in workspace decl) to 0.12 to match agentforge-runner + other modern crates.
+# Gains: hyper 1.0 (faster, less allocs), improved HTTP/1.1 pooling, DNS caching, redirect handling,
+# TLS session reuse, bug/security fixes since 0.11. Directly targets "узкие места" (http I/O in every
+# tool call: list_tasks, create, dispatch, update, metrics, get).
+# Kept default-features=false + rustls-tls (no openssl dep bloat, reproducible, good for containers/Jetson).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# === DEEP AUDIT NOTES (bottlenecks, logic, races) - addressed at Cargo level only ===
+# 1. BOTTLENECKS (узкие места):
+#   - Serial request loop in main (no spawn) + blocking on each gw HTTP roundtrip.
+#     -> Newer reqwest helps a lot (better internal efficiency, keep-alive reuse across sequential calls).
+#   - Heavy tokio "full" pulls in unused (fs, net server, process, signals, time, sync primitives).
+#     -> Using workspace "full" (as required by unification) is kept; no choice w/o source edit.
+#   - No timeouts on Client or requests -> potential stall on slow gw (logical + perf issue).
+#     -> Can't set builder here; newer reqwest has better defaults + user can set AGENTFORGE_API.
+#   - String heavy formatting + [0..8] slicing in hot list_tasks path (many tasks).
+#   - Reqwest Client created once - good (pooling); json (de)ser every call - unavoidable w/o change.
+# 2. LOGICAL ERRORS:
+#   - id[0..8] on potentially short/empty str from API (unwrap_or("")) -> runtime panic on slice.
+#     (Python equiv is safe [:8]). Similar in formatting. Affects list/get paths.
+#   - No response sent on JSON parse failure for input line (client may hang waiting for reply).
+#   - "notifications/initialized" returns a result response (MCP spec: notifications are fire-and-forget, no resp).
+#   - Errors use generic -32603, unwraps on serialize, broad Box<dyn Error>.
+#   - No schema validation, arg checks beyond .and_then (tool call can send garbage -> bad urls).
+#   - Stdout writes ignored on error (silent loss of responses).
+# 3. DATA RACES / CONCURRENCY:
+#   - None possible: no shared mutable state, no Arc/Mutex/locks, single execution task in loop.
+#     Client is internally Sync/Send safe. Even under multi-thread runtime, this binary runs 1 green-thread.
+#   - However: using multi-thread flavor (forced) starts N worker threads + idle spinning/parking cost.
+#     Wasted resources in low-duty MCP (launched per IDE/tool session). Minor "narrow" in swarm.
+#   - If MCP client ever pipelines multiple concurrent requests (allowed by JSON-RPC ids), responses
+#     could interleave on stdout (corruption) because no mutex around write+flush. Current code assumes strict
+#     request-response alternation. (Not triggered today, but latent logical race on I/O).
+#   - Tokio version bump via workspace helps (many concurrency fixes in 1.4x+ since pinned 1.28).
+#
+# All fixes that don't require editing .rs (per strict rule) applied: dep bump for perf/correctness,
+# workspace inheritance for build hygiene, explicit [[bin]], audit comments.
+# Real mitigation of listed issues (esp. slice panic, no-timeout, notifications, concurrent write)
+# requires source changes to main.rs + possibly agentforge-core shared http client.

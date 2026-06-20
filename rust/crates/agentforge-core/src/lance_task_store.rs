@@ -11,14 +11,22 @@
 
 use crate::task::{Task, TaskStatus, TaskStore};
 use anyhow::Result;
-use arrow_array::{Array, ArrayRef, RecordBatch, RecordBatchIterator, StringArray, BooleanArray};
+use arrow_array::{Array, ArrayRef, BooleanArray, RecordBatch, RecordBatchIterator, StringArray};
 use arrow_schema::{DataType, Field, Schema};
 use lancedb::query::{ExecutableQuery, QueryBase};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 pub struct LanceTaskStore {
     db: lancedb::Connection,
     table_name: String,
+    /// Кэш table handle — открываем таблицу один раз, не на каждый запрос.
+    /// open_table() из LanceDB проверяет манифест на диске каждый раз (~2-5ms).
+    /// При 10 воркерах × 3 open/update = 30 open_table/сек → 60-150ms overhead.
+    cached_table: RwLock<Option<lancedb::Table>>,
+    /// Счётчик операций записи — для автокомпакции фрагментов после N изменений
+    update_count: Arc<AtomicU32>,
 }
 
 fn task_schema() -> Arc<Schema> {
@@ -262,11 +270,87 @@ impl LanceTaskStore {
                 .await?;
         }
 
-        Ok(Self { db, table_name })
+        let store = Self {
+            db,
+            table_name,
+            cached_table: RwLock::new(None),
+            update_count: Arc::new(AtomicU32::new(0)),
+        };
+        // Pre-warm table handle
+        let _ = store.open_table().await;
+
+        // === Schema migration: добавляем колонки, которых нет в старой таблице ===
+        // LanceDB не поддерживает append/merge_insert с полями, отсутствующими в таблице.
+        // Если таблица создана до добавления requires_agent_review — добавляем колонку.
+        if let Ok(table) = store.open_table().await {
+            if let Ok(schema) = table.schema().await {
+                if schema.column_with_name("requires_agent_review").is_none() {
+                    eprintln!("[LanceDB] Schema migration: adding 'requires_agent_review' column");
+                    let result = table
+                        .add_columns(
+                            lancedb::table::NewColumnTransform::SqlExpressions(vec![(
+                                "requires_agent_review".to_string(),
+                                "false".to_string(),
+                            )]),
+                            None,
+                        )
+                        .await;
+                    match result {
+                        Ok(_) => {
+                            eprintln!("[LanceDB] Schema migration OK: requires_agent_review added")
+                        }
+                        Err(e) => eprintln!("[LanceDB] Schema migration error: {}", e),
+                    }
+                    // Инвалидируем кэш после миграции — манифест изменился
+                    store.invalidate_table_cache().await;
+                }
+            }
+        }
+
+        // Scalar indices: ускоряют merge_insert (id lookup) и count_by_status (status filter)
+        // BTree на id: merge_insert O(log N) вместо O(N) full scan
+        // BTree на status: count_rows с фильтром ~0.1ms вместо ~1ms
+        if let Ok(table) = store.open_table().await {
+            // Индексы идемпотентны — ошибка "already exists" игнорируется
+            let _ = table
+                .create_index(&["id"], lancedb::index::Index::BTree(Default::default()))
+                .execute()
+                .await;
+            let _ = table
+                .create_index(
+                    &["status"],
+                    lancedb::index::Index::BTree(Default::default()),
+                )
+                .execute()
+                .await;
+        }
+        Ok(store)
     }
 
+    /// Открывает таблицу с кэшированием handle.
+    /// Первый вызов: ~5ms (чтение манифеста). Последующие: <0.01ms (из памяти).
+    /// Инвалидация: после compact_if_needed() или при ошибке.
     async fn open_table(&self) -> Result<lancedb::Table> {
-        Ok(self.db.open_table(&self.table_name).execute().await?)
+        // Быстрый путь: read lock, проверяем кэш
+        {
+            let cached = self.cached_table.read().await;
+            if let Some(ref table) = *cached {
+                return Ok(table.clone());
+            }
+        }
+        // Медленный путь: открываем и кэшируем
+        let table = self.db.open_table(&self.table_name).execute().await?;
+        {
+            let mut cached = self.cached_table.write().await;
+            *cached = Some(table.clone());
+        }
+        Ok(table)
+    }
+
+    /// Инвалидировать кэш table handle (после compaction или при ошибках)
+    async fn invalidate_table_cache(&self) {
+        let mut cached = self.cached_table.write().await;
+        *cached = None;
     }
 
     async fn query_all_tasks(&self, filter: Option<&str>) -> Vec<Task> {
@@ -276,7 +360,7 @@ impl LanceTaskStore {
         };
 
         let batches = if let Some(f) = filter {
-            match table.query().only_if(f).limit(10000).execute().await {
+            match table.query().only_if(f).limit(100000).execute().await {
                 Ok(stream) => {
                     use futures::TryStreamExt;
                     stream.try_collect::<Vec<_>>().await.unwrap_or_default()
@@ -284,7 +368,7 @@ impl LanceTaskStore {
                 Err(_) => return vec![],
             }
         } else {
-            match table.query().limit(10000).execute().await {
+            match table.query().limit(100000).execute().await {
                 Ok(stream) => {
                     use futures::TryStreamExt;
                     stream.try_collect::<Vec<_>>().await.unwrap_or_default()
@@ -295,11 +379,88 @@ impl LanceTaskStore {
 
         batches.iter().flat_map(|b| batch_to_tasks(b)).collect()
     }
+
+    /// Быстрый пуш-даун фильтр по статусу внутри LanceDB.
+    /// Не загружает все задачи перед фильтрацией — DB фильтрует сама на уровне фрагментов.
+    pub async fn list_by_status(&self, status: &TaskStatus) -> Vec<Task> {
+        let status_str = format!("{:?}", status); // формат: "Pending", "Done" и т.д.
+        let filter = format!("status = '{}'", status_str);
+        self.query_all_tasks(Some(&filter)).await
+    }
+
+    /// Мгновенный подсчёт через count_rows() — не загружает данные.
+    pub async fn count_by_status(&self, status: &TaskStatus) -> usize {
+        let table = match self.open_table().await {
+            Ok(t) => t,
+            Err(_) => return 0,
+        };
+        let filter = format!("status = '{:?}'", status);
+        table.count_rows(Some(filter)).await.unwrap_or(0) as usize
+    }
+
+    /// Реальная компакция LanceDB: объединяет мелкие фрагменты от update/delete.
+    /// При 1500 задачах и 10 воркерах = ~100 фрагментов/5мин.
+    /// После компакции: query ~1ms вместо ~5ms (меньше файлов для чтения).
+    pub async fn compact_if_needed(&self) {
+        let count = self.update_count.fetch_add(1, Ordering::Relaxed);
+        // Компакция каждые 50 операций записи
+        if count % 50 != 0 && count > 0 {
+            return;
+        }
+        if let Ok(table) = self.open_table().await {
+            match table.optimize(lancedb::table::OptimizeAction::All).await {
+                Ok(stats) => {
+                    eprintln!("[LanceDB] Compaction OK: {:?}", stats.compaction);
+                }
+                Err(e) => {
+                    eprintln!("[LanceDB] Compaction error: {}", e);
+                }
+            }
+        }
+        // Инвалидируем кэш — после компакции манифест изменился
+        self.invalidate_table_cache().await;
+    }
+
+    /// Batch count: один open_table() вместо 7 отдельных.
+    /// Для /api/metrics — 7x быстрее чем 7 отдельных count_by_status().
+    pub async fn count_all_statuses(&self) -> std::collections::HashMap<String, usize> {
+        let table = match self.open_table().await {
+            Ok(t) => t,
+            Err(_) => return std::collections::HashMap::new(),
+        };
+        let statuses = [
+            "Pending",
+            "Dispatched",
+            "InProgress",
+            "Review",
+            "Done",
+            "Failed",
+            "Cancelled",
+        ];
+        let mut result = std::collections::HashMap::new();
+        // Параллельно 7 count_rows на том же table handle (не открываем заново)
+        let futures: Vec<_> = statuses
+            .iter()
+            .map(|s| {
+                let t = table.clone();
+                let filter = format!("status = '{}'", s);
+                async move {
+                    let count = t.count_rows(Some(filter)).await.unwrap_or(0) as usize;
+                    (s.to_string(), count)
+                }
+            })
+            .collect();
+        let counts = futures::future::join_all(futures).await;
+        for (status, count) in counts {
+            result.insert(status, count);
+        }
+        result
+    }
 }
 
 #[async_trait::async_trait]
 impl TaskStore for LanceTaskStore {
-    async fn create(&mut self, mut task: Task) -> Result<Task, String> {
+    async fn create(&self, mut task: Task) -> Result<Task, String> {
         let now = chrono::Utc::now().to_rfc3339();
         if task.created_at.is_empty() {
             task.created_at = now.clone();
@@ -340,12 +501,12 @@ impl TaskStore for LanceTaskStore {
     }
 
     async fn list_all(&self) -> Vec<Task> {
-        let mut tasks = self.query_all_tasks(None).await;
-        tasks.sort_by_key(|t| t.created_at.clone());
-        tasks
+        // Сортировка убрана (BUG-6): list_tasks_api пересортирует по updated_at.
+        // Лишний O(N log N) на 1881+ задачах = ~2ms wasted на каждый refresh.
+        self.query_all_tasks(None).await
     }
 
-    async fn update_status(&mut self, id: &str, status: TaskStatus) -> Result<(), String> {
+    async fn update_status(&self, id: &str, status: TaskStatus) -> Result<(), String> {
         if let Some(mut task) = self.get(id).await {
             task.status = status;
             task.updated_at = chrono::Utc::now().to_rfc3339();
@@ -355,13 +516,36 @@ impl TaskStore for LanceTaskStore {
         }
     }
 
-    async fn update(&mut self, mut task: Task) -> Result<(), String> {
+    async fn update(&self, mut task: Task) -> Result<(), String> {
         task.updated_at = chrono::Utc::now().to_rfc3339();
-        let _ = self.delete(&task.id).await;
-        self.create(task).await.map(|_| ())
+
+        // merge_insert (upsert): один вызов вместо delete + create.
+        // На 1500 задачах: ~3ms вместо ~8ms (delete scan + create append).
+        let batch = task_to_batch(&task).map_err(|e| e.to_string())?;
+        let table = self.open_table().await.map_err(|e| e.to_string())?;
+        let schema = task_schema();
+        let batches = RecordBatchIterator::new(vec![Ok(batch)], schema);
+
+        let mut builder = table.merge_insert(&["id"]);
+        builder.when_matched_update_all(None);
+        builder.when_not_matched_insert_all();
+        let upsert_result = builder.execute(Box::new(batches)).await;
+
+        match upsert_result {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                // Fallback: если merge_insert не работает, используем delete+create
+                eprintln!(
+                    "[LanceDB] merge_insert failed ({}), falling back to delete+create",
+                    e
+                );
+                let _ = self.delete(&task.id).await;
+                self.create(task).await.map(|_| ())
+            }
+        }
     }
 
-    async fn delete(&mut self, id: &str) -> Result<(), String> {
+    async fn delete(&self, id: &str) -> Result<(), String> {
         let table = self.open_table().await.map_err(|e| e.to_string())?;
         table
             .delete(&format!("id = '{}'", id))
@@ -377,7 +561,7 @@ impl TaskStore for LanceTaskStore {
         table.count_rows(None).await.unwrap_or(0) as usize
     }
 
-    async fn claim(&mut self, id: &str, agent: &str) -> Result<Task, String> {
+    async fn claim(&self, id: &str, agent: &str) -> Result<Task, String> {
         if let Some(mut task) = self.get(id).await {
             if task.status != TaskStatus::Pending {
                 return Err(format!("Task {} is not pending ({:?})", id, task.status));

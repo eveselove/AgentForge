@@ -22,7 +22,7 @@
 - [ ] The branch has the final manual completion note (added by Grok)
 
 ### For P2 (A1 Runner Auto-Review)
-- [ ] Changes are only in `agents/grok_runner.sh` and `agents/jules_runner.sh`
+- [ ] Changes are only in `agents/grok_runner.sh` (jules_runner.sh removed in farm cleanup)
 - [ ] Recursion guard logic is present and correct in both files
 - [ ] No changes to `task_queue.py`, Rust core, or any other unrelated files
 - [ ] Branch passes `bin/pre-commit` cleanly (run it)

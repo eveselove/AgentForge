@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Handoff Consumer Script (Post-100% Hardening: c48c5f56)
+Handoff Consumer Script (Post-100% Hardening: c48c5f56 + audit-hardening v2)
 
 Scans ~/.grok/handoffs/ for completed agent-review handoffs (presence of
 jules-review-*.md or *-review-*.md files written by independent reviewer).
@@ -86,6 +86,9 @@ BLOCK_PATTERNS = [
 # How many trailing lines to inspect for verdict (reviews put final decision at end)
 VERDICT_SCAN_LINES = 40
 
+# Version for markers/logs (bump on hardening changes)
+CONSUMER_VERSION = "c48c5f56-v2"
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -147,13 +150,23 @@ def is_approved(review_text: str) -> Tuple[bool, str, str]:
     if re.search(r"\*\*APPROVE\*\*", last_lines, re.IGNORECASE):
         return True, "explicit **APPROVE** near end of review", "APPROVE"
 
-    # Very conservative fallback: "No BUGs" + "APPROVE" word somewhere prominent
+    # Very conservative fallback: "No BUGs" + "APPROVE" word somewhere prominent.
+    # Also: if positive bug count (and no prior explicit APPROVE verdict matched),
+    # reject per docstring promise ("rejects on ... or high bug counts").
     bug_count_match = re.search(
         r"(Bugs|BUGs)\s*[:\-]?\s*(\d+)", review_text, re.IGNORECASE
     )
-    if bug_count_match and int(bug_count_match.group(2)) == 0:
-        if "APPROVE" in upper[-2000:]:  # last ~2k chars
-            return True, "zero bugs + APPROVE token present", "APPROVE_LIKELY"
+    if bug_count_match:
+        bc = int(bug_count_match.group(2))
+        if bc == 0:
+            if "APPROVE" in upper[-2000:]:  # last ~2k chars
+                return True, "zero bugs + APPROVE token present", "APPROVE_LIKELY"
+        else:
+            return (
+                False,
+                f"positive bug count ({bc}) and no explicit APPROVE verdict",
+                "BLOCKED_BUGS",
+            )
 
     return (
         False,
@@ -187,8 +200,10 @@ def get_task_via_api(task_id: str, api_base: str) -> Optional[Dict[str, Any]]:
     url = f"{api_base.rstrip('/')}/{task_id}"
     try:
         with urllib.request.urlopen(url, timeout=10) as resp:
-            if resp.status == 200:
-                return json.loads(resp.read().decode("utf-8"))
+            status = getattr(resp, "status", None) or getattr(resp, "code", 0) or 0
+            if 200 <= status < 300:
+                body = resp.read().decode("utf-8")
+                return json.loads(body) if body and body.strip() else {}
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
@@ -210,7 +225,8 @@ def update_task_status(task_id: str, status: str, result: str, api_base: str) ->
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            return 200 <= resp.status < 300
+            status = getattr(resp, "status", None) or getattr(resp, "code", 0) or 0
+            return 200 <= status < 300
     except Exception:
         return False
 
@@ -232,9 +248,84 @@ def already_consumed(
 ) -> bool:
     if (handoff_dir / CONSUMED_MARKER).exists():
         return True
-    if task_result and handoff_id in task_result:
+    if task_result and (
+        f"via {handoff_id}\n" in task_result or f"Handoff: {handoff_id}" in task_result
+    ):
         return True
     return False
+
+
+def is_pid_alive(pid: int) -> bool:
+    """Check if pid is currently running (for stale claim detection)."""
+    if not pid or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)  # no signal, just existence check
+        return True
+    except ProcessLookupError:
+        return False
+    except Exception:
+        # permission or other: assume alive to be conservative (don't steal live)
+        return True
+
+
+def _read_last_lines(p: Path, n: int, max_bytes: int = 16384) -> str:
+    """Lightning-fast tail read for verdict area (avoid full load of huge reviews in stats)."""
+    try:
+        with p.open("rb") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            if size == 0:
+                return ""
+            to_read = min(size, max_bytes)
+            f.seek(-to_read, os.SEEK_END)
+            chunk = f.read(to_read)
+        text = chunk.decode("utf-8", errors="replace")
+        lines = text.splitlines(keepends=False)
+        return "\n".join(lines[-n:])
+    except Exception:
+        try:
+            full = p.read_text(encoding="utf-8", errors="replace")
+            return "\n".join(full.splitlines()[-n:])
+        except Exception:
+            return ""
+
+
+def claim_consumed(handoff_dir: Path, info: Dict[str, Any]) -> bool:
+    """Atomic claim via O_EXCL marker create. Prevents concurrent consumers
+    from both PATCHing the same task (data race on marker+result checks).
+    Returns True only if this process created the marker exclusively.
+    Cleans up on write failure to avoid stuck/empty markers blocking retries.
+    """
+    marker = handoff_dir / CONSUMED_MARKER
+    try:
+        fd = os.open(str(marker), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+    except FileExistsError:
+        return False
+    except Exception:
+        return False
+    try:
+        payload = json.dumps(info, indent=2, ensure_ascii=False) + "\n"
+        data = payload.encode("utf-8")
+        n = os.write(fd, data)
+        if n != len(data):
+            raise IOError("incomplete write")
+    except Exception:
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+        try:
+            marker.unlink()
+        except Exception:
+            pass
+        return False
+    finally:
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+    return True
 
 
 def collect_handoffs(root: Path) -> List[Path]:
@@ -261,6 +352,7 @@ def process_handoff(
         "reason": "",
         "task_id": None,
         "approved": False,
+        "did_network": False,
     }
 
     review_file = find_review_file(handoff_dir)
@@ -268,9 +360,99 @@ def process_handoff(
         result["reason"] = "no review file present"
         return result
 
+    # Load meta early (cheap). This enables early idempotency checks via task
+    # result *before* reading potentially-large review text (perf + race safety).
     meta = load_metadata(handoff_dir)
     task_id = meta.get("task_id") if meta else None
     result["task_id"] = task_id
+
+    # Fast-path skip for marker BEFORE read/is_approved or network (perf win).
+    # v2: distinguish FULL (has processed_at) vs PARTIAL/STALE claim (crash after O_EXCL but before PATCH).
+    # Stale (pid dead) -> unlink + fallthrough for recovery (prevents permanent stuck tasks).
+    # Live claim -> skip (in progress). Partial without pid -> treat as stale for recovery.
+    marker_path = handoff_dir / CONSUMED_MARKER
+    if marker_path.exists():
+        is_full = False
+        claimed_pid = None
+        try:
+            mdata = json.loads(
+                marker_path.read_text(encoding="utf-8", errors="replace")
+            )
+            if mdata.get("processed_at"):
+                is_full = True
+            claimed_pid = mdata.get("pid")
+        except Exception:
+            # corrupt marker: treat as stale so we can recover below
+            is_full = False
+            claimed_pid = None
+        if is_full:
+            result["reason"] = "already consumed (marker)"
+            result["action"] = "skipped-idempotent"
+            result["current_status"] = "unknown"
+            return result
+        # partial claim marker
+        if claimed_pid and is_pid_alive(claimed_pid):
+            result["reason"] = f"already claimed by live pid {claimed_pid} (in progress)"
+            result["action"] = "skipped-claimed"
+            result["current_status"] = "unknown"
+            return result
+        # stale or no pid: safe to recover - unlink and fallthrough to verify+re-process
+        try:
+            marker_path.unlink()
+            log(
+                f"  [RECOVER] unlinked stale/partial claim marker for {handoff_id} (pid {claimed_pid or 'n/a'})",
+                verbose=verbose,
+                log_file=log_file,
+            )
+        except Exception:
+            pass
+        # fall through to net fetch + already check + claim (will re-advance if needed)
+
+    if not task_id:
+        result["reason"] = "no task_id in metadata.json"
+        result["action"] = "skipped-no-task"
+        return result
+
+    # Hoist task fetch + already_consumed (result ref) check before read review.
+    # This closes a narrow perf place: previously reviewed large .md even for
+    # already-referenced (idempotent) handoffs that had no marker.
+    # Also strengthens TOCTOU protection: we only read/review when we may act.
+    task = get_task_via_api(task_id, api_base)
+    result["did_network"] = True
+    if task is None:
+        result["reason"] = f"task {task_id} not found in queue (or API unreachable)"
+        result["action"] = "skipped-no-task"
+        return result
+
+    current_status = task.get("status", "unknown")
+    current_result = task.get("result") or ""
+
+    if already_consumed(handoff_dir, current_result, handoff_id):
+        result["reason"] = "already consumed (marker or result contains handoff id)"
+        result["action"] = "skipped-idempotent"
+        result["current_status"] = current_status
+        # Backfill .consumed marker (if absent) so future runs hit ultra-fast early-marker
+        # path (no GET, no sleep, no review read). This is the key fix for repeated-scan
+        # bottleneck on large history of handoffs that were advanced via result-ref only.
+        if not (handoff_dir / CONSUMED_MARKER).exists():
+            try:
+                mark_consumed(
+                    handoff_dir,
+                    {
+                        "handoff_id": handoff_id,
+                        "task_id": task_id,
+                        "approved": result.get("approved", False),
+                        "verdict": result.get("verdict", "ALREADY_VIA_RESULT"),
+                        "discovered_at": now_iso(),
+                        "consumer_version": CONSUMER_VERSION,
+                        "note": "backfilled from result-ref (no prior marker)",
+                    },
+                )
+            except Exception:
+                pass
+        return result
+
+    # (no marker, has task_id, task exists, no ref in result -> may proceed to review+claim)
 
     review_text = ""
     try:
@@ -287,46 +469,57 @@ def process_handoff(
     if force_all:
         approved = True
         approve_reason = "forced via --all-reviewed"
+        verdict = "APPROVE_FORCED"
         result["approved"] = True
+        result["verdict"] = verdict
 
     if require_approve and not approved:
         result["reason"] = f"not approved by heuristic ({approve_reason})"
         return result
 
-    if not task_id:
-        result["reason"] = "no task_id in metadata.json"
-        result["action"] = "skipped-no-task"
-        return result
+    # Note: the previous "if done and not force: if ref: skip" block is removed --
+    # it was dead code after already_consumed (which catches refs first) and
+    # is no longer needed; behavior for done-no-ref (enrich) is unchanged.
 
-    # Fetch current task state
-    task = get_task_via_api(task_id, api_base)
-    if task is None:
-        result["reason"] = f"task {task_id} not found in queue (or API unreachable)"
-        result["action"] = "skipped-no-task"
-        return result
-
-    current_status = task.get("status", "unknown")
-    current_result = task.get("result") or ""
-
-    if already_consumed(handoff_dir, current_result, handoff_id):
-        result["reason"] = "already consumed (marker or result contains handoff id)"
-        result["action"] = "skipped-idempotent"
-        result["current_status"] = current_status
-        return result
-
-    if current_status == "done" and not force_all:
-        # Still allow enriching the result if not already referenced
-        if handoff_id in current_result:
-            result["reason"] = "task already done and references this handoff"
-            result["action"] = "skipped-idempotent"
+    # Atomic claim to close TOCTOU race with concurrent consumers (marker check
+    # + task result check are not atomic across processes).
+    if not dry_run:
+        claim_info = {
+            "handoff_id": handoff_id,
+            "task_id": task_id,
+            "approved": approved,
+            "verdict": verdict,
+            "claimed_at": now_iso(),
+            "pid": os.getpid(),
+            "consumer_version": CONSUMER_VERSION,
+        }
+        if not claim_consumed(handoff_dir, claim_info):
+            result["action"] = "skipped-race"
+            result["reason"] = (
+                "concurrent consumer claimed this handoff (data race avoided)"
+            )
             return result
 
-    # Build rich traceable result note
+        # Re-fetch under our claim to get the *freshest* current_result before append.
+        # Narrows the TOCTOU / lost-update window for result clobber if other writers
+        # (workers, manual, concurrent consumers for *other* handoffs on same task) PATCH
+        # concurrently. (Not 100% but best-effort without server-side CAS/append.)
+        try:
+            fresh = get_task_via_api(task_id, api_base)
+            if fresh:
+                current_result = fresh.get("result") or current_result
+                current_status = fresh.get("status", current_status)
+                result["did_network"] = True
+        except Exception:
+            pass
+
+    # Build rich traceable result note; always append to prior result (if any)
+    # to avoid clobbering original task output from worker on enrich/done cases.
     excerpt_lines = [ln.strip() for ln in review_text.splitlines() if ln.strip()][:8]
     excerpt = "\n".join(excerpt_lines)[:800]
     processed_at = now_iso()
 
-    new_result = (
+    consumer_note = (
         f"[handoff-consumer] {verdict} via {handoff_id}\n\n"
         f"Handoff: {handoff_id}  (dir: {handoff_dir})\n"
         f"Review file: {review_file.name}\n"
@@ -338,6 +531,10 @@ def process_handoff(
         f"Full handoff package: {handoff_dir}\n"
         f"Metadata: {meta}\n"
     )
+    if current_result:
+        new_result = current_result.rstrip() + "\n\n" + consumer_note
+    else:
+        new_result = consumer_note
 
     if dry_run:
         result["action"] = "would-advance"
@@ -355,6 +552,7 @@ def process_handoff(
     if success:
         result["action"] = "advanced-to-done"
         result["reason"] = f"updated task {task_id} from {current_status} to done"
+        # Overwrite claim marker with final info (includes processed_at)
         mark_consumed(
             handoff_dir,
             {
@@ -364,7 +562,7 @@ def process_handoff(
                 "verdict": verdict,
                 "processed_at": processed_at,
                 "review_file": str(review_file),
-                "consumer_version": "c48c5f56-v1",
+                "consumer_version": CONSUMER_VERSION,
             },
         )
         log(
@@ -375,13 +573,18 @@ def process_handoff(
     else:
         result["action"] = "update-failed"
         result["reason"] = f"PATCH to API failed for task {task_id}"
+        # Unclaim so a future run (after transient fix) can retry this handoff
+        try:
+            (handoff_dir / CONSUMED_MARKER).unlink()
+        except Exception:
+            pass
 
     return result
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Handoff Consumer - bulk approve + advance originating tasks after agent-review (c48c5f56)",
+        description="Handoff Consumer - bulk approve + advance originating tasks after agent-review (c48c5f56 + v2: race recovery, marker backfill, claim re-fetch, force gate)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -469,7 +672,7 @@ Examples:
     log_file = args.log_file or (LOG_FILE_DEFAULT if (not args.dry_run) else None)
 
     log(
-        f"=== handoff-consumer starting (c48c5f56) dry_run={args.dry_run} require_approve={args.require_approve} ===",
+        f"=== handoff-consumer starting (c48c5f56-v2) dry_run={args.dry_run} require_approve={args.require_approve} force={args.force} ===",
         log_file=log_file,
     )
 
@@ -486,8 +689,19 @@ Examples:
         handoffs = [h for h in handoffs if h.name in wanted]
         log(f"Restricted to specific handoffs: {wanted}", log_file=log_file)
 
-    if args.limit > 0:
+    if args.limit > 0 and not args.handoff_id:
         handoffs = handoffs[: args.limit]
+
+    # Safety gate for dangerous mode (activates the --force arg which was parsed but unused).
+    # --all-reviewed processes *even* REQUEST_CHANGES/REJECT/blocked-bugs reviews.
+    # Requires explicit --force (or --handoff-id) + (ideally) prior --dry-run --list.
+    if (not args.dry_run) and (not args.force) and (not args.require_approve):
+        log(
+            "ERROR: --all-reviewed without --force is unsafe (processes non-approved reviews in bulk). "
+            "Use after manual inspection + --force, or restrict with --handoff-id.",
+            log_file=log_file,
+        )
+        return 1
 
     # Stats mode - fast path
     if args.stats or args.list:
@@ -501,25 +715,46 @@ Examples:
             if not review:
                 continue
             reviewed += 1
-            if (h / CONSUMED_MARKER).exists():
+            is_cons = (h / CONSUMED_MARKER).exists()
+            if is_cons:
                 consumed += 1
             meta = load_metadata(h) or {}
             task_id = meta.get("task_id", "?")
+            appr = False
+            verdict = "?"
             try:
-                txt = review.read_text(encoding="utf-8", errors="replace")
-                appr, reason, verdict = is_approved(txt)
-                if (
-                    args.require_approve and not appr and not args.all_reviewed
-                ):  # note: --all-reviewed flips the flag
-                    pass
+                if is_cons:
+                    # Perf: use tiny .consumed marker for verdict/approved on consumed
+                    # (avoids re-reading large review .md files on every --stats/--list)
+                    try:
+                        mdata = json.loads(
+                            (h / CONSUMED_MARKER).read_text(
+                                encoding="utf-8", errors="replace"
+                            )
+                        )
+                        verdict = mdata.get("verdict") or "CONSUMED"
+                        appr = bool(mdata.get("approved", False))
+                    except Exception:
+                        # fallback to review read if marker corrupt
+                        txt = review.read_text(encoding="utf-8", errors="replace")
+                        appr, _r, verdict = is_approved(txt)
+                else:
+                    txt = review.read_text(encoding="utf-8", errors="replace")
+                    appr, _r, verdict = is_approved(txt)
                 by_verdict[verdict] = by_verdict.get(verdict, 0) + 1
                 if appr:
                     approved_count += 1
                 if args.list:
-                    task = (
-                        get_task_via_api(task_id, args.api) if task_id != "?" else None
-                    )
-                    tstatus = task.get("status") if task else "?"
+                    # Lightning optimization: avoid net GET for consumed (historical) handoffs.
+                    # Consumed almost always means task is done (or was enriched). Pending (non-cons)
+                    # are the ones worth live status query. Saves N roundtrips on large histories.
+                    if is_cons:
+                        tstatus = "done (marker)"
+                    else:
+                        task = (
+                            get_task_via_api(task_id, args.api) if task_id != "?" else None
+                        )
+                        tstatus = task.get("status") if task else "?"
                     print(
                         f"  {h.name}: review={review.name} verdict={verdict} task={task_id}({tstatus}) approved={appr}"
                     )
@@ -559,23 +794,18 @@ Examples:
         if args.verbose:
             log(f"  detail: {res}", verbose=True, log_file=log_file)
 
-        # Gentle pacing for API
-        time.sleep(0.05)
+        # Gentle pacing for API (only after actual network calls; skips on pure
+        # filtered handoffs cost 0 delay).
+        if res.get("did_network"):
+            time.sleep(0.05)
 
     mode = "DRY-RUN" if args.dry_run else "APPLY"
     log(
-        f"=== {mode} COMPLETE: processed={processed} would/adv={advanced} skipped={skipped} ===",
+        f"=== {mode} COMPLETE: processed={processed} would/adv={advanced} skipped={skipped} (v2 hardened) ===",
         force=True,
         log_file=log_file,
     )
     log(f"Log (if any): {log_file}", log_file=log_file)
-
-    # Final progress note for the task itself (best-effort, non-fatal)
-    try:
-        _note = f"[handoff-consumer self-update] {mode} run at {now_iso()}: {advanced} tasks advanced/would-advance out of {processed} handoffs considered (root={root}). See bin/consume-handoff-reviews.py and this log."
-        # We do not call update here on c48c5f56 to avoid side-effects unless explicitly --apply on the consumer itself.
-    except Exception:
-        pass
 
     return 0
 

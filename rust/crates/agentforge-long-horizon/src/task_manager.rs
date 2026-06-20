@@ -56,6 +56,7 @@ pub struct LongTask {
 pub struct LongTaskManager {
     persistence_dir: PathBuf,
     tasks: HashMap<String, LongTask>,
+    hb_counters: HashMap<String, u32>,
 }
 
 impl LongTaskManager {
@@ -63,26 +64,56 @@ impl LongTaskManager {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
         let pdir = PathBuf::from(home).join(".agentforge/long_horizon");
         let _ = std::fs::create_dir_all(&pdir);
-        Self {
+        let mut mgr = Self {
             persistence_dir: pdir,
             tasks: HashMap::new(),
+            hb_counters: HashMap::new(),
+        };
+        mgr.load_all();
+        mgr
+    }
+
+    fn load_all(&mut self) {
+        // Load persisted tasks on startup (mirrors Python _load_all for cross-restart resumability).
+        // Silently skip corrupt files (don't crash manager).
+        if let Ok(entries) = std::fs::read_dir(&self.persistence_dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                    if let Ok(data) = std::fs::read_to_string(&path) {
+                        if let Ok(task) = serde_json::from_str::<LongTask>(&data) {
+                            let id = task.id.clone();
+                            self.tasks.insert(id.clone(), task);
+                            self.hb_counters.insert(id, 0);
+                        }
+                    }
+                }
+            }
         }
     }
 
     pub fn start_long_task(&mut self, goal: &str, use_planning: bool) -> LongTask {
-        let id = Uuid::new_v4().to_string()[..8].to_string();
-        let plan = if use_planning {
+        // Safe slice (avoid potential panic on str byte index); 8 hex chars for id.
+        let full = Uuid::new_v4().to_string();
+        let id: String = full.chars().take(8).collect();
+        let (plan, progress) = if use_planning {
             let planner = HierarchicalPlanner::new();
-            Some(planner.decompose(goal))
+            let p = planner.decompose(goal);
+            let pr = Progress {
+                total_steps: p.subtasks.len() as u32,
+                percent: 0.0,
+                ..Default::default()
+            };
+            (Some(p), pr)
         } else {
-            None
+            (None, Progress::default())
         };
 
         let task = LongTask {
             id: id.clone(),
             goal: goal.to_string(),
             plan,
-            progress: Progress::default(),
+            progress,
             status: "running".to_string(),
             final_outcome: None,
             created_at: Utc::now().to_rfc3339(),
@@ -97,19 +128,33 @@ impl LongTaskManager {
         };
 
         self.tasks.insert(id.clone(), task.clone());
+        self.hb_counters.insert(id.clone(), 0);
         let _ = self.save_checkpoint(&task);
+        // Mirror Python: emit initial heartbeat (updates mem + may write; count will be 1 so writes).
+        self.heartbeat(&id, "Task started", 0.0);
         task
     }
 
     pub fn heartbeat(&mut self, task_id: &str, message: &str, pct: f64) {
+        // Only write every ~5 heartbeats (or first) to reduce I/O bottleneck on hot path for long tasks.
+        // Sequential borrows: compute do_write in block so hb_counters borrow drops before tasks borrow.
+        let do_write = if self.tasks.contains_key(task_id) {
+            let count = self.hb_counters.entry(task_id.to_string()).or_insert(0);
+            *count += 1;
+            *count == 1 || (*count).is_multiple_of(5)
+        } else {
+            false
+        };
         if let Some(t) = self.tasks.get_mut(task_id) {
+            let pct = pct.clamp(0.0, 100.0);
             t.progress.percent = pct;
             t.progress.last_message = message.to_string();
             t.progress.updated_at = Utc::now().to_rfc3339();
             t.updated_at = t.progress.updated_at.clone();
-            let path = t.checkpoint_path.clone();
-            if let Some(p) = path {
-                let _ = Self::write_checkpoint(&p, t);
+            if do_write {
+                if let Some(p) = t.checkpoint_path.clone() {
+                    let _ = Self::write_checkpoint(&p, t);
+                }
             }
         }
     }
@@ -117,20 +162,44 @@ impl LongTaskManager {
     pub fn pause(&mut self, task_id: &str) {
         if let Some(t) = self.tasks.get_mut(task_id) {
             t.status = "paused".to_string();
-            let path = t.checkpoint_path.clone();
-            if let Some(p) = path {
+            t.updated_at = Utc::now().to_rfc3339();
+            // Reset hb counter on explicit state change; always persist pause (important transition).
+            self.hb_counters.insert(task_id.to_string(), 0);
+            if let Some(p) = t.checkpoint_path.clone() {
                 let _ = Self::write_checkpoint(&p, t);
             }
         }
     }
 
     pub fn resume(&mut self, task_id: &str) -> Option<LongTask> {
-        // Load from disk if not in memory
+        // Prefer in-memory (fast path). Only force running + persist if it was paused.
+        if let Some(t) = self.tasks.get_mut(task_id) {
+            if t.status == "paused" {
+                t.status = "running".to_string();
+                t.updated_at = Utc::now().to_rfc3339();
+                self.hb_counters.insert(task_id.to_string(), 0);
+                if let Some(p) = t.checkpoint_path.clone() {
+                    let _ = Self::write_checkpoint(&p, t);
+                }
+            }
+            return Some(t.clone());
+        }
+        // Cold load from disk (cross-process/reboot). Only flip paused -> running.
         let path = self.persistence_dir.join(format!("{}.json", task_id));
         if let Ok(data) = std::fs::read_to_string(&path) {
             if let Ok(mut task) = serde_json::from_str::<LongTask>(&data) {
-                task.status = "running".to_string();
-                self.tasks.insert(task_id.to_string(), task.clone());
+                let was_paused = task.status == "paused";
+                if was_paused {
+                    task.status = "running".to_string();
+                    task.updated_at = Utc::now().to_rfc3339();
+                }
+                let key = task_id.to_string();
+                self.tasks.insert(key.clone(), task.clone());
+                self.hb_counters.insert(key, 0);
+                if was_paused {
+                    // Persist the resume transition (original missed this -> status on disk stale).
+                    let _ = Self::write_checkpoint(path.to_string_lossy().as_ref(), &task);
+                }
                 return Some(task);
             }
         }
@@ -138,8 +207,13 @@ impl LongTaskManager {
     }
 
     fn write_checkpoint(path: &str, task: &LongTask) -> Result<(), String> {
-        let json = serde_json::to_string_pretty(task).map_err(|e| e.to_string())?;
-        std::fs::write(path, json).map_err(|e| e.to_string())?;
+        // Compact (not pretty) for lower CPU/IO in hot checkpoint path; atomic rename prevents
+        // partial-write corruption races (reader sees old complete JSON or new complete, never torn).
+        let json = serde_json::to_string(task).map_err(|e| e.to_string())?;
+        let p = std::path::Path::new(path);
+        let tmp = p.with_extension("json.tmp");
+        std::fs::write(&tmp, json).map_err(|e| e.to_string())?;
+        std::fs::rename(&tmp, p).map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -160,7 +234,8 @@ impl LongTaskManager {
     ) -> Result<String, String> {
         if let Some(plan) = &mut task.plan {
             if let Some(st) = plan.subtasks.iter_mut().find(|s| s.id == subtask_id) {
-                let ctx = std::collections::HashMap::new();
+                // Type must be explicit for HashMap (inference fails on bare let + later use in call).
+                let ctx: HashMap<String, String> = HashMap::new();
                 let decision = policy.evaluate("subtask_execution", &ctx);
                 match decision.decision {
                     agentforge_safety::Decision::Block => {
@@ -214,5 +289,35 @@ mod tests {
         mgr.pause(&task.id);
         // note: in mem status changed
         assert_eq!(mgr.tasks.get(&task.id).unwrap().status, "paused");
+    }
+
+    #[test]
+    fn long_task_resume_from_disk_and_persist() {
+        // Exercises load_all on new(), resume cold-path, and that resume persists "running" to disk.
+        let mut mgr = LongTaskManager::new();
+        let task = mgr.start_long_task("resume disk audit test", false);
+        let tid = task.id.clone();
+        mgr.pause(&tid);
+        assert_eq!(mgr.tasks.get(&tid).unwrap().status, "paused");
+
+        // "restart": fresh manager loads from disk via load_all
+        let mut mgr2 = LongTaskManager::new();
+        assert!(
+            mgr2.tasks.contains_key(&tid),
+            "load_all must populate from persisted json"
+        );
+        let resumed = mgr2.resume(&tid).expect("should resume");
+        assert_eq!(resumed.status, "running");
+
+        // Verify persisted: third manager sees the status=running from resume's write
+        let mgr3 = LongTaskManager::new();
+        let t3 = mgr3
+            .tasks
+            .get(&tid)
+            .expect("task must still be loadable after resume");
+        assert_eq!(
+            t3.status, "running",
+            "resume must have persisted status flip to disk"
+        );
     }
 }
