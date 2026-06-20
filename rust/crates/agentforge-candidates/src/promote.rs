@@ -70,7 +70,7 @@ pub fn promote_candidate(
     if copy_to_skills && yaml_src.exists() {
         let skills_dir = std::env::var("AGENTFORGE_SKILLS_DIR")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from("/home/eveselove/agentforge/skills"));
+            .unwrap_or_else(|_| crate::home_agentforge("skills"));
 
         let mut base = candidate_id.to_string();
         // Prefer yaml "name:" (Python parity for clean promoted filenames on real data)
@@ -315,7 +315,7 @@ pub fn promote_candidate(
     // 5) Rolling skills/promotion_history.json (exact Python shape, last 50) for complete audit/UX on real data (full end-to-end)
     let skills_dir = std::env::var("AGENTFORGE_SKILLS_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/home/eveselove/agentforge/skills"));
+        .unwrap_or_else(|_| crate::home_agentforge("skills"));
     let skills_hist_p = skills_dir.join("promotion_history.json");
     if !dry_run {
         if let Some(p) = skills_hist_p.parent() {
