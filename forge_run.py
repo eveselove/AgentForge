@@ -279,10 +279,23 @@ def _execute_task_inner(manifest, batch_id, repo, base_ref, gate_profile,
         return
 
     # --- SUCCESS path: COMMIT, then GATE ---
-    commit_sha = _commit_work(worktree_dir, task_id, title)
+    commit_sha, has_changes = _commit_work(worktree_dir, task_id, title)
     files, add, rem = F.numstat(repo, base_ref, forge_branch)
 
     summary = F.extract_summary(task_id) or _synth_summary(files, add, rem)
+
+    # Zero-change detection: agent exited 0 but produced no diff. The empty
+    # commit is kept for diffability, but we must NOT report a clean done/gate=ok
+    # for what is effectively a no-op (or silently-failed) agent run.
+    if not has_changes:
+        update_node(batch_id, task_id, status="nochange",
+                    duration_s=round(duration, 1), commit_sha=commit_sha,
+                    files_changed_count=0, lines_added=0, lines_removed=0,
+                    summary=summary or "agent produced no file changes")
+        reconcile_gateway(task_id, "failed",
+                          f"forge: no file changes (model={model}, {int(duration)}s)",
+                          duration, agent_id)
+        return
 
     update_node(batch_id, task_id, status="review", duration_s=round(duration, 1),
                 commit_sha=commit_sha, files_changed_count=files,
@@ -385,7 +398,8 @@ def _commit_work(worktree_dir, task_id, title):
         msg = f"forge {F.truncate(title,55)}\n\n{trailer}"
         F.git(worktree_dir, *base_args, "-m", msg)
     rc, sha, _ = F.git(worktree_dir, "rev-parse", "HEAD")
-    return sha.strip() if rc == 0 else ""
+    has_changes = bool(out.strip())
+    return (sha.strip() if rc == 0 else "", has_changes)
 
 
 def _synth_summary(files, add, rem):

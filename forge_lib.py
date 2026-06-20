@@ -726,11 +726,13 @@ ST_TOKEN = {
     "rejected": "REJ",
     "reclaimed": "RECL",
     "unclaimable": "UNCL",
+    "nochange": "NOCH",
 }
 
 TERMINAL_GOOD = {"done", "review"}
 TERMINAL_BAD = {"failed", "timeout", "gatefail", "gate_timeout", "rate_limited",
-                "blocked", "auth", "rejected", "reclaimed", "unclaimable"}
+                "blocked", "auth", "rejected", "reclaimed", "unclaimable",
+                "nochange"}
 TERMINAL = TERMINAL_GOOD | TERMINAL_BAD
 
 
