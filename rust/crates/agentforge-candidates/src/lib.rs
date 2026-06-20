@@ -94,6 +94,9 @@ pub struct IngestResult {
 #[derive(Debug, Clone)]
 pub struct CandidateStore {
     pub root: PathBuf,
+    /// Optional explicit skills directory for promote copy.
+    /// When `None`, `skills_dir()` falls back to `AGENTFORGE_SKILLS_DIR` env then `~/agentforge/skills`.
+    skills_dir: Option<PathBuf>,
 }
 
 impl CandidateStore {
@@ -106,7 +109,27 @@ impl CandidateStore {
         });
         // In real: mkdir
         let _ = std::fs::create_dir_all(&root);
-        Self { root }
+        Self {
+            root,
+            skills_dir: None,
+        }
+    }
+
+    /// Set an explicit skills directory (for testing / isolation).
+    /// Production callers should leave this unset to honour the env/default fallback.
+    pub fn with_skills_dir(mut self, dir: PathBuf) -> Self {
+        self.skills_dir = Some(dir);
+        self
+    }
+
+    /// Resolved skills directory: explicit > `AGENTFORGE_SKILLS_DIR` env > `~/agentforge/skills`.
+    pub fn skills_dir(&self) -> PathBuf {
+        if let Some(ref d) = self.skills_dir {
+            return d.clone();
+        }
+        std::env::var("AGENTFORGE_SKILLS_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| home_agentforge("skills"))
     }
 
     /// Ingest artifacts from a flywheel-step output dir into the canonical pending store.

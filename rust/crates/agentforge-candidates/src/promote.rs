@@ -68,9 +68,7 @@ pub fn promote_candidate(
 
     // 1) Safe copy (good naming convention)
     if copy_to_skills && yaml_src.exists() {
-        let skills_dir = std::env::var("AGENTFORGE_SKILLS_DIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| crate::home_agentforge("skills"));
+        let skills_dir = store.skills_dir();
 
         let mut base = candidate_id.to_string();
         // Prefer yaml "name:" (Python parity for clean promoted filenames on real data)
@@ -313,9 +311,7 @@ pub fn promote_candidate(
     }
 
     // 5) Rolling skills/promotion_history.json (exact Python shape, last 50) for complete audit/UX on real data (full end-to-end)
-    let skills_dir = std::env::var("AGENTFORGE_SKILLS_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| crate::home_agentforge("skills"));
+    let skills_dir = store.skills_dir();
     let skills_hist_p = skills_dir.join("promotion_history.json");
     if !dry_run {
         if let Some(p) = skills_hist_p.parent() {
@@ -560,7 +556,8 @@ mod tests {
         let custom_skills = std::env::temp_dir().join(format!("custom_skills_{}", pid));
         let _ = fs::create_dir_all(&tmp_root);
         let _ = fs::create_dir_all(&custom_skills);
-        let store = CandidateStore::new(Some(tmp_root.clone()));
+        let store =
+            CandidateStore::new(Some(tmp_root.clone())).with_skills_dir(custom_skills.clone());
         let cid = "env_skills_cand";
         let d = tmp_root.join(cid);
         let _ = fs::create_dir_all(&d);
@@ -573,14 +570,12 @@ mod tests {
             "name: env-skill\nprompt: test",
         );
 
-        std::env::set_var("AGENTFORGE_SKILLS_DIR", &custom_skills);
         let res = promote_candidate(&store, cid, true, true).expect("dry with env");
-        std::env::remove_var("AGENTFORGE_SKILLS_DIR");
         assert!(res.dry_run && res.promoted_to.is_some());
         let dest = res.promoted_to.unwrap();
         assert!(
             dest.starts_with(&custom_skills),
-            "must respect AGENTFORGE_SKILLS_DIR override"
+            "must respect skills_dir override"
         );
         assert!(dest.to_string_lossy().contains("env-skill.promoted."));
         let _ = fs::remove_dir_all(&tmp_root);
@@ -924,7 +919,7 @@ mod tests {
         let pid = std::process::id();
         let tmp = std::env::temp_dir().join(format!("p_sanitize_{}", pid));
         let _ = fs::create_dir_all(&tmp);
-        let store = CandidateStore::new(Some(tmp.clone()));
+        let store = CandidateStore::new(Some(tmp.clone())).with_skills_dir(tmp.clone());
         let cid = "bad$name!id";
         let d = tmp.join(cid);
         let _ = fs::create_dir_all(&d);
@@ -937,9 +932,7 @@ mod tests {
             "name: \"bad name with space & *\"",
         );
 
-        std::env::set_var("AGENTFORGE_SKILLS_DIR", &tmp);
         let res = promote_candidate(&store, cid, true, true).expect("sanitize dry");
-        std::env::remove_var("AGENTFORGE_SKILLS_DIR");
         let dest = res.promoted_to.unwrap();
         let name = dest.file_name().unwrap().to_string_lossy();
         assert!(
@@ -1018,8 +1011,7 @@ mod tests {
         let pid = std::process::id();
         let tmp = std::env::temp_dir().join(format!("p_cross_shadow_emit_{}", pid));
         let _ = fs::create_dir_all(&tmp);
-        std::env::set_var("AGENTFORGE_SKILLS_DIR", &tmp); // isolate copy dest (CI: hardcoded $HOME skills path is uncreatable)
-        let store = CandidateStore::new(Some(tmp.clone()));
+        let store = CandidateStore::new(Some(tmp.clone())).with_skills_dir(tmp.clone());
         let cid = "shadow_emit_cross_20260531";
         let d = tmp.join(cid);
         let _ = fs::create_dir_all(&d);
@@ -1096,8 +1088,8 @@ mod tests {
             let pid = std::process::id();
             let tmp = std::env::temp_dir().join(format!("p_prop_invar_{}_{}", pid, cid));
             let _ = fs::create_dir_all(&tmp);
-            std::env::set_var("AGENTFORGE_SKILLS_DIR", &tmp); // isolate copy dest (CI: hardcoded $HOME skills path is uncreatable)
-            let store = CandidateStore::new(Some(tmp.clone()));
+            let store = CandidateStore::new(Some(tmp.clone()))
+                .with_skills_dir(tmp.clone());
             let d = tmp.join(&cid); let _ = fs::create_dir_all(&d);
             let _ = fs::write(d.join("candidate_meta.json"), r#"{"skill":"inv","promoted":false}"#);
             let _ = fs::write(d.join("candidate_skill.yaml"), "name: inv");
@@ -1128,7 +1120,7 @@ mod tests {
         let skills_tmp = std::env::temp_dir().join(format!("skills_llm_{}", pid));
         let _ = fs::create_dir_all(&tmp);
         let _ = fs::create_dir_all(&skills_tmp);
-        let store = CandidateStore::new(Some(tmp.clone()));
+        let store = CandidateStore::new(Some(tmp.clone())).with_skills_dir(skills_tmp.clone());
         let cid = "llm_sections_emit";
         let d = tmp.join(cid);
         let _ = fs::create_dir_all(&d);
@@ -1146,9 +1138,7 @@ _learning_meta:
             r#"{"skill":"llm-rich","promoted":false}"#,
         );
 
-        std::env::set_var("AGENTFORGE_SKILLS_DIR", &skills_tmp);
         let res = promote_candidate(&store, cid, true, false).expect("llm sections promote");
-        std::env::remove_var("AGENTFORGE_SKILLS_DIR");
         assert!(res.copy_succeeded);
         let dest = res.promoted_to.unwrap();
         let copied = fs::read_to_string(&dest).unwrap_or_default();
@@ -1256,8 +1246,7 @@ _learning_meta:
         let pid = std::process::id();
         let tmp = std::env::temp_dir().join(format!("p_deep_shadow_llm_{}", pid));
         let _ = fs::create_dir_all(&tmp);
-        std::env::set_var("AGENTFORGE_SKILLS_DIR", &tmp); // isolate copy dest (CI: hardcoded $HOME skills path is uncreatable)
-        let store = CandidateStore::new(Some(tmp.clone()));
+        let store = CandidateStore::new(Some(tmp.clone())).with_skills_dir(tmp.clone());
         let cid = "llm-emit_2026-shadow-cont_!special@name";
         let d = tmp.join(cid);
         let _ = fs::create_dir_all(&d);
@@ -1300,12 +1289,8 @@ _learning_meta:
             "shadow/continuous repromote must append history for fidelity/audit"
         );
 
-        // Also check promotion_history.json under skills (if default) or tmp (env not set)
+        // Also check promotion_history.json under skills dir (set via with_skills_dir)
         // Sanitize exercised: dest name clean
-        let skills_env = std::env::var("AGENTFORGE_SKILLS_DIR").unwrap_or_default();
-        if !skills_env.is_empty() {
-            // would have copied there too in first
-        }
 
         std::env::remove_var("AGENTFORGE_RUST_FLYWHEEL_SHADOW");
         let _ = fs::remove_dir_all(&tmp);
