@@ -32,6 +32,12 @@ pub use promote::{promote_candidate, ab_prep, PromotionResult};
 // Submodules provide organization + inherent impl extensions (store.rs etc).
 // Full split of types into modules will happen as real logic is ported.
 
+/// Default AgentForge subdir under $HOME (legacy /home/eveselove fallback).
+pub(crate) fn home_agentforge(sub: &str) -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/eveselove".to_string());
+    PathBuf::from(home).join("agentforge").join(sub)
+}
+
 /// Canonical candidate metadata (candidate_meta.json).
 /// Mirrors Python structure for seamless migration.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -96,7 +102,7 @@ impl CandidateStore {
             std::env::var("AGENTFORGE_PENDING_CANDIDATES_DIR")
                 .or_else(|_| std::env::var("AGENTFORGE_PENDING_CANDIDATES"))
                 .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("/home/eveselove/agentforge/pending_candidates"))
+                .unwrap_or_else(|_| home_agentforge("pending_candidates"))
         });
         // In real: mkdir
         let _ = std::fs::create_dir_all(&root);
