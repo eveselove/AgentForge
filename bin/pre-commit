@@ -27,10 +27,10 @@ done
 # 3. Rust checks
 if git diff --cached --name-only | grep -q '\.rs$'; then
     echo "→ Rust: cargo fmt check..."
-    cargo fmt -- --check || { echo "❌ Run 'cargo fmt' first"; exit 1; }
+    ( cd rust && cargo fmt --all -- --check ) || { echo "❌ Run 'cargo fmt --all' in rust/ first"; exit 1; }
 
     echo "→ Rust: cargo clippy..."
-    cargo clippy --workspace -- -D warnings || exit 1
+    ( cd rust && cargo clippy --workspace -- -D warnings ) || exit 1
 fi
 
 # 4. Python checks

@@ -6,7 +6,7 @@
 //! ## Deep audit (2026-06-13): bottlenecks, logical errors, data races
 //!
 //! ### Data races / consistency
-//! - Safe Rust + &mut self + [lints] forbid(unsafe_code) eliminates intra-process data races.
+//! - Safe Rust + &mut self + `lints` forbid(unsafe_code) eliminates intra-process data races.
 //! - Cross-process races on shared ~/.agentforge/long_horizon/*.json remain possible (no flock).
 //!   Mitigation (existing): atomic write via tmp+rename in checkpoints (reader never sees torn JSON).
 //!   Added: force_persist_task + import_task use same atomic path.
