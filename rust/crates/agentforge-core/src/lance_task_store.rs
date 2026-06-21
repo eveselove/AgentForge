@@ -519,29 +519,58 @@ impl TaskStore for LanceTaskStore {
     async fn update(&self, mut task: Task) -> Result<(), String> {
         task.updated_at = chrono::Utc::now().to_rfc3339();
 
-        // merge_insert (upsert): один вызов вместо delete + create.
-        // На 1500 задачах: ~3ms вместо ~8ms (delete scan + create append).
-        let batch = task_to_batch(&task).map_err(|e| e.to_string())?;
-        let table = self.open_table().await.map_err(|e| e.to_string())?;
-        let schema = task_schema();
-        let batches = RecordBatchIterator::new(vec![Ok(batch)], schema);
-
-        let mut builder = table.merge_insert(&["id"]);
-        builder.when_matched_update_all(None);
-        builder.when_not_matched_insert_all();
-        let upsert_result = builder.execute(Box::new(batches)).await;
-
-        match upsert_result {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                // Fallback: если merge_insert не работает, используем delete+create
-                eprintln!(
-                    "[LanceDB] merge_insert failed ({}), falling back to delete+create",
-                    e
-                );
-                let _ = self.delete(&task.id).await;
-                self.create(task).await.map(|_| ())
+        // merge_insert (upsert) по ключу id: один вызов вместо delete + create.
+        // Под конкуренцией воркеров LanceDB может вернуть "Conflicting Transaction"
+        // (оптимистичная блокировка коммита) — это транзиентно. Повторяем, сбрасывая
+        // кэш table handle, чтобы переоткрыть таблицу на свежем манифесте и не
+        // конфликтовать с тем же устаревшим снапшотом снова.
+        const MAX_ATTEMPTS: u32 = 5;
+        let mut last_err = String::new();
+        for attempt in 0..MAX_ATTEMPTS {
+            if attempt > 0 {
+                // на повторе перечитываем последнюю закоммиченную версию таблицы
+                self.invalidate_table_cache().await;
             }
+            let table = self.open_table().await.map_err(|e| e.to_string())?;
+            // batch + iterator потребляются execute() — строим заново на каждой попытке
+            let batch = task_to_batch(&task).map_err(|e| e.to_string())?;
+            let schema = task_schema();
+            let batches = RecordBatchIterator::new(vec![Ok(batch)], schema);
+
+            let mut builder = table.merge_insert(&["id"]);
+            builder.when_matched_update_all(None);
+            builder.when_not_matched_insert_all();
+
+            match builder.execute(Box::new(batches)).await {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    last_err = e.to_string();
+                    eprintln!(
+                        "[LanceDB] merge_insert attempt {}/{} failed ({})",
+                        attempt + 1,
+                        MAX_ATTEMPTS,
+                        last_err
+                    );
+                }
+            }
+        }
+
+        // Fallback: delete+create. КРИТИЧНО не глотать ошибку delete — если строку
+        // не удалось удалить, create() создал бы ДУБЛИКАТ (исторический корень
+        // дублирования). Поэтому create только при успешном delete; иначе возвращаем
+        // ошибку, и вызывающий повторит позже. delete по предикату id убирает и
+        // возможные легаси-дубли, оставляя ровно одну строку.
+        eprintln!(
+            "[LanceDB] merge_insert exhausted {} attempts ({}), falling back to delete+create",
+            MAX_ATTEMPTS, last_err
+        );
+        self.invalidate_table_cache().await;
+        match self.delete(&task.id).await {
+            Ok(_) => self.create(task).await.map(|_| ()),
+            Err(del_err) => Err(format!(
+                "update failed for {}: merge_insert={}; delete={}",
+                task.id, last_err, del_err
+            )),
         }
     }
 
