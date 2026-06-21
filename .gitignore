@@ -16,6 +16,10 @@ gateway/target/
 data/*.db
 data/*.db-wal
 data/*.db-shm
+# LanceDB task store — live working DB, must not be version-controlled
+# (writes/compaction churn the index; a stray checkout could clobber live data)
+data/lance_tasks/
+data/lance_tasks.bak*/
 
 # Logs
 logs/
